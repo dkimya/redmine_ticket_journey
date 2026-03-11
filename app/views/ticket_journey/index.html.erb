@@ -1,0 +1,163 @@
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'ticket_journey', plugin: 'redmine_ticket_journey' %>
+  <%= javascript_include_tag 'ticket_journey', plugin: 'redmine_ticket_journey' %>
+<% end %>
+
+<div id="tj-wrap">
+
+  <!-- ── PAGE HEADER ── -->
+  <div class="tj-page-header">
+    <div class="tj-page-header-left">
+      <span class="tj-icon">🎫</span>
+      <div>
+        <h2>Ticket Journey Duration Report</h2>
+        <p class="tj-page-sub">Ticket Journey Map V03HA &mdash; <%= @project.name %></p>
+      </div>
+    </div>
+    <div class="tj-page-header-right">
+      <%= link_to '⬇ Export CSV',
+            ticket_journey_export_path(@project, format: :csv,
+              date_from: params[:date_from], date_to: params[:date_to],
+              tracker_id: params[:tracker_id], assignee_id: params[:assignee_id]),
+            class: 'tj-btn tj-btn-export' %>
+    </div>
+  </div>
+
+  <!-- ── FILTER BAR ── -->
+  <div class="tj-filter-bar">
+    <%= form_tag(ticket_journey_path(@project), method: :get, class: 'tj-filter-form') do %>
+      <div class="tj-filter-group">
+        <label>From</label>
+        <%= text_field_tag :date_from, params[:date_from], class: 'tj-input', type: 'date' %>
+      </div>
+      <div class="tj-filter-group">
+        <label>To</label>
+        <%= text_field_tag :date_to, params[:date_to], class: 'tj-input', type: 'date' %>
+      </div>
+      <div class="tj-filter-group">
+        <label>Tracker</label>
+        <%= select_tag :tracker_id,
+              options_from_collection_for_select(@trackers, :id, :name, params[:tracker_id]),
+              include_blank: '— All —', class: 'tj-input' %>
+      </div>
+      <div class="tj-filter-group">
+        <label>Assignee</label>
+        <%= select_tag :assignee_id,
+              options_from_collection_for_select(@members, :id, :name, params[:assignee_id]),
+              include_blank: '— All —', class: 'tj-input' %>
+      </div>
+      <div class="tj-filter-group tj-filter-search">
+        <label>Search</label>
+        <input type="text" id="tj-search" class="tj-input" placeholder="Filter by ID or title…" />
+      </div>
+      <%= submit_tag 'Apply', class: 'tj-btn tj-btn-primary', name: nil %>
+      <%= link_to 'Reset', ticket_journey_path(@project), class: 'tj-btn tj-btn-secondary' %>
+    <% end %>
+  </div>
+
+  <!-- ── SUMMARY STRIP ── -->
+  <% if @issues_data.any? %>
+  <%
+    total_issues = @issues_data.size
+    totals       = @issues_data.map { |d| d[:durations][:TOTAL].to_f }.reject(&:zero?)
+    avg_h        = totals.any? ? totals.sum / totals.size : 0
+    max_h        = totals.max || 0
+    c_total      = @issues_data.sum { |d| d[:durations][:C1] + d[:durations][:C2] + d[:durations][:C3] + d[:durations][:C4] }
+    c1_t = @issues_data.sum { |d| d[:durations][:C1] }
+    c2_t = @issues_data.sum { |d| d[:durations][:C2] }
+    c3_t = @issues_data.sum { |d| d[:durations][:C3] }
+    c4_t = @issues_data.sum { |d| d[:durations][:C4] }
+  %>
+  <div class="tj-summary-strip">
+    <div class="tj-summary-card">
+      <div class="tj-sc-label">Issues</div>
+      <div class="tj-sc-value tj-sc-accent"><%= total_issues %></div>
+    </div>
+    <div class="tj-summary-card">
+      <div class="tj-sc-label">Avg Cycle Time</div>
+      <div class="tj-sc-value tj-sc-blue"><%= format_hours(avg_h) %></div>
+    </div>
+    <div class="tj-summary-card">
+      <div class="tj-sc-label">Max Cycle Time</div>
+      <div class="tj-sc-value tj-sc-orange"><%= format_hours(max_h) %></div>
+    </div>
+    <div class="tj-summary-card">
+      <div class="tj-sc-label">Total Returns</div>
+      <div class="tj-sc-value tj-sc-red"><%= c_total %></div>
+    </div>
+    <div class="tj-summary-card">
+      <div class="tj-sc-label">C1 QA-Fail</div>
+      <div class="tj-sc-value <%= c1_t > 0 ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= c1_t %></div>
+    </div>
+    <div class="tj-summary-card">
+      <div class="tj-sc-label">C2 Code-Fail</div>
+      <div class="tj-sc-value <%= c2_t > 0 ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= c2_t %></div>
+    </div>
+    <div class="tj-summary-card">
+      <div class="tj-sc-label">C3 Merge</div>
+      <div class="tj-sc-value <%= c3_t > 0 ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= c3_t %></div>
+    </div>
+    <div class="tj-summary-card">
+      <div class="tj-sc-label">C4 Side-Effect</div>
+      <div class="tj-sc-value <%= c4_t > 0 ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= c4_t %></div>
+    </div>
+  </div>
+  <% end %>
+
+  <!-- ── MAIN TABLE ── -->
+  <% if @issues_data.empty? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">📋</div>
+      <h3>No issues found</h3>
+      <p>Try adjusting the filters above.</p>
+    </div>
+  <% else %>
+  <div class="tj-table-wrap">
+    <table class="tj-table" id="tj-table">
+      <thead>
+        <tr>
+          <th class="tj-th-issue">Issue</th>
+          <th class="tj-th-title">Subject</th>
+          <th class="tj-th-status">Status</th>
+          <% D_FIELDS.each do |f| %>
+            <th class="<%= f[:aug] ? 'tj-th-aug' : 'tj-th-d' %>" title="<%= f[:desc] %>"><%= f[:label] %></th>
+          <% end %>
+          <th class="tj-th-total">TOTAL</th>
+          <th class="tj-th-counter" title="Function-Fail / Granular Error">C1</th>
+          <th class="tj-th-counter" title="Code-Quality-Fail">C2</th>
+          <th class="tj-th-counter" title="Merge-Conflict Error">C3</th>
+          <th class="tj-th-counter" title="E2E-Fail / Side Effect Error">C4</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @issues_data.each do |item| %>
+          <% iss = item[:issue]; dur = item[:durations] %>
+          <tr class="tj-row" data-search="<%= "#{iss.id} #{iss.subject}".downcase %>">
+            <td class="tj-td-issue">
+              <%= link_to "##{iss.id}", ticket_journey_issue_path(@project, iss.id), class: 'tj-issue-link' %>
+            </td>
+            <td class="tj-td-title" title="<%= h(iss.subject) %>">
+              <%= link_to h(iss.subject), issue_path(iss), class: 'tj-subject-link' %>
+            </td>
+            <td class="tj-td-status">
+              <span class="tj-status-badge"><%= h(iss.status.name) %></span>
+            </td>
+            <% D_FIELDS.each do |f| %>
+              <% val = dur[f[:key]].to_f %>
+              <td class="<%= duration_css_class(val, aug: f[:aug]) %>">
+                <%= format_hours(val) %>
+              </td>
+            <% end %>
+            <td class="tj-td-total"><%= format_hours(dur[:TOTAL]) %></td>
+            <td class="<%= counter_css_class(dur[:C1]) %>"><%= dur[:C1] > 0 ? dur[:C1] : '—' %></td>
+            <td class="<%= counter_css_class(dur[:C2]) %>"><%= dur[:C2] > 0 ? dur[:C2] : '—' %></td>
+            <td class="<%= counter_css_class(dur[:C3]) %>"><%= dur[:C3] > 0 ? dur[:C3] : '—' %></td>
+            <td class="<%= counter_css_class(dur[:C4]) %>"><%= dur[:C4] > 0 ? dur[:C4] : '—' %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+  <% end %>
+
+</div><!-- /tj-wrap -->

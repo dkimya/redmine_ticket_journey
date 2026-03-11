@@ -1,0 +1,19 @@
+en:
+  ticket_journey:
+    title: "Ticket Journey Duration Report"
+    menu_caption: "Journey Report"
+    labels:
+      D1:    "Planning"
+      D2:    "Wait for Dev (1st)"
+      D2aug: "Wait for Dev (returns)"
+      D3:    "Under Dev (1st)"
+      D3aug: "Under Dev (subsequent)"
+      D4:    "QA Time (1st)"
+      D4aug: "QA Time (returns)"
+      D5:    "QA pass wait"
+      D5aug: "Code Review"
+      D6:    "Review pass wait"
+      D6aug: "Integration Time"
+      D7aug: "Post-Int QA"
+      D7:    "Final pass gap"
+      TOTAL: "Total Cycle Time"
