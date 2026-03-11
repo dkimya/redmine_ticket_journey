@@ -1,5 +1,6 @@
 module TicketJourneyHelper
-  D_FIELDS = [
+  def d_fields
+    [
     { key: :D1,    label: 'D1',     aug: false, desc: 'Planning (New → To-Do)' },
     { key: :D2,    label: 'D2',     aug: false, desc: 'Wait for Dev (1st)' },
     { key: :D2aug, label: 'D2-aug', aug: true,  desc: 'Wait for Dev (returns)' },
@@ -13,7 +14,8 @@ module TicketJourneyHelper
     { key: :D6aug, label: 'D6-aug', aug: true,  desc: 'Integration (Ready→Final)' },
     { key: :D7aug, label: 'D7-aug', aug: true,  desc: 'Post-Integration QA' },
     { key: :D7,    label: 'D7',     aug: false, desc: 'Final pass → Done gap' },
-  ].freeze
+  ]
+  end
 
   def format_hours(h)
     return '—' if h.nil? || h == 0

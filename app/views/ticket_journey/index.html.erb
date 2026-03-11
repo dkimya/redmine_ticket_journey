@@ -119,7 +119,7 @@
           <th class="tj-th-issue">Issue</th>
           <th class="tj-th-title">Subject</th>
           <th class="tj-th-status">Status</th>
-          <% D_FIELDS.each do |f| %>
+          <% d_fields.each do |f| %>
             <th class="<%= f[:aug] ? 'tj-th-aug' : 'tj-th-d' %>" title="<%= f[:desc] %>"><%= f[:label] %></th>
           <% end %>
           <th class="tj-th-total">TOTAL</th>
@@ -142,7 +142,7 @@
             <td class="tj-td-status">
               <span class="tj-status-badge"><%= h(iss.status.name) %></span>
             </td>
-            <% D_FIELDS.each do |f| %>
+            <% d_fields.each do |f| %>
               <% val = dur[f[:key]].to_f %>
               <td class="<%= duration_css_class(val, aug: f[:aug]) %>">
                 <%= format_hours(val) %>
