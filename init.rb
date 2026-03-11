@@ -8,6 +8,11 @@ Redmine::Plugin.register :redmine_ticket_journey do
 
   requires_redmine version_or_higher: '4.0.0'
 
+  # Register as a project module — makes it appear in Settings > Modules
+  project_module :ticket_journey do
+    permission :view_ticket_journey, { ticket_journey: [:index, :show, :export] }, read: true
+  end
+
   # Add a menu item under the project menu
   menu :project_menu,
        :ticket_journey,
