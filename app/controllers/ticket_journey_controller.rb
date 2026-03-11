@@ -6,8 +6,8 @@ class TicketJourneyController < ApplicationController
   # INDEX — list all issues with computed durations
   # ---------------------------------------------------------------
   def index
-    @date_from = params[:date_from].present? ? Date.parse(params[:date_from]) rescue nil : nil
-    @date_to   = params[:date_to].present?   ? Date.parse(params[:date_to])   rescue nil : nil
+    @date_from = params[:date_from].present? ? (Date.parse(params[:date_from]) rescue nil) : nil
+    @date_to   = params[:date_to].present?   ? (Date.parse(params[:date_to])   rescue nil) : nil
     @tracker_id = params[:tracker_id].presence
     @assignee_id = params[:assignee_id].presence
 
