@@ -232,27 +232,30 @@ class TicketJourneyController < ApplicationController
 
     hours = ->(a, b) { a && b ? [(b - a) / 3600.0, 0].max.round(2) : 0.0 }
 
+    # Helper: safely fetch visits array, never nil
+    v = ->(role) { visits[role] || [] }
+
     # D1
-    d1 = visits[:new].sum  { |p| hours.call(p[:enter], p[:exit]) }
+    d1 = v.call(:new).sum { |p| hours.call(p[:enter], p[:exit]) }
 
     # D2 / D2aug
-    todo_visits = visits[:todo]
+    todo_visits = v.call(:todo)
     d2    = todo_visits[0] ? hours.call(todo_visits[0][:enter], todo_visits[0][:exit]) : 0.0
-    d2aug = todo_visits[1..].sum { |p| hours.call(p[:enter], p[:exit]) }
+    d2aug = (todo_visits[1..] || []).sum { |p| hours.call(p[:enter], p[:exit]) }
 
     # D3 / D3aug
-    ip_visits = visits[:in_progress]
+    ip_visits = v.call(:in_progress)
     d3    = ip_visits[0] ? hours.call(ip_visits[0][:enter], ip_visits[0][:exit]) : 0.0
-    d3aug = ip_visits[1..].sum { |p| hours.call(p[:enter], p[:exit]) }
+    d3aug = (ip_visits[1..] || []).sum { |p| hours.call(p[:enter], p[:exit]) }
 
     # D4 / D4aug
-    fb_visits = visits[:feedback]
+    fb_visits = v.call(:feedback)
     d4    = fb_visits[0] ? hours.call(fb_visits[0][:enter], fb_visits[0][:exit]) : 0.0
-    d4aug = fb_visits[1..].sum { |p| hours.call(p[:enter], p[:exit]) }
+    d4aug = (fb_visits[1..] || []).sum { |p| hours.call(p[:enter], p[:exit]) }
 
     # D5 (gap: last feedback exit → first review enter)
-    last_fb  = fb_visits.last
-    rev_vis  = visits[:review]
+    last_fb   = fb_visits.last
+    rev_vis   = v.call(:review)
     first_rev = rev_vis[0]
     d5 = last_fb && first_rev ? hours.call(last_fb[:exit], first_rev[:enter]) : 0.0
 
@@ -261,7 +264,7 @@ class TicketJourneyController < ApplicationController
 
     # D6 (gap: last review exit → ready_merge enter)
     last_rev = rev_vis.last
-    rm_vis   = visits[:ready_merge]
+    rm_vis   = v.call(:ready_merge)
     first_rm = rm_vis[0]
     d6 = last_rev && first_rm ? hours.call(last_rev[:exit], first_rm[:enter]) : 0.0
 
@@ -269,12 +272,12 @@ class TicketJourneyController < ApplicationController
     d6aug = rm_vis.sum { |p| hours.call(p[:enter], p[:exit]) }
 
     # D7aug: final_check duration
-    fc_vis = visits[:final_check]
+    fc_vis = v.call(:final_check)
     d7aug  = fc_vis.sum { |p| hours.call(p[:enter], p[:exit]) }
 
     # D7 (gap: last final_check exit → done enter)
-    last_fc   = fc_vis.last
-    done_vis  = visits[:done]
+    last_fc    = fc_vis.last
+    done_vis   = v.call(:done)
     first_done = done_vis[0]
     d7 = last_fc && first_done ? hours.call(last_fc[:exit], first_done[:enter]) : 0.0
 
