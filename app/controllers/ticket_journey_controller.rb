@@ -68,15 +68,6 @@ class TicketJourneyController < ApplicationController
     done:         ['Done', 'Closed'],
   }.freeze
 
-  def statuses_by_role
-    @statuses_by_role ||= begin
-      all = IssueStatus.all.index_by { |s| s.name.downcase.strip }
-      STATUS_NAMES.transform_values do |names|
-        names.filter_map { |n| all[n.downcase.strip]&.id }
-      end
-    end
-  end
-
   def status_role(status_name)
     return :unknown if status_name.nil?
     n = status_name.downcase.strip
@@ -245,14 +236,14 @@ class TicketJourneyController < ApplicationController
     d4    = fb_visits[0] ? hours.call(fb_visits[0][:enter], fb_visits[0][:exit]) : 0.0
     d4aug = (fb_visits[1..] || []).sum { |p| hours.call(p[:enter], p[:exit]) }
 
-    rev_vis = v.call(:review)
-
     d5 = 0.0
     d5aug = 0.0
 
-    rev_vis.each do |review_period|
-      next_period = periods.find { |p| p[:enter] == review_period[:exit] }
-      review_duration = hours.call(review_period[:enter], review_period[:exit])
+    periods.each_with_index do |period, index|
+      next unless status_role(period[:status]) == :review
+
+      next_period = periods[index + 1]
+      review_duration = hours.call(period[:enter], period[:exit])
 
       case status_role(next_period&.dig(:status))
       when :ready_merge
@@ -261,8 +252,6 @@ class TicketJourneyController < ApplicationController
         d5aug += review_duration
       end
     end
-
-    rm_vis = v.call(:ready_merge)
 
     d6 = 0.0
     d6aug = 0.0
@@ -291,6 +280,7 @@ class TicketJourneyController < ApplicationController
 
     c1 = c2 = c3 = c4 = 0
 
+    # Direct returns back to In Progress
     periods.each_cons(2) do |a, b|
       next unless status_role(b[:status]) == :in_progress
 
@@ -306,12 +296,21 @@ class TicketJourneyController < ApplicationController
       end
     end
 
+    # Indirect returns via Returned -> In Progress
     periods.each_cons(3) do |a, b, c|
-      next unless status_role(a[:status]) == :final_check
       next unless status_role(b[:status]) == :returned
       next unless status_role(c[:status]) == :in_progress
 
-      c4 += 1
+      case status_role(a[:status])
+      when :feedback
+        c1 += 1
+      when :review
+        c2 += 1
+      when :ready_merge
+        c3 += 1
+      when :final_check
+        c4 += 1
+      end
     end
 
     total = d1 + d2 + d2aug + d3 + d3aug + d4 + d4aug + d5 + d5aug + d6 + d6aug + d7aug + d7
