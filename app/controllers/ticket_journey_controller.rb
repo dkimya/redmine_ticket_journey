@@ -20,14 +20,20 @@ class TicketJourneyController < ApplicationController
   # ---------------------------------------------------------------
   # SHOW — single issue detail
   # ---------------------------------------------------------------
+  # def show
+  #   @issue = Issue.find(params[:id])
+  #   return render_403 unless @issue.project == @project
+
+  #   @duration_data = compute_issue_durations(@issue)
+  #   @transitions   = load_transitions(@issue)
+  # end
   def show
-    @issue = Issue.find(params[:id])
+    @issue = Issue.includes(:status, :author, :assigned_to, :tracker).find(params[:id])
     return render_403 unless @issue.project == @project
 
     @duration_data = compute_issue_durations(@issue)
-    @transitions   = load_transitions(@issue)
+    @transitions   = load_transitions(@issue)[@issue.id] || []
   end
-
   # ---------------------------------------------------------------
   # EXPORT — CSV download
   # ---------------------------------------------------------------
@@ -91,10 +97,14 @@ class TicketJourneyController < ApplicationController
   # ---------------------------------------------------------------
   def load_transitions(scope_or_issue)
     if scope_or_issue.is_a?(Issue)
-      issue_ids = [scope_or_issue.id]
+      issues_list = [scope_or_issue]
+    elsif scope_or_issue.is_a?(Array)
+      issues_list = scope_or_issue
     else
-      issue_ids = scope_or_issue.pluck(:id)
+      issues_list = scope_or_issue.to_a
     end
+
+    issue_ids = issues_list.map(&:id)
     return {} if issue_ids.empty?
 
     rows = ActiveRecord::Base.connection.select_all(<<~SQL)
@@ -123,41 +133,42 @@ class TicketJourneyController < ApplicationController
       ORDER BY i.id, j.created_on ASC
     SQL
 
-    # Group transitions by issue_id, prepend a synthetic "created" event
     by_issue = Hash.new { |h, k| h[k] = [] }
-
-    # Add creation event per issue
-    if scope_or_issue.is_a?(Issue)
-      issues_list = [scope_or_issue]
-    else
-      issues_list = scope_or_issue.to_a
-    end
+    rows_by_issue = rows.group_by { |row| row['issue_id'].to_i }
 
     issues_list.each do |iss|
-      by_issue[iss.id] << {
-        issue_id:      iss.id,
-        issue_subject: iss.subject,
-        changed_at:    iss.created_on,
-        from_status:   nil,
-        to_status:     iss.status.name,
-        changed_by:    iss.author.login,
-        changed_by_name: iss.author.name,
-        synthetic:     true
-      }
-    end
+      issue_rows = rows_by_issue[iss.id] || []
 
-    rows.each do |row|
-      id = row['issue_id'].to_i
-      by_issue[id] << {
-        issue_id:        id,
-        issue_subject:   row['issue_subject'],
-        changed_at:      row['changed_at'].is_a?(String) ? Time.parse(row['changed_at']) : row['changed_at'],
-        from_status:     row['from_status'],
-        to_status:       row['to_status'],
-        changed_by:      row['changed_by'],
-        changed_by_name: "#{row['changed_by_firstname']} #{row['changed_by_lastname']}".strip,
-        synthetic:       false
+      initial_status =
+        if issue_rows.first && issue_rows.first['from_status'].present?
+          issue_rows.first['from_status']
+        else
+          iss.status.name
+        end
+
+      by_issue[iss.id] << {
+        issue_id: iss.id,
+        issue_subject: iss.subject,
+        changed_at: iss.created_on,
+        from_status: nil,
+        to_status: initial_status,
+        changed_by: iss.author&.login,
+        changed_by_name: iss.author&.name,
+        synthetic: true
       }
+
+      issue_rows.each do |row|
+        by_issue[iss.id] << {
+          issue_id: iss.id,
+          issue_subject: row['issue_subject'],
+          changed_at: row['changed_at'].is_a?(String) ? Time.parse(row['changed_at']) : row['changed_at'],
+          from_status: row['from_status'],
+          to_status: row['to_status'],
+          changed_by: row['changed_by'],
+          changed_by_name: "#{row['changed_by_firstname']} #{row['changed_by_lastname']}".strip,
+          synthetic: false
+        }
+      end
     end
 
     by_issue
