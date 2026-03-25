@@ -59,6 +59,7 @@ class TicketJourneyController < ApplicationController
   STATUS_NAMES = {
     new:          ['New'],
     todo:         ['To-Do', 'To Do', 'ToDo'],
+    returned:     ['Returned'],
     in_progress:  ['In Progress'],
     feedback:     ['Feedback'],
     review:       ['Review'],
@@ -131,10 +132,13 @@ class TicketJourneyController < ApplicationController
 
     issues_list.each do |iss|
       issue_rows = rows_by_issue[iss.id] || []
+      first_row = issue_rows.first
 
       initial_status =
-        if issue_rows.first && issue_rows.first['from_status'].present?
-          issue_rows.first['from_status']
+        if first_row && first_row['from_status'].present?
+          first_row['from_status']
+        elsif first_row && first_row['to_status'].present?
+          first_row['to_status']
         else
           iss.status.name
         end
@@ -225,8 +229,13 @@ class TicketJourneyController < ApplicationController
     d1 = v.call(:new).sum { |p| hours.call(p[:enter], p[:exit]) }
 
     todo_visits = v.call(:todo)
-    d2    = todo_visits[0] ? hours.call(todo_visits[0][:enter], todo_visits[0][:exit]) : 0.0
-    d2aug = (todo_visits[1..] || []).sum { |p| hours.call(p[:enter], p[:exit]) }
+    returned_visits = v.call(:returned)
+
+    d2 = todo_visits[0] ? hours.call(todo_visits[0][:enter], todo_visits[0][:exit]) : 0.0
+
+    d2aug =
+      (todo_visits[1..] || []).sum { |p| hours.call(p[:enter], p[:exit]) } +
+      returned_visits.sum { |p| hours.call(p[:enter], p[:exit]) }
 
     ip_visits = v.call(:in_progress)
     d3    = ip_visits[0] ? hours.call(ip_visits[0][:enter], ip_visits[0][:exit]) : 0.0
@@ -257,15 +266,28 @@ class TicketJourneyController < ApplicationController
     d7 = last_fc && first_done ? hours.call(last_fc[:exit], first_done[:enter]) : 0.0
 
     c1 = c2 = c3 = c4 = 0
+
     periods.each_cons(2) do |a, b|
       next unless status_role(b[:status]) == :in_progress
 
       case status_role(a[:status])
-      when :feedback    then c1 += 1
-      when :review      then c2 += 1
-      when :ready_merge then c3 += 1
-      when :final_check then c4 += 1
+      when :feedback
+        c1 += 1
+      when :review
+        c2 += 1
+      when :ready_merge
+        c3 += 1
+      when :final_check
+        c4 += 1
       end
+    end
+
+    periods.each_cons(3) do |a, b, c|
+      next unless status_role(a[:status]) == :final_check
+      next unless status_role(b[:status]) == :returned
+      next unless status_role(c[:status]) == :in_progress
+
+      c4 += 1
     end
 
     total = d1 + d2 + d2aug + d3 + d3aug + d4 + d4aug + d5 + d5aug + d6 + d6aug + d7aug + d7
