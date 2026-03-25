@@ -245,11 +245,22 @@ class TicketJourneyController < ApplicationController
     d4    = fb_visits[0] ? hours.call(fb_visits[0][:enter], fb_visits[0][:exit]) : 0.0
     d4aug = (fb_visits[1..] || []).sum { |p| hours.call(p[:enter], p[:exit]) }
 
-    last_fb   = fb_visits.last
-    rev_vis   = v.call(:review)
-    first_rev = rev_vis[0]
-    d5 = last_fb && first_rev ? hours.call(last_fb[:exit], first_rev[:enter]) : 0.0
-    d5aug = first_rev ? hours.call(first_rev[:enter], first_rev[:exit]) : 0.0
+    rev_vis = v.call(:review)
+
+    d5 = 0.0
+    d5aug = 0.0
+
+    rev_vis.each do |review_period|
+      next_period = periods.find { |p| p[:enter] == review_period[:exit] }
+      review_duration = hours.call(review_period[:enter], review_period[:exit])
+
+      case status_role(next_period&.dig(:status))
+      when :ready_merge
+        d5 += review_duration
+      when :returned
+        d5aug += review_duration
+      end
+    end
 
     last_rev = rev_vis.last
     rm_vis   = v.call(:ready_merge)
