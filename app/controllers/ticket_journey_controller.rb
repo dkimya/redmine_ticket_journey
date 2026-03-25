@@ -20,13 +20,6 @@ class TicketJourneyController < ApplicationController
   # ---------------------------------------------------------------
   # SHOW — single issue detail
   # ---------------------------------------------------------------
-  # def show
-  #   @issue = Issue.find(params[:id])
-  #   return render_403 unless @issue.project == @project
-
-  #   @duration_data = compute_issue_durations(@issue)
-  #   @transitions   = load_transitions(@issue)
-  # end
   def show
     @issue = Issue.includes(:status, :author, :assigned_to, :tracker).find(params[:id])
     return render_403 unless @issue.project == @project
@@ -128,7 +121,7 @@ class TicketJourneyController < ApplicationController
         AND jd.prop_key  = 'status_id'
       LEFT JOIN issue_statuses s_from ON s_from.id = CAST(jd.old_value AS UNSIGNED)
       LEFT JOIN issue_statuses s_to   ON s_to.id   = CAST(jd.value AS UNSIGNED)
-      JOIN users u ON u.id = j.user_id
+      LEFT JOIN users u ON u.id = j.user_id
       WHERE i.id IN (#{issue_ids.join(',')})
       ORDER BY i.id, j.created_on ASC
     SQL
@@ -173,26 +166,28 @@ class TicketJourneyController < ApplicationController
 
     by_issue
   end
-
   # ---------------------------------------------------------------
   # COMPUTE DURATIONS FOR ALL ISSUES
   # ---------------------------------------------------------------
   def compute_all_durations
     scope = @project.issues.includes(:status, :author, :assigned_to, :tracker)
-    scope = scope.where(tracker_id: @tracker_id)     if @tracker_id
+    scope = scope.where(tracker_id: @tracker_id) if @tracker_id
     scope = scope.where(assigned_to_id: @assignee_id) if @assignee_id
+
     if @date_from || @date_to
       scope = scope.where('issues.created_on >= ?', @date_from.beginning_of_day) if @date_from
-      scope = scope.where('issues.created_on <= ?', @date_to.end_of_day)         if @date_to
+      scope = scope.where('issues.created_on <= ?', @date_to.end_of_day) if @date_to
     end
 
-    all_transitions = load_transitions(scope)
+    issues = scope.to_a
+    all_transitions = load_transitions(issues)
 
-    scope.map do |issue|
+    issues.map do |issue|
       transitions = all_transitions[issue.id] || []
-      durations   = calculate_durations_from_transitions(transitions)
+      durations = calculate_durations_from_transitions(transitions)
+
       {
-        issue:    issue,
+        issue: issue,
         durations: durations
       }
     end
@@ -212,24 +207,7 @@ class TicketJourneyController < ApplicationController
   def calculate_durations_from_transitions(transitions)
     return empty_durations if transitions.empty?
 
-    # Build periods: [{status, enter, exit}]
     periods = build_periods(transitions)
-
-    # Categorise each period by role
-    # D1: time in NEW
-    # D2: time in TODO (first visit)
-    # D2aug: time in TODO (subsequent visits) — accumulated
-    # D3: time in IN_PROGRESS (first visit)
-    # D3aug: time in IN_PROGRESS (subsequent visits) — accumulated
-    # D4: time in FEEDBACK (first visit)
-    # D4aug: time in FEEDBACK (subsequent visits) — accumulated
-    # D5aug: time in REVIEW (first visit = code review time)
-    # D5: wait gap between last FEEDBACK exit and first REVIEW enter (vertical pass)
-    # D6aug: time in REVIEW (subsequent) — actually = Ready-to-Merge duration
-    # D6: wait gap between last REVIEW exit and READY_MERGE enter
-    # D6aug: time in READY_MERGE
-    # D7aug: time in FINAL_CHECK
-    # D7: wait gap FINAL_CHECK exit → DONE enter
 
     visit_index = Hash.new(0)
     visits      = Hash.new { |h, k| h[k] = [] }
@@ -242,60 +220,46 @@ class TicketJourneyController < ApplicationController
     end
 
     hours = ->(a, b) { a && b ? [(b - a) / 3600.0, 0].max.round(2) : 0.0 }
-
-    # Helper: safely fetch visits array, never nil
     v = ->(role) { visits[role] || [] }
 
-    # D1
     d1 = v.call(:new).sum { |p| hours.call(p[:enter], p[:exit]) }
 
-    # D2 / D2aug
     todo_visits = v.call(:todo)
     d2    = todo_visits[0] ? hours.call(todo_visits[0][:enter], todo_visits[0][:exit]) : 0.0
     d2aug = (todo_visits[1..] || []).sum { |p| hours.call(p[:enter], p[:exit]) }
 
-    # D3 / D3aug
     ip_visits = v.call(:in_progress)
     d3    = ip_visits[0] ? hours.call(ip_visits[0][:enter], ip_visits[0][:exit]) : 0.0
     d3aug = (ip_visits[1..] || []).sum { |p| hours.call(p[:enter], p[:exit]) }
 
-    # D4 / D4aug
     fb_visits = v.call(:feedback)
     d4    = fb_visits[0] ? hours.call(fb_visits[0][:enter], fb_visits[0][:exit]) : 0.0
     d4aug = (fb_visits[1..] || []).sum { |p| hours.call(p[:enter], p[:exit]) }
 
-    # D5 (gap: last feedback exit → first review enter)
     last_fb   = fb_visits.last
     rev_vis   = v.call(:review)
     first_rev = rev_vis[0]
     d5 = last_fb && first_rev ? hours.call(last_fb[:exit], first_rev[:enter]) : 0.0
-
-    # D5aug: first review duration
     d5aug = first_rev ? hours.call(first_rev[:enter], first_rev[:exit]) : 0.0
 
-    # D6 (gap: last review exit → ready_merge enter)
     last_rev = rev_vis.last
     rm_vis   = v.call(:ready_merge)
     first_rm = rm_vis[0]
     d6 = last_rev && first_rm ? hours.call(last_rev[:exit], first_rm[:enter]) : 0.0
-
-    # D6aug: ready_merge duration
     d6aug = rm_vis.sum { |p| hours.call(p[:enter], p[:exit]) }
 
-    # D7aug: final_check duration
     fc_vis = v.call(:final_check)
     d7aug  = fc_vis.sum { |p| hours.call(p[:enter], p[:exit]) }
 
-    # D7 (gap: last final_check exit → done enter)
     last_fc    = fc_vis.last
     done_vis   = v.call(:done)
     first_done = done_vis[0]
     d7 = last_fc && first_done ? hours.call(last_fc[:exit], first_done[:enter]) : 0.0
 
-    # Return counters (transitions back to IN_PROGRESS from downstream)
     c1 = c2 = c3 = c4 = 0
     periods.each_cons(2) do |a, b|
       next unless status_role(b[:status]) == :in_progress
+
       case status_role(a[:status])
       when :feedback    then c1 += 1
       when :review      then c2 += 1
@@ -307,13 +271,13 @@ class TicketJourneyController < ApplicationController
     total = d1 + d2 + d2aug + d3 + d3aug + d4 + d4aug + d5 + d5aug + d6 + d6aug + d7aug + d7
 
     {
-      D1:     d1,    D2:    d2,    D2aug: d2aug,
-      D3:     d3,    D3aug: d3aug,
-      D4:     d4,    D4aug: d4aug,
-      D5:     d5,    D5aug: d5aug,
-      D6:     d6,    D6aug: d6aug,
-      D7aug:  d7aug, D7:    d7,
-      TOTAL:  total,
+      D1: d1, D2: d2, D2aug: d2aug,
+      D3: d3, D3aug: d3aug,
+      D4: d4, D4aug: d4aug,
+      D5: d5, D5aug: d5aug,
+      D6: d6, D6aug: d6aug,
+      D7aug: d7aug, D7: d7,
+      TOTAL: total,
       C1: c1, C2: c2, C3: c3, C4: c4,
       periods: periods
     }
@@ -323,31 +287,46 @@ class TicketJourneyController < ApplicationController
     sorted = transitions.sort_by { |t| t[:changed_at] }
     periods = []
 
-    sorted.each_with_index do |t, i|
-      next_t = sorted[i + 1]
-      status = t[:to_status]
+    sorted.each_with_index do |transition, index|
+      status = transition[:to_status]
       next if status.nil?
-      enter = t[:changed_at]
-      exit_t = next_t ? next_t[:changed_at] : Time.current
-      periods << { status: status, enter: enter, exit: exit_t }
+
+      enter_time = transition[:changed_at]
+      next_transition = sorted[index + 1]
+      exit_time = next_transition ? next_transition[:changed_at] : Time.current
+
+      periods << {
+        status: status,
+        enter: enter_time,
+        exit: exit_time
+      }
     end
 
-    # Merge consecutive same-status periods
     merged = []
-    periods.each do |p|
+    periods.each do |period|
       last = merged.last
-      if last && last[:status] == p[:status]
-        last[:exit] = p[:exit]
+      if last && last[:status] == period[:status]
+        last[:exit] = period[:exit]
       else
-        merged << p.dup
+        merged << period.dup
       end
     end
+
     merged
   end
 
   def empty_durations
-    keys = %i[D1 D2 D2aug D3 D3aug D4 D4aug D5 D5aug D6 D6aug D7aug D7 TOTAL C1 C2 C3 C4]
-    keys.each_with_object({}) { |k, h| h[k] = 0.0 }.merge(periods: [])
+    {
+      D1: 0.0, D2: 0.0, D2aug: 0.0,
+      D3: 0.0, D3aug: 0.0,
+      D4: 0.0, D4aug: 0.0,
+      D5: 0.0, D5aug: 0.0,
+      D6: 0.0, D6aug: 0.0,
+      D7aug: 0.0, D7: 0.0,
+      TOTAL: 0.0,
+      C1: 0, C2: 0, C3: 0, C4: 0,
+      periods: []
+    }
   end
 
   # ---------------------------------------------------------------
