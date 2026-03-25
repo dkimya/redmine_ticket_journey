@@ -262,11 +262,24 @@ class TicketJourneyController < ApplicationController
       end
     end
 
-    last_rev = rev_vis.last
-    rm_vis   = v.call(:ready_merge)
-    first_rm = rm_vis[0]
-    d6 = last_rev && first_rm ? hours.call(last_rev[:exit], first_rm[:enter]) : 0.0
-    d6aug = rm_vis.sum { |p| hours.call(p[:enter], p[:exit]) }
+    rm_vis = v.call(:ready_merge)
+
+    d6 = 0.0
+    d6aug = 0.0
+
+    periods.each_with_index do |period, index|
+      next unless status_role(period[:status]) == :ready_merge
+
+      next_period = periods[index + 1]
+      merge_duration = hours.call(period[:enter], period[:exit])
+
+      case status_role(next_period&.dig(:status))
+      when :final_check
+        d6 += merge_duration
+      when :returned
+        d6aug += merge_duration
+      end
+    end
 
     fc_vis = v.call(:final_check)
     d7aug  = fc_vis.sum { |p| hours.call(p[:enter], p[:exit]) }
