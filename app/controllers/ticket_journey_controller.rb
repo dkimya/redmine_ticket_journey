@@ -280,26 +280,8 @@ class TicketJourneyController < ApplicationController
 
     c1 = c2 = c3 = c4 = 0
 
-    # Direct returns back to In Progress
     periods.each_cons(2) do |a, b|
-      next unless status_role(b[:status]) == :in_progress
-
-      case status_role(a[:status])
-      when :feedback
-        c1 += 1
-      when :review
-        c2 += 1
-      when :ready_merge
-        c3 += 1
-      when :final_check
-        c4 += 1
-      end
-    end
-
-    # Indirect returns via Returned -> In Progress
-    periods.each_cons(3) do |a, b, c|
       next unless status_role(b[:status]) == :returned
-      next unless status_role(c[:status]) == :in_progress
 
       case status_role(a[:status])
       when :feedback

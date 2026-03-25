@@ -94,12 +94,12 @@
         <div class="tj-counter-item <%= @duration_data[:C1] > 0 ? 'tj-counter-hit' : '' %>">
           <div class="tj-counter-num"><%= @duration_data[:C1] %></div>
           <div class="tj-counter-label">C1 — Function-Fail</div>
-          <div class="tj-counter-sub">Granular Error<br>Feedback → Returned → In Progress</div>
+          <div class="tj-counter-sub">Granular Error<br>Feedback → Returned</div>
         </div>
         <div class="tj-counter-item <%= @duration_data[:C2] > 0 ? 'tj-counter-hit' : '' %>">
           <div class="tj-counter-num"><%= @duration_data[:C2] %></div>
           <div class="tj-counter-label">C2 — Code-Quality-Fail</div>
-          <div class="tj-counter-sub">Code Standard Error<br>Review → Returned → In Progress</div>
+          <div class="tj-counter-sub">Code Standard Error<br>Review → Returned</div>
         </div>
         <div class="tj-counter-item <%= @duration_data[:C3] > 0 ? 'tj-counter-hit' : '' %>">
           <div class="tj-counter-num"><%= @duration_data[:C3] %></div>
