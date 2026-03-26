@@ -58,14 +58,14 @@ class TicketJourneyController < ApplicationController
   # ---------------------------------------------------------------
   STATUS_NAMES = {
     new:          ['New'],
-    todo:         ['To-Do', 'To Do', 'ToDo'],
+    todo:         ['To-Do'],
     returned:     ['Returned'],
     in_progress:  ['In Progress'],
     feedback:     ['Feedback'],
     review:       ['Review'],
-    ready_merge:  ['Ready to Merge', 'Ready to merge'],
+    ready_merge:  ['Ready to Merge'],
     final_check:  ['Final Check'],
-    done:         ['Done', 'Closed'],
+    done:         ['Done / Closed'],
   }.freeze
 
   def status_role(status_name)
