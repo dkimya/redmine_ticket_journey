@@ -46,7 +46,7 @@
 .tj-page-header-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 .tj-icon { font-size: 28px; line-height: 1; }
 .tj-page-header h2 {
@@ -79,7 +79,17 @@
 .tj-btn:hover { filter: brightness(.92); transform: translateY(-1px); text-decoration: none; }
 .tj-btn-primary  { background: var(--tj-accent); color: #fff; }
 .tj-btn-secondary { background: #e8eaf0; color: var(--tj-text); border: 1px solid var(--tj-border); }
-.tj-btn-export   { background: var(--tj-blue); color: #fff; }
+/*.tj-btn-export   { background: var(--tj-blue); color: #fff; }*/
+
+.tj-btn-export,
+.tj-btn-export:link,
+.tj-btn-export:visited,
+.tj-btn-export:hover,
+.tj-btn-export:active {
+  background: var(--tj-blue);
+  color: #fff !important;
+  text-decoration: none;
+}
 
 /* ── Filter Bar ── */
 .tj-filter-bar {
