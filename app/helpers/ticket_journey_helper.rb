@@ -12,8 +12,8 @@ module TicketJourneyHelper
     { key: :D5aug, label: 'D5-aug', aug: true,  desc: 'Review → Returned' },
     { key: :D6,    label: 'D6',     aug: false, desc: 'Ready to Merge → Final Check' },
     { key: :D6aug, label: 'D6-aug', aug: true,  desc: 'Ready to Merge → Returned' },
-    { key: :D7aug, label: 'D7-aug', aug: true,  desc: 'Post-Integration QA' },
-    { key: :D7,    label: 'D7',     aug: false, desc: 'Final pass → Done gap' },
+    { key: :D7aug, label: 'D7-aug', aug: true,  desc: 'Final Check → Returned' },
+    { key: :D7,    label: 'D7',     aug: false, desc: 'Final Check → Done/Closed' },
   ]
   end
 

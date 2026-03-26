@@ -270,13 +270,22 @@ class TicketJourneyController < ApplicationController
       end
     end
 
-    fc_vis = v.call(:final_check)
-    d7aug  = fc_vis.sum { |p| hours.call(p[:enter], p[:exit]) }
+    d7 = 0.0
+    d7aug = 0.0
 
-    last_fc    = fc_vis.last
-    done_vis   = v.call(:done)
-    first_done = done_vis[0]
-    d7 = last_fc && first_done ? hours.call(last_fc[:exit], first_done[:enter]) : 0.0
+    periods.each_with_index do |period, index|
+      next unless status_role(period[:status]) == :final_check
+
+      next_period = periods[index + 1]
+      final_check_duration = hours.call(period[:enter], period[:exit])
+
+      case status_role(next_period&.dig(:status))
+      when :done
+        d7 += final_check_duration
+      when :returned
+        d7aug += final_check_duration
+      end
+    end
 
     c1 = c2 = c3 = c4 = 0
 
