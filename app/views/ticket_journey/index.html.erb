@@ -92,9 +92,9 @@
     <table class="tj-table" id="tj-table">
       <thead>
         <tr>
-          <th class="tj-th-issue">Issue</th>
-          <th class="tj-th-title">Subject</th>
-          <th class="tj-th-status">Status</th>
+          <th class="tj-th-issue"><%= query_sort_link(@query, :id, 'Issue') %></th>
+          <th class="tj-th-title"><%= query_sort_link(@query, :subject, 'Subject') %></th>
+          <th class="tj-th-status"><%= query_sort_link(@query, :status, 'Status') %></th>
           <% d_fields.each do |f| %>
             <th class="<%= f[:aug] ? 'tj-th-aug' : 'tj-th-d' %>" title="<%= f[:desc] %>"><%= f[:label] %></th>
           <% end %>

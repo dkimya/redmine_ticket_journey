@@ -1,4 +1,22 @@
 module TicketJourneyHelper
+  def query_sort_link(query, column, caption)
+    current_key = query.sort_criteria.first&.first.to_s
+    current_order = query.sort_criteria.first&.last.to_s
+    next_order = (current_key == column.to_s && current_order == 'asc') ? 'desc' : 'asc'
+
+    indicator =
+      if current_key == column.to_s
+        current_order == 'asc' ? ' ↑' : ' ↓'
+      else
+        ''
+      end
+
+    link_to(
+      "#{caption}#{indicator}",
+      ticket_journey_path(@project, query.as_params.merge(sort: "#{column}:#{next_order}"))
+    )
+  end
+
   def d_fields
     [
     { key: :D1,    label: 'D1',     aug: false, desc: 'Planning (New → To-Do)' },
