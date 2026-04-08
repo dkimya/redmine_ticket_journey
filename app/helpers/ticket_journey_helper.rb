@@ -86,6 +86,7 @@ module TicketJourneyHelper
     { key: :D7aug, label: 'D7-aug', aug: true,  desc: 'Final Check → Returned' },
     { key: :D7,    label: 'D7',     aug: false, desc: 'Final Check → Done/Closed' },
     { key: :D8,    label: 'D8',     aug: false, desc: 'Waiting for Validation (New → Feedback)' },
+    { key: :D9,    label: 'D9',     aug: false, desc: 'Validation Time (Feedback → New)' },
   ]
   end
 

@@ -17,4 +17,5 @@ en:
       D7aug: "Post-Int QA"
       D7:    "Final pass gap"
       D8:    "Waiting for Validation"
+      D9:    "Validation Time"
       TOTAL: "Total Cycle Time"
