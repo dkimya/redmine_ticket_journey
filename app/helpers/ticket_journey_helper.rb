@@ -1,20 +1,31 @@
 module TicketJourneyHelper
-  def query_sort_link(query, column, caption)
+  def query_sort_link(query, column, caption=nil)
+    column_name = column.respond_to?(:name) ? column.name.to_s : column.to_s
+    column_caption = caption || (column.respond_to?(:caption) ? column.caption.to_s : column_name.humanize)
+
     current_key = query.sort_criteria.first&.first.to_s
     current_order = query.sort_criteria.first&.last.to_s
-    next_order = (current_key == column.to_s && current_order == 'asc') ? 'desc' : 'asc'
+    next_order = (current_key == column_name && current_order == 'asc') ? 'desc' : 'asc'
 
     indicator =
-      if current_key == column.to_s
+      if current_key == column_name
         current_order == 'asc' ? ' ↑' : ' ↓'
       else
         ''
       end
 
+    return "#{column_caption}#{indicator}" unless !column.respond_to?(:sortable?) || column.sortable?
+
     link_to(
-      "#{caption}#{indicator}",
-      ticket_journey_path(@project, query.as_params.merge(sort: "#{column}:#{next_order}"))
+      "#{column_caption}#{indicator}",
+      ticket_journey_path(@project, query.as_params.merge(sort: "#{column_name}:#{next_order}"))
     )
+  end
+
+  def visible_native_query_columns(query)
+    query.inline_columns.reject do |column|
+      %w[id subject status].include?(column.name.to_s)
+    end
   end
 
   def d_fields

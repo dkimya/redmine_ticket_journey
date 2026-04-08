@@ -90,11 +90,15 @@
   <% else %>
   <div class="tj-table-wrap">
     <table class="tj-table" id="tj-table">
+      <% native_columns = visible_native_query_columns(@query) %>
       <thead>
         <tr>
           <th class="tj-th-issue"><%= query_sort_link(@query, :id, 'Issue') %></th>
           <th class="tj-th-title"><%= query_sort_link(@query, :subject, 'Subject') %></th>
           <th class="tj-th-status"><%= query_sort_link(@query, :status, 'Status') %></th>
+          <% native_columns.each do |column| %>
+            <th class="tj-th-native"><%= query_sort_link(@query, column) %></th>
+          <% end %>
           <% d_fields.each do |f| %>
             <th class="<%= f[:aug] ? 'tj-th-aug' : 'tj-th-d' %>" title="<%= f[:desc] %>"><%= f[:label] %></th>
           <% end %>
@@ -118,6 +122,9 @@
             <td class="tj-td-status">
               <span class="tj-status-badge"><%= h(iss.status.name) %></span>
             </td>
+            <% native_columns.each do |column| %>
+              <td class="tj-td-native"><%= column_content(column, iss) %></td>
+            <% end %>
             <% d_fields.each do |f| %>
               <% val = dur[f[:key]].to_f %>
               <td class="<%= duration_css_class(val, aug: f[:aug]) %>">
