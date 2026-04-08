@@ -266,10 +266,12 @@ class TicketJourneyController < ApplicationController
     periods.each_with_index do |period, index|
       next unless status_role(period[:status]) == :feedback
 
+      previous_period = periods[index - 1]
       next_period = periods[index + 1]
       feedback_duration = hours.call(period[:enter], period[:exit])
+      entered_from_role = status_role(previous_period&.dig(:status))
 
-      case status_role(next_period&.dig(:status))
+      case entered_from_role
       when :new
         d9 += feedback_duration
       else
