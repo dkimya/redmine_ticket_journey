@@ -91,6 +91,8 @@
   <div class="tj-table-wrap">
     <table class="tj-table" id="tj-table">
       <% native_columns = visible_native_query_columns(@query) %>
+      <% grouped_data = grouped_issues_data(@query, @issues_data) %>
+      <% total_columns = 3 + native_columns.size + d_fields.size + 5 %>
       <thead>
         <tr>
           <th class="tj-th-issue"><%= query_sort_link(@query, :id, 'Issue') %></th>
@@ -110,33 +112,40 @@
         </tr>
       </thead>
       <tbody>
-        <% @issues_data.each do |item| %>
-          <% iss = item[:issue]; dur = item[:durations] %>
-          <tr class="tj-row">
-            <td class="tj-td-issue">
-              <%= link_to "##{iss.id}", ticket_journey_issue_path(@project, iss.id), class: 'tj-issue-link' %>
-            </td>
-            <td class="tj-td-title" title="<%= h(iss.subject) %>">
-              <%= link_to h(iss.subject), issue_path(iss), class: 'tj-subject-link' %>
-            </td>
-            <td class="tj-td-status">
-              <span class="tj-status-badge"><%= h(iss.status.name) %></span>
-            </td>
-            <% native_columns.each do |column| %>
-              <td class="tj-td-native"><%= column_content(column, iss) %></td>
-            <% end %>
-            <% d_fields.each do |f| %>
-              <% val = dur[f[:key]].to_f %>
-              <td class="<%= duration_css_class(val, aug: f[:aug]) %>">
-                <%= format_hours(val) %>
+        <% grouped_data.each do |label, items| %>
+          <% if (heading = group_label(@query, label, items.size)) %>
+            <tr class="tj-group-row">
+              <td colspan="<%= total_columns %>" class="tj-group-cell"><%= heading %></td>
+            </tr>
+          <% end %>
+          <% items.each do |item| %>
+            <% iss = item[:issue]; dur = item[:durations] %>
+            <tr class="tj-row">
+              <td class="tj-td-issue">
+                <%= link_to "##{iss.id}", ticket_journey_issue_path(@project, iss.id), class: 'tj-issue-link' %>
               </td>
-            <% end %>
-            <td class="tj-td-total"><%= format_hours(dur[:TOTAL]) %></td>
-            <td class="<%= counter_css_class(dur[:C1]) %>"><%= dur[:C1] > 0 ? dur[:C1] : '—' %></td>
-            <td class="<%= counter_css_class(dur[:C2]) %>"><%= dur[:C2] > 0 ? dur[:C2] : '—' %></td>
-            <td class="<%= counter_css_class(dur[:C3]) %>"><%= dur[:C3] > 0 ? dur[:C3] : '—' %></td>
-            <td class="<%= counter_css_class(dur[:C4]) %>"><%= dur[:C4] > 0 ? dur[:C4] : '—' %></td>
-          </tr>
+              <td class="tj-td-title" title="<%= h(iss.subject) %>">
+                <%= link_to h(iss.subject), issue_path(iss), class: 'tj-subject-link' %>
+              </td>
+              <td class="tj-td-status">
+                <span class="tj-status-badge"><%= h(iss.status.name) %></span>
+              </td>
+              <% native_columns.each do |column| %>
+                <td class="tj-td-native"><%= column_content(column, iss) %></td>
+              <% end %>
+              <% d_fields.each do |f| %>
+                <% val = dur[f[:key]].to_f %>
+                <td class="<%= duration_css_class(val, aug: f[:aug]) %>">
+                  <%= format_hours(val) %>
+                </td>
+              <% end %>
+              <td class="tj-td-total"><%= format_hours(dur[:TOTAL]) %></td>
+              <td class="<%= counter_css_class(dur[:C1]) %>"><%= dur[:C1] > 0 ? dur[:C1] : '—' %></td>
+              <td class="<%= counter_css_class(dur[:C2]) %>"><%= dur[:C2] > 0 ? dur[:C2] : '—' %></td>
+              <td class="<%= counter_css_class(dur[:C3]) %>"><%= dur[:C3] > 0 ? dur[:C3] : '—' %></td>
+              <td class="<%= counter_css_class(dur[:C4]) %>"><%= dur[:C4] > 0 ? dur[:C4] : '—' %></td>
+            </tr>
+          <% end %>
         <% end %>
       </tbody>
     </table>

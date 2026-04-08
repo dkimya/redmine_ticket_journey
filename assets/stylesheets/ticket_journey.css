@@ -215,6 +215,19 @@
   font-size: 12px;
 }
 .tj-row:hover td { background: #f7f9ff; }
+.tj-group-row td {
+  padding: 10px 12px;
+  background: #eef4ff;
+  border-bottom: 1px solid #d7e3fb;
+  border-right: 1px solid #d7e3fb;
+  text-align: left;
+}
+.tj-group-cell {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--tj-blue);
+}
 
 .tj-td-issue { text-align: left; }
 .tj-td-title {

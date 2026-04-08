@@ -28,6 +28,24 @@ module TicketJourneyHelper
     end
   end
 
+  def grouped_issues_data(query, issues_data)
+    group_column = query.group_by_column
+    return [[nil, issues_data]] unless group_column
+
+    issues_data.group_by do |item|
+      value = group_column.value_object(item[:issue])
+      value = value.name if value.respond_to?(:name)
+      value = value.to_s if value.is_a?(Date) || value.is_a?(Time)
+      value.presence || 'None'
+    end.sort_by { |label, _| label.to_s.downcase }
+  end
+
+  def group_label(query, label, count)
+    return nil unless query.group_by_column
+
+    "#{query.group_by_column.caption}: #{label} (#{count})"
+  end
+
   def d_fields
     [
     { key: :D1,    label: 'D1',     aug: false, desc: 'Planning (New → To-Do)' },
