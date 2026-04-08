@@ -98,6 +98,7 @@ class TicketJourneyController < ApplicationController
         i.subject           AS issue_subject,
         i.created_on        AS issue_created_on,
         j.created_on        AS changed_at,
+        j.notes             AS notes,
         s_from.name         AS from_status,
         s_to.name           AS to_status,
         u.login             AS changed_by,
@@ -142,6 +143,7 @@ class TicketJourneyController < ApplicationController
         to_status: initial_status,
         changed_by: iss.author&.login,
         changed_by_name: iss.author&.name,
+        notes: nil,
         synthetic: true
       }
 
@@ -154,6 +156,7 @@ class TicketJourneyController < ApplicationController
           to_status: row['to_status'],
           changed_by: row['changed_by'],
           changed_by_name: "#{row['changed_by_firstname']} #{row['changed_by_lastname']}".strip,
+          notes: row['notes'],
           synthetic: false
         }
       end

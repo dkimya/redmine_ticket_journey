@@ -452,3 +452,27 @@
 .tj-tl-time    { margin-left: auto; font-size: 11px; color: var(--tj-text-muted); font-family: 'Courier New', monospace; }
 .tj-tl-meta    { font-size: 11px; color: var(--tj-text-muted); }
 .tj-tl-spent   { color: var(--tj-accent); font-weight: 600; font-family: 'Courier New', monospace; }
+.tj-tl-notes {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: #ffffff;
+  border-left: 3px solid var(--tj-accent);
+  border-radius: 6px;
+  color: var(--tj-text);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.tj-tl-notes-label {
+  margin-bottom: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--tj-text-dim);
+}
+.tj-tl-notes p {
+  margin: 0;
+}
+.tj-tl-notes p + p {
+  margin-top: 6px;
+}

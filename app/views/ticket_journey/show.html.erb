@@ -148,6 +148,12 @@
                 &nbsp;·&nbsp; spent: <span class="tj-tl-spent"><%= format_hours(period_h) %></span>
               <% end %>
             </div>
+            <% if t[:notes].present? %>
+              <div class="tj-tl-notes">
+                <div class="tj-tl-notes-label">Note</div>
+                <%= simple_format(h(t[:notes]), {}, wrapper_tag: 'div') %>
+              </div>
+            <% end %>
           </div>
         </div>
       <% end %>
