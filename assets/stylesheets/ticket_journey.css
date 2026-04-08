@@ -200,6 +200,7 @@
 .tj-th-issue  { text-align: left; min-width: 70px; }
 .tj-th-title  { text-align: left; min-width: 180px; }
 .tj-th-status { min-width: 90px; }
+.tj-th-peak   { color: var(--tj-accent); background: #fff8eb; min-width: 110px; }
 .tj-th-d      { color: var(--tj-blue); background: #f5f8fd; }
 .tj-th-aug    { color: var(--tj-orange); background: #fdf7f0; }
 .tj-th-total  { color: var(--tj-green); background: #f0faf3; }
@@ -253,6 +254,12 @@
   white-space: nowrap;
 }
 .tj-td-status { text-align: left; }
+.tj-td-peak {
+  background: #fffaf0;
+  color: var(--tj-text);
+  font-weight: 700;
+  white-space: nowrap;
+}
 .tj-td-total {
   background: var(--tj-green-bg);
   color: var(--tj-green);

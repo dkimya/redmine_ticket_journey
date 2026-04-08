@@ -398,14 +398,15 @@ class TicketJourneyController < ApplicationController
     require 'csv'
     d_fields = %w[D1 D2 D2aug D3 D3aug D4 D4aug D5 D5aug D6 D6aug D7aug D7 D8 TOTAL C1 C2 C3 C4]
     CSV.generate(headers: true, encoding: 'UTF-8') do |csv|
-      csv << ['issue_id', 'subject', 'status', 'assignee', 'tracker', *d_fields]
+      csv << ['issue_id', 'subject', 'status', 'assignee', 'tracker', *d_fields, 'peak_d']
       issues_data.each do |item|
         iss = item[:issue]
         dur = item[:durations]
         csv << [
           iss.id, iss.subject, iss.status.name,
           iss.assigned_to&.name, iss.tracker.name,
-          *d_fields.map { |f| dur[f.to_sym] || 0 }
+          *d_fields.map { |f| dur[f.to_sym] || 0 },
+          view_context.peak_duration_label(dur)
         ]
       end
     end

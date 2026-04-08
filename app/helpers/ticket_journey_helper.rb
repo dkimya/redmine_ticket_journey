@@ -57,6 +57,19 @@ module TicketJourneyHelper
     }
   end
 
+  def peak_duration_field(durations)
+    d_fields
+      .map { |field| [field, durations[field[:key]].to_f] }
+      .max_by { |field, value| [value, -d_fields.index(field)] }
+  end
+
+  def peak_duration_label(durations)
+    field, value = peak_duration_field(durations)
+    return '—' if field.nil? || value.to_f <= 0
+
+    "#{field[:label]} #{format_hours(value)}"
+  end
+
   def d_fields
     [
     { key: :D1,    label: 'D1',     aug: false, desc: 'Planning (New → To-Do)' },

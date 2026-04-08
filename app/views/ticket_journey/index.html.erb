@@ -91,7 +91,7 @@
     <table class="tj-table" id="tj-table">
       <% native_columns = visible_native_query_columns(@query) %>
       <% grouped_data = grouped_issues_data(@query, @issues_data) %>
-      <% total_columns = 3 + native_columns.size + d_fields.size + 5 %>
+      <% total_columns = 3 + native_columns.size + d_fields.size + 6 %>
       <thead>
         <tr>
           <th class="tj-th-issue"><%= query_sort_link(@query, :id, 'Issue') %></th>
@@ -103,6 +103,7 @@
           <% d_fields.each do |f| %>
             <th class="<%= f[:aug] ? 'tj-th-aug' : 'tj-th-d' %>" title="<%= f[:desc] %>"><%= f[:label] %></th>
           <% end %>
+          <th class="tj-th-peak">Peak D</th>
           <th class="tj-th-total">TOTAL</th>
           <th class="tj-th-counter" title="Function-Fail / Granular Error">C1</th>
           <th class="tj-th-counter" title="Code-Quality-Fail">C2</th>
@@ -147,6 +148,7 @@
                   <%= format_hours(val) %>
                 </td>
               <% end %>
+              <td class="tj-td-peak"><%= peak_duration_label(dur) %></td>
               <td class="tj-td-total"><%= format_hours(dur[:TOTAL]) %></td>
               <td class="<%= counter_css_class(dur[:C1]) %>"><%= dur[:C1] > 0 ? dur[:C1] : '—' %></td>
               <td class="<%= counter_css_class(dur[:C2]) %>"><%= dur[:C2] > 0 ? dur[:C2] : '—' %></td>
