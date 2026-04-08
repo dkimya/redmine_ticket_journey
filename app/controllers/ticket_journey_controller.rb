@@ -58,8 +58,11 @@ class TicketJourneyController < ApplicationController
 
     @query = (base_query || IssueQuery.new(name: '_'))
     @query.project = @project
-    @query.column_names = []
     @query.build_from_params(params, project: @project)
+
+    unless params[:query_id].present? || params[:c].present? || params.dig(:query, :column_names).present?
+      @query.column_names = [:id, :subject, :status]
+    end
   end
 
   # ---------------------------------------------------------------
