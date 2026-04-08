@@ -228,6 +228,20 @@
   font-weight: 700;
   color: var(--tj-blue);
 }
+.tj-group-head {
+  margin-bottom: 4px;
+}
+.tj-group-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--tj-text-dim);
+}
+.tj-group-summary strong {
+  color: var(--tj-text);
+}
 
 .tj-td-issue { text-align: left; }
 .tj-td-title {

@@ -1,6 +1,5 @@
 <% content_for :header_tags do %>
   <%= stylesheet_link_tag 'ticket_journey', plugin: 'redmine_ticket_journey' %>
-  <%= javascript_include_tag 'ticket_journey', plugin: 'redmine_ticket_journey' %>
 <% end %>
 
 <div id="tj-wrap">
@@ -114,8 +113,17 @@
       <tbody>
         <% grouped_data.each do |label, items| %>
           <% if (heading = group_label(@query, label, items.size)) %>
+            <% summary = group_summary(items) %>
             <tr class="tj-group-row">
-              <td colspan="<%= total_columns %>" class="tj-group-cell"><%= heading %></td>
+              <td colspan="<%= total_columns %>" class="tj-group-cell">
+                <div class="tj-group-head"><%= heading %></div>
+                <div class="tj-group-summary">
+                  <span>Issues: <strong><%= summary[:issues] %></strong></span>
+                  <span>Avg Total: <strong><%= format_hours(summary[:avg_total]) %></strong></span>
+                  <span>Max Total: <strong><%= format_hours(summary[:max_total]) %></strong></span>
+                  <span>Returns: <strong><%= summary[:returns] %></strong></span>
+                </div>
+              </td>
             </tr>
           <% end %>
           <% items.each do |item| %>

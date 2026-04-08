@@ -46,6 +46,17 @@ module TicketJourneyHelper
     "#{query.group_by_column.caption}: #{label} (#{count})"
   end
 
+  def group_summary(items)
+    totals = items.map { |item| item[:durations][:TOTAL].to_f }.reject(&:zero?)
+
+    {
+      issues: items.size,
+      avg_total: totals.any? ? (totals.sum / totals.size) : 0,
+      max_total: totals.max || 0,
+      returns: items.sum { |item| item[:durations][:C1] + item[:durations][:C2] + item[:durations][:C3] + item[:durations][:C4] }
+    }
+  end
+
   def d_fields
     [
     { key: :D1,    label: 'D1',     aug: false, desc: 'Planning (New → To-Do)' },
