@@ -1,19 +1,14 @@
 class TicketJourneyController < ApplicationController
   before_action :find_project
   before_action :authorize
+  before_action :build_query, only: [:index, :export]
+
+  helper :queries
 
   # ---------------------------------------------------------------
   # INDEX — list all issues with computed durations
   # ---------------------------------------------------------------
   def index
-    @date_from = params[:date_from].present? ? (Date.parse(params[:date_from]) rescue nil) : nil
-    @date_to   = params[:date_to].present?   ? (Date.parse(params[:date_to])   rescue nil) : nil
-    @tracker_id = params[:tracker_id].presence
-    @assignee_id = params[:assignee_id].presence
-
-    @trackers  = @project.trackers.sorted
-    @members   = @project.members.includes(:user).map(&:user).sort_by(&:name)
-
     @issues_data = compute_all_durations
   end
 
@@ -51,6 +46,19 @@ class TicketJourneyController < ApplicationController
     @project = Project.find(params[:project_id])
   rescue ActiveRecord::RecordNotFound
     render_404
+  end
+
+  def build_query
+    base_query =
+      if params[:query_id].present?
+        IssueQuery.visible.where(project_id: [nil, @project.id]).find_by(id: params[:query_id])
+      else
+        IssueQuery.default(project: @project, user: User.current)
+      end
+
+    @query = (base_query || IssueQuery.new(name: '_'))
+    @query.project = @project
+    @query.build_from_params(params, project: @project)
   end
 
   # ---------------------------------------------------------------
@@ -168,16 +176,12 @@ class TicketJourneyController < ApplicationController
   # COMPUTE DURATIONS FOR ALL ISSUES
   # ---------------------------------------------------------------
   def compute_all_durations
-    scope = @project.issues.includes(:status, :author, :assigned_to, :tracker)
-    scope = scope.where(tracker_id: @tracker_id) if @tracker_id
-    scope = scope.where(assigned_to_id: @assignee_id) if @assignee_id
+    return [] unless @query&.valid?
 
-    if @date_from || @date_to
-      scope = scope.where('issues.created_on >= ?', @date_from.beginning_of_day) if @date_from
-      scope = scope.where('issues.created_on <= ?', @date_to.end_of_day) if @date_to
-    end
-
-    issues = scope.to_a
+    issues = @query.issues(
+      order: @query.sort_clause.presence || "#{Issue.table_name}.id DESC",
+      include: [:status, :author, :assigned_to, :tracker]
+    )
     all_transitions = load_transitions(issues)
 
     issues.map do |issue|

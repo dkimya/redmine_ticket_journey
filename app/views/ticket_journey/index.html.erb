@@ -15,47 +15,18 @@
     </div>
     <div class="tj-page-header-right">
       <%= link_to '⬇ Export CSV',
-            ticket_journey_export_path(@project, format: :csv,
-              date_from: params[:date_from], date_to: params[:date_to],
-              tracker_id: params[:tracker_id], assignee_id: params[:assignee_id]),
+            ticket_journey_export_path(@project, @query.as_params.merge(format: :csv)),
             class: 'tj-btn tj-btn-export' %>
     </div>
   </div>
 
-  <!-- ── FILTER BAR ── -->
-  <div class="tj-filter-bar">
-    <%= form_tag(ticket_journey_path(@project), method: :get, class: 'tj-filter-form') do %>
-      <div class="tj-filter-group">
-        <label>From</label>
-        <%= text_field_tag :date_from, params[:date_from], class: 'tj-input', type: 'date' %>
-      </div>
-      <div class="tj-filter-group">
-        <label>To</label>
-        <%= text_field_tag :date_to, params[:date_to], class: 'tj-input', type: 'date' %>
-      </div>
-      <div class="tj-filter-group">
-        <label>Tracker</label>
-        <%= select_tag :tracker_id,
-              options_from_collection_for_select(@trackers, :id, :name, params[:tracker_id]),
-              include_blank: '— All —', class: 'tj-input' %>
-      </div>
-      <div class="tj-filter-group">
-        <label>Assignee</label>
-        <%= select_tag :assignee_id,
-              options_from_collection_for_select(@members, :id, :name, params[:assignee_id]),
-              include_blank: '— All —', class: 'tj-input' %>
-      </div>
-      <div class="tj-filter-group tj-filter-search">
-        <label>Search</label>
-        <input type="text" id="tj-search" class="tj-input" placeholder="Filter by ID or title…" />
-      </div>
-      <%= submit_tag 'Apply', class: 'tj-btn tj-btn-primary', name: nil %>
-      <%= link_to 'Reset', ticket_journey_path(@project), class: 'tj-btn tj-btn-secondary' %>
-    <% end %>
-  </div>
+  <!-- ── REDMINE QUERY FILTERS ── -->
+  <%= form_tag(ticket_journey_path(@project), method: :get, id: 'query_form') do %>
+    <%= render partial: 'queries/query_form' %>
+  <% end %>
 
   <!-- ── SUMMARY STRIP ── -->
-  <% if @issues_data.any? %>
+  <% if @query.valid? && @issues_data.any? %>
   <%
     total_issues = @issues_data.size
     totals       = @issues_data.map { |d| d[:durations][:TOTAL].to_f }.reject(&:zero?)
@@ -104,11 +75,17 @@
   <% end %>
 
   <!-- ── MAIN TABLE ── -->
-  <% if @issues_data.empty? %>
+  <% if !@query.valid? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">📋</div>
+      <h3>Invalid filters</h3>
+      <p>Please review the Redmine query filters above.</p>
+    </div>
+  <% elsif @issues_data.empty? %>
     <div class="tj-empty">
       <div class="tj-empty-icon">📋</div>
       <h3>No issues found</h3>
-      <p>Try adjusting the filters above.</p>
+      <p>Try adjusting the Redmine query filters above.</p>
     </div>
   <% else %>
   <div class="tj-table-wrap">
@@ -131,7 +108,7 @@
       <tbody>
         <% @issues_data.each do |item| %>
           <% iss = item[:issue]; dur = item[:durations] %>
-          <tr class="tj-row" data-search="<%= "#{iss.id} #{iss.subject}".downcase %>">
+          <tr class="tj-row">
             <td class="tj-td-issue">
               <%= link_to "##{iss.id}", ticket_journey_issue_path(@project, iss.id), class: 'tj-issue-link' %>
             </td>
