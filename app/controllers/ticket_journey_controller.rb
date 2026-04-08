@@ -58,6 +58,7 @@ class TicketJourneyController < ApplicationController
 
     @query = (base_query || IssueQuery.new(name: '_'))
     @query.project = @project
+    @query.column_names = []
     @query.build_from_params(params, project: @project)
   end
 
