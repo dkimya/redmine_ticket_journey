@@ -217,7 +217,22 @@ class TicketJourneyController < ApplicationController
     hours = ->(a, b) { a && b ? [(b - a) / 3600.0, 0].max.round(2) : 0.0 }
     v = ->(role) { visits[role] || [] }
 
-    d1 = v.call(:new).sum { |p| hours.call(p[:enter], p[:exit]) }
+    d1 = 0.0
+    d8 = 0.0
+
+    periods.each_with_index do |period, index|
+      next unless status_role(period[:status]) == :new
+
+      next_period = periods[index + 1]
+      new_duration = hours.call(period[:enter], period[:exit])
+
+      case status_role(next_period&.dig(:status))
+      when :todo
+        d1 += new_duration
+      when :feedback
+        d8 += new_duration
+      end
+    end
 
     todo_visits = v.call(:todo)
     returned_visits = v.call(:returned)
@@ -304,7 +319,7 @@ class TicketJourneyController < ApplicationController
       end
     end
 
-    total = d1 + d2 + d2aug + d3 + d3aug + d4 + d4aug + d5 + d5aug + d6 + d6aug + d7aug + d7
+    total = d1 + d2 + d2aug + d3 + d3aug + d4 + d4aug + d5 + d5aug + d6 + d6aug + d7aug + d7 + d8
 
     {
       D1: d1, D2: d2, D2aug: d2aug,
@@ -312,7 +327,7 @@ class TicketJourneyController < ApplicationController
       D4: d4, D4aug: d4aug,
       D5: d5, D5aug: d5aug,
       D6: d6, D6aug: d6aug,
-      D7aug: d7aug, D7: d7,
+      D7aug: d7aug, D7: d7, D8: d8,
       TOTAL: total,
       C1: c1, C2: c2, C3: c3, C4: c4,
       periods: periods
@@ -358,7 +373,7 @@ class TicketJourneyController < ApplicationController
       D4: 0.0, D4aug: 0.0,
       D5: 0.0, D5aug: 0.0,
       D6: 0.0, D6aug: 0.0,
-      D7aug: 0.0, D7: 0.0,
+      D7aug: 0.0, D7: 0.0, D8: 0.0,
       TOTAL: 0.0,
       C1: 0, C2: 0, C3: 0, C4: 0,
       periods: []
@@ -370,7 +385,7 @@ class TicketJourneyController < ApplicationController
   # ---------------------------------------------------------------
   def generate_csv(issues_data)
     require 'csv'
-    d_fields = %w[D1 D2 D2aug D3 D3aug D4 D4aug D5 D5aug D6 D6aug D7aug D7 TOTAL C1 C2 C3 C4]
+    d_fields = %w[D1 D2 D2aug D3 D3aug D4 D4aug D5 D5aug D6 D6aug D7aug D7 D8 TOTAL C1 C2 C3 C4]
     CSV.generate(headers: true, encoding: 'UTF-8') do |csv|
       csv << ['issue_id', 'subject', 'status', 'assignee', 'tracker', *d_fields]
       issues_data.each do |item|

@@ -16,4 +16,5 @@ en:
       D6aug: "Merge (Conflict)"
       D7aug: "Post-Int QA"
       D7:    "Final pass gap"
+      D8:    "Waiting for Validation"
       TOTAL: "Total Cycle Time"
