@@ -209,9 +209,11 @@ class TicketJourneyController < ApplicationController
   end
 
   def compute_owner_returns_summary(issues_data)
-    rows = Hash.new do |hash, owner|
-      hash[owner] = {
-        owner: owner,
+    rows = Hash.new do |hash, owner_key|
+      owner_id, owner_name = owner_key
+      hash[owner_key] = {
+        owner: owner_name,
+        owner_id: owner_id,
         total_tickets: 0,
         returned_tickets: 0,
         c1: 0,
@@ -223,8 +225,9 @@ class TicketJourneyController < ApplicationController
     end
 
     issues_data.each do |item|
-      owner = item[:issue].assigned_to&.name.presence || 'Unassigned'
-      row = rows[owner]
+      owner_id = item[:issue].assigned_to&.id
+      owner_name = item[:issue].assigned_to&.name.presence || 'Unassigned'
+      row = rows[[owner_id, owner_name]]
       row[:total_tickets] += 1
 
       durations = item[:durations]

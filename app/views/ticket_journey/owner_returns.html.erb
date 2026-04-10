@@ -94,7 +94,11 @@
         <tbody>
           <% @owner_return_rows.each do |row| %>
             <tr class="tj-row">
-              <td class="tj-td-title"><%= row[:owner] %></td>
+              <td class="tj-td-title">
+                <%= link_to row[:owner],
+                      ticket_journey_path(@project, owner_filter_params(@query, row[:owner_id])),
+                      class: 'tj-subject-link' %>
+              </td>
               <td class="tj-td-native"><%= row[:total_tickets] %></td>
               <td class="tj-td-native"><%= row[:returned_tickets] %></td>
               <td class="<%= counter_css_class(row[:c1]) %>"><%= row[:c1] > 0 ? row[:c1] : '—' %></td>

@@ -28,6 +28,29 @@ module TicketJourneyHelper
     end
   end
 
+  def owner_filter_params(query, owner_id)
+    query_params = query.as_params.deep_dup
+    filters = Array(query_params[:f] || query_params['f']).map(&:to_s)
+    operators = (query_params[:op] || query_params['op'] || {}).deep_dup
+    values = (query_params[:v] || query_params['v'] || {}).deep_dup
+
+    filters << 'assigned_to_id' unless filters.include?('assigned_to_id')
+
+    if owner_id.present?
+      operators['assigned_to_id'] = '='
+      values['assigned_to_id'] = [owner_id.to_s]
+    else
+      operators['assigned_to_id'] = '!*'
+      values['assigned_to_id'] = ['']
+    end
+
+    query_params[:set_filter] = '1'
+    query_params[:f] = filters
+    query_params[:op] = operators
+    query_params[:v] = values
+    query_params
+  end
+
   def grouped_issues_data(query, issues_data)
     group_column = query.group_by_column
     return [[nil, issues_data]] unless group_column
