@@ -212,7 +212,8 @@ class TicketJourneyController < ApplicationController
     rows = Hash.new do |hash, owner|
       hash[owner] = {
         owner: owner,
-        tickets: 0,
+        total_tickets: 0,
+        returned_tickets: 0,
         c1: 0,
         c2: 0,
         c3: 0,
@@ -222,13 +223,15 @@ class TicketJourneyController < ApplicationController
     end
 
     issues_data.each do |item|
+      owner = item[:issue].assigned_to&.name.presence || 'Unassigned'
+      row = rows[owner]
+      row[:total_tickets] += 1
+
       durations = item[:durations]
       total_returns = durations[:C1].to_i + durations[:C2].to_i + durations[:C3].to_i + durations[:C4].to_i
       next if total_returns.zero?
 
-      owner = item[:issue].assigned_to&.name.presence || 'Unassigned'
-      row = rows[owner]
-      row[:tickets] += 1
+      row[:returned_tickets] += 1
       row[:c1] += durations[:C1].to_i
       row[:c2] += durations[:C2].to_i
       row[:c3] += durations[:C3].to_i
@@ -236,7 +239,7 @@ class TicketJourneyController < ApplicationController
       row[:total_returns] += total_returns
     end
 
-    rows.values.sort_by { |row| [-row[:total_returns], -row[:tickets], row[:owner].downcase] }
+    rows.values.sort_by { |row| [-row[:total_returns], -row[:total_tickets], row[:owner].downcase] }
   end
 
   # ---------------------------------------------------------------
