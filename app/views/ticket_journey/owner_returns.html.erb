@@ -24,7 +24,8 @@
           <label for="ticket_owner_role_id">Ticket Owner Role</label>
           <%= select_tag :ticket_owner_role_id,
                 options_for_select([['All roles', 'all']] + @owner_roles.map { |role| [role.name, role.id] }, @selected_owner_role_option),
-                class: 'tj-input' %>
+                class: 'tj-input',
+                onchange: 'this.form.submit();' %>
         </div>
       </div>
     </div>
