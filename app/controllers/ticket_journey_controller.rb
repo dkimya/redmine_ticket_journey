@@ -77,6 +77,7 @@ class TicketJourneyController < ApplicationController
     review:       ['Review'],
     ready_merge:  ['Ready to Merge'],
     final_check:  ['Final Check'],
+    archived:     ['Archived'],
     done:         ['Done / Closed'],
   }.freeze
 
@@ -261,6 +262,7 @@ class TicketJourneyController < ApplicationController
     d4 = 0.0
     d4aug = 0.0
     d9 = 0.0
+    d10 = 0.0
     non_validation_feedback_visits = 0
 
     periods.each_with_index do |period, index|
@@ -270,8 +272,11 @@ class TicketJourneyController < ApplicationController
       next_period = periods[index + 1]
       feedback_duration = hours.call(period[:enter], period[:exit])
       entered_from_role = status_role(previous_period&.dig(:status))
+      next_role = status_role(next_period&.dig(:status))
 
-      case entered_from_role
+      case next_role
+      when :archived
+        d10 += feedback_duration
       when :new
         d9 += feedback_duration
       else
@@ -352,7 +357,7 @@ class TicketJourneyController < ApplicationController
       end
     end
 
-    total = d1 + d2 + d2aug + d3 + d3aug + d4 + d4aug + d5 + d5aug + d6 + d6aug + d7aug + d7 + d8 + d9
+    total = d1 + d2 + d2aug + d3 + d3aug + d4 + d4aug + d5 + d5aug + d6 + d6aug + d7aug + d7 + d8 + d9 + d10
 
     {
       D1: d1, D2: d2, D2aug: d2aug,
@@ -360,7 +365,7 @@ class TicketJourneyController < ApplicationController
       D4: d4, D4aug: d4aug,
       D5: d5, D5aug: d5aug,
       D6: d6, D6aug: d6aug,
-      D7aug: d7aug, D7: d7, D8: d8, D9: d9,
+      D7aug: d7aug, D7: d7, D8: d8, D9: d9, D10: d10,
       TOTAL: total,
       C1: c1, C2: c2, C3: c3, C4: c4,
       periods: periods
@@ -406,7 +411,7 @@ class TicketJourneyController < ApplicationController
       D4: 0.0, D4aug: 0.0,
       D5: 0.0, D5aug: 0.0,
       D6: 0.0, D6aug: 0.0,
-      D7aug: 0.0, D7: 0.0, D8: 0.0, D9: 0.0,
+      D7aug: 0.0, D7: 0.0, D8: 0.0, D9: 0.0, D10: 0.0,
       TOTAL: 0.0,
       C1: 0, C2: 0, C3: 0, C4: 0,
       periods: []
@@ -418,7 +423,7 @@ class TicketJourneyController < ApplicationController
   # ---------------------------------------------------------------
   def generate_csv(issues_data)
     require 'csv'
-    d_fields = %w[D1 D2 D2aug D3 D3aug D4 D4aug D5 D5aug D6 D6aug D7aug D7 D8 D9 TOTAL C1 C2 C3 C4]
+    d_fields = %w[D1 D2 D2aug D3 D3aug D4 D4aug D5 D5aug D6 D6aug D7aug D7 D8 D9 D10 TOTAL C1 C2 C3 C4]
     CSV.generate(headers: true, encoding: 'UTF-8') do |csv|
       csv << ['issue_id', 'subject', 'status', 'assignee', 'tracker', *d_fields, 'peak_d']
       issues_data.each do |item|

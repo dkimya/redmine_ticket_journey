@@ -18,4 +18,5 @@ en:
       D7:    "Final pass gap"
       D8:    "Waiting for Validation"
       D9:    "Validation Time"
+      D10:   "Not-Validation"
       TOTAL: "Total Cycle Time"
