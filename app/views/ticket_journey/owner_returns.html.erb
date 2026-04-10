@@ -92,13 +92,15 @@
     <div class="tj-table-wrap">
       <table class="tj-table">
         <thead>
-          <tr>
-            <th class="tj-th-title">Ticket Owner</th>
-            <th class="tj-th-native">No of Tickets</th>
-            <th class="tj-th-native">No of Returned Tickets</th>
-            <th class="tj-th-counter">C1</th>
-            <th class="tj-th-counter">C2</th>
-            <th class="tj-th-counter">C3</th>
+            <tr>
+              <th class="tj-th-title">Ticket Owner</th>
+              <th class="tj-th-native">No of Tickets</th>
+              <th class="tj-th-native">% of All Tickets</th>
+              <th class="tj-th-native">No of Returned Tickets</th>
+              <th class="tj-th-native">Return Rate</th>
+              <th class="tj-th-counter">C1</th>
+              <th class="tj-th-counter">C2</th>
+              <th class="tj-th-counter">C3</th>
             <th class="tj-th-counter">C4</th>
             <th class="tj-th-total">Total Returns</th>
           </tr>
@@ -112,7 +114,9 @@
                       class: 'tj-subject-link' %>
               </td>
               <td class="tj-td-native"><%= row[:total_tickets] %></td>
+              <td class="tj-td-native"><%= format_percentage(row[:total_tickets], total_tickets) %></td>
               <td class="tj-td-native"><%= row[:returned_tickets] %></td>
+              <td class="tj-td-native"><%= format_percentage(row[:returned_tickets], row[:total_tickets]) %></td>
               <td class="<%= counter_css_class(row[:c1]) %>"><%= row[:c1] > 0 ? row[:c1] : '—' %></td>
               <td class="<%= counter_css_class(row[:c2]) %>"><%= row[:c2] > 0 ? row[:c2] : '—' %></td>
               <td class="<%= counter_css_class(row[:c3]) %>"><%= row[:c3] > 0 ? row[:c3] : '—' %></td>

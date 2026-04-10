@@ -139,4 +139,11 @@ module TicketJourneyHelper
   def counter_css_class(count)
     count.to_i > 0 ? 'tj-counter-active' : 'tj-counter-zero'
   end
+
+  def format_percentage(numerator, denominator)
+    return '—' if denominator.to_f <= 0
+
+    percentage = (numerator.to_f / denominator.to_f) * 100
+    "#{percentage.round(1)}%"
+  end
 end
