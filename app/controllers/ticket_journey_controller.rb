@@ -1,4 +1,6 @@
 class TicketJourneyController < ApplicationController
+  TICKET_OWNER_CF_ID = 57
+
   before_action :find_project
   before_action :authorize
   before_action :build_query, only: [:index, :owner_returns, :export]
@@ -193,7 +195,7 @@ class TicketJourneyController < ApplicationController
 
     issues = @query.issues(
       order: @query.sort_clause.presence || "#{Issue.table_name}.id DESC",
-      include: [:status, :author, :assigned_to, :tracker]
+      include: [:status, :author, :assigned_to, :tracker, { custom_values: :custom_field }]
     )
     all_transitions = load_transitions(issues)
 
@@ -210,10 +212,10 @@ class TicketJourneyController < ApplicationController
 
   def compute_owner_returns_summary(issues_data)
     rows = Hash.new do |hash, owner_key|
-      owner_id, owner_name = owner_key
+      owner_value, owner_name = owner_key
       hash[owner_key] = {
         owner: owner_name,
-        owner_id: owner_id,
+        owner_value: owner_value,
         total_tickets: 0,
         returned_tickets: 0,
         c1: 0,
@@ -225,9 +227,8 @@ class TicketJourneyController < ApplicationController
     end
 
     issues_data.each do |item|
-      owner_id = item[:issue].assigned_to&.id
-      owner_name = item[:issue].assigned_to&.name.presence || 'Unassigned'
-      row = rows[[owner_id, owner_name]]
+      owner_value, owner_name = ticket_owner_info(item[:issue])
+      row = rows[[owner_value, owner_name]]
       row[:total_tickets] += 1
 
       durations = item[:durations]
@@ -243,6 +244,26 @@ class TicketJourneyController < ApplicationController
     end
 
     rows.values.sort_by { |row| [-row[:total_returns], -row[:total_tickets], row[:owner].downcase] }
+  end
+
+  def ticket_owner_info(issue)
+    custom_value = issue.custom_value_for(TICKET_OWNER_CF_ID)
+    raw_value = custom_value&.value.presence
+    return [nil, 'Unassigned'] if raw_value.blank?
+
+    display_value =
+      if custom_value.custom_field.field_format == 'user'
+        ticket_owner_user_name(raw_value)
+      else
+        raw_value
+      end
+
+    [raw_value, display_value]
+  end
+
+  def ticket_owner_user_name(raw_value)
+    @ticket_owner_name_cache ||= {}
+    @ticket_owner_name_cache[raw_value] ||= Principal.find_by(id: raw_value)&.name || raw_value
   end
 
   # ---------------------------------------------------------------

@@ -28,20 +28,21 @@ module TicketJourneyHelper
     end
   end
 
-  def owner_filter_params(query, owner_id)
+  def ticket_owner_filter_params(query, owner_value)
     query_params = query.as_params.deep_dup
     filters = Array(query_params[:f] || query_params['f']).map(&:to_s)
     operators = (query_params[:op] || query_params['op'] || {}).deep_dup
     values = (query_params[:v] || query_params['v'] || {}).deep_dup
 
-    filters << 'assigned_to_id' unless filters.include?('assigned_to_id')
+    field_name = "cf_#{TicketJourneyController::TICKET_OWNER_CF_ID}"
+    filters << field_name unless filters.include?(field_name)
 
-    if owner_id.present?
-      operators['assigned_to_id'] = '='
-      values['assigned_to_id'] = [owner_id.to_s]
+    if owner_value.present?
+      operators[field_name] = '='
+      values[field_name] = [owner_value.to_s]
     else
-      operators['assigned_to_id'] = '!*'
-      values['assigned_to_id'] = ['']
+      operators[field_name] = '!*'
+      values[field_name] = ['']
     end
 
     query_params[:set_filter] = '1'
