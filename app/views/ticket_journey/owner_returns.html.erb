@@ -1,0 +1,105 @@
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'ticket_journey', plugin: 'redmine_ticket_journey' %>
+<% end %>
+
+<div id="tj-wrap">
+
+  <div class="tj-page-header">
+    <div class="tj-page-header-left">
+      <div>
+        <h2>Returned Tickets by Ticket Owner</h2>
+        <p class="tj-page-sub">Journey Report Summary &mdash; <%= @project.name %></p>
+      </div>
+    </div>
+  </div>
+
+  <%= render partial: 'report_tabs', locals: { active_tab: :owner_returns } %>
+
+  <%= form_tag(ticket_journey_owner_returns_path(@project), method: :get, id: 'query_form') do %>
+    <%= render partial: 'queries/query_form' %>
+  <% end %>
+
+  <% if !@query.valid? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">📋</div>
+      <h3>Invalid filters</h3>
+      <p>Please review the Redmine query filters above.</p>
+    </div>
+  <% elsif @owner_return_rows.empty? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">📋</div>
+      <h3>No returned tickets found</h3>
+      <p>Try adjusting the Redmine query filters above.</p>
+    </div>
+  <% else %>
+    <%
+      total_tickets = @owner_return_rows.sum { |row| row[:tickets] }
+      c1_total = @owner_return_rows.sum { |row| row[:c1] }
+      c2_total = @owner_return_rows.sum { |row| row[:c2] }
+      c3_total = @owner_return_rows.sum { |row| row[:c3] }
+      c4_total = @owner_return_rows.sum { |row| row[:c4] }
+      total_returns = @owner_return_rows.sum { |row| row[:total_returns] }
+    %>
+
+    <div class="tj-summary-strip">
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Ticket Owners</div>
+        <div class="tj-sc-value tj-sc-accent"><%= @owner_return_rows.size %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Returned Tickets</div>
+        <div class="tj-sc-value tj-sc-blue"><%= total_tickets %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Total Returns</div>
+        <div class="tj-sc-value tj-sc-red"><%= total_returns %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">C1</div>
+        <div class="tj-sc-value <%= c1_total > 0 ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= c1_total %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">C2</div>
+        <div class="tj-sc-value <%= c2_total > 0 ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= c2_total %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">C3</div>
+        <div class="tj-sc-value <%= c3_total > 0 ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= c3_total %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">C4</div>
+        <div class="tj-sc-value <%= c4_total > 0 ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= c4_total %></div>
+      </div>
+    </div>
+
+    <div class="tj-table-wrap">
+      <table class="tj-table">
+        <thead>
+          <tr>
+            <th class="tj-th-title">Ticket Owner</th>
+            <th class="tj-th-native"># of Tickets</th>
+            <th class="tj-th-counter">C1</th>
+            <th class="tj-th-counter">C2</th>
+            <th class="tj-th-counter">C3</th>
+            <th class="tj-th-counter">C4</th>
+            <th class="tj-th-total">Total Returns</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @owner_return_rows.each do |row| %>
+            <tr class="tj-row">
+              <td class="tj-td-title"><%= row[:owner] %></td>
+              <td class="tj-td-native"><%= row[:tickets] %></td>
+              <td class="<%= counter_css_class(row[:c1]) %>"><%= row[:c1] > 0 ? row[:c1] : '—' %></td>
+              <td class="<%= counter_css_class(row[:c2]) %>"><%= row[:c2] > 0 ? row[:c2] : '—' %></td>
+              <td class="<%= counter_css_class(row[:c3]) %>"><%= row[:c3] > 0 ? row[:c3] : '—' %></td>
+              <td class="<%= counter_css_class(row[:c4]) %>"><%= row[:c4] > 0 ? row[:c4] : '—' %></td>
+              <td class="tj-td-total"><%= row[:total_returns] %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
+
+</div>

@@ -1,7 +1,7 @@
 class TicketJourneyController < ApplicationController
   before_action :find_project
   before_action :authorize
-  before_action :build_query, only: [:index, :export]
+  before_action :build_query, only: [:index, :owner_returns, :export]
 
   helper :queries
 
@@ -10,6 +10,14 @@ class TicketJourneyController < ApplicationController
   # ---------------------------------------------------------------
   def index
     @issues_data = compute_all_durations
+  end
+
+  # ---------------------------------------------------------------
+  # OWNER RETURNS — summary of returned tickets by ticket owner
+  # ---------------------------------------------------------------
+  def owner_returns
+    @issues_data = compute_all_durations
+    @owner_return_rows = compute_owner_returns_summary(@issues_data)
   end
 
   # ---------------------------------------------------------------
@@ -200,6 +208,37 @@ class TicketJourneyController < ApplicationController
     end
   end
 
+  def compute_owner_returns_summary(issues_data)
+    rows = Hash.new do |hash, owner|
+      hash[owner] = {
+        owner: owner,
+        tickets: 0,
+        c1: 0,
+        c2: 0,
+        c3: 0,
+        c4: 0,
+        total_returns: 0
+      }
+    end
+
+    issues_data.each do |item|
+      durations = item[:durations]
+      total_returns = durations[:C1].to_i + durations[:C2].to_i + durations[:C3].to_i + durations[:C4].to_i
+      next if total_returns.zero?
+
+      owner = item[:issue].assigned_to&.name.presence || 'Unassigned'
+      row = rows[owner]
+      row[:tickets] += 1
+      row[:c1] += durations[:C1].to_i
+      row[:c2] += durations[:C2].to_i
+      row[:c3] += durations[:C3].to_i
+      row[:c4] += durations[:C4].to_i
+      row[:total_returns] += total_returns
+    end
+
+    rows.values.sort_by { |row| [-row[:total_returns], -row[:tickets], row[:owner].downcase] }
+  end
+
   # ---------------------------------------------------------------
   # COMPUTE DURATIONS FOR A SINGLE ISSUE
   # ---------------------------------------------------------------
@@ -268,10 +307,8 @@ class TicketJourneyController < ApplicationController
     periods.each_with_index do |period, index|
       next unless status_role(period[:status]) == :feedback
 
-      previous_period = periods[index - 1]
       next_period = periods[index + 1]
       feedback_duration = hours.call(period[:enter], period[:exit])
-      entered_from_role = status_role(previous_period&.dig(:status))
       next_role = status_role(next_period&.dig(:status))
 
       case next_role

@@ -61,6 +61,36 @@
   margin: 0;
 }
 
+/* ── Report Tabs ── */
+.tj-report-tabs {
+  display: flex;
+  gap: 8px;
+  margin: -4px 0 16px;
+  flex-wrap: wrap;
+}
+.tj-report-tab {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  border: 1px solid var(--tj-border);
+  border-radius: var(--tj-radius);
+  background: #eef1f6;
+  color: var(--tj-text-dim);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.tj-report-tab:hover {
+  text-decoration: none;
+  color: var(--tj-text);
+  background: #e6ebf3;
+}
+.tj-report-tab.is-active {
+  background: var(--tj-blue);
+  border-color: var(--tj-blue);
+  color: #fff;
+}
+
 /* ── Buttons ── */
 .tj-btn {
   display: inline-flex;

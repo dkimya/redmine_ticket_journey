@@ -1,0 +1,12 @@
+<%
+  duration_params = @query.as_params
+  owner_params = @query.as_params
+%>
+<div class="tj-report-tabs">
+  <%= link_to 'Duration Report',
+        ticket_journey_path(@project, duration_params),
+        class: "tj-report-tab #{active_tab == :duration ? 'is-active' : ''}" %>
+  <%= link_to 'Returns by Owner',
+        ticket_journey_owner_returns_path(@project, owner_params),
+        class: "tj-report-tab #{active_tab == :owner_returns ? 'is-active' : ''}" %>
+</div>

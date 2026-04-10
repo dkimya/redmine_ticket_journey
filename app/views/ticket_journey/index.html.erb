@@ -19,6 +19,8 @@
     </div>
   </div>
 
+  <%= render partial: 'report_tabs', locals: { active_tab: :duration } %>
+
   <!-- ── REDMINE QUERY FILTERS ── -->
   <%= form_tag(ticket_journey_path(@project), method: :get, id: 'query_form') do %>
     <%= render partial: 'queries/query_form' %>
