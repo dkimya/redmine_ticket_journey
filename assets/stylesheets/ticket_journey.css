@@ -161,6 +161,7 @@
 }
 .tj-input:focus { border-color: var(--tj-accent); }
 .tj-filter-search .tj-input { width: 200px; }
+.tj-owner-filter-bar { margin-top: 12px; }
 
 /* ── Summary Strip ── */
 .tj-summary-strip {

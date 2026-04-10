@@ -4,6 +4,7 @@ class TicketJourneyController < ApplicationController
   before_action :find_project
   before_action :authorize
   before_action :build_query, only: [:index, :owner_returns, :export]
+  before_action :prepare_owner_role_filter, only: [:owner_returns]
 
   helper :queries
 
@@ -19,7 +20,7 @@ class TicketJourneyController < ApplicationController
   # ---------------------------------------------------------------
   def owner_returns
     @issues_data = compute_all_durations
-    @owner_return_rows = compute_owner_returns_summary(@issues_data)
+    @owner_return_rows = compute_owner_returns_summary(@issues_data, role_id: @selected_owner_role&.id)
   end
 
   # ---------------------------------------------------------------
@@ -73,6 +74,25 @@ class TicketJourneyController < ApplicationController
     unless params[:query_id].present? || params[:c].present? || params.dig(:query, :column_names).present?
       @query.column_names = [:id, :subject, :status]
     end
+  end
+
+  def prepare_owner_role_filter
+    @owner_roles = Role.joins(member_roles: :member)
+                       .where(members: { project_id: @project.id })
+                       .distinct
+                       .order(:position, :name)
+
+    requested_role_id = params[:ticket_owner_role_id].presence
+    @selected_owner_role =
+      if requested_role_id == 'all'
+        nil
+      elsif requested_role_id.present?
+        @owner_roles.find { |role| role.id == requested_role_id.to_i }
+      else
+        @owner_roles.find { |role| role.name.casecmp('Developer').zero? }
+      end
+
+    @selected_owner_role_option = requested_role_id == 'all' ? 'all' : @selected_owner_role&.id
   end
 
   # ---------------------------------------------------------------
@@ -210,7 +230,9 @@ class TicketJourneyController < ApplicationController
     end
   end
 
-  def compute_owner_returns_summary(issues_data)
+  def compute_owner_returns_summary(issues_data, role_id: nil)
+    allowed_owner_values = ticket_owner_values_for_role(role_id)
+
     rows = Hash.new do |hash, owner_key|
       owner_value, owner_name = owner_key
       hash[owner_key] = {
@@ -228,6 +250,8 @@ class TicketJourneyController < ApplicationController
 
     issues_data.each do |item|
       owner_value, owner_name = ticket_owner_info(item[:issue])
+      next if allowed_owner_values && !allowed_owner_values.include?(owner_value.to_s)
+
       row = rows[[owner_value, owner_name]]
       row[:total_tickets] += 1
 
@@ -244,6 +268,18 @@ class TicketJourneyController < ApplicationController
     end
 
     rows.values.sort_by { |row| [-row[:total_returns], -row[:total_tickets], row[:owner].downcase] }
+  end
+
+  def ticket_owner_values_for_role(role_id)
+    return nil if role_id.blank?
+
+    @ticket_owner_values_for_role ||= {}
+    @ticket_owner_values_for_role[role_id] ||= Member.joins(:member_roles)
+                                                    .where(project_id: @project.id, member_roles: { role_id: role_id })
+                                                    .distinct
+                                                    .pluck(:user_id)
+                                                    .compact
+                                                    .map(&:to_s)
   end
 
   def ticket_owner_info(issue)
