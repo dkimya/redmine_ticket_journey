@@ -133,10 +133,10 @@
             <% iss = item[:issue]; dur = item[:durations] %>
             <tr class="tj-row">
               <td class="tj-td-issue">
-                <%= link_to "##{iss.id}", ticket_journey_issue_path(@project, iss.id), class: 'tj-issue-link' %>
+                <%= link_to "##{iss.id}", issue_path(iss), class: 'tj-issue-link' %>
               </td>
               <td class="tj-td-title" title="<%= h(iss.subject) %>">
-                <%= link_to h(iss.subject), issue_path(iss), class: 'tj-subject-link' %>
+                <%= link_to h(iss.subject), ticket_journey_issue_path(@project, iss.id), class: 'tj-subject-link' %>
               </td>
               <td class="tj-td-status">
                 <span class="tj-status-badge"><%= h(iss.status.name) %></span>
