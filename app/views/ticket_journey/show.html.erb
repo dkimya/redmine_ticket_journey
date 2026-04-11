@@ -92,6 +92,13 @@
     <div class="tj-card">
       <div class="tj-card-title">Return Counters</div>
       <div class="tj-counters-grid">
+        <% counter_definitions.each do |counter| %>
+          <div class="tj-counter-item <%= @duration_data[counter[:key]] > 0 ? 'tj-counter-hit' : '' %>">
+            <div class="tj-counter-num"><%= @duration_data[counter[:key]] %></div>
+            <div class="tj-counter-label"><%= counter[:code] %> &mdash; <%= counter[:title] %></div>
+            <div class="tj-counter-sub"><%= counter[:transition] %></div>
+          </div>
+        <% end %>
         <div class="tj-counter-item <%= @duration_data[:C1] > 0 ? 'tj-counter-hit' : '' %>">
           <div class="tj-counter-num"><%= @duration_data[:C1] %></div>
           <div class="tj-counter-label">C1 — Function-Fail</div>
