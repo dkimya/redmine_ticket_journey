@@ -57,23 +57,18 @@
       <div class="tj-sc-label">Total Returns</div>
       <div class="tj-sc-value tj-sc-red"><%= c_total %></div>
     </div>
-    <% counter_definitions.each do |counter| %>
-      <% total = counter_totals[counter[:key]] %>
-      <div class="tj-summary-card" title="<%= counter[:title] %>">
-        <div class="tj-sc-label"><%= counter[:code] %></div>
-        <div class="tj-sc-value <%= total > 0 ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= total %></div>
-      </div>
-    <% end %>
   </div>
 
   <div class="tj-legend-strip">
     <% counter_definitions.each do |counter| %>
-      <div class="tj-legend-item">
+      <% total = counter_totals[counter[:key]] %>
+      <div class="tj-legend-item" title="<%= counter[:title] %>">
         <div class="tj-legend-code"><%= counter[:code] %></div>
         <div class="tj-legend-copy">
           <div class="tj-legend-title"><%= counter[:title] %></div>
           <div class="tj-legend-sub"><%= counter[:transition] %></div>
         </div>
+        <div class="tj-legend-total <%= total > 0 ? 'is-active' : '' %>"><%= total %></div>
       </div>
     <% end %>
   </div>

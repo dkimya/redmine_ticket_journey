@@ -52,6 +52,7 @@
       c3_total = @owner_return_rows.sum { |row| row[:c3] }
       c4_total = @owner_return_rows.sum { |row| row[:c4] }
       total_returns = @owner_return_rows.sum { |row| row[:total_returns] }
+      counter_totals = { C1: c1_total, C2: c2_total, C3: c3_total, C4: c4_total }
     %>
 
     <div class="tj-summary-strip">
@@ -71,22 +72,13 @@
         <div class="tj-sc-label">Total Returns</div>
         <div class="tj-sc-value tj-sc-red"><%= total_returns %></div>
       </div>
-      <div class="tj-summary-card">
-        <div class="tj-sc-label">C1</div>
-        <div class="tj-sc-value <%= c1_total > 0 ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= c1_total %></div>
-      </div>
-      <div class="tj-summary-card">
-        <div class="tj-sc-label">C2</div>
-        <div class="tj-sc-value <%= c2_total > 0 ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= c2_total %></div>
-      </div>
-      <div class="tj-summary-card">
-        <div class="tj-sc-label">C3</div>
-        <div class="tj-sc-value <%= c3_total > 0 ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= c3_total %></div>
-      </div>
-      <div class="tj-summary-card">
-        <div class="tj-sc-label">C4</div>
-        <div class="tj-sc-value <%= c4_total > 0 ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= c4_total %></div>
-      </div>
+      <% counter_definitions.each do |counter| %>
+        <% total = counter_totals[counter[:key]] %>
+        <div class="tj-summary-card" title="<%= counter[:title] %>">
+          <div class="tj-sc-label"><%= counter[:code] %></div>
+          <div class="tj-sc-value <%= total > 0 ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= total %></div>
+        </div>
+      <% end %>
     </div>
 
     <div class="tj-table-wrap">
@@ -98,10 +90,10 @@
               <th class="tj-th-native">% of All Tickets</th>
               <th class="tj-th-native">No of Returned Tickets</th>
               <th class="tj-th-native">Return Rate</th>
-              <th class="tj-th-counter">C1</th>
-              <th class="tj-th-counter">C2</th>
-              <th class="tj-th-counter">C3</th>
-            <th class="tj-th-counter">C4</th>
+              <th class="tj-th-counter" title="<%= counter_definitions[0][:title] %>">C1</th>
+              <th class="tj-th-counter" title="<%= counter_definitions[1][:title] %>">C2</th>
+              <th class="tj-th-counter" title="<%= counter_definitions[2][:title] %>">C3</th>
+            <th class="tj-th-counter" title="<%= counter_definitions[3][:title] %>">C4</th>
             <th class="tj-th-total">Total Returns</th>
           </tr>
         </thead>

@@ -199,6 +199,7 @@
 }
 .tj-legend-copy {
   min-width: 0;
+  flex: 1;
 }
 .tj-legend-title {
   font-size: 12px;
@@ -210,6 +211,19 @@
   margin-top: 2px;
   font-size: 11px;
   color: var(--tj-text-dim);
+}
+.tj-legend-total {
+  min-width: 34px;
+  padding-top: 2px;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  text-align: right;
+  color: var(--tj-text-muted);
+  font-family: 'Courier New', monospace;
+}
+.tj-legend-total.is-active {
+  color: var(--tj-red);
 }
 .tj-summary-card {
   background: var(--tj-surface);
