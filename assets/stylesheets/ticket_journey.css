@@ -339,6 +339,11 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.tj-td-title .tj-subject-link {
+  display: inline-block;
+  width: 100%;
+  text-align: left;
+}
 .tj-td-status { text-align: left; }
 .tj-td-peak {
   background: #fffaf0;
