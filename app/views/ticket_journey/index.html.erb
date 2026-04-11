@@ -38,6 +38,7 @@
     c2_t = @issues_data.sum { |d| d[:durations][:C2] }
     c3_t = @issues_data.sum { |d| d[:durations][:C3] }
     c4_t = @issues_data.sum { |d| d[:durations][:C4] }
+    counter_totals = { C1: c1_t, C2: c2_t, C3: c3_t, C4: c4_t }
   %>
   <div class="tj-summary-strip">
     <div class="tj-summary-card">
@@ -56,22 +57,25 @@
       <div class="tj-sc-label">Total Returns</div>
       <div class="tj-sc-value tj-sc-red"><%= c_total %></div>
     </div>
-    <div class="tj-summary-card">
-      <div class="tj-sc-label">C1 QA-Fail</div>
-      <div class="tj-sc-value <%= c1_t > 0 ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= c1_t %></div>
-    </div>
-    <div class="tj-summary-card">
-      <div class="tj-sc-label">C2 Code-Fail</div>
-      <div class="tj-sc-value <%= c2_t > 0 ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= c2_t %></div>
-    </div>
-    <div class="tj-summary-card">
-      <div class="tj-sc-label">C3 Merge</div>
-      <div class="tj-sc-value <%= c3_t > 0 ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= c3_t %></div>
-    </div>
-    <div class="tj-summary-card">
-      <div class="tj-sc-label">C4 Side-Effect</div>
-      <div class="tj-sc-value <%= c4_t > 0 ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= c4_t %></div>
-    </div>
+    <% counter_definitions.each do |counter| %>
+      <% total = counter_totals[counter[:key]] %>
+      <div class="tj-summary-card" title="<%= counter[:title] %>">
+        <div class="tj-sc-label"><%= counter[:code] %></div>
+        <div class="tj-sc-value <%= total > 0 ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= total %></div>
+      </div>
+    <% end %>
+  </div>
+
+  <div class="tj-legend-strip">
+    <% counter_definitions.each do |counter| %>
+      <div class="tj-legend-item">
+        <div class="tj-legend-code"><%= counter[:code] %></div>
+        <div class="tj-legend-copy">
+          <div class="tj-legend-title"><%= counter[:title] %></div>
+          <div class="tj-legend-sub"><%= counter[:transition] %></div>
+        </div>
+      </div>
+    <% end %>
   </div>
   <% end %>
 
@@ -107,10 +111,9 @@
           <% end %>
           <th class="tj-th-peak">Peak D</th>
           <th class="tj-th-total">TOTAL</th>
-          <th class="tj-th-counter" title="Function-Fail / Granular Error">C1</th>
-          <th class="tj-th-counter" title="Code-Quality-Fail">C2</th>
-          <th class="tj-th-counter" title="Merge-Conflict Error">C3</th>
-          <th class="tj-th-counter" title="E2E-Fail / Side Effect Error">C4</th>
+          <% counter_definitions.each do |counter| %>
+            <th class="tj-th-counter" title="<%= counter[:title] %>"><%= counter[:code] %></th>
+          <% end %>
         </tr>
       </thead>
       <tbody>

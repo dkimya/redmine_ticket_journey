@@ -31,11 +31,11 @@
       <div class="tj-sc-label">Status Changes</div>
       <div class="tj-sc-value tj-sc-blue"><%= @transitions.size %></div>
     </div>
-    <% %i[C1 C2 C3 C4].each_with_index do |c, i| %>
+    <% counter_definitions.each do |counter| %>
     <div class="tj-summary-card">
-      <div class="tj-sc-label">Counter <%= i+1 %> (C<%= i+1 %>)</div>
-      <div class="tj-sc-value <%= @duration_data[c].to_i > 0 ? 'tj-sc-red' : 'tj-sc-dim' %>">
-        <%= @duration_data[c] %>
+      <div class="tj-sc-label"><%= counter[:code] %></div>
+      <div class="tj-sc-value <%= @duration_data[counter[:key]].to_i > 0 ? 'tj-sc-red' : 'tj-sc-dim' %>">
+        <%= @duration_data[counter[:key]] %>
       </div>
     </div>
     <% end %>

@@ -81,6 +81,15 @@ module TicketJourneyHelper
     }
   end
 
+  def counter_definitions
+    [
+      { key: :C1, code: 'C1', short_label: 'Function-Fail / Granular Error', title: 'Function-Fail / Granular Error', transition: 'Feedback -> Returned' },
+      { key: :C2, code: 'C2', short_label: 'Code Quality Fail', title: 'Code Quality Fail', transition: 'Review -> Returned' },
+      { key: :C3, code: 'C3', short_label: 'Merge Conflict Error', title: 'Merge Conflict Error', transition: 'Ready to Merge -> Returned' },
+      { key: :C4, code: 'C4', short_label: 'E2E Fail / Side-Effect Error', title: 'E2E Fail / Side-Effect Error', transition: 'Final Check -> Returned' }
+    ]
+  end
+
   def peak_duration_field(durations)
     d_fields
       .map { |field| [field, durations[field[:key]].to_f] }
