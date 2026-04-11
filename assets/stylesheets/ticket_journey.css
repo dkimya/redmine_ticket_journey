@@ -187,13 +187,13 @@
   box-shadow: var(--tj-shadow);
 }
 .tj-legend-code {
-  min-width: 44px;
+  min-width: 48px;
   padding: 6px 0;
   border-radius: 999px;
   background: var(--tj-red-bg);
   color: var(--tj-red);
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 800;
   text-align: center;
   font-family: 'Courier New', monospace;
 }
