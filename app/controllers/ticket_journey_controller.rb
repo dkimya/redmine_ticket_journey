@@ -5,7 +5,7 @@ class TicketJourneyController < ApplicationController
   TRACKER_FAMILY_DEFINITIONS = {
     internal: {
       label: 'Internal Ticket Journey',
-      tracker_names: ['Bug', 'Change Request', 'Feature']
+      tracker_names: ['Bug', 'Change Request', 'Change Request / Improvement', 'Feature']
     },
     customer_support: {
       label: 'Customer Support',
@@ -13,11 +13,11 @@ class TicketJourneyController < ApplicationController
     },
     task: {
       label: 'Task',
-      tracker_names: ['Task']
+      tracker_names: ['Task', 'Task (Business Jobs)']
     },
     container: {
       label: 'Container Trackers',
-      tracker_names: ['Phase', 'Milestone', 'Epic', 'Sprint']
+      tracker_names: ['Phase', 'Milestone', 'Milestones', 'Epic', 'Sprint']
     }
   }.freeze
   FAMILY_DURATION_KEYS = {
