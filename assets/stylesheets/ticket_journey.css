@@ -604,3 +604,34 @@
 .tj-tl-notes p + p {
   margin-top: 6px;
 }
+
+.tj-section-card {
+  margin-bottom: 16px;
+}
+
+.tj-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.tj-section-title {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--tj-text);
+}
+
+.tj-legend-strip-section {
+  margin-top: 0;
+}
+
+.tj-counters-grid-dynamic {
+  grid-template-columns: 1fr;
+}
+
+.tj-counters-grid-dynamic > .tj-counter-item:nth-child(n+5) {
+  display: block;
+}

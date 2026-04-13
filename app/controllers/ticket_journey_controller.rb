@@ -1,7 +1,39 @@
 class TicketJourneyController < ApplicationController
   TICKET_OWNER_CF_ID = 57
-  REPORT_SORTABLE_FIELDS = %w[D1 D2 D2aug D3 D3aug D4 D4aug D5 D5aug D6 D6aug D7 D7aug D8 D9 D10 ON_HOLD TOTAL peak_d C1 C2 C3 C4].freeze
   OWNER_RETURN_SORTABLE_FIELDS = %w[owner total_tickets ticket_share returned_tickets return_rate c1 c2 c3 c4 total_returns].freeze
+  TRACKER_FAMILY_ORDER = %i[internal customer_support task container].freeze
+  TRACKER_FAMILY_DEFINITIONS = {
+    internal: {
+      label: 'Internal Ticket Journey',
+      tracker_names: ['Bug', 'Change Request', 'Feature']
+    },
+    customer_support: {
+      label: 'Customer Support',
+      tracker_names: ['Customer Support']
+    },
+    task: {
+      label: 'Task',
+      tracker_names: ['Task']
+    },
+    container: {
+      label: 'Container Trackers',
+      tracker_names: ['Phase', 'Milestone', 'Epic', 'Sprint']
+    }
+  }.freeze
+  FAMILY_DURATION_KEYS = {
+    internal: %i[D1 D2 D2aug D3 D3aug D4 D4aug D5 D5aug D6 D6aug D7aug D7 D8 D9 D10],
+    customer_support: %i[DC1 DC2 DC3 DC4 DC5 DC6 DC7],
+    task: %i[DT1 DT2 DT2aug DT3 DT3aug DT4 DT4aug DT5 DT5aug],
+    container: %i[DP1 DP2 DP3 DP4]
+  }.freeze
+  FAMILY_COUNTER_KEYS = {
+    internal: %i[C1 C2 C3 C4],
+    customer_support: [],
+    task: %i[C1 C4],
+    container: []
+  }.freeze
+  ALL_DURATION_KEYS = (FAMILY_DURATION_KEYS.values.flatten + [:ON_HOLD, :TOTAL]).freeze
+  ALL_COUNTER_KEYS = %i[C1 C2 C3 C4].freeze
 
   before_action :find_project
   before_action :authorize
@@ -15,6 +47,7 @@ class TicketJourneyController < ApplicationController
   # ---------------------------------------------------------------
   def index
     @issues_data = compute_all_durations
+    @report_sections = build_report_sections(@issues_data)
   end
 
   # ---------------------------------------------------------------
@@ -32,6 +65,7 @@ class TicketJourneyController < ApplicationController
     @issue = Issue.includes(:status, :author, :assigned_to, :tracker).find(params[:id])
     return render_403 unless @issue.project == @project
 
+    @tracker_family_key = tracker_family_for_issue(@issue)
     @duration_data = compute_issue_durations(@issue)
     @transitions   = load_transitions(@issue)[@issue.id] || []
   end
@@ -40,9 +74,10 @@ class TicketJourneyController < ApplicationController
   # ---------------------------------------------------------------
   def export
     @issues_data = compute_all_durations
+    @report_sections = build_report_sections(@issues_data)
     respond_to do |format|
       format.csv do
-        send_data generate_csv(@issues_data),
+        send_data generate_csv(@report_sections),
                   filename:     "ticket_journey_#{@project.identifier}_#{Date.today}.csv",
                   type:         'text/csv; charset=utf-8',
                   disposition:  'attachment'
@@ -104,9 +139,10 @@ class TicketJourneyController < ApplicationController
     new:          ['New'],
     todo:         ['To-Do'],
     returned:     ['Returned'],
-    in_progress:  ['In Progress'],
+    in_progress:  ['In Progress', 'Inprogress'],
     feedback:     ['Feedback'],
     review:       ['Review'],
+    pending:      ['Pending'],
     ready_merge:  ['Ready to Merge'],
     final_check:  ['Final Check'],
     on_hold:      ['On-Hold'],
@@ -116,11 +152,21 @@ class TicketJourneyController < ApplicationController
 
   def status_role(status_name)
     return :unknown if status_name.nil?
-    n = status_name.downcase.strip
+    n = status_name.to_s.downcase.strip
     STATUS_NAMES.each do |role, names|
       return role if names.any? { |sn| sn.downcase == n }
     end
     :unknown
+  end
+
+  def tracker_family_for_issue(issue)
+    tracker_name = issue.tracker&.name.to_s
+
+    TRACKER_FAMILY_DEFINITIONS.each do |family_key, definition|
+      return family_key if definition[:tracker_names].include?(tracker_name)
+    end
+
+    :internal
   end
 
   # ---------------------------------------------------------------
@@ -222,63 +268,87 @@ class TicketJourneyController < ApplicationController
     )
     all_transitions = load_transitions(issues)
 
-    issues_data = issues.map do |issue|
+    issues.map do |issue|
+      family_key = tracker_family_for_issue(issue)
       transitions = all_transitions[issue.id] || []
-      durations = calculate_durations_from_transitions(transitions)
+      durations = calculate_durations_for_family(family_key, transitions)
 
       {
         issue: issue,
+        family_key: family_key,
         durations: durations
       }
     end
-
-    sort_report_issues_data(issues_data)
   end
 
-  def sort_report_issues_data(issues_data)
+  def build_report_sections(issues_data)
+    grouped = issues_data.group_by { |item| item[:family_key] }
+
+    TRACKER_FAMILY_ORDER.filter_map do |family_key|
+      items = grouped[family_key] || []
+      next if items.empty?
+
+      {
+        family_key: family_key,
+        label: TRACKER_FAMILY_DEFINITIONS.fetch(family_key).fetch(:label),
+        items: sort_report_issues_data(items, family_key)
+      }
+    end
+  end
+
+  def sort_report_issues_data(issues_data, family_key)
     sort_key = params[:report_sort].to_s
-    return issues_data unless REPORT_SORTABLE_FIELDS.include?(sort_key)
+    return issues_data unless report_sortable_fields_for_family(family_key).include?(sort_key)
+    return issues_data unless report_sort_applies_to_family?(family_key)
 
     direction_factor = params[:report_dir].to_s == 'asc' ? 1 : -1
 
     issues_data.sort_by do |item|
       [
-        direction_factor * report_sort_numeric_value(item, sort_key),
-        report_sort_tie_breaker(item, sort_key),
+        direction_factor * report_sort_numeric_value(item, sort_key, family_key),
+        report_sort_tie_breaker(item, sort_key, family_key),
         item[:issue].id
       ]
     end
   end
 
-  def report_sort_numeric_value(item, sort_key)
+  def report_sort_applies_to_family?(family_key)
+    requested_family = params[:report_family].to_s
+    requested_family.blank? || requested_family == family_key.to_s
+  end
+
+  def report_sortable_fields_for_family(family_key)
+    (FAMILY_DURATION_KEYS.fetch(family_key).map(&:to_s) + %w[ON_HOLD TOTAL peak]).concat(FAMILY_COUNTER_KEYS.fetch(family_key).map(&:to_s))
+  end
+
+  def report_sort_numeric_value(item, sort_key, family_key)
     durations = item[:durations]
 
     case sort_key
-    when 'peak_d'
-      report_peak_duration_value(durations)
-    when 'C1', 'C2', 'C3', 'C4'
+    when 'peak'
+      report_peak_duration_value(durations, family_key)
+    when *ALL_COUNTER_KEYS.map(&:to_s)
       durations[sort_key.to_sym].to_i
     else
       durations[sort_key.to_sym].to_f
     end
   end
 
-  def report_sort_tie_breaker(item, sort_key)
-    return report_peak_duration_index(item[:durations]) if sort_key == 'peak_d'
+  def report_sort_tie_breaker(item, sort_key, family_key)
+    return report_peak_duration_index(item[:durations], family_key) if sort_key == 'peak'
 
     0
   end
 
-  def report_peak_duration_value(durations)
-    d_duration_keys.map { |key| durations[key].to_f }.max || 0.0
+  def report_peak_duration_value(durations, family_key)
+    FAMILY_DURATION_KEYS.fetch(family_key).map { |key| durations[key].to_f }.max || 0.0
   end
 
-  def report_peak_duration_index(durations)
-    d_duration_keys.each_with_index.max_by { |key, index| [durations[key].to_f, -index] }&.last || 0
-  end
-
-  def d_duration_keys
-    @d_duration_keys ||= %i[D1 D2 D2aug D3 D3aug D4 D4aug D5 D5aug D6 D6aug D7aug D7 D8 D9 D10]
+  def report_peak_duration_index(durations, family_key)
+    FAMILY_DURATION_KEYS.fetch(family_key)
+                        .each_with_index
+                        .max_by { |(key, index)| [durations[key].to_f, -index] }
+                        &.last || 0
   end
 
   def compute_owner_returns_summary(issues_data, role_id: nil)
@@ -413,170 +483,190 @@ class TicketJourneyController < ApplicationController
   # ---------------------------------------------------------------
   def compute_issue_durations(issue)
     transitions = load_transitions(issue)[issue.id] || []
-    calculate_durations_from_transitions(transitions)
+    calculate_durations_for_family(tracker_family_for_issue(issue), transitions)
   end
 
   # ---------------------------------------------------------------
   # CORE DURATION ALGORITHM
   # ---------------------------------------------------------------
-  def calculate_durations_from_transitions(transitions)
-    return empty_durations if transitions.empty?
-
+  def calculate_durations_for_family(family_key, transitions)
     periods = build_periods(transitions)
+    return empty_durations(periods: periods) if periods.empty?
 
-    visit_index = Hash.new(0)
-    visits      = Hash.new { |h, k| h[k] = [] }
-
-    periods.each do |p|
-      role = status_role(p[:status])
-      visit_index[role] += 1
-      p[:visit] = visit_index[role]
-      visits[role] << p
+    case family_key
+    when :customer_support
+      calculate_customer_support_durations(periods)
+    when :task
+      calculate_task_durations(periods)
+    when :container
+      calculate_container_durations(periods)
+    else
+      calculate_internal_durations(periods)
     end
+  end
 
-    hours = ->(a, b) { a && b ? [(b - a) / 3600.0, 0].max.round(2) : 0.0 }
-    v = ->(role) { visits[role] || [] }
-    on_hold = v.call(:on_hold).sum { |p| hours.call(p[:enter], p[:exit]) }
-
-    d1 = 0.0
-    d8 = 0.0
+  def calculate_internal_durations(periods)
+    visits = visits_by_role(periods)
+    result = empty_durations(periods: periods)
+    result[:ON_HOLD] = sum_role_hours(visits, :on_hold)
 
     periods.each_with_index do |period, index|
-      next unless status_role(period[:status]) == :new
+      next_role = period_next_role(periods, index)
+      duration = period_hours(period)
 
-      next_period = periods[index + 1]
-      new_duration = hours.call(period[:enter], period[:exit])
-
-      case status_role(next_period&.dig(:status))
-      when :todo
-        d1 += new_duration
-      when :feedback
-        d8 += new_duration
-      end
-    end
-
-    todo_visits = v.call(:todo)
-    returned_visits = v.call(:returned)
-
-    d2 = todo_visits[0] ? hours.call(todo_visits[0][:enter], todo_visits[0][:exit]) : 0.0
-
-    d2aug =
-      (todo_visits[1..] || []).sum { |p| hours.call(p[:enter], p[:exit]) } +
-      returned_visits.sum { |p| hours.call(p[:enter], p[:exit]) }
-
-    ip_visits = v.call(:in_progress)
-    d3    = ip_visits[0] ? hours.call(ip_visits[0][:enter], ip_visits[0][:exit]) : 0.0
-    d3aug = (ip_visits[1..] || []).sum { |p| hours.call(p[:enter], p[:exit]) }
-
-    d4 = 0.0
-    d4aug = 0.0
-    d9 = 0.0
-    d10 = 0.0
-    non_validation_feedback_visits = 0
-
-    periods.each_with_index do |period, index|
-      next unless status_role(period[:status]) == :feedback
-
-      next_period = periods[index + 1]
-      feedback_duration = hours.call(period[:enter], period[:exit])
-      next_role = status_role(next_period&.dig(:status))
-
-      case next_role
-      when :archived
-        d10 += feedback_duration
+      case status_role(period[:status])
       when :new
-        d9 += feedback_duration
-      else
-        non_validation_feedback_visits += 1
-        if non_validation_feedback_visits == 1
-          d4 += feedback_duration
-        else
-          d4aug += feedback_duration
-        end
-      end
-    end
-
-    d5 = 0.0
-    d5aug = 0.0
-
-    periods.each_with_index do |period, index|
-      next unless status_role(period[:status]) == :review
-
-      next_period = periods[index + 1]
-      review_duration = hours.call(period[:enter], period[:exit])
-
-      case status_role(next_period&.dig(:status))
-      when :ready_merge
-        d5 += review_duration
-      when :returned
-        d5aug += review_duration
-      end
-    end
-
-    d6 = 0.0
-    d6aug = 0.0
-
-    periods.each_with_index do |period, index|
-      next unless status_role(period[:status]) == :ready_merge
-
-      next_period = periods[index + 1]
-      merge_duration = hours.call(period[:enter], period[:exit])
-
-      case status_role(next_period&.dig(:status))
-      when :final_check
-        d6 += merge_duration
-      when :returned
-        d6aug += merge_duration
-      end
-    end
-
-    d7 = 0.0
-    d7aug = 0.0
-
-    periods.each_with_index do |period, index|
-      next unless status_role(period[:status]) == :final_check
-
-      next_period = periods[index + 1]
-      final_check_duration = hours.call(period[:enter], period[:exit])
-
-      case status_role(next_period&.dig(:status))
-      when :done
-        d7 += final_check_duration
-      when :returned
-        d7aug += final_check_duration
-      end
-    end
-
-    c1 = c2 = c3 = c4 = 0
-
-    periods.each_cons(2) do |a, b|
-      next unless status_role(b[:status]) == :returned
-
-      case status_role(a[:status])
+        result[:D1] += duration if next_role == :todo
+        result[:D8] += duration if next_role == :feedback
       when :feedback
-        c1 += 1
+        case next_role
+        when :archived
+          result[:D10] += duration
+        when :new
+          result[:D9] += duration
+        when :returned
+          result[:D4aug] += duration
+        else
+          if result[:D4].zero?
+            result[:D4] += duration
+          else
+            result[:D4aug] += duration
+          end
+        end
       when :review
-        c2 += 1
+        result[:D5] += duration if next_role == :ready_merge
+        result[:D5aug] += duration if next_role == :returned
       when :ready_merge
-        c3 += 1
+        result[:D6] += duration if next_role == :final_check
+        result[:D6aug] += duration if next_role == :returned
       when :final_check
-        c4 += 1
+        result[:D7] += duration if next_role == :done
+        result[:D7aug] += duration if next_role == :returned
       end
     end
 
-    total = d1 + d2 + d2aug + d3 + d3aug + d4 + d4aug + d5 + d5aug + d6 + d6aug + d7aug + d7 + d8 + d9 + d10
+    todo_visits = visits[:todo] || []
+    returned_visits = visits[:returned] || []
+    in_progress_visits = visits[:in_progress] || []
 
-    {
-      D1: d1, D2: d2, D2aug: d2aug,
-      D3: d3, D3aug: d3aug,
-      D4: d4, D4aug: d4aug,
-      D5: d5, D5aug: d5aug,
-      D6: d6, D6aug: d6aug,
-      D7aug: d7aug, D7: d7, D8: d8, D9: d9, D10: d10, ON_HOLD: on_hold,
-      TOTAL: total,
-      C1: c1, C2: c2, C3: c3, C4: c4,
-      periods: periods
-    }
+    result[:D2] = period_hours(todo_visits.first)
+    result[:D2aug] = Array(todo_visits[1..]).sum { |period| period_hours(period) } + returned_visits.sum { |period| period_hours(period) }
+    result[:D3] = period_hours(in_progress_visits.first)
+    result[:D3aug] = Array(in_progress_visits[1..]).sum { |period| period_hours(period) }
+
+    periods.each_cons(2) do |current_period, next_period|
+      next unless status_role(next_period[:status]) == :returned
+
+      case status_role(current_period[:status])
+      when :feedback
+        result[:C1] += 1
+      when :review
+        result[:C2] += 1
+      when :ready_merge
+        result[:C3] += 1
+      when :final_check
+        result[:C4] += 1
+      end
+    end
+
+    result[:TOTAL] = FAMILY_DURATION_KEYS[:internal].sum { |key| result[key].to_f }
+    result
+  end
+
+  def calculate_customer_support_durations(periods)
+    result = empty_durations(periods: periods)
+    result[:ON_HOLD] = periods.select { |period| status_role(period[:status]) == :on_hold }.sum { |period| period_hours(period) }
+
+    periods.each_with_index do |period, index|
+      next_role = period_next_role(periods, index)
+      duration = period_hours(period)
+
+      case status_role(period[:status])
+      when :new
+        result[:DC1] += duration if next_role == :review
+      when :review
+        result[:DC2] += duration if next_role == :pending
+        result[:DC3] += duration if next_role == :in_progress
+        result[:DC4] += duration if next_role == :done
+      when :pending
+        result[:DC5] += duration if next_role == :in_progress
+        result[:DC6] += duration if next_role == :done
+      when :in_progress
+        result[:DC7] += duration if next_role == :done
+      end
+    end
+
+    result[:TOTAL] = FAMILY_DURATION_KEYS[:customer_support].sum { |key| result[key].to_f }
+    result
+  end
+
+  def calculate_task_durations(periods)
+    visits = visits_by_role(periods)
+    result = empty_durations(periods: periods)
+    result[:ON_HOLD] = sum_role_hours(visits, :on_hold)
+
+    periods.each_with_index do |period, index|
+      next_role = period_next_role(periods, index)
+      duration = period_hours(period)
+
+      case status_role(period[:status])
+      when :new
+        result[:DT1] += duration if next_role == :todo
+      when :feedback
+        result[:DT4] += duration if next_role == :final_check
+        result[:DT4aug] += duration if next_role == :returned
+      when :final_check
+        result[:DT5] += duration if next_role == :done
+        result[:DT5aug] += duration if next_role == :returned
+      end
+    end
+
+    todo_visits = visits[:todo] || []
+    returned_visits = visits[:returned] || []
+    in_progress_visits = visits[:in_progress] || []
+
+    result[:DT2] = period_hours(todo_visits.first)
+    result[:DT2aug] = Array(todo_visits[1..]).sum { |period| period_hours(period) } + returned_visits.sum { |period| period_hours(period) }
+    result[:DT3] = period_hours(in_progress_visits.first)
+    result[:DT3aug] = Array(in_progress_visits[1..]).sum { |period| period_hours(period) }
+
+    periods.each_cons(2) do |current_period, next_period|
+      next unless status_role(next_period[:status]) == :returned
+
+      case status_role(current_period[:status])
+      when :feedback
+        result[:C1] += 1
+      when :final_check
+        result[:C4] += 1
+      end
+    end
+
+    result[:TOTAL] = FAMILY_DURATION_KEYS[:task].sum { |key| result[key].to_f }
+    result
+  end
+
+  def calculate_container_durations(periods)
+    result = empty_durations(periods: periods)
+    result[:ON_HOLD] = periods.select { |period| status_role(period[:status]) == :on_hold }.sum { |period| period_hours(period) }
+
+    periods.each_with_index do |period, index|
+      next_role = period_next_role(periods, index)
+      duration = period_hours(period)
+
+      case status_role(period[:status])
+      when :new
+        result[:DP1] += duration if next_role == :todo
+      when :todo
+        result[:DP2] += duration if next_role == :in_progress
+      when :in_progress
+        result[:DP3] += duration if next_role == :final_check
+      when :final_check
+        result[:DP4] += duration if next_role == :done
+      end
+    end
+
+    result[:TOTAL] = FAMILY_DURATION_KEYS[:container].sum { |key| result[key].to_f }
+    result
   end
 
   def build_periods(transitions)
@@ -611,46 +701,74 @@ class TicketJourneyController < ApplicationController
     merged
   end
 
-  def empty_durations
-    {
-      D1: 0.0, D2: 0.0, D2aug: 0.0,
-      D3: 0.0, D3aug: 0.0,
-      D4: 0.0, D4aug: 0.0,
-      D5: 0.0, D5aug: 0.0,
-      D6: 0.0, D6aug: 0.0,
-      D7aug: 0.0, D7: 0.0, D8: 0.0, D9: 0.0, D10: 0.0, ON_HOLD: 0.0,
-      TOTAL: 0.0,
-      C1: 0, C2: 0, C3: 0, C4: 0,
-      periods: []
-    }
+  def visits_by_role(periods)
+    visits = Hash.new { |hash, role| hash[role] = [] }
+
+    periods.each do |period|
+      visits[status_role(period[:status])] << period
+    end
+
+    visits
+  end
+
+  def period_next_role(periods, index)
+    next_period = periods[index + 1]
+    status_role(next_period&.dig(:status))
+  end
+
+  def period_hours(period)
+    return 0.0 unless period && period[:enter] && period[:exit]
+
+    [((period[:exit] - period[:enter]) / 3600.0), 0].max.round(2)
+  end
+
+  def sum_role_hours(visits, role)
+    (visits[role] || []).sum { |period| period_hours(period) }
+  end
+
+  def empty_durations(periods: [])
+    ALL_DURATION_KEYS.each_with_object({ periods: periods }) do |key, hash|
+      hash[key] = 0.0
+    end.merge(C1: 0, C2: 0, C3: 0, C4: 0, periods: periods)
   end
 
   # ---------------------------------------------------------------
   # CSV GENERATION
   # ---------------------------------------------------------------
-  def generate_csv(issues_data)
+  def generate_csv(report_sections)
     require 'csv'
-    value_fields = %w[D1 D2 D2aug D3 D3aug D4 D4aug D5 D5aug D6 D6aug D7aug D7 D8 D9 D10 ON_HOLD TOTAL C1 C2 C3 C4]
-    header_fields = value_fields.map do |field|
-      case field
-      when 'ON_HOLD'
-        'On-Hold'
-      else
-        field.sub(/\AC/, 'R')
+
+    CSV.generate(headers: false, encoding: 'UTF-8') do |csv|
+      report_sections.each_with_index do |section, index|
+        csv << [] unless index.zero?
+        csv << [section[:label]]
+
+        value_fields = FAMILY_DURATION_KEYS.fetch(section[:family_key]) + [:ON_HOLD, :TOTAL] + FAMILY_COUNTER_KEYS.fetch(section[:family_key])
+        csv << ['issue_id', 'subject', 'status', 'assignee', 'tracker', *value_fields.map { |field| csv_header_label_for(field) }, 'Peak']
+
+        section[:items].each do |item|
+          issue = item[:issue]
+          durations = item[:durations]
+
+          csv << [
+            issue.id,
+            issue.subject,
+            issue.status.name,
+            issue.assigned_to&.name,
+            issue.tracker&.name,
+            *value_fields.map { |field| durations[field] || 0 },
+            view_context.peak_duration_label(durations, section[:family_key])
+          ]
+        end
       end
     end
-    CSV.generate(headers: true, encoding: 'UTF-8') do |csv|
-      csv << ['issue_id', 'subject', 'status', 'assignee', 'tracker', *header_fields, 'peak_d']
-      issues_data.each do |item|
-        iss = item[:issue]
-        dur = item[:durations]
-        csv << [
-          iss.id, iss.subject, iss.status.name,
-          iss.assigned_to&.name, iss.tracker.name,
-          *value_fields.map { |f| dur[f.to_sym] || 0 },
-          view_context.peak_duration_label(dur)
-        ]
-      end
-    end
+  end
+
+  def csv_header_label_for(field)
+    return 'On-Hold' if field == :ON_HOLD
+    return 'TOTAL' if field == :TOTAL
+    return field.to_s.sub(/\AC/, 'R') if ALL_COUNTER_KEYS.include?(field)
+
+    field.to_s
   end
 end

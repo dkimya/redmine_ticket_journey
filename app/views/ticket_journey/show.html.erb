@@ -2,26 +2,42 @@
   <%= stylesheet_link_tag 'ticket_journey', plugin: 'redmine_ticket_journey' %>
 <% end %>
 
-<div id="tj-wrap">
+<%
+  duration_fields = duration_fields_for_family(@tracker_family_key)
+  counters = counter_definitions(@tracker_family_key)
+  max_val = duration_fields.map { |field| @duration_data[field[:key]].to_f }.max
+  max_val = 1 if max_val.to_f <= 0
+  bar_colors = {
+    D1: '#4fc3f7', D2: '#4fc3f7', D2aug: '#e07b39',
+    D3: '#f5c518', D3aug: '#e07b39',
+    D4: '#4caf7d', D4aug: '#e07b39',
+    D5: '#4caf7d', D5aug: '#e07b39',
+    D6: '#9c7ff0', D6aug: '#e07b39',
+    D7aug: '#e07b39', D7: '#9c7ff0',
+    D8: '#f28e2b', D9: '#d95f5f', D10: '#8b5e3c',
+    DC1: '#4fc3f7', DC2: '#e07b39', DC3: '#f5c518', DC4: '#4caf7d', DC5: '#9c7ff0', DC6: '#8bc34a', DC7: '#00acc1',
+    DT1: '#4fc3f7', DT2: '#4fc3f7', DT2aug: '#e07b39', DT3: '#f5c518', DT3aug: '#e07b39', DT4: '#4caf7d', DT4aug: '#e07b39', DT5: '#9c7ff0', DT5aug: '#e07b39',
+    DP1: '#4fc3f7', DP2: '#f5c518', DP3: '#4caf7d', DP4: '#9c7ff0',
+    ON_HOLD: '#7b8794'
+  }
+%>
 
-  <!-- ── BACK + HEADER ── -->
+<div id="tj-wrap">
   <div class="tj-page-header">
     <div class="tj-page-header-left">
-      <%= link_to '← Back to Report', ticket_journey_path(@project), class: 'tj-btn tj-btn-secondary' %>
-      &nbsp;
-      <span class="tj-icon">🎫</span>
+      <%= link_to 'Back to Report', ticket_journey_path(@project), class: 'tj-btn tj-btn-secondary' %>
       <div>
         <h2><%= link_to "##{@issue.id}", issue_path(@issue), class: 'tj-issue-link' %> &mdash; <%= h(@issue.subject) %></h2>
         <p class="tj-page-sub">
-          Status: <strong><%= @issue.status.name %></strong> &nbsp;·&nbsp;
-          Assignee: <strong><%= @issue.assigned_to&.name || '—' %></strong> &nbsp;·&nbsp;
+          Family: <strong><%= TicketJourneyController::TRACKER_FAMILY_DEFINITIONS[@tracker_family_key][:label] %></strong> &nbsp;�&nbsp;
+          Status: <strong><%= @issue.status.name %></strong> &nbsp;�&nbsp;
+          Assignee: <strong><%= @issue.assigned_to&.name || '-' %></strong> &nbsp;�&nbsp;
           Created: <strong><%= format_date(@issue.created_on) %></strong>
         </p>
       </div>
     </div>
   </div>
 
-  <!-- ── SUMMARY CARDS ── -->
   <div class="tj-summary-strip">
     <div class="tj-summary-card">
       <div class="tj-sc-label">Total Cycle Time</div>
@@ -31,52 +47,48 @@
       <div class="tj-sc-label">Status Changes</div>
       <div class="tj-sc-value tj-sc-blue"><%= @transitions.size %></div>
     </div>
-    <% counter_definitions.each do |counter| %>
-    <div class="tj-summary-card">
-      <div class="tj-sc-label"><%= counter[:code] %></div>
-      <div class="tj-sc-value <%= @duration_data[counter[:key]].to_i > 0 ? 'tj-sc-red' : 'tj-sc-dim' %>">
-        <%= @duration_data[counter[:key]] %>
+    <% counters.each do |counter| %>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label"><%= counter[:code] %></div>
+        <div class="tj-sc-value <%= @duration_data[counter[:key]].to_i > 0 ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= @duration_data[counter[:key]] %></div>
       </div>
-    </div>
     <% end %>
   </div>
 
-  <div class="tj-detail-grid">
+  <% if counters.any? %>
+    <div class="tj-legend-strip tj-legend-strip-section">
+      <% counters.each do |counter| %>
+        <% total = @duration_data[counter[:key]].to_i %>
+        <div class="tj-legend-item" title="<%= counter[:title] %>">
+          <div class="tj-legend-code"><%= counter[:code] %></div>
+          <div class="tj-legend-copy">
+            <div class="tj-legend-title"><%= counter[:title] %></div>
+            <div class="tj-legend-sub"><%= counter[:transition] %></div>
+          </div>
+          <div class="tj-legend-total <%= total > 0 ? 'is-active' : '' %>"><%= total %></div>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
 
-    <!-- ── DURATION BAR CHART ── -->
+  <div class="tj-detail-grid">
     <div class="tj-card">
       <div class="tj-card-title">Duration Breakdown</div>
-      <%
-        duration_fields = displayed_duration_fields
-        max_val = duration_fields.map { |f| @duration_data[f[:key]].to_f }.max
-        max_val = 1 if max_val == 0
-        bar_colors = {
-          D1: '#4fc3f7', D2: '#4fc3f7', D2aug: '#e07b39',
-          D3: '#f5c518', D3aug: '#e07b39',
-          D4: '#4caf7d', D4aug: '#e07b39',
-          D5: '#4caf7d', D5aug: '#e07b39',
-          D6: '#9c7ff0', D6aug: '#e07b39',
-          D7aug: '#e07b39', D7: '#9c7ff0',
-          D8: '#f28e2b', D9: '#d95f5f', D10: '#8b5e3c',
-          ON_HOLD: '#7b8794'
-        }
-      %>
       <div class="tj-bars">
-        <% duration_fields.each do |f| %>
-          <% val = @duration_data[f[:key]].to_f %>
-          <% pct = (val / max_val * 100).round %>
+        <% duration_fields.each do |field| %>
+          <% value = @duration_data[field[:key]].to_f %>
+          <% pct = (value / max_val * 100).round %>
           <div class="tj-bar-row">
-            <div class="tj-bar-label"><%= f[:label] %></div>
+            <div class="tj-bar-label"><%= field[:label] %></div>
             <div class="tj-bar-track">
-              <div class="tj-bar-fill" style="width:<%= pct %>%;background:<%= bar_colors[f[:key]] || '#f5c518' %>">
-                <% if pct > 12 %><span><%= format_hours(val) %></span><% end %>
+              <div class="tj-bar-fill" style="width:<%= pct %>%;background:<%= bar_colors[field[:key]] || '#4fc3f7' %>">
+                <% if pct > 12 %><span><%= format_hours(value) %></span><% end %>
               </div>
             </div>
-            <div class="tj-bar-val"><%= format_hours(val) %></div>
-            <div class="tj-bar-desc"><%= f[:desc] %></div>
+            <div class="tj-bar-val"><%= format_hours(value) %></div>
+            <div class="tj-bar-desc"><%= field[:desc] %></div>
           </div>
         <% end %>
-        <!-- TOTAL -->
         <div class="tj-bar-row tj-bar-total">
           <div class="tj-bar-label"><strong>TOTAL</strong></div>
           <div class="tj-bar-track">
@@ -90,77 +102,55 @@
       </div>
     </div>
 
-    <!-- ── RETURN COUNTERS ── -->
-    <div class="tj-card">
-      <div class="tj-card-title">Return Counters</div>
-      <div class="tj-counters-grid">
-        <% counter_definitions.each do |counter| %>
-          <div class="tj-counter-item <%= @duration_data[counter[:key]] > 0 ? 'tj-counter-hit' : '' %>">
-            <div class="tj-counter-num"><%= @duration_data[counter[:key]] %></div>
-            <div class="tj-counter-label"><%= counter[:code] %> &mdash; <%= counter[:title] %></div>
-            <div class="tj-counter-sub"><%= counter[:transition] %></div>
-          </div>
-        <% end %>
-        <div class="tj-counter-item <%= @duration_data[:C1] > 0 ? 'tj-counter-hit' : '' %>">
-          <div class="tj-counter-num"><%= @duration_data[:C1] %></div>
-          <div class="tj-counter-label">C1 — Function-Fail</div>
-          <div class="tj-counter-sub">Granular Error<br>Feedback → Returned</div>
-        </div>
-        <div class="tj-counter-item <%= @duration_data[:C2] > 0 ? 'tj-counter-hit' : '' %>">
-          <div class="tj-counter-num"><%= @duration_data[:C2] %></div>
-          <div class="tj-counter-label">C2 — Code-Quality-Fail</div>
-          <div class="tj-counter-sub">Code Standard Error<br>Review → Returned</div>
-        </div>
-        <div class="tj-counter-item <%= @duration_data[:C3] > 0 ? 'tj-counter-hit' : '' %>">
-          <div class="tj-counter-num"><%= @duration_data[:C3] %></div>
-          <div class="tj-counter-label">C3 — Merge-Conflict</div>
-          <div class="tj-counter-sub">Conflict Error<br>Ready to Merge → Returned</div>
-        </div>
-        <div class="tj-counter-item <%= @duration_data[:C4] > 0 ? 'tj-counter-hit' : '' %>">
-          <div class="tj-counter-num"><%= @duration_data[:C4] %></div>
-          <div class="tj-counter-label">C4 — Side-Effect</div>
-          <div class="tj-counter-sub">E2E-Fail<br>Final Check → Returned</div>
+    <% if counters.any? %>
+      <div class="tj-card">
+        <div class="tj-card-title">Return Counters</div>
+        <div class="tj-counters-grid tj-counters-grid-dynamic">
+          <% counters.each do |counter| %>
+            <% count = @duration_data[counter[:key]].to_i %>
+            <div class="tj-counter-item <%= count > 0 ? 'tj-counter-hit' : '' %>">
+              <div class="tj-counter-num"><%= count %></div>
+              <div class="tj-counter-label"><%= counter[:code] %> &mdash; <%= counter[:title] %></div>
+              <div class="tj-counter-sub"><%= counter[:transition] %></div>
+            </div>
+          <% end %>
         </div>
       </div>
-    </div>
+    <% end %>
+  </div>
 
-  </div><!-- /tj-detail-grid -->
-
-  <!-- ── TIMELINE ── -->
   <div class="tj-card tj-card-full">
     <div class="tj-card-title">Status Change Timeline</div>
     <div class="tj-timeline">
-      <% @transitions.each_with_index do |t, i| %>
+      <% @transitions.each_with_index do |transition, index| %>
         <%
-          is_return = t[:to_status].to_s.downcase.include?('return')
-          is_done   = ['done','closed'].include?(t[:to_status].to_s.downcase)
+          is_return = transition[:to_status].to_s.downcase.include?('return')
+          is_done = ['done', 'closed'].include?(transition[:to_status].to_s.downcase)
           dot_class = is_return ? 'tj-tl-dot-return' : (is_done ? 'tj-tl-dot-done' : 'tj-tl-dot-forward')
-
-          # Duration in this status
-          next_t = @transitions[i + 1]
-          period_h = next_t ? (next_t[:changed_at] - t[:changed_at]) / 3600.0 : nil
+          next_transition = @transitions[index + 1]
+          period_h = next_transition ? (next_transition[:changed_at] - transition[:changed_at]) / 3600.0 : nil
         %>
         <div class="tj-tl-item <%= is_return ? 'tj-tl-return' : '' %>">
           <div class="tj-tl-dot <%= dot_class %>"></div>
           <div class="tj-tl-content">
             <div class="tj-tl-header">
-              <% if t[:from_status] %>
-                <span class="tj-tl-from"><%= h(t[:from_status]) %></span>
-                <span class="tj-tl-arrow">→</span>
+              <% if transition[:from_status] %>
+                <span class="tj-tl-from"><%= h(transition[:from_status]) %></span>
+                <span class="tj-tl-arrow">-&gt;</span>
               <% end %>
-              <span class="tj-tl-to <%= is_return ? 'tj-tl-to-return' : '' %>"><%= h(t[:to_status]) %></span>
-              <span class="tj-tl-time"><%= format_time(t[:changed_at]) %></span>
+              <span class="tj-tl-to <%= is_return ? 'tj-tl-to-return' : '' %>"><%= h(transition[:to_status]) %></span>
+              <span class="tj-tl-time"><%= format_time(transition[:changed_at]) %></span>
             </div>
             <div class="tj-tl-meta">
-              by <strong><%= h(t[:changed_by_name].presence || t[:changed_by]) %></strong>
+              by <strong><%= h(transition[:changed_by_name].presence || transition[:changed_by]) %></strong>
               <% if period_h %>
-                &nbsp;·&nbsp; spent: <span class="tj-tl-spent"><%= format_hours(period_h) %></span>
+                &nbsp;�&nbsp; spent: <span class="tj-tl-spent"><%= format_hours(period_h) %></span>
               <% end %>
             </div>
-            <% if t[:notes].present? %>
+            <% if transition[:notes].present? %>
               <div class="tj-tl-notes">
                 <div class="tj-tl-notes-label">Note</div>
-                <%= simple_format(h(t[:notes]), {}, wrapper_tag: 'div') %>
+                <%= simple_format(h(transition[:notes]), {}, wrapper_tag: 'div') %>
               </div>
             <% end %>
           </div>
@@ -168,5 +158,4 @@
       <% end %>
     </div>
   </div>
-
-</div><!-- /tj-wrap -->
+</div>

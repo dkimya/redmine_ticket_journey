@@ -3,8 +3,6 @@
 <% end %>
 
 <div id="tj-wrap">
-
-  <!-- ── PAGE HEADER ── -->
   <div class="tj-page-header">
     <div class="tj-page-header-left">
       <div>
@@ -13,7 +11,7 @@
       </div>
     </div>
     <div class="tj-page-header-right">
-      <%= link_to '⬇ Export CSV',
+      <%= link_to 'Export CSV',
             ticket_journey_export_path(@project, duration_report_params(@query).merge(format: :csv)),
             class: 'tj-btn tj-btn-export' %>
     </div>
@@ -21,146 +19,153 @@
 
   <%= render partial: 'report_tabs', locals: { active_tab: :duration } %>
 
-  <!-- ── REDMINE QUERY FILTERS ── -->
   <%= form_tag(ticket_journey_path(@project), method: :get, id: 'query_form') do %>
     <%= render partial: 'queries/query_form' %>
   <% end %>
 
-  <!-- ── SUMMARY STRIP ── -->
   <% if @query.valid? && @issues_data.any? %>
-  <%
-    total_issues = @issues_data.size
-    totals       = @issues_data.map { |d| d[:durations][:TOTAL].to_f }.reject(&:zero?)
-    avg_h        = totals.any? ? totals.sum / totals.size : 0
-    max_h        = totals.max || 0
-    c_total      = @issues_data.sum { |d| d[:durations][:C1] + d[:durations][:C2] + d[:durations][:C3] + d[:durations][:C4] }
-    c1_t = @issues_data.sum { |d| d[:durations][:C1] }
-    c2_t = @issues_data.sum { |d| d[:durations][:C2] }
-    c3_t = @issues_data.sum { |d| d[:durations][:C3] }
-    c4_t = @issues_data.sum { |d| d[:durations][:C4] }
-    counter_totals = { C1: c1_t, C2: c2_t, C3: c3_t, C4: c4_t }
-  %>
-  <div class="tj-summary-strip">
-    <div class="tj-summary-card">
-      <div class="tj-sc-label">Issues</div>
-      <div class="tj-sc-value tj-sc-accent"><%= total_issues %></div>
-    </div>
-    <div class="tj-summary-card">
-      <div class="tj-sc-label">Avg Cycle Time</div>
-      <div class="tj-sc-value tj-sc-blue"><%= format_hours(avg_h) %></div>
-    </div>
-    <div class="tj-summary-card">
-      <div class="tj-sc-label">Max Cycle Time</div>
-      <div class="tj-sc-value tj-sc-orange"><%= format_hours(max_h) %></div>
-    </div>
-    <div class="tj-summary-card">
-      <div class="tj-sc-label">Total Returns</div>
-      <div class="tj-sc-value tj-sc-red"><%= c_total %></div>
-    </div>
-  </div>
-
-  <div class="tj-legend-strip">
-    <% counter_definitions.each do |counter| %>
-      <% total = counter_totals[counter[:key]] %>
-      <div class="tj-legend-item" title="<%= counter[:title] %>">
-        <div class="tj-legend-code"><%= counter[:code] %></div>
-        <div class="tj-legend-copy">
-          <div class="tj-legend-title"><%= counter[:title] %></div>
-          <div class="tj-legend-sub"><%= counter[:transition] %></div>
-        </div>
-        <div class="tj-legend-total <%= total > 0 ? 'is-active' : '' %>"><%= total %></div>
+    <%
+      total_issues = @issues_data.size
+      totals = @issues_data.map { |item| item[:durations][:TOTAL].to_f }.reject(&:zero?)
+      avg_h = totals.any? ? totals.sum / totals.size : 0.0
+      max_h = totals.max || 0.0
+      total_returns_all = @issues_data.sum { |item| total_returns(item[:durations]) }
+    %>
+    <div class="tj-summary-strip">
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Issues</div>
+        <div class="tj-sc-value tj-sc-accent"><%= total_issues %></div>
       </div>
-    <% end %>
-  </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Avg Cycle Time</div>
+        <div class="tj-sc-value tj-sc-blue"><%= format_hours(avg_h) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Max Cycle Time</div>
+        <div class="tj-sc-value tj-sc-orange"><%= format_hours(max_h) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Total Returns</div>
+        <div class="tj-sc-value tj-sc-red"><%= total_returns_all %></div>
+      </div>
+    </div>
   <% end %>
 
-  <!-- ── MAIN TABLE ── -->
   <% if !@query.valid? %>
     <div class="tj-empty">
-      <div class="tj-empty-icon">📋</div>
+      <div class="tj-empty-icon">Report</div>
       <h3>Invalid filters</h3>
       <p>Please review the Redmine query filters above.</p>
     </div>
   <% elsif @issues_data.empty? %>
     <div class="tj-empty">
-      <div class="tj-empty-icon">📋</div>
+      <div class="tj-empty-icon">Report</div>
       <h3>No issues found</h3>
       <p>Try adjusting the Redmine query filters above.</p>
     </div>
   <% else %>
-  <div class="tj-table-wrap">
-    <table class="tj-table" id="tj-table">
-      <% native_columns = visible_native_query_columns(@query) %>
-      <% grouped_data = grouped_issues_data(@query, @issues_data) %>
-      <% duration_fields = displayed_duration_fields %>
-      <% total_columns = 3 + native_columns.size + duration_fields.size + 6 %>
-      <thead>
-        <tr>
-          <th class="tj-th-issue"><%= query_sort_link(@query, :id, 'Issue') %></th>
-          <th class="tj-th-title"><%= query_sort_link(@query, :subject, 'Subject') %></th>
-          <th class="tj-th-status"><%= query_sort_link(@query, :status, 'Status') %></th>
-          <% native_columns.each do |column| %>
-            <th class="tj-th-native"><%= query_sort_link(@query, column) %></th>
-          <% end %>
-          <% duration_fields.each do |f| %>
-            <th class="<%= duration_header_css_class(f) %>"><%= report_sort_link(@query, f[:key], f[:label], title: f[:desc]) %></th>
-          <% end %>
-          <th class="tj-th-peak"><%= report_sort_link(@query, :peak_d, 'Peak D', title: 'Sort by the highest D duration for each issue') %></th>
-          <th class="tj-th-total"><%= report_sort_link(@query, :TOTAL, 'TOTAL', title: 'Sort by total cycle time') %></th>
-          <% counter_definitions.each do |counter| %>
-            <th class="tj-th-counter"><%= report_sort_link(@query, counter[:key], counter[:code], title: counter[:title]) %></th>
-          <% end %>
-        </tr>
-      </thead>
-      <tbody>
-        <% grouped_data.each do |label, items| %>
-          <% if (heading = group_label(@query, label, items.size)) %>
-            <% summary = group_summary(items) %>
-            <tr class="tj-group-row">
-              <td colspan="<%= total_columns %>" class="tj-group-cell">
-                <div class="tj-group-head"><%= heading %></div>
-                <div class="tj-group-summary">
-                  <span>Issues: <strong><%= summary[:issues] %></strong></span>
-                  <span>Avg Total: <strong><%= format_hours(summary[:avg_total]) %></strong></span>
-                  <span>Max Total: <strong><%= format_hours(summary[:max_total]) %></strong></span>
-                  <span>Returns: <strong><%= summary[:returns] %></strong></span>
-                </div>
-              </td>
-            </tr>
-          <% end %>
-          <% items.each do |item| %>
-            <% iss = item[:issue]; dur = item[:durations] %>
-            <tr class="tj-row">
-              <td class="tj-td-issue">
-                <%= link_to "##{iss.id}", issue_path(iss), class: 'tj-issue-link' %>
-              </td>
-              <td class="tj-td-title" title="<%= h(iss.subject) %>">
-                <%= link_to h(iss.subject), ticket_journey_issue_path(@project, iss.id), class: 'tj-subject-link' %>
-              </td>
-              <td class="tj-td-status">
-                <span class="tj-status-badge"><%= h(iss.status.name) %></span>
-              </td>
-              <% native_columns.each do |column| %>
-                <td class="tj-td-native"><%= column_content(column, iss) %></td>
-              <% end %>
-              <% duration_fields.each do |f| %>
-                <% val = dur[f[:key]].to_f %>
-                <td class="<%= duration_css_class(val, aug: f[:aug]) %>">
-                  <%= format_hours(val) %>
-                </td>
-              <% end %>
-              <td class="tj-td-peak"><%= peak_duration_label(dur) %></td>
-              <td class="tj-td-total"><%= format_hours(dur[:TOTAL]) %></td>
-              <td class="<%= counter_css_class(dur[:C1]) %>"><%= dur[:C1] > 0 ? dur[:C1] : '—' %></td>
-              <td class="<%= counter_css_class(dur[:C2]) %>"><%= dur[:C2] > 0 ? dur[:C2] : '—' %></td>
-              <td class="<%= counter_css_class(dur[:C3]) %>"><%= dur[:C3] > 0 ? dur[:C3] : '—' %></td>
-              <td class="<%= counter_css_class(dur[:C4]) %>"><%= dur[:C4] > 0 ? dur[:C4] : '—' %></td>
-            </tr>
-          <% end %>
-        <% end %>
-      </tbody>
-    </table>
-  </div>
-  <% end %>
+    <% native_columns = visible_native_query_columns(@query) %>
 
-</div><!-- /tj-wrap -->
+    <% @report_sections.each do |section| %>
+      <% family_key = section[:family_key] %>
+      <% items = section[:items] %>
+      <% duration_fields = duration_fields_for_family(family_key) %>
+      <% counters = counter_definitions(family_key) %>
+      <% summary = section_summary(items) %>
+
+      <div class="tj-card tj-card-full tj-section-card">
+        <div class="tj-section-header">
+          <div>
+            <h3 class="tj-section-title"><%= section[:label] %></h3>
+            <div class="tj-group-summary">
+              <span>Issues: <strong><%= summary[:issues] %></strong></span>
+              <span>Avg Total: <strong><%= format_hours(summary[:avg_total]) %></strong></span>
+              <span>Max Total: <strong><%= format_hours(summary[:max_total]) %></strong></span>
+              <span>Returns: <strong><%= summary[:returns] %></strong></span>
+            </div>
+          </div>
+        </div>
+
+        <% if counters.any? %>
+          <div class="tj-legend-strip tj-legend-strip-section">
+            <% counters.each do |counter| %>
+              <% total = items.sum { |item| item[:durations][counter[:key]].to_i } %>
+              <div class="tj-legend-item" title="<%= counter[:title] %>">
+                <div class="tj-legend-code"><%= counter[:code] %></div>
+                <div class="tj-legend-copy">
+                  <div class="tj-legend-title"><%= counter[:title] %></div>
+                  <div class="tj-legend-sub"><%= counter[:transition] %></div>
+                </div>
+                <div class="tj-legend-total <%= total > 0 ? 'is-active' : '' %>"><%= total %></div>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+
+        <div class="tj-table-wrap">
+          <table class="tj-table">
+            <thead>
+              <tr>
+                <th class="tj-th-issue"><%= query_sort_link(@query, :id, 'Issue') %></th>
+                <th class="tj-th-title"><%= query_sort_link(@query, :subject, 'Subject') %></th>
+                <th class="tj-th-status"><%= query_sort_link(@query, :status, 'Status') %></th>
+                <% native_columns.each do |column| %>
+                  <th class="tj-th-native"><%= query_sort_link(@query, column) %></th>
+                <% end %>
+                <% duration_fields.each do |field| %>
+                  <th class="<%= duration_header_css_class(field) %>"><%= report_sort_link(@query, family_key, field[:key], field[:label], title: field[:desc]) %></th>
+                <% end %>
+                <th class="tj-th-peak"><%= report_sort_link(@query, family_key, :peak, 'Peak', title: 'Sort by the highest duration in this tracker family') %></th>
+                <th class="tj-th-total"><%= report_sort_link(@query, family_key, :TOTAL, 'TOTAL', title: 'Sort by total cycle time') %></th>
+                <% counters.each do |counter| %>
+                  <th class="tj-th-counter"><%= report_sort_link(@query, family_key, counter[:key], counter[:code], title: counter[:title]) %></th>
+                <% end %>
+              </tr>
+            </thead>
+            <tbody>
+              <% grouped_issues_data(@query, items).each do |label, grouped_items| %>
+                <% if (heading = group_label(@query, label, grouped_items.size)) %>
+                  <% grouped_summary = section_summary(grouped_items) %>
+                  <tr class="tj-group-row">
+                    <td colspan="<%= section_table_column_count(@query, family_key) %>" class="tj-group-cell">
+                      <div class="tj-group-head"><%= heading %></div>
+                      <div class="tj-group-summary">
+                        <span>Issues: <strong><%= grouped_summary[:issues] %></strong></span>
+                        <span>Avg Total: <strong><%= format_hours(grouped_summary[:avg_total]) %></strong></span>
+                        <span>Max Total: <strong><%= format_hours(grouped_summary[:max_total]) %></strong></span>
+                        <span>Returns: <strong><%= grouped_summary[:returns] %></strong></span>
+                      </div>
+                    </td>
+                  </tr>
+                <% end %>
+
+                <% grouped_items.each do |item| %>
+                  <% issue = item[:issue] %>
+                  <% durations = item[:durations] %>
+                  <tr class="tj-row">
+                    <td class="tj-td-issue"><%= link_to "##{issue.id}", issue_path(issue), class: 'tj-issue-link' %></td>
+                    <td class="tj-td-title" title="<%= h(issue.subject) %>"><%= link_to h(issue.subject), ticket_journey_issue_path(@project, issue.id), class: 'tj-subject-link' %></td>
+                    <td class="tj-td-status"><span class="tj-status-badge"><%= h(issue.status.name) %></span></td>
+                    <% native_columns.each do |column| %>
+                      <td class="tj-td-native"><%= column_content(column, issue) %></td>
+                    <% end %>
+                    <% duration_fields.each do |field| %>
+                      <% value = durations[field[:key]].to_f %>
+                      <td class="<%= duration_css_class(value, aug: field[:aug]) %>"><%= format_hours(value) %></td>
+                    <% end %>
+                    <td class="tj-td-peak"><%= peak_duration_label(durations, family_key) %></td>
+                    <td class="tj-td-total"><%= format_hours(durations[:TOTAL]) %></td>
+                    <% counters.each do |counter| %>
+                      <% count = durations[counter[:key]].to_i %>
+                      <td class="<%= counter_css_class(count) %>"><%= count > 0 ? count : '-' %></td>
+                    <% end %>
+                  </tr>
+                <% end %>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    <% end %>
+  <% end %>
+</div>
