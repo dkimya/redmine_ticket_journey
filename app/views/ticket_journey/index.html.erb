@@ -14,7 +14,7 @@
     </div>
     <div class="tj-page-header-right">
       <%= link_to '⬇ Export CSV',
-            ticket_journey_export_path(@project, @query.as_params.merge(format: :csv)),
+            ticket_journey_export_path(@project, duration_report_params(@query).merge(format: :csv)),
             class: 'tj-btn tj-btn-export' %>
     </div>
   </div>
@@ -102,12 +102,12 @@
             <th class="tj-th-native"><%= query_sort_link(@query, column) %></th>
           <% end %>
           <% d_fields.each do |f| %>
-            <th class="<%= f[:aug] ? 'tj-th-aug' : 'tj-th-d' %>" title="<%= f[:desc] %>"><%= f[:label] %></th>
+            <th class="<%= f[:aug] ? 'tj-th-aug' : 'tj-th-d' %>"><%= report_sort_link(@query, f[:key], f[:label], title: f[:desc]) %></th>
           <% end %>
-          <th class="tj-th-peak">Peak D</th>
-          <th class="tj-th-total">TOTAL</th>
+          <th class="tj-th-peak"><%= report_sort_link(@query, :peak_d, 'Peak D', title: 'Sort by the highest D duration for each issue') %></th>
+          <th class="tj-th-total"><%= report_sort_link(@query, :TOTAL, 'TOTAL', title: 'Sort by total cycle time') %></th>
           <% counter_definitions.each do |counter| %>
-            <th class="tj-th-counter" title="<%= counter[:title] %>"><%= counter[:code] %></th>
+            <th class="tj-th-counter"><%= report_sort_link(@query, counter[:key], counter[:code], title: counter[:title]) %></th>
           <% end %>
         </tr>
       </thead>

@@ -1,4 +1,15 @@
 module TicketJourneyHelper
+  def duration_report_params(query)
+    query_params = query.as_params.deep_dup
+
+    %w[report_sort report_dir].each do |key|
+      value = params[key]
+      query_params[key] = value if value.present?
+    end
+
+    query_params
+  end
+
   def query_sort_link(query, column, caption=nil)
     column_name = column.respond_to?(:name) ? column.name.to_s : column.to_s
     column_caption = caption || (column.respond_to?(:caption) ? column.caption.to_s : column_name.humanize)
@@ -16,9 +27,32 @@ module TicketJourneyHelper
 
     return "#{column_caption}#{indicator}" unless !column.respond_to?(:sortable?) || column.sortable?
 
+    sort_params = duration_report_params(query)
+    sort_params.delete('report_sort')
+    sort_params.delete('report_dir')
+
     link_to(
       "#{column_caption}#{indicator}",
-      ticket_journey_path(@project, query.as_params.merge(sort: "#{column_name}:#{next_order}"))
+      ticket_journey_path(@project, sort_params.merge(sort: "#{column_name}:#{next_order}"))
+    )
+  end
+
+  def report_sort_link(query, sort_key, caption, title: nil)
+    current_key = params[:report_sort].to_s
+    current_dir = params[:report_dir].to_s == 'asc' ? 'asc' : 'desc'
+    next_dir = current_key == sort_key.to_s && current_dir == 'asc' ? 'desc' : 'asc'
+
+    indicator =
+      if current_key == sort_key.to_s
+        current_dir == 'asc' ? ' ↑' : ' ↓'
+      else
+        ''
+      end
+
+    link_to(
+      "#{caption}#{indicator}",
+      ticket_journey_path(@project, duration_report_params(query).merge(report_sort: sort_key, report_dir: next_dir)),
+      title: title
     )
   end
 

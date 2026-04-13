@@ -1,5 +1,6 @@
 class TicketJourneyController < ApplicationController
   TICKET_OWNER_CF_ID = 57
+  REPORT_SORTABLE_FIELDS = %w[D1 D2 D2aug D3 D3aug D4 D4aug D5 D5aug D6 D6aug D7 D7aug D8 D9 D10 TOTAL peak_d C1 C2 C3 C4].freeze
 
   before_action :find_project
   before_action :authorize
@@ -219,7 +220,7 @@ class TicketJourneyController < ApplicationController
     )
     all_transitions = load_transitions(issues)
 
-    issues.map do |issue|
+    issues_data = issues.map do |issue|
       transitions = all_transitions[issue.id] || []
       durations = calculate_durations_from_transitions(transitions)
 
@@ -228,6 +229,54 @@ class TicketJourneyController < ApplicationController
         durations: durations
       }
     end
+
+    sort_report_issues_data(issues_data)
+  end
+
+  def sort_report_issues_data(issues_data)
+    sort_key = params[:report_sort].to_s
+    return issues_data unless REPORT_SORTABLE_FIELDS.include?(sort_key)
+
+    direction_factor = params[:report_dir].to_s == 'asc' ? 1 : -1
+
+    issues_data.sort_by do |item|
+      [
+        direction_factor * report_sort_numeric_value(item, sort_key),
+        report_sort_tie_breaker(item, sort_key),
+        item[:issue].id
+      ]
+    end
+  end
+
+  def report_sort_numeric_value(item, sort_key)
+    durations = item[:durations]
+
+    case sort_key
+    when 'peak_d'
+      report_peak_duration_value(durations)
+    when 'C1', 'C2', 'C3', 'C4'
+      durations[sort_key.to_sym].to_i
+    else
+      durations[sort_key.to_sym].to_f
+    end
+  end
+
+  def report_sort_tie_breaker(item, sort_key)
+    return report_peak_duration_index(item[:durations]) if sort_key == 'peak_d'
+
+    0
+  end
+
+  def report_peak_duration_value(durations)
+    d_duration_keys.map { |key| durations[key].to_f }.max || 0.0
+  end
+
+  def report_peak_duration_index(durations)
+    d_duration_keys.each_with_index.max_by { |key, index| [durations[key].to_f, -index] }&.last || 0
+  end
+
+  def d_duration_keys
+    @d_duration_keys ||= %i[D1 D2 D2aug D3 D3aug D4 D4aug D5 D5aug D6 D6aug D7aug D7 D8 D9 D10]
   end
 
   def compute_owner_returns_summary(issues_data, role_id: nil)
