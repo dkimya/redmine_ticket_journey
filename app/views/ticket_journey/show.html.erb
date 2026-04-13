@@ -1,4 +1,4 @@
-<% content_for :header_tags do %>
+ï»¿<% content_for :header_tags do %>
   <%= stylesheet_link_tag 'ticket_journey', plugin: 'redmine_ticket_journey' %>
 <% end %>
 
@@ -29,9 +29,9 @@
       <div>
         <h2><%= link_to "##{@issue.id}", issue_path(@issue), class: 'tj-issue-link' %> &mdash; <%= h(@issue.subject) %></h2>
         <p class="tj-page-sub">
-          Family: <strong><%= TicketJourneyController::TRACKER_FAMILY_DEFINITIONS[@tracker_family_key][:label] %></strong> &nbsp;·&nbsp;
-          Status: <strong><%= @issue.status.name %></strong> &nbsp;·&nbsp;
-          Assignee: <strong><%= @issue.assigned_to&.name || '-' %></strong> &nbsp;·&nbsp;
+          Family: <strong><%= TicketJourneyController::TRACKER_FAMILY_DEFINITIONS[@tracker_family_key][:label] %></strong> &nbsp;|&nbsp;
+          Status: <strong><%= @issue.status.name %></strong> &nbsp;|&nbsp;
+          Assignee: <strong><%= @issue.assigned_to&.name || '-' %></strong> &nbsp;|&nbsp;
           Created: <strong><%= format_date(@issue.created_on) %></strong>
         </p>
       </div>
@@ -144,7 +144,7 @@
             <div class="tj-tl-meta">
               by <strong><%= h(transition[:changed_by_name].presence || transition[:changed_by]) %></strong>
               <% if period_h %>
-                &nbsp;·&nbsp; spent: <span class="tj-tl-spent"><%= format_hours(period_h) %></span>
+                &nbsp;|&nbsp; spent: <span class="tj-tl-spent"><%= format_hours(period_h) %></span>
               <% end %>
             </div>
             <% if transition[:notes].present? %>
