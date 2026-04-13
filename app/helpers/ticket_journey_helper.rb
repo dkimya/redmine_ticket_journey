@@ -41,7 +41,7 @@ module TicketJourneyHelper
   def report_sort_link(query, sort_key, caption, title: nil)
     current_key = params[:report_sort].to_s
     current_dir = params[:report_dir].to_s == 'asc' ? 'asc' : 'desc'
-    next_dir = current_key == sort_key.to_s && current_dir == 'asc' ? 'desc' : 'asc'
+    next_dir = current_key == sort_key.to_s && current_dir == 'desc' ? 'asc' : 'desc'
 
     indicator =
       if current_key == sort_key.to_s
