@@ -11,6 +11,18 @@ module TicketJourneyHelper
     query_params
   end
 
+  def owner_returns_params(query)
+    query_params = query.as_params.deep_dup.deep_stringify_keys
+
+    %w[ticket_owner_role_id owner_sort owner_dir].each do |key|
+      query_params.delete(key)
+      value = params[key]
+      query_params[key] = value if value.present?
+    end
+
+    query_params
+  end
+
   def query_sort_link(query, column, caption=nil)
     column_name = column.respond_to?(:name) ? column.name.to_s : column.to_s
     column_caption = caption || (column.respond_to?(:caption) ? column.caption.to_s : column_name.humanize)
@@ -53,6 +65,27 @@ module TicketJourneyHelper
     link_to(
       "#{caption}#{indicator}",
       ticket_journey_path(@project, duration_report_params(query).merge('report_sort' => sort_key.to_s, 'report_dir' => next_dir)),
+      title: title
+    )
+  end
+
+  def owner_returns_sort_link(query, sort_key, caption, title: nil)
+    current_key = params[:owner_sort].to_s
+    current_dir = params[:owner_dir].to_s
+    current_dir = (sort_key.to_s == 'owner' ? 'asc' : 'desc') unless %w[asc desc].include?(current_dir)
+    default_dir = sort_key.to_s == 'owner' ? 'asc' : 'desc'
+    next_dir = current_key == sort_key.to_s && current_dir == default_dir ? (default_dir == 'asc' ? 'desc' : 'asc') : default_dir
+
+    indicator =
+      if current_key == sort_key.to_s
+        current_dir == 'asc' ? ' ↑' : ' ↓'
+      else
+        ''
+      end
+
+    link_to(
+      "#{caption}#{indicator}",
+      ticket_journey_owner_returns_path(@project, owner_returns_params(query).merge('owner_sort' => sort_key.to_s, 'owner_dir' => next_dir)),
       title: title
     )
   end

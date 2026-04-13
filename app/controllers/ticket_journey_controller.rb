@@ -1,6 +1,7 @@
 class TicketJourneyController < ApplicationController
   TICKET_OWNER_CF_ID = 57
   REPORT_SORTABLE_FIELDS = %w[D1 D2 D2aug D3 D3aug D4 D4aug D5 D5aug D6 D6aug D7 D7aug D8 D9 D10 TOTAL peak_d C1 C2 C3 C4].freeze
+  OWNER_RETURN_SORTABLE_FIELDS = %w[owner total_tickets ticket_share returned_tickets return_rate c1 c2 c3 c4 total_returns].freeze
 
   before_action :find_project
   before_action :authorize
@@ -316,7 +317,62 @@ class TicketJourneyController < ApplicationController
       row[:total_returns] += total_returns
     end
 
-    rows.values.sort_by { |row| [-row[:total_returns], -row[:total_tickets], row[:owner].downcase] }
+    sort_owner_return_rows(rows.values)
+  end
+
+  def sort_owner_return_rows(rows)
+    sort_key = params[:owner_sort].to_s
+    return rows.sort_by { |row| [-row[:total_returns], -row[:total_tickets], row[:owner].downcase] } unless OWNER_RETURN_SORTABLE_FIELDS.include?(sort_key)
+
+    total_ticket_count = rows.sum { |row| row[:total_tickets].to_i }
+    direction_factor = owner_return_sort_direction(sort_key) == 'asc' ? 1 : -1
+
+    rows.sort_by do |row|
+      [
+        owner_return_sort_primary(row, sort_key, total_ticket_count, direction_factor),
+        owner_return_sort_secondary(row, sort_key, direction_factor),
+        row[:owner].to_s.downcase
+      ]
+    end
+  end
+
+  def owner_return_sort_primary(row, sort_key, total_ticket_count, direction_factor)
+    case sort_key
+    when 'owner'
+      row[:owner].to_s.downcase
+    when 'ticket_share'
+      direction_factor * owner_return_ticket_share(row, total_ticket_count)
+    when 'return_rate'
+      direction_factor * owner_return_rate(row)
+    else
+      direction_factor * row[sort_key.to_sym].to_f
+    end
+  end
+
+  def owner_return_sort_secondary(row, sort_key, direction_factor)
+    return row[:total_returns].to_i * direction_factor if %w[ticket_share return_rate].include?(sort_key)
+    return 0 if sort_key == 'owner'
+
+    row[:total_tickets].to_i * direction_factor
+  end
+
+  def owner_return_ticket_share(row, total_ticket_count)
+    return 0.0 if total_ticket_count.to_f <= 0
+
+    row[:total_tickets].to_f / total_ticket_count.to_f
+  end
+
+  def owner_return_rate(row)
+    return 0.0 if row[:total_tickets].to_f <= 0
+
+    row[:returned_tickets].to_f / row[:total_tickets].to_f
+  end
+
+  def owner_return_sort_direction(sort_key)
+    requested_dir = params[:owner_dir].to_s
+    return requested_dir if %w[asc desc].include?(requested_dir)
+
+    sort_key == 'owner' ? 'asc' : 'desc'
   end
 
   def ticket_owner_values_for_role(role_id)

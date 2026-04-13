@@ -85,16 +85,16 @@
       <table class="tj-table">
         <thead>
             <tr>
-              <th class="tj-th-title">Ticket Owner</th>
-              <th class="tj-th-native">No. of Tickets</th>
-              <th class="tj-th-native">% of All Tickets</th>
-              <th class="tj-th-native">No. of Returned Tickets</th>
-              <th class="tj-th-native">Return Rate</th>
-              <th class="tj-th-counter" title="<%= counter_definitions[0][:title] %>"><%= counter_definitions[0][:code] %></th>
-              <th class="tj-th-counter" title="<%= counter_definitions[1][:title] %>"><%= counter_definitions[1][:code] %></th>
-              <th class="tj-th-counter" title="<%= counter_definitions[2][:title] %>"><%= counter_definitions[2][:code] %></th>
-            <th class="tj-th-counter" title="<%= counter_definitions[3][:title] %>"><%= counter_definitions[3][:code] %></th>
-            <th class="tj-th-total">Total Returns</th>
+              <th class="tj-th-title"><%= owner_returns_sort_link(@query, :owner, 'Ticket Owner') %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :total_tickets, 'No. of Tickets') %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :ticket_share, '% of All Tickets') %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :returned_tickets, 'No. of Returned Tickets') %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :return_rate, 'Return Rate') %></th>
+              <th class="tj-th-counter"><%= owner_returns_sort_link(@query, :c1, counter_definitions[0][:code], title: counter_definitions[0][:title]) %></th>
+              <th class="tj-th-counter"><%= owner_returns_sort_link(@query, :c2, counter_definitions[1][:code], title: counter_definitions[1][:title]) %></th>
+              <th class="tj-th-counter"><%= owner_returns_sort_link(@query, :c3, counter_definitions[2][:code], title: counter_definitions[2][:title]) %></th>
+            <th class="tj-th-counter"><%= owner_returns_sort_link(@query, :c4, counter_definitions[3][:code], title: counter_definitions[3][:title]) %></th>
+            <th class="tj-th-total"><%= owner_returns_sort_link(@query, :total_returns, 'Total Returns') %></th>
           </tr>
         </thead>
         <tbody>
