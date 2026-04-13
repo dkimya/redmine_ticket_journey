@@ -192,6 +192,22 @@ module TicketJourneyHelper
   ]
   end
 
+  def supplemental_duration_fields
+    [
+      { key: :ON_HOLD, label: 'On-Hold', aug: false, desc: 'Paused Time (On-Hold)', css_class: 'tj-th-hold' }
+    ]
+  end
+
+  def displayed_duration_fields
+    d_fields + supplemental_duration_fields
+  end
+
+  def duration_header_css_class(field)
+    return field[:css_class] if field[:css_class].present?
+
+    field[:aug] ? 'tj-th-aug' : 'tj-th-d'
+  end
+
   def format_hours(h)
     return '—' if h.nil? || h == 0
     h = h.to_f

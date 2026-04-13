@@ -92,7 +92,8 @@
     <table class="tj-table" id="tj-table">
       <% native_columns = visible_native_query_columns(@query) %>
       <% grouped_data = grouped_issues_data(@query, @issues_data) %>
-      <% total_columns = 3 + native_columns.size + d_fields.size + 6 %>
+      <% duration_fields = displayed_duration_fields %>
+      <% total_columns = 3 + native_columns.size + duration_fields.size + 6 %>
       <thead>
         <tr>
           <th class="tj-th-issue"><%= query_sort_link(@query, :id, 'Issue') %></th>
@@ -101,8 +102,8 @@
           <% native_columns.each do |column| %>
             <th class="tj-th-native"><%= query_sort_link(@query, column) %></th>
           <% end %>
-          <% d_fields.each do |f| %>
-            <th class="<%= f[:aug] ? 'tj-th-aug' : 'tj-th-d' %>"><%= report_sort_link(@query, f[:key], f[:label], title: f[:desc]) %></th>
+          <% duration_fields.each do |f| %>
+            <th class="<%= duration_header_css_class(f) %>"><%= report_sort_link(@query, f[:key], f[:label], title: f[:desc]) %></th>
           <% end %>
           <th class="tj-th-peak"><%= report_sort_link(@query, :peak_d, 'Peak D', title: 'Sort by the highest D duration for each issue') %></th>
           <th class="tj-th-total"><%= report_sort_link(@query, :TOTAL, 'TOTAL', title: 'Sort by total cycle time') %></th>
@@ -142,7 +143,7 @@
               <% native_columns.each do |column| %>
                 <td class="tj-td-native"><%= column_content(column, iss) %></td>
               <% end %>
-              <% d_fields.each do |f| %>
+              <% duration_fields.each do |f| %>
                 <% val = dur[f[:key]].to_f %>
                 <td class="<%= duration_css_class(val, aug: f[:aug]) %>">
                   <%= format_hours(val) %>

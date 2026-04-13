@@ -1,6 +1,6 @@
 class TicketJourneyController < ApplicationController
   TICKET_OWNER_CF_ID = 57
-  REPORT_SORTABLE_FIELDS = %w[D1 D2 D2aug D3 D3aug D4 D4aug D5 D5aug D6 D6aug D7 D7aug D8 D9 D10 TOTAL peak_d C1 C2 C3 C4].freeze
+  REPORT_SORTABLE_FIELDS = %w[D1 D2 D2aug D3 D3aug D4 D4aug D5 D5aug D6 D6aug D7 D7aug D8 D9 D10 ON_HOLD TOTAL peak_d C1 C2 C3 C4].freeze
   OWNER_RETURN_SORTABLE_FIELDS = %w[owner total_tickets ticket_share returned_tickets return_rate c1 c2 c3 c4 total_returns].freeze
 
   before_action :find_project
@@ -109,6 +109,7 @@ class TicketJourneyController < ApplicationController
     review:       ['Review'],
     ready_merge:  ['Ready to Merge'],
     final_check:  ['Final Check'],
+    on_hold:      ['On-Hold'],
     archived:     ['Archived'],
     done:         ['Done / Closed'],
   }.freeze
@@ -435,6 +436,7 @@ class TicketJourneyController < ApplicationController
 
     hours = ->(a, b) { a && b ? [(b - a) / 3600.0, 0].max.round(2) : 0.0 }
     v = ->(role) { visits[role] || [] }
+    on_hold = v.call(:on_hold).sum { |p| hours.call(p[:enter], p[:exit]) }
 
     d1 = 0.0
     d8 = 0.0
@@ -570,7 +572,7 @@ class TicketJourneyController < ApplicationController
       D4: d4, D4aug: d4aug,
       D5: d5, D5aug: d5aug,
       D6: d6, D6aug: d6aug,
-      D7aug: d7aug, D7: d7, D8: d8, D9: d9, D10: d10,
+      D7aug: d7aug, D7: d7, D8: d8, D9: d9, D10: d10, ON_HOLD: on_hold,
       TOTAL: total,
       C1: c1, C2: c2, C3: c3, C4: c4,
       periods: periods
@@ -616,7 +618,7 @@ class TicketJourneyController < ApplicationController
       D4: 0.0, D4aug: 0.0,
       D5: 0.0, D5aug: 0.0,
       D6: 0.0, D6aug: 0.0,
-      D7aug: 0.0, D7: 0.0, D8: 0.0, D9: 0.0, D10: 0.0,
+      D7aug: 0.0, D7: 0.0, D8: 0.0, D9: 0.0, D10: 0.0, ON_HOLD: 0.0,
       TOTAL: 0.0,
       C1: 0, C2: 0, C3: 0, C4: 0,
       periods: []
@@ -628,8 +630,15 @@ class TicketJourneyController < ApplicationController
   # ---------------------------------------------------------------
   def generate_csv(issues_data)
     require 'csv'
-    value_fields = %w[D1 D2 D2aug D3 D3aug D4 D4aug D5 D5aug D6 D6aug D7aug D7 D8 D9 D10 TOTAL C1 C2 C3 C4]
-    header_fields = value_fields.map { |field| field.sub(/\AC/, 'R') }
+    value_fields = %w[D1 D2 D2aug D3 D3aug D4 D4aug D5 D5aug D6 D6aug D7aug D7 D8 D9 D10 ON_HOLD TOTAL C1 C2 C3 C4]
+    header_fields = value_fields.map do |field|
+      case field
+      when 'ON_HOLD'
+        'On-Hold'
+      else
+        field.sub(/\AC/, 'R')
+      end
+    end
     CSV.generate(headers: true, encoding: 'UTF-8') do |csv|
       csv << ['issue_id', 'subject', 'status', 'assignee', 'tracker', *header_fields, 'peak_d']
       issues_data.each do |item|

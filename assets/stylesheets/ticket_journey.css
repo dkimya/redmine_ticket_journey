@@ -288,6 +288,7 @@
 .tj-th-peak   { color: var(--tj-accent); background: #fff8eb; min-width: 110px; }
 .tj-th-d      { color: var(--tj-blue); background: #f5f8fd; }
 .tj-th-aug    { color: var(--tj-orange); background: #fdf7f0; }
+.tj-th-hold   { color: #4b5563; background: #eef2f7; min-width: 84px; }
 .tj-th-total  { color: var(--tj-green); background: #f0faf3; }
 .tj-th-counter { color: var(--tj-red); background: #fdf0f0; min-width: 42px; }
 

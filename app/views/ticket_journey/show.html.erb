@@ -47,7 +47,8 @@
     <div class="tj-card">
       <div class="tj-card-title">Duration Breakdown</div>
       <%
-        max_val = d_fields.map { |f| @duration_data[f[:key]].to_f }.max
+        duration_fields = displayed_duration_fields
+        max_val = duration_fields.map { |f| @duration_data[f[:key]].to_f }.max
         max_val = 1 if max_val == 0
         bar_colors = {
           D1: '#4fc3f7', D2: '#4fc3f7', D2aug: '#e07b39',
@@ -56,11 +57,12 @@
           D5: '#4caf7d', D5aug: '#e07b39',
           D6: '#9c7ff0', D6aug: '#e07b39',
           D7aug: '#e07b39', D7: '#9c7ff0',
-          D8: '#f28e2b', D9: '#d95f5f', D10: '#8b5e3c'
+          D8: '#f28e2b', D9: '#d95f5f', D10: '#8b5e3c',
+          ON_HOLD: '#7b8794'
         }
       %>
       <div class="tj-bars">
-        <% d_fields.each do |f| %>
+        <% duration_fields.each do |f| %>
           <% val = @duration_data[f[:key]].to_f %>
           <% pct = (val / max_val * 100).round %>
           <div class="tj-bar-row">
