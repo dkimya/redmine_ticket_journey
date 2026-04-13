@@ -1,8 +1,9 @@
 module TicketJourneyHelper
   def duration_report_params(query)
-    query_params = query.as_params.deep_dup
+    query_params = query.as_params.deep_dup.deep_stringify_keys
 
     %w[report_sort report_dir].each do |key|
+      query_params.delete(key)
       value = params[key]
       query_params[key] = value if value.present?
     end
@@ -33,7 +34,7 @@ module TicketJourneyHelper
 
     link_to(
       "#{column_caption}#{indicator}",
-      ticket_journey_path(@project, sort_params.merge(sort: "#{column_name}:#{next_order}"))
+      ticket_journey_path(@project, sort_params.merge('sort' => "#{column_name}:#{next_order}"))
     )
   end
 
@@ -51,7 +52,7 @@ module TicketJourneyHelper
 
     link_to(
       "#{caption}#{indicator}",
-      ticket_journey_path(@project, duration_report_params(query).merge(report_sort: sort_key, report_dir: next_dir)),
+      ticket_journey_path(@project, duration_report_params(query).merge('report_sort' => sort_key.to_s, 'report_dir' => next_dir)),
       title: title
     )
   end
