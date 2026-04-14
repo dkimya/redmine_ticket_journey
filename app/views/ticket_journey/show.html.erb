@@ -4,9 +4,9 @@
 
 <%
   duration_fields = duration_fields_for_family(@tracker_family_key)
-  hold_field = on_hold_field
+  supplemental_fields = supplemental_duration_fields_for_family(@tracker_family_key)
   counters = counter_definitions(@tracker_family_key)
-  max_val = (duration_fields + [hold_field]).map { |field| @duration_data[field[:key]].to_f }.max
+  max_val = (duration_fields + supplemental_fields).map { |field| @duration_data[field[:key]].to_f }.max
   max_val = 1 if max_val.to_f <= 0
   bar_colors = {
     D1: '#4fc3f7', D2: '#4fc3f7', D2aug: '#e07b39',
@@ -19,7 +19,7 @@
     DC1: '#4fc3f7', DC2: '#e07b39', DC3: '#f5c518', DC4: '#4caf7d', DC5: '#9c7ff0', DC6: '#8bc34a', DC7: '#00acc1',
     DT1: '#4fc3f7', DT2: '#4fc3f7', DT2aug: '#e07b39', DT3: '#f5c518', DT3aug: '#e07b39', DT4: '#4caf7d', DT4aug: '#e07b39', DT5: '#9c7ff0', DT5aug: '#e07b39',
     DP1: '#4fc3f7', DP2: '#f5c518', DP3: '#4caf7d', DP4: '#9c7ff0',
-    ON_HOLD: '#7b8794'
+    ON_HOLD: '#7b8794', PENDING: '#94a3b8'
   }
 %>
 
@@ -100,18 +100,20 @@
           <div class="tj-bar-val"><strong><%= format_hours(@duration_data[:TOTAL]) %></strong></div>
           <div class="tj-bar-desc">Full cycle time</div>
         </div>
-        <% on_hold_value = @duration_data[:ON_HOLD].to_f %>
-        <% on_hold_pct = (on_hold_value / max_val * 100).round %>
-        <div class="tj-bar-row">
-          <div class="tj-bar-label"><%= hold_field[:label] %></div>
-          <div class="tj-bar-track">
-            <div class="tj-bar-fill" style="width:<%= on_hold_pct %>%;background:<%= bar_colors[:ON_HOLD] %>">
-              <% if on_hold_pct > 12 %><span><%= format_hours(on_hold_value) %></span><% end %>
+        <% supplemental_fields.each do |field| %>
+          <% value = @duration_data[field[:key]].to_f %>
+          <% pct = (value / max_val * 100).round %>
+          <div class="tj-bar-row">
+            <div class="tj-bar-label"><%= field[:label] %></div>
+            <div class="tj-bar-track">
+              <div class="tj-bar-fill" style="width:<%= pct %>%;background:<%= bar_colors[field[:key]] || '#7b8794' %>">
+                <% if pct > 12 %><span><%= format_hours(value) %></span><% end %>
+              </div>
             </div>
+            <div class="tj-bar-val"><%= format_hours(value) %></div>
+            <div class="tj-bar-desc"><%= field[:desc] %></div>
           </div>
-          <div class="tj-bar-val"><%= format_hours(on_hold_value) %></div>
-          <div class="tj-bar-desc"><%= hold_field[:desc] %></div>
-        </div>
+        <% end %>
       </div>
     </div>
 

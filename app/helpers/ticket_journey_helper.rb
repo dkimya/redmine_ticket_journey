@@ -197,6 +197,16 @@ module TicketJourneyHelper
     { key: :ON_HOLD, label: 'On-Hold', aug: false, desc: 'Paused Time (On-Hold)', css_class: 'tj-th-hold' }
   end
 
+  def pending_field
+    { key: :PENDING, label: 'Pending', aug: false, desc: 'Paused Time (Pending)', css_class: 'tj-th-hold' }
+  end
+
+  def supplemental_duration_fields_for_family(family_key)
+    fields = [on_hold_field]
+    fields << pending_field unless family_key.to_sym == :customer_support
+    fields
+  end
+
   def duration_fields_for_family(family_key)
     base_fields =
       case family_key.to_sym
@@ -237,7 +247,7 @@ module TicketJourneyHelper
   end
 
   def section_table_column_count(query, family_key)
-    6 + visible_native_query_columns(query).size + duration_fields_for_family(family_key).size + counter_definitions(family_key).size
+    5 + visible_native_query_columns(query).size + duration_fields_for_family(family_key).size + supplemental_duration_fields_for_family(family_key).size + counter_definitions(family_key).size
   end
 
   def duration_header_css_class(field)

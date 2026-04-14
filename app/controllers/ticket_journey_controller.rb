@@ -32,7 +32,7 @@ class TicketJourneyController < ApplicationController
     task: %i[C1 C4],
     container: []
   }.freeze
-  ALL_DURATION_KEYS = (FAMILY_DURATION_KEYS.values.flatten + [:ON_HOLD, :TOTAL]).freeze
+  ALL_DURATION_KEYS = (FAMILY_DURATION_KEYS.values.flatten + [:ON_HOLD, :PENDING, :TOTAL]).freeze
   ALL_COUNTER_KEYS = %i[C1 C2 C3 C4].freeze
 
   before_action :find_project
@@ -318,7 +318,9 @@ class TicketJourneyController < ApplicationController
   end
 
   def report_sortable_fields_for_family(family_key)
-    (FAMILY_DURATION_KEYS.fetch(family_key).map(&:to_s) + %w[TOTAL ON_HOLD peak]).concat(FAMILY_COUNTER_KEYS.fetch(family_key).map(&:to_s))
+    extra_fields = %w[TOTAL ON_HOLD]
+    extra_fields << 'PENDING' unless family_key.to_sym == :customer_support
+    (FAMILY_DURATION_KEYS.fetch(family_key).map(&:to_s) + extra_fields + %w[peak]).concat(FAMILY_COUNTER_KEYS.fetch(family_key).map(&:to_s))
   end
 
   def report_sort_numeric_value(item, sort_key, family_key)
@@ -509,6 +511,7 @@ class TicketJourneyController < ApplicationController
     visits = visits_by_role(periods)
     result = empty_durations(periods: periods)
     result[:ON_HOLD] = sum_role_hours(visits, :on_hold)
+    result[:PENDING] = sum_role_hours(visits, :pending)
 
     periods.each_with_index do |period, index|
       next_role = period_next_role(periods, index)
@@ -604,6 +607,7 @@ class TicketJourneyController < ApplicationController
     visits = visits_by_role(periods)
     result = empty_durations(periods: periods)
     result[:ON_HOLD] = sum_role_hours(visits, :on_hold)
+    result[:PENDING] = sum_role_hours(visits, :pending)
 
     periods.each_with_index do |period, index|
       next_role = period_next_role(periods, index)
@@ -648,6 +652,7 @@ class TicketJourneyController < ApplicationController
   def calculate_container_durations(periods)
     result = empty_durations(periods: periods)
     result[:ON_HOLD] = periods.select { |period| status_role(period[:status]) == :on_hold }.sum { |period| period_hours(period) }
+    result[:PENDING] = periods.select { |period| status_role(period[:status]) == :pending }.sum { |period| period_hours(period) }
 
     periods.each_with_index do |period, index|
       next_role = period_next_role(periods, index)
@@ -743,7 +748,9 @@ class TicketJourneyController < ApplicationController
         csv << [] unless index.zero?
         csv << [section[:label]]
 
-        value_fields = FAMILY_DURATION_KEYS.fetch(section[:family_key]) + [:TOTAL, :ON_HOLD] + FAMILY_COUNTER_KEYS.fetch(section[:family_key])
+        extra_fields = [:TOTAL, :ON_HOLD]
+        extra_fields << :PENDING unless section[:family_key].to_sym == :customer_support
+        value_fields = FAMILY_DURATION_KEYS.fetch(section[:family_key]) + extra_fields + FAMILY_COUNTER_KEYS.fetch(section[:family_key])
         csv << ['issue_id', 'subject', 'status', 'assignee', 'tracker', *value_fields.map { |field| csv_header_label_for(field) }, 'Peak']
 
         section[:items].each do |item|
@@ -766,6 +773,7 @@ class TicketJourneyController < ApplicationController
 
   def csv_header_label_for(field)
     return 'On-Hold' if field == :ON_HOLD
+    return 'Pending' if field == :PENDING
     return 'TOTAL' if field == :TOTAL
     return field.to_s.sub(/\AC/, 'R') if ALL_COUNTER_KEYS.include?(field)
 
