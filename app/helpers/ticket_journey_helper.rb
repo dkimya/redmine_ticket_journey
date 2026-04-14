@@ -286,7 +286,7 @@ module TicketJourneyHelper
     return 'tj-dur-zero' if hours.nil? || hours == 0
 
     base = aug ? 'tj-dur-aug' : 'tj-dur'
-    base += ' tj-dur-high' if hours.to_f > 48
+    base += ' tj-dur-high' if hours.to_f > 240
     base
   end
 
