@@ -318,7 +318,7 @@ class TicketJourneyController < ApplicationController
   end
 
   def report_sortable_fields_for_family(family_key)
-    (FAMILY_DURATION_KEYS.fetch(family_key).map(&:to_s) + %w[ON_HOLD TOTAL peak]).concat(FAMILY_COUNTER_KEYS.fetch(family_key).map(&:to_s))
+    (FAMILY_DURATION_KEYS.fetch(family_key).map(&:to_s) + %w[TOTAL ON_HOLD peak]).concat(FAMILY_COUNTER_KEYS.fetch(family_key).map(&:to_s))
   end
 
   def report_sort_numeric_value(item, sort_key, family_key)
@@ -743,7 +743,7 @@ class TicketJourneyController < ApplicationController
         csv << [] unless index.zero?
         csv << [section[:label]]
 
-        value_fields = FAMILY_DURATION_KEYS.fetch(section[:family_key]) + [:ON_HOLD, :TOTAL] + FAMILY_COUNTER_KEYS.fetch(section[:family_key])
+        value_fields = FAMILY_DURATION_KEYS.fetch(section[:family_key]) + [:TOTAL, :ON_HOLD] + FAMILY_COUNTER_KEYS.fetch(section[:family_key])
         csv << ['issue_id', 'subject', 'status', 'assignee', 'tracker', *value_fields.map { |field| csv_header_label_for(field) }, 'Peak']
 
         section[:items].each do |item|

@@ -70,6 +70,7 @@
       <% family_key = section[:family_key] %>
       <% items = section[:items] %>
       <% duration_fields = duration_fields_for_family(family_key) %>
+      <% hold_field = on_hold_field %>
       <% counters = counter_definitions(family_key) %>
       <% summary = section_summary(items) %>
 
@@ -117,6 +118,7 @@
                 <% end %>
                 <th class="tj-th-peak"><%= report_sort_link(@query, family_key, :peak, 'Peak', title: 'Sort by the highest duration in this tracker family') %></th>
                 <th class="tj-th-total"><%= report_sort_link(@query, family_key, :TOTAL, 'TOTAL', title: 'Sort by total cycle time') %></th>
+                <th class="<%= duration_header_css_class(hold_field) %>"><%= report_sort_link(@query, family_key, :ON_HOLD, hold_field[:label], title: hold_field[:desc]) %></th>
                 <% counters.each do |counter| %>
                   <th class="tj-th-counter"><%= report_sort_link(@query, family_key, counter[:key], counter[:code], title: counter[:title]) %></th>
                 <% end %>
@@ -155,6 +157,8 @@
                     <% end %>
                     <td class="tj-td-peak"><%= peak_duration_label(durations, family_key) %></td>
                     <td class="tj-td-total"><%= format_hours(durations[:TOTAL]) %></td>
+                    <% on_hold_value = durations[:ON_HOLD].to_f %>
+                    <td class="<%= duration_css_class(on_hold_value, aug: hold_field[:aug]) %>"><%= format_hours(on_hold_value) %></td>
                     <% counters.each do |counter| %>
                       <% count = durations[counter[:key]].to_i %>
                       <td class="<%= counter_css_class(count) %>"><%= count > 0 ? count : '-' %></td>

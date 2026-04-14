@@ -193,10 +193,8 @@ module TicketJourneyHelper
     ]
   end
 
-  def supplemental_duration_fields
-    [
-      { key: :ON_HOLD, label: 'On-Hold', aug: false, desc: 'Paused Time (On-Hold)', css_class: 'tj-th-hold' }
-    ]
+  def on_hold_field
+    { key: :ON_HOLD, label: 'On-Hold', aug: false, desc: 'Paused Time (On-Hold)', css_class: 'tj-th-hold' }
   end
 
   def duration_fields_for_family(family_key)
@@ -235,11 +233,11 @@ module TicketJourneyHelper
         d_fields
       end
 
-    base_fields + supplemental_duration_fields
+    base_fields
   end
 
   def section_table_column_count(query, family_key)
-    5 + visible_native_query_columns(query).size + duration_fields_for_family(family_key).size + counter_definitions(family_key).size
+    6 + visible_native_query_columns(query).size + duration_fields_for_family(family_key).size + counter_definitions(family_key).size
   end
 
   def duration_header_css_class(field)
@@ -249,7 +247,7 @@ module TicketJourneyHelper
   end
 
   def peak_duration_field(durations, family_key = :internal)
-    fields = duration_fields_for_family(family_key).reject { |field| field[:key] == :ON_HOLD }
+    fields = duration_fields_for_family(family_key)
     fields.map { |field| [field, durations[field[:key]].to_f] }.max_by { |field, value| [value, -fields.index(field)] }
   end
 

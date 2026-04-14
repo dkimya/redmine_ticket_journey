@@ -4,8 +4,9 @@
 
 <%
   duration_fields = duration_fields_for_family(@tracker_family_key)
+  hold_field = on_hold_field
   counters = counter_definitions(@tracker_family_key)
-  max_val = duration_fields.map { |field| @duration_data[field[:key]].to_f }.max
+  max_val = (duration_fields + [hold_field]).map { |field| @duration_data[field[:key]].to_f }.max
   max_val = 1 if max_val.to_f <= 0
   bar_colors = {
     D1: '#4fc3f7', D2: '#4fc3f7', D2aug: '#e07b39',
@@ -98,6 +99,18 @@
           </div>
           <div class="tj-bar-val"><strong><%= format_hours(@duration_data[:TOTAL]) %></strong></div>
           <div class="tj-bar-desc">Full cycle time</div>
+        </div>
+        <% on_hold_value = @duration_data[:ON_HOLD].to_f %>
+        <% on_hold_pct = (on_hold_value / max_val * 100).round %>
+        <div class="tj-bar-row">
+          <div class="tj-bar-label"><%= hold_field[:label] %></div>
+          <div class="tj-bar-track">
+            <div class="tj-bar-fill" style="width:<%= on_hold_pct %>%;background:<%= bar_colors[:ON_HOLD] %>">
+              <% if on_hold_pct > 12 %><span><%= format_hours(on_hold_value) %></span><% end %>
+            </div>
+          </div>
+          <div class="tj-bar-val"><%= format_hours(on_hold_value) %></div>
+          <div class="tj-bar-desc"><%= hold_field[:desc] %></div>
         </div>
       </div>
     </div>
