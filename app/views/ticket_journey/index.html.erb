@@ -10,20 +10,24 @@
         <p class="tj-page-sub">Ticket Journey Map &mdash; <%= @project.name %></p>
       </div>
     </div>
-    <div class="tj-page-header-right">
-      <%= link_to 'Export CSV',
-            ticket_journey_export_path(@project, duration_report_params(@query).merge(format: :csv)),
-            class: 'tj-btn tj-btn-export' %>
-    </div>
+    <% unless @detail_view_active %>
+      <div class="tj-page-header-right">
+        <%= link_to 'Export CSV',
+              ticket_journey_export_path(@project, duration_report_params(@query).merge(format: :csv)),
+              class: 'tj-btn tj-btn-export' %>
+      </div>
+    <% end %>
   </div>
 
-  <%= render partial: 'report_tabs', locals: { active_tab: :duration } %>
+  <%= render partial: 'report_tabs', locals: { active_tab: (@detail_view_active ? :issue_detail : :duration) } %>
 
-  <%= form_tag(ticket_journey_path(@project), method: :get, id: 'query_form') do %>
-    <%= render partial: 'queries/query_form' %>
+  <% unless @detail_view_active %>
+    <%= form_tag(ticket_journey_path(@project), method: :get, id: 'query_form') do %>
+      <%= render partial: 'queries/query_form' %>
+    <% end %>
   <% end %>
 
-  <% if @query.valid? && @issues_data.any? %>
+  <% if !@detail_view_active && @query.valid? && @issues_data.any? %>
     <%
       total_issues = @issues_data.size
       totals = @issues_data.map { |item| item[:durations][:TOTAL].to_f }.reject(&:zero?)
@@ -51,7 +55,9 @@
     </div>
   <% end %>
 
-  <% if !@query.valid? %>
+  <% if @detail_view_active && @issue.present? %>
+    <%= render partial: 'issue_detail' %>
+  <% elsif !@query.valid? %>
     <div class="tj-empty">
       <div class="tj-empty-icon">Report</div>
       <h3>Invalid filters</h3>
@@ -150,7 +156,7 @@
                   <% durations = item[:durations] %>
                   <tr class="tj-row">
                     <td class="tj-td-issue"><%= link_to "##{issue.id}", issue_path(issue), class: 'tj-issue-link' %></td>
-                    <td class="tj-td-title" title="<%= h(issue.subject) %>"><%= link_to h(issue.subject), ticket_journey_issue_path(@project, issue.id), class: 'tj-subject-link' %></td>
+                    <td class="tj-td-title" title="<%= h(issue.subject) %>"><%= link_to h(issue.subject), ticket_journey_path(@project, issue_detail_params(@query, issue)), class: 'tj-subject-link' %></td>
                     <td class="tj-td-status"><span class="tj-status-badge"><%= h(issue.status.name) %></span></td>
                     <% native_columns.each do |column| %>
                       <td class="tj-td-native"><%= column_content(column, issue) %></td>

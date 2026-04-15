@@ -23,6 +23,10 @@ module TicketJourneyHelper
     query_params
   end
 
+  def issue_detail_params(query, issue)
+    duration_report_params(query).merge('issue_id' => issue.id, 'view' => 'detail')
+  end
+
   def query_sort_link(query, column, caption = nil)
     column_name = column.respond_to?(:name) ? column.name.to_s : column.to_s
     column_caption = caption || (column.respond_to?(:caption) ? column.caption.to_s : column_name.humanize)

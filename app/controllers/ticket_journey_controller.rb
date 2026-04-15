@@ -48,6 +48,8 @@ class TicketJourneyController < ApplicationController
   def index
     @issues_data = compute_all_durations
     @report_sections = build_report_sections(@issues_data)
+    load_issue_detail(params[:issue_id])
+    @detail_view_active = @issue.present? && params[:view].to_s == 'detail'
   end
 
   # ---------------------------------------------------------------
@@ -62,13 +64,10 @@ class TicketJourneyController < ApplicationController
   # SHOW — single issue detail
   # ---------------------------------------------------------------
   def show
-    @issue = Issue.includes(:status, :author, :assigned_to, :tracker).find(params[:id])
-    return render_403 unless @issue.project == @project
+    issue = Issue.includes(:status, :author, :assigned_to, :tracker).find(params[:id])
+    return render_403 unless issue.project == @project
 
-    @tracker_family_key = tracker_family_for_issue(@issue)
-    @duration_data = compute_issue_durations(@issue)
-    @transitions   = load_transitions(@issue)[@issue.id] || []
-    @status_change_count = @transitions.count { |transition| !transition[:synthetic] }
+    redirect_to ticket_journey_path(@project, issue_id: issue.id, view: 'detail')
   end
   # ---------------------------------------------------------------
   # EXPORT — CSV download
@@ -112,6 +111,18 @@ class TicketJourneyController < ApplicationController
     unless params[:query_id].present? || params[:c].present? || params.dig(:query, :column_names).present?
       @query.column_names = [:id, :subject, :status]
     end
+  end
+
+  def load_issue_detail(issue_id)
+    return if issue_id.blank?
+
+    @issue = Issue.includes(:status, :author, :assigned_to, :tracker).find_by(id: issue_id)
+    return if @issue.nil? || @issue.project != @project
+
+    @tracker_family_key = tracker_family_for_issue(@issue)
+    @duration_data = compute_issue_durations(@issue)
+    @transitions = load_transitions(@issue)[@issue.id] || []
+    @status_change_count = @transitions.count { |transition| !transition[:synthetic] }
   end
 
   def prepare_owner_role_filter

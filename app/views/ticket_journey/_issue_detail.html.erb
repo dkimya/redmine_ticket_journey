@@ -1,0 +1,190 @@
+<%
+  duration_fields = duration_fields_for_family(@tracker_family_key)
+  supplemental_fields = supplemental_duration_fields_for_family(@tracker_family_key)
+  calendar_total = calendar_total_field
+  counters = counter_definitions(@tracker_family_key)
+  max_val = (duration_fields + supplemental_fields + [calendar_total]).map { |field| @duration_data[field[:key]].to_f }.max
+  max_val = 1 if max_val.to_f <= 0
+  bar_colors = {
+    D1: '#4fc3f7', D2: '#4fc3f7', D2aug: '#e07b39',
+    D3: '#f5c518', D3aug: '#e07b39',
+    D4: '#4caf7d', D4aug: '#e07b39',
+    D5: '#2e8b6d', D5aug: '#e07b39',
+    D6: '#9c7ff0', D6aug: '#e07b39',
+    D7aug: '#e07b39', D7: '#9c7ff0',
+    D8: '#f28e2b', D9: '#d95f5f', D10: '#8b5e3c',
+    DC1: '#4fc3f7', DC2: '#e07b39', DC3: '#f5c518', DC4: '#4caf7d', DC5: '#9c7ff0', DC6: '#8bc34a', DC7: '#00acc1',
+    DT1: '#4fc3f7', DT2: '#4fc3f7', DT2aug: '#e07b39', DT3: '#f5c518', DT3aug: '#e07b39', DT4: '#4caf7d', DT4aug: '#e07b39', DT5: '#9c7ff0', DT5aug: '#e07b39',
+    DP1: '#4fc3f7', DP2: '#f5c518', DP3: '#4caf7d', DP4: '#9c7ff0',
+    ON_HOLD: '#7b8794', PENDING: '#94a3b8'
+  }
+  total_color = '#4caf7d'
+  calendar_total_color = '#2e7d5b'
+%>
+
+<div class="tj-page-header">
+  <div class="tj-page-header-left">
+    <div>
+      <h2><%= link_to "##{@issue.id}", issue_path(@issue), class: 'tj-issue-link' %> &mdash; <%= h(@issue.subject) %></h2>
+      <p class="tj-page-sub">
+        Family: <strong><%= TicketJourneyController::TRACKER_FAMILY_DEFINITIONS[@tracker_family_key][:label] %></strong> &nbsp;|&nbsp;
+        Status: <strong><%= @issue.status.name %></strong> &nbsp;|&nbsp;
+        Assignee: <strong><%= @issue.assigned_to&.name || '-' %></strong> &nbsp;|&nbsp;
+        Created: <strong><%= format_date(@issue.created_on) %></strong>
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="tj-summary-strip">
+  <div class="tj-summary-card">
+    <div class="tj-sc-label">Total Cycle Time</div>
+    <div class="tj-sc-value tj-sc-green"><%= format_hours(@duration_data[:TOTAL]) %></div>
+  </div>
+  <div class="tj-summary-card">
+    <div class="tj-sc-label">Status Changes</div>
+    <div class="tj-sc-value tj-sc-blue"><%= @status_change_count %></div>
+  </div>
+  <% counters.each do |counter| %>
+    <div class="tj-summary-card">
+      <div class="tj-sc-label"><%= counter[:code] %></div>
+      <div class="tj-sc-value <%= @duration_data[counter[:key]].to_i > 0 ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= @duration_data[counter[:key]] %></div>
+    </div>
+  <% end %>
+</div>
+
+<% if counters.any? %>
+  <div class="tj-legend-strip tj-legend-strip-section">
+    <% counters.each do |counter| %>
+      <% total = @duration_data[counter[:key]].to_i %>
+      <div class="tj-legend-item" title="<%= counter[:title] %>">
+        <div class="tj-legend-code"><%= counter[:code] %></div>
+        <div class="tj-legend-copy">
+          <div class="tj-legend-title"><%= counter[:title] %></div>
+          <div class="tj-legend-sub"><%= counter[:transition] %></div>
+        </div>
+        <div class="tj-legend-total <%= total > 0 ? 'is-active' : '' %>"><%= total %></div>
+      </div>
+    <% end %>
+  </div>
+<% end %>
+
+<div class="tj-detail-grid">
+  <div class="tj-card">
+    <div class="tj-card-title">Duration Breakdown</div>
+    <div class="tj-bars">
+      <% duration_fields.each do |field| %>
+        <% value = @duration_data[field[:key]].to_f %>
+        <% pct = (value / max_val * 100).round %>
+        <% tooltip = [field[:desc], "Share of TOTAL: #{format_percentage(value, @duration_data[:TOTAL])}"].join("\n") %>
+        <div class="tj-bar-row">
+          <div class="tj-bar-label"><%= field[:label] %></div>
+          <div class="tj-bar-track" title="<%= tooltip %>">
+            <div class="tj-bar-fill <%= 'is-zero' if value <= 0 %>" style="width:<%= pct %>%;background:<%= bar_colors[field[:key]] || '#4fc3f7' %>">
+              <% if pct > 12 %><span><%= format_hours(value) %></span><% end %>
+            </div>
+          </div>
+          <div class="tj-bar-val"><%= format_hours(value) %></div>
+          <div class="tj-bar-desc"><%= field[:desc] %></div>
+        </div>
+      <% end %>
+      <% total_value = @duration_data[:TOTAL].to_f %>
+      <% total_width_pct = total_value > 0 ? 100 : 0 %>
+      <% total_tooltip = ["Full cycle time", "Share of Calendar Total: #{format_percentage(total_value, @duration_data[:CALENDAR_TOTAL])}"].join("\n") %>
+      <div class="tj-bar-row tj-bar-total">
+        <div class="tj-bar-label"><strong>TOTAL</strong></div>
+        <div class="tj-bar-track" title="<%= total_tooltip %>">
+          <div class="tj-bar-fill <%= 'is-zero' if total_width_pct <= 0 %>" style="width:<%= total_width_pct %>%;background:<%= total_color %>">
+            <% if total_value > 0 %><span><%= format_hours(total_value) %></span><% end %>
+          </div>
+        </div>
+        <div class="tj-bar-val"><strong><%= format_hours(total_value) %></strong></div>
+        <div class="tj-bar-desc">Full cycle time</div>
+      </div>
+      <% supplemental_fields.each do |field| %>
+        <% value = @duration_data[field[:key]].to_f %>
+        <% pct = (value / max_val * 100).round %>
+        <% tooltip = [field[:desc], "Share of Calendar Total: #{format_percentage(value, @duration_data[:CALENDAR_TOTAL])}"].join("\n") %>
+        <div class="tj-bar-row">
+          <div class="tj-bar-label"><%= field[:label] %></div>
+          <div class="tj-bar-track" title="<%= tooltip %>">
+            <div class="tj-bar-fill <%= 'is-zero' if value <= 0 %>" style="width:<%= pct %>%;background:<%= bar_colors[field[:key]] || '#7b8794' %>">
+              <% if pct > 12 %><span><%= format_hours(value) %></span><% end %>
+            </div>
+          </div>
+          <div class="tj-bar-val"><%= format_hours(value) %></div>
+          <div class="tj-bar-desc"><%= field[:desc] %></div>
+        </div>
+      <% end %>
+      <% calendar_total_value = @duration_data[:CALENDAR_TOTAL].to_f %>
+      <% calendar_total_pct = (calendar_total_value / max_val * 100).round %>
+      <% calendar_total_tooltip = calendar_total[:desc] %>
+      <div class="tj-bar-row tj-bar-total">
+        <div class="tj-bar-label"><strong><%= calendar_total[:label] %></strong></div>
+        <div class="tj-bar-track" title="<%= calendar_total_tooltip %>">
+          <div class="tj-bar-fill <%= 'is-zero' if calendar_total_value <= 0 %>" style="width:<%= calendar_total_pct %>%;background:<%= calendar_total_color %>">
+            <% if calendar_total_value > 0 %><span><%= format_hours(calendar_total_value) %></span><% end %>
+          </div>
+        </div>
+        <div class="tj-bar-val"><strong><%= format_hours(calendar_total_value) %></strong></div>
+        <div class="tj-bar-desc"><%= calendar_total[:desc] %></div>
+      </div>
+    </div>
+  </div>
+
+  <% if counters.any? %>
+    <div class="tj-card">
+      <div class="tj-card-title">Return Counters</div>
+      <div class="tj-counters-grid tj-counters-grid-dynamic">
+        <% counters.each do |counter| %>
+          <% count = @duration_data[counter[:key]].to_i %>
+          <div class="tj-counter-item <%= count > 0 ? 'tj-counter-hit' : '' %>">
+            <div class="tj-counter-num"><%= count %></div>
+            <div class="tj-counter-label"><%= counter[:code] %> &mdash; <%= counter[:title] %></div>
+            <div class="tj-counter-sub"><%= counter[:transition] %></div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+</div>
+
+<div class="tj-card tj-card-full">
+  <div class="tj-card-title">Status Change Timeline</div>
+  <div class="tj-timeline">
+    <% @transitions.each_with_index do |transition, index| %>
+      <%
+        is_return = transition[:to_status].to_s.downcase.include?('return')
+        is_done = ['done', 'closed'].include?(transition[:to_status].to_s.downcase)
+        dot_class = is_return ? 'tj-tl-dot-return' : (is_done ? 'tj-tl-dot-done' : 'tj-tl-dot-forward')
+        next_transition = @transitions[index + 1]
+        period_h = next_transition ? (next_transition[:changed_at] - transition[:changed_at]) / 3600.0 : nil
+      %>
+      <div class="tj-tl-item <%= is_return ? 'tj-tl-return' : '' %>">
+        <div class="tj-tl-dot <%= dot_class %>"></div>
+        <div class="tj-tl-content">
+          <div class="tj-tl-header">
+            <% if transition[:from_status] %>
+              <span class="tj-tl-from"><%= h(transition[:from_status]) %></span>
+              <span class="tj-tl-arrow">-&gt;</span>
+            <% end %>
+            <span class="tj-tl-to <%= is_return ? 'tj-tl-to-return' : '' %>"><%= h(transition[:to_status]) %></span>
+            <span class="tj-tl-time"><%= format_time(transition[:changed_at]) %></span>
+          </div>
+          <div class="tj-tl-meta">
+            by <strong><%= h(transition[:changed_by_name].presence || transition[:changed_by]) %></strong>
+            <% if period_h %>
+              &nbsp;|&nbsp; spent: <span class="tj-tl-spent"><%= format_hours(period_h) %></span>
+            <% end %>
+          </div>
+          <% if transition[:notes].present? %>
+            <div class="tj-tl-notes">
+              <div class="tj-tl-notes-label">Note</div>
+              <%= simple_format(h(transition[:notes]), {}, wrapper_tag: 'div') %>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</div>
