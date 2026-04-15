@@ -82,7 +82,7 @@
         <% duration_fields.each do |field| %>
           <% value = @duration_data[field[:key]].to_f %>
           <% pct = (value / max_val * 100).round %>
-          <% tooltip = "#{field[:label]} | #{format_hours(value)} | #{field[:desc]} | Share of TOTAL: #{format_percentage(value, @duration_data[:TOTAL])}" %>
+          <% tooltip = [field[:desc], "Share of TOTAL: #{format_percentage(value, @duration_data[:TOTAL])}"].join("\n") %>
           <div class="tj-bar-row">
             <div class="tj-bar-label"><%= field[:label] %></div>
             <div class="tj-bar-track" title="<%= tooltip %>">
@@ -96,7 +96,7 @@
         <% end %>
         <% total_value = @duration_data[:TOTAL].to_f %>
         <% total_width_pct = total_value > 0 ? 100 : 0 %>
-        <% total_tooltip = "TOTAL | #{format_hours(total_value)} | Full cycle time | Share of Calendar Total: #{format_percentage(total_value, @duration_data[:CALENDAR_TOTAL])}" %>
+        <% total_tooltip = ["Full cycle time", "Share of Calendar Total: #{format_percentage(total_value, @duration_data[:CALENDAR_TOTAL])}"].join("\n") %>
         <div class="tj-bar-row tj-bar-total">
           <div class="tj-bar-label"><strong>TOTAL</strong></div>
           <div class="tj-bar-track" title="<%= total_tooltip %>">
@@ -110,7 +110,7 @@
         <% supplemental_fields.each do |field| %>
           <% value = @duration_data[field[:key]].to_f %>
           <% pct = (value / max_val * 100).round %>
-          <% tooltip = "#{field[:label]} | #{format_hours(value)} | #{field[:desc]} | Share of Calendar Total: #{format_percentage(value, @duration_data[:CALENDAR_TOTAL])}" %>
+          <% tooltip = [field[:desc], "Share of Calendar Total: #{format_percentage(value, @duration_data[:CALENDAR_TOTAL])}"].join("\n") %>
           <div class="tj-bar-row">
             <div class="tj-bar-label"><%= field[:label] %></div>
             <div class="tj-bar-track" title="<%= tooltip %>">
@@ -124,7 +124,7 @@
         <% end %>
         <% calendar_total_value = @duration_data[:CALENDAR_TOTAL].to_f %>
         <% calendar_total_pct = (calendar_total_value / max_val * 100).round %>
-        <% calendar_total_tooltip = "#{calendar_total[:label]} | #{format_hours(calendar_total_value)} | #{calendar_total[:desc]}" %>
+        <% calendar_total_tooltip = calendar_total[:desc] %>
         <div class="tj-bar-row tj-bar-total">
           <div class="tj-bar-label"><strong><%= calendar_total[:label] %></strong></div>
           <div class="tj-bar-track" title="<%= calendar_total_tooltip %>">
