@@ -471,7 +471,7 @@
   display: flex;
   align-items: center;
   padding-left: 6px;
-  min-width: 3px;
+  min-width: 6px;
   transition: width .4s ease;
 }
 .tj-bar-fill.is-zero {

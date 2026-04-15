@@ -85,7 +85,7 @@
           <div class="tj-bar-row">
             <div class="tj-bar-label"><%= field[:label] %></div>
             <div class="tj-bar-track">
-              <div class="tj-bar-fill <%= 'is-zero' if pct <= 0 %>" style="width:<%= pct %>%;background:<%= bar_colors[field[:key]] || '#4fc3f7' %>">
+              <div class="tj-bar-fill <%= 'is-zero' if value <= 0 %>" style="width:<%= pct %>%;background:<%= bar_colors[field[:key]] || '#4fc3f7' %>">
                 <% if pct > 12 %><span><%= format_hours(value) %></span><% end %>
               </div>
             </div>
@@ -111,7 +111,7 @@
           <div class="tj-bar-row">
             <div class="tj-bar-label"><%= field[:label] %></div>
             <div class="tj-bar-track">
-              <div class="tj-bar-fill <%= 'is-zero' if pct <= 0 %>" style="width:<%= pct %>%;background:<%= bar_colors[field[:key]] || '#7b8794' %>">
+              <div class="tj-bar-fill <%= 'is-zero' if value <= 0 %>" style="width:<%= pct %>%;background:<%= bar_colors[field[:key]] || '#7b8794' %>">
                 <% if pct > 12 %><span><%= format_hours(value) %></span><% end %>
               </div>
             </div>
@@ -124,7 +124,7 @@
         <div class="tj-bar-row tj-bar-total">
           <div class="tj-bar-label"><strong><%= calendar_total[:label] %></strong></div>
           <div class="tj-bar-track">
-            <div class="tj-bar-fill <%= 'is-zero' if calendar_total_pct <= 0 %>" style="width:<%= calendar_total_pct %>%;background:<%= calendar_total_color %>">
+            <div class="tj-bar-fill <%= 'is-zero' if calendar_total_value <= 0 %>" style="width:<%= calendar_total_pct %>%;background:<%= calendar_total_color %>">
               <% if calendar_total_value > 0 %><span><%= format_hours(calendar_total_value) %></span><% end %>
             </div>
           </div>
