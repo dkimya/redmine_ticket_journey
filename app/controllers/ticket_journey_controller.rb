@@ -68,6 +68,7 @@ class TicketJourneyController < ApplicationController
     @tracker_family_key = tracker_family_for_issue(@issue)
     @duration_data = compute_issue_durations(@issue)
     @transitions   = load_transitions(@issue)[@issue.id] || []
+    @status_change_count = @transitions.count { |transition| !transition[:synthetic] }
   end
   # ---------------------------------------------------------------
   # EXPORT — CSV download
