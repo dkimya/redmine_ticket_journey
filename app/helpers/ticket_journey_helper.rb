@@ -201,6 +201,10 @@ module TicketJourneyHelper
     { key: :PENDING, label: 'Pending', aug: false, desc: 'Paused Time (Pending)', css_class: 'tj-th-hold' }
   end
 
+  def calendar_total_field
+    { key: :CALENDAR_TOTAL, label: 'Calendar Total', aug: false, desc: 'TOTAL + On-Hold + Pending', css_class: 'tj-th-total' }
+  end
+
   def supplemental_duration_fields_for_family(family_key)
     fields = [on_hold_field]
     fields << pending_field unless family_key.to_sym == :customer_support

@@ -5,8 +5,9 @@
 <%
   duration_fields = duration_fields_for_family(@tracker_family_key)
   supplemental_fields = supplemental_duration_fields_for_family(@tracker_family_key)
+  calendar_total = calendar_total_field
   counters = counter_definitions(@tracker_family_key)
-  max_val = (duration_fields + supplemental_fields).map { |field| @duration_data[field[:key]].to_f }.max
+  max_val = (duration_fields + supplemental_fields + [calendar_total]).map { |field| @duration_data[field[:key]].to_f }.max
   max_val = 1 if max_val.to_f <= 0
   bar_colors = {
     D1: '#4fc3f7', D2: '#4fc3f7', D2aug: '#e07b39',
@@ -114,6 +115,18 @@
             <div class="tj-bar-desc"><%= field[:desc] %></div>
           </div>
         <% end %>
+        <% calendar_total_value = @duration_data[:CALENDAR_TOTAL].to_f %>
+        <% calendar_total_pct = (calendar_total_value / max_val * 100).round %>
+        <div class="tj-bar-row tj-bar-total">
+          <div class="tj-bar-label"><strong><%= calendar_total[:label] %></strong></div>
+          <div class="tj-bar-track">
+            <div class="tj-bar-fill" style="width:<%= calendar_total_pct %>%;background:#2e7d5b">
+              <span><%= format_hours(calendar_total_value) %></span>
+            </div>
+          </div>
+          <div class="tj-bar-val"><strong><%= format_hours(calendar_total_value) %></strong></div>
+          <div class="tj-bar-desc"><%= calendar_total[:desc] %></div>
+        </div>
       </div>
     </div>
 

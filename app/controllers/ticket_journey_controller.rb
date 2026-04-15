@@ -32,7 +32,7 @@ class TicketJourneyController < ApplicationController
     task: %i[C1 C4],
     container: []
   }.freeze
-  ALL_DURATION_KEYS = (FAMILY_DURATION_KEYS.values.flatten + [:ON_HOLD, :PENDING, :TOTAL]).freeze
+  ALL_DURATION_KEYS = (FAMILY_DURATION_KEYS.values.flatten + [:ON_HOLD, :PENDING, :TOTAL, :CALENDAR_TOTAL]).freeze
   ALL_COUNTER_KEYS = %i[C1 C2 C3 C4].freeze
 
   before_action :find_project
@@ -320,7 +320,7 @@ class TicketJourneyController < ApplicationController
   def report_sortable_fields_for_family(family_key)
     extra_fields = %w[TOTAL ON_HOLD]
     extra_fields << 'PENDING' unless family_key.to_sym == :customer_support
-    (FAMILY_DURATION_KEYS.fetch(family_key).map(&:to_s) + extra_fields + %w[peak]).concat(FAMILY_COUNTER_KEYS.fetch(family_key).map(&:to_s))
+    (FAMILY_DURATION_KEYS.fetch(family_key).map(&:to_s) + extra_fields + %w[CALENDAR_TOTAL peak]).concat(FAMILY_COUNTER_KEYS.fetch(family_key).map(&:to_s))
   end
 
   def report_sort_numeric_value(item, sort_key, family_key)
@@ -573,6 +573,7 @@ class TicketJourneyController < ApplicationController
     end
 
     result[:TOTAL] = FAMILY_DURATION_KEYS[:internal].sum { |key| result[key].to_f }
+    result[:CALENDAR_TOTAL] = result[:TOTAL].to_f + result[:ON_HOLD].to_f + result[:PENDING].to_f
     result
   end
 
@@ -600,6 +601,7 @@ class TicketJourneyController < ApplicationController
     end
 
     result[:TOTAL] = FAMILY_DURATION_KEYS[:customer_support].sum { |key| result[key].to_f }
+    result[:CALENDAR_TOTAL] = result[:TOTAL].to_f + result[:ON_HOLD].to_f
     result
   end
 
@@ -646,6 +648,7 @@ class TicketJourneyController < ApplicationController
     end
 
     result[:TOTAL] = FAMILY_DURATION_KEYS[:task].sum { |key| result[key].to_f }
+    result[:CALENDAR_TOTAL] = result[:TOTAL].to_f + result[:ON_HOLD].to_f + result[:PENDING].to_f
     result
   end
 
@@ -671,6 +674,7 @@ class TicketJourneyController < ApplicationController
     end
 
     result[:TOTAL] = FAMILY_DURATION_KEYS[:container].sum { |key| result[key].to_f }
+    result[:CALENDAR_TOTAL] = result[:TOTAL].to_f + result[:ON_HOLD].to_f + result[:PENDING].to_f
     result
   end
 
@@ -750,7 +754,7 @@ class TicketJourneyController < ApplicationController
 
         extra_fields = [:TOTAL, :ON_HOLD]
         extra_fields << :PENDING unless section[:family_key].to_sym == :customer_support
-        value_fields = FAMILY_DURATION_KEYS.fetch(section[:family_key]) + extra_fields + FAMILY_COUNTER_KEYS.fetch(section[:family_key])
+        value_fields = FAMILY_DURATION_KEYS.fetch(section[:family_key]) + extra_fields + [:CALENDAR_TOTAL] + FAMILY_COUNTER_KEYS.fetch(section[:family_key])
         csv << ['issue_id', 'subject', 'status', 'assignee', 'tracker', *value_fields.map { |field| csv_header_label_for(field) }, 'Peak']
 
         section[:items].each do |item|
@@ -775,6 +779,7 @@ class TicketJourneyController < ApplicationController
     return 'On-Hold' if field == :ON_HOLD
     return 'Pending' if field == :PENDING
     return 'TOTAL' if field == :TOTAL
+    return 'Calendar Total' if field == :CALENDAR_TOTAL
     return field.to_s.sub(/\AC/, 'R') if ALL_COUNTER_KEYS.include?(field)
 
     field.to_s
