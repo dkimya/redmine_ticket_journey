@@ -496,26 +496,28 @@ class TicketJourneyController < ApplicationController
     periods = build_periods(transitions)
     return empty_durations(periods: periods) if periods.empty?
 
+    stage_periods = build_stage_periods(periods, family_key)
+
     case family_key
     when :customer_support
-      calculate_customer_support_durations(periods)
+      calculate_customer_support_durations(periods, stage_periods)
     when :task
-      calculate_task_durations(periods)
+      calculate_task_durations(periods, stage_periods)
     when :container
-      calculate_container_durations(periods)
+      calculate_container_durations(periods, stage_periods)
     else
-      calculate_internal_durations(periods)
+      calculate_internal_durations(periods, stage_periods)
     end
   end
 
-  def calculate_internal_durations(periods)
-    visits = visits_by_role(periods)
+  def calculate_internal_durations(periods, stage_periods)
     result = empty_durations(periods: periods)
-    result[:ON_HOLD] = sum_role_hours(visits, :on_hold)
-    result[:PENDING] = sum_role_hours(visits, :pending)
+    visits = visits_by_role(stage_periods)
+    result[:ON_HOLD] = periods.select { |period| status_role(period[:status]) == :on_hold }.sum { |period| period_hours(period) }
+    result[:PENDING] = periods.select { |period| status_role(period[:status]) == :pending }.sum { |period| period_hours(period) }
 
-    periods.each_with_index do |period, index|
-      next_role = period_next_role(periods, index)
+    stage_periods.each_with_index do |period, index|
+      next_role = period_next_role(stage_periods, index)
       duration = period_hours(period)
 
       case status_role(period[:status])
@@ -558,7 +560,7 @@ class TicketJourneyController < ApplicationController
     result[:D3] = period_hours(in_progress_visits.first)
     result[:D3aug] = Array(in_progress_visits[1..]).sum { |period| period_hours(period) }
 
-    periods.each_cons(2) do |current_period, next_period|
+    stage_periods.each_cons(2) do |current_period, next_period|
       next unless status_role(next_period[:status]) == :returned
 
       case status_role(current_period[:status])
@@ -578,12 +580,12 @@ class TicketJourneyController < ApplicationController
     result
   end
 
-  def calculate_customer_support_durations(periods)
+  def calculate_customer_support_durations(periods, stage_periods)
     result = empty_durations(periods: periods)
     result[:ON_HOLD] = periods.select { |period| status_role(period[:status]) == :on_hold }.sum { |period| period_hours(period) }
 
-    periods.each_with_index do |period, index|
-      next_role = period_next_role(periods, index)
+    stage_periods.each_with_index do |period, index|
+      next_role = period_next_role(stage_periods, index)
       duration = period_hours(period)
 
       case status_role(period[:status])
@@ -606,14 +608,14 @@ class TicketJourneyController < ApplicationController
     result
   end
 
-  def calculate_task_durations(periods)
-    visits = visits_by_role(periods)
+  def calculate_task_durations(periods, stage_periods)
     result = empty_durations(periods: periods)
-    result[:ON_HOLD] = sum_role_hours(visits, :on_hold)
-    result[:PENDING] = sum_role_hours(visits, :pending)
+    visits = visits_by_role(stage_periods)
+    result[:ON_HOLD] = periods.select { |period| status_role(period[:status]) == :on_hold }.sum { |period| period_hours(period) }
+    result[:PENDING] = periods.select { |period| status_role(period[:status]) == :pending }.sum { |period| period_hours(period) }
 
-    periods.each_with_index do |period, index|
-      next_role = period_next_role(periods, index)
+    stage_periods.each_with_index do |period, index|
+      next_role = period_next_role(stage_periods, index)
       duration = period_hours(period)
 
       case status_role(period[:status])
@@ -637,7 +639,7 @@ class TicketJourneyController < ApplicationController
     result[:DT3] = period_hours(in_progress_visits.first)
     result[:DT3aug] = Array(in_progress_visits[1..]).sum { |period| period_hours(period) }
 
-    periods.each_cons(2) do |current_period, next_period|
+    stage_periods.each_cons(2) do |current_period, next_period|
       next unless status_role(next_period[:status]) == :returned
 
       case status_role(current_period[:status])
@@ -653,13 +655,13 @@ class TicketJourneyController < ApplicationController
     result
   end
 
-  def calculate_container_durations(periods)
+  def calculate_container_durations(periods, stage_periods)
     result = empty_durations(periods: periods)
     result[:ON_HOLD] = periods.select { |period| status_role(period[:status]) == :on_hold }.sum { |period| period_hours(period) }
     result[:PENDING] = periods.select { |period| status_role(period[:status]) == :pending }.sum { |period| period_hours(period) }
 
-    periods.each_with_index do |period, index|
-      next_role = period_next_role(periods, index)
+    stage_periods.each_with_index do |period, index|
+      next_role = period_next_role(stage_periods, index)
       duration = period_hours(period)
 
       case status_role(period[:status])
@@ -721,12 +723,43 @@ class TicketJourneyController < ApplicationController
     visits
   end
 
+  def build_stage_periods(periods, family_key)
+    pause_roles = pause_roles_for_family(family_key)
+    stage_periods = []
+
+    periods.each do |period|
+      role = status_role(period[:status])
+      next if pause_roles.include?(role)
+
+      duration = period_hours(period)
+      next if duration <= 0
+
+      if stage_periods.last && status_role(stage_periods.last[:status]) == role
+        stage_periods.last[:hours] += duration
+      else
+        stage_periods << {
+          status: period[:status],
+          hours: duration
+        }
+      end
+    end
+
+    stage_periods
+  end
+
+  def pause_roles_for_family(family_key)
+    roles = [:on_hold]
+    roles << :pending unless family_key.to_sym == :customer_support
+    roles
+  end
+
   def period_next_role(periods, index)
     next_period = periods[index + 1]
     status_role(next_period&.dig(:status))
   end
 
   def period_hours(period)
+    return period[:hours].to_f if period && period.key?(:hours)
     return 0.0 unless period && period[:enter] && period[:exit]
 
     [((period[:exit] - period[:enter]) / 3600.0), 0].max.round(2)
