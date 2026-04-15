@@ -474,6 +474,10 @@
   min-width: 3px;
   transition: width .4s ease;
 }
+.tj-bar-fill.is-zero {
+  min-width: 0;
+  padding-left: 0;
+}
 .tj-bar-fill span {
   font-size: 10px;
   font-weight: 700;
