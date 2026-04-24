@@ -182,7 +182,7 @@ module TicketJourneyHelper
 
   def d_fields
     [
-      { key: :D0, label: 'D0', aug: false, desc: 'Planning (New -> To-Do)' },
+      { key: :D0, label: 'D0', aug: false, desc: 'Planning (New -> To-Do)', counted_in_total: false },
       { key: :D0aug, label: 'D0-aug', aug: true, desc: 'Unnecessary Ticket Identification (New -> Archived)' },
       { key: :D1, label: 'D1', aug: false, desc: 'Wait for Dev (To-Do -> In Progress)' },
       { key: :D1aug, label: 'D1-aug', aug: true, desc: 'Wait for Dev (Returned -> In Progress)' },
@@ -210,8 +210,18 @@ module TicketJourneyHelper
     { key: :PENDING, label: 'Pending', aug: false, desc: 'Paused Time (Pending)', css_class: 'tj-th-hold' }
   end
 
-  def calendar_total_field
-    { key: :CALENDAR_TOTAL, label: 'Calendar Total', aug: false, desc: 'TOTAL + On-Hold + Pending', css_class: 'tj-th-total' }
+  def calendar_total_field(family_key = nil)
+    desc =
+      case family_key.to_sym
+      when :internal
+        'TOTAL + D0 + On-Hold + Pending'
+      when :customer_support
+        'TOTAL + On-Hold'
+      else
+        'TOTAL + On-Hold + Pending'
+      end
+
+    { key: :CALENDAR_TOTAL, label: 'Calendar Total', aug: false, desc: desc, css_class: 'tj-th-total' }
   end
 
   def supplemental_duration_fields_for_family(family_key)

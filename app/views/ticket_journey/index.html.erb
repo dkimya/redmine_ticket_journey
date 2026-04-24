@@ -115,7 +115,7 @@
       <% items = section[:items] %>
       <% duration_fields = duration_fields_for_family(family_key) %>
       <% supplemental_fields = supplemental_duration_fields_for_family(family_key) %>
-      <% calendar_total = calendar_total_field %>
+      <% calendar_total = calendar_total_field(family_key) %>
       <% counters = counter_definitions(family_key) %>
       <% summary = section_summary(items) %>
 

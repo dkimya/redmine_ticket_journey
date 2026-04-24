@@ -597,8 +597,9 @@ class TicketJourneyController < ApplicationController
       end
     end
 
-    result[:TOTAL] = FAMILY_DURATION_KEYS[:internal].sum { |key| result[key].to_f }
-    result[:CALENDAR_TOTAL] = result[:TOTAL].to_f + result[:ON_HOLD].to_f + result[:PENDING].to_f
+    total_keys = FAMILY_DURATION_KEYS[:internal] - [:D0]
+    result[:TOTAL] = total_keys.sum { |key| result[key].to_f }
+    result[:CALENDAR_TOTAL] = result[:TOTAL].to_f + result[:D0].to_f + result[:ON_HOLD].to_f + result[:PENDING].to_f
     result
   end
 
