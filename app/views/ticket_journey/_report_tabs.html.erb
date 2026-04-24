@@ -2,17 +2,20 @@
   duration_params = duration_report_params(@query)
   owner_params = owner_returns_params(@query)
   duration_params = duration_params.except('issue_id', 'view')
-  detail_params = @issue.present? ? duration_report_params(@query).merge('issue_id' => @issue.id, 'view' => 'detail') : nil
+  detail_params =
+    if @issue.present?
+      duration_report_params(@query).merge('issue_id' => @issue.id, 'view' => 'detail')
+    else
+      issue_detail_tab_params(@query)
+    end
 %>
 <div class="tj-report-tabs">
   <%= link_to 'Duration Report',
         ticket_journey_path(@project, duration_params),
         class: "tj-report-tab #{active_tab == :duration ? 'is-active' : ''}" %>
-  <% if detail_params.present? %>
-    <%= link_to 'Issue Detail',
-          ticket_journey_path(@project, detail_params),
-          class: "tj-report-tab #{active_tab == :issue_detail ? 'is-active' : ''}" %>
-  <% end %>
+  <%= link_to 'Issue Detail',
+        ticket_journey_path(@project, detail_params),
+        class: "tj-report-tab #{active_tab == :issue_detail ? 'is-active' : ''}" %>
   <%= link_to 'Returns by Owner',
         ticket_journey_owner_returns_path(@project, owner_params),
         class: "tj-report-tab #{active_tab == :owner_returns ? 'is-active' : ''}" %>

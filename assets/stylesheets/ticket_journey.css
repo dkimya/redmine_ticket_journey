@@ -443,6 +443,35 @@
   background: var(--tj-accent);
   border-radius: 2px;
 }
+.tj-detail-search-form {
+  margin-top: 12px;
+}
+.tj-detail-search-fields {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.tj-detail-search-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--tj-text-dim);
+}
+.tj-detail-search-input {
+  min-width: 220px;
+  padding: 8px 10px;
+  border: 1px solid var(--tj-border);
+  border-radius: 8px;
+  font-size: 13px;
+}
+.tj-detail-search-message {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--tj-text-muted);
+}
+.tj-detail-search-message.is-error {
+  color: var(--tj-red);
+}
 
 /* Duration bars */
 .tj-bars { display: flex; flex-direction: column; gap: 7px; }

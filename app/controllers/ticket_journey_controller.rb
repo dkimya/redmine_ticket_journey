@@ -49,7 +49,7 @@ class TicketJourneyController < ApplicationController
     @issues_data = compute_all_durations
     @report_sections = build_report_sections(@issues_data)
     load_issue_detail(params[:issue_id])
-    @detail_view_active = @issue.present? && params[:view].to_s == 'detail'
+    @detail_view_active = params[:view].to_s == 'detail'
   end
 
   # ---------------------------------------------------------------
@@ -116,8 +116,18 @@ class TicketJourneyController < ApplicationController
   def load_issue_detail(issue_id)
     return if issue_id.blank?
 
+    @detail_issue_id = issue_id.to_s
     @issue = Issue.includes(:status, :author, :assigned_to, :tracker).find_by(id: issue_id)
-    return if @issue.nil? || @issue.project != @project
+    if @issue.nil?
+      @detail_issue_error = "Issue ##{issue_id} was not found."
+      return
+    end
+
+    if @issue.project != @project
+      @detail_issue_error = "Issue ##{issue_id} does not belong to this project."
+      @issue = nil
+      return
+    end
 
     @tracker_family_key = tracker_family_for_issue(@issue)
     @duration_data = compute_issue_durations(@issue)

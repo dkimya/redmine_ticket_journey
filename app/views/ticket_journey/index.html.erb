@@ -55,8 +55,46 @@
     </div>
   <% end %>
 
-  <% if @detail_view_active && @issue.present? %>
-    <%= render partial: 'issue_detail' %>
+  <% if @detail_view_active %>
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Issue Detail Search</div>
+      <%= form_tag(ticket_journey_path(@project), method: :get, class: 'tj-detail-search-form') do %>
+        <% duration_report_params(@query).except('issue_id', 'view').each do |key, value| %>
+          <% if value.is_a?(Array) %>
+            <% value.each do |item| %>
+              <%= hidden_field_tag "#{key}[]", item %>
+            <% end %>
+          <% elsif value.is_a?(Hash) %>
+            <% value.each do |subkey, subvalue| %>
+              <% if subvalue.is_a?(Array) %>
+                <% subvalue.each do |item| %>
+                  <%= hidden_field_tag "#{key}[#{subkey}][]", item %>
+                <% end %>
+              <% else %>
+                <%= hidden_field_tag "#{key}[#{subkey}]", subvalue %>
+              <% end %>
+            <% end %>
+          <% else %>
+            <%= hidden_field_tag key, value %>
+          <% end %>
+        <% end %>
+        <%= hidden_field_tag :view, 'detail' %>
+        <div class="tj-detail-search-fields">
+          <%= label_tag :issue_id, 'Issue ID', class: 'tj-detail-search-label' %>
+          <%= text_field_tag :issue_id, @detail_issue_id, class: 'tj-detail-search-input', placeholder: 'Enter issue ID, e.g. 10154' %>
+          <%= submit_tag 'Open Detail', class: 'tj-btn tj-btn-primary' %>
+        </div>
+      <% end %>
+      <% if @detail_issue_error.present? %>
+        <div class="tj-detail-search-message is-error"><%= @detail_issue_error %></div>
+      <% elsif @issue.blank? %>
+        <div class="tj-detail-search-message">Enter an issue ID or click a subject from the Duration Report to open its detail view here.</div>
+      <% end %>
+    </div>
+
+    <% if @issue.present? %>
+      <%= render partial: 'issue_detail' %>
+    <% end %>
   <% elsif !@query.valid? %>
     <div class="tj-empty">
       <div class="tj-empty-icon">Report</div>
