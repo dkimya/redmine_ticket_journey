@@ -6,16 +6,17 @@
   max_val = (duration_fields + supplemental_fields + [calendar_total]).map { |field| @duration_data[field[:key]].to_f }.max
   max_val = 1 if max_val.to_f <= 0
   bar_colors = {
-    D1: '#4fc3f7', D2: '#4fc3f7', D2aug: '#e07b39',
-    D3: '#f5c518', D3aug: '#e07b39',
-    D4: '#4caf7d', D4aug: '#e07b39',
-    D5: '#2e8b6d', D5aug: '#e07b39',
-    D6: '#9c7ff0', D6aug: '#e07b39',
-    D7aug: '#e07b39', D7: '#9c7ff0',
-    D8: '#f28e2b', D9: '#d95f5f', D10: '#8b5e3c',
+    D0: '#4fc3f7', D0aug: '#8b5e3c',
+    D1: '#4fc3f7', D1aug: '#e07b39',
+    D2: '#f5c518', D2aug: '#e07b39',
+    D3: '#4caf7d', D3aug: '#e07b39',
+    D4: '#2e8b6d', D4aug: '#e07b39',
+    D5: '#9c7ff0', D5aug: '#e07b39',
+    D6: '#7c6ee6', D6aug: '#e07b39',
+    D7: '#f28e2b', D8: '#d95f5f', D9: '#8b5e3c',
     DC1: '#4fc3f7', DC2: '#e07b39', DC3: '#f5c518', DC4: '#4caf7d', DC5: '#9c7ff0', DC6: '#8bc34a', DC7: '#00acc1',
-    DT1: '#4fc3f7', DT2: '#4fc3f7', DT2aug: '#e07b39', DT3: '#f5c518', DT3aug: '#e07b39', DT4: '#4caf7d', DT4aug: '#e07b39', DT5: '#9c7ff0', DT5aug: '#e07b39',
-    DP1: '#4fc3f7', DP2: '#f5c518', DP3: '#4caf7d', DP4: '#9c7ff0',
+    DT0: '#4fc3f7', DT1: '#4fc3f7', DT1aug: '#e07b39', DT2: '#f5c518', DT2aug: '#e07b39', DT3: '#4caf7d', DT3aug: '#e07b39', DT4: '#9c7ff0', DT4aug: '#e07b39',
+    DP0: '#4fc3f7', DP1: '#4fc3f7', DP2: '#4caf7d', DP3: '#9c7ff0',
     ON_HOLD: '#7b8794', PENDING: '#94a3b8'
   }
   total_color = '#4caf7d'

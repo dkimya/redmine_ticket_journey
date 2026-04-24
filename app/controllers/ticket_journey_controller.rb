@@ -12,7 +12,7 @@ class TicketJourneyController < ApplicationController
       tracker_names: ['Customer Support']
     },
     task: {
-      label: 'Task',
+      label: 'Task (Business Jobs)',
       tracker_names: ['Task', 'Task (Business Jobs)']
     },
     container: {
@@ -21,10 +21,10 @@ class TicketJourneyController < ApplicationController
     }
   }.freeze
   FAMILY_DURATION_KEYS = {
-    internal: %i[D1 D2 D2aug D3 D3aug D4 D4aug D5 D5aug D6 D6aug D7aug D7 D8 D9 D10],
+    internal: %i[D0 D0aug D1 D1aug D2 D2aug D3 D3aug D4 D4aug D5 D5aug D6 D6aug D7 D8 D9],
     customer_support: %i[DC1 DC2 DC3 DC4 DC5 DC6 DC7],
-    task: %i[DT1 DT2 DT2aug DT3 DT3aug DT4 DT4aug DT5 DT5aug],
-    container: %i[DP1 DP2 DP3 DP4]
+    task: %i[DT0 DT1 DT1aug DT2 DT2aug DT3 DT3aug DT4 DT4aug],
+    container: %i[DP0 DP1 DP2 DP3]
   }.freeze
   FAMILY_COUNTER_KEYS = {
     internal: %i[C1 C2 C3 C4],
@@ -543,32 +543,33 @@ class TicketJourneyController < ApplicationController
 
       case status_role(period[:status])
       when :new
-        result[:D1] += duration if next_role == :todo
-        result[:D8] += duration if next_role == :feedback
+        result[:D0] += duration if next_role == :todo
+        result[:D0aug] += duration if next_role == :archived
+        result[:D7] += duration if next_role == :feedback
       when :feedback
         case next_role
         when :archived
-          result[:D10] += duration
-        when :new
           result[:D9] += duration
+        when :new
+          result[:D8] += duration
         when :returned
-          result[:D4aug] += duration
+          result[:D3aug] += duration
         else
-          if result[:D4].zero?
-            result[:D4] += duration
+          if result[:D3].zero?
+            result[:D3] += duration
           else
-            result[:D4aug] += duration
+            result[:D3aug] += duration
           end
         end
       when :review
-        result[:D5] += duration if next_role == :ready_merge
-        result[:D5aug] += duration if next_role == :returned
+        result[:D4] += duration if next_role == :ready_merge
+        result[:D4aug] += duration if next_role == :returned
       when :ready_merge
-        result[:D6] += duration if next_role == :final_check
-        result[:D6aug] += duration if next_role == :returned
+        result[:D5] += duration if next_role == :final_check
+        result[:D5aug] += duration if next_role == :returned
       when :final_check
-        result[:D7] += duration if next_role == :done
-        result[:D7aug] += duration if next_role == :returned
+        result[:D6] += duration if next_role == :done
+        result[:D6aug] += duration if next_role == :returned
       end
     end
 
@@ -576,10 +577,10 @@ class TicketJourneyController < ApplicationController
     returned_visits = visits[:returned] || []
     in_progress_visits = visits[:in_progress] || []
 
-    result[:D2] = period_hours(todo_visits.first)
-    result[:D2aug] = Array(todo_visits[1..]).sum { |period| period_hours(period) } + returned_visits.sum { |period| period_hours(period) }
-    result[:D3] = period_hours(in_progress_visits.first)
-    result[:D3aug] = Array(in_progress_visits[1..]).sum { |period| period_hours(period) }
+    result[:D1] = period_hours(todo_visits.first)
+    result[:D1aug] = Array(todo_visits[1..]).sum { |period| period_hours(period) } + returned_visits.sum { |period| period_hours(period) }
+    result[:D2] = period_hours(in_progress_visits.first)
+    result[:D2aug] = Array(in_progress_visits[1..]).sum { |period| period_hours(period) }
 
     stage_periods.each_cons(2) do |current_period, next_period|
       next unless status_role(next_period[:status]) == :returned
@@ -641,13 +642,13 @@ class TicketJourneyController < ApplicationController
 
       case status_role(period[:status])
       when :new
-        result[:DT1] += duration if next_role == :todo
+        result[:DT0] += duration if next_role == :todo
       when :feedback
-        result[:DT4] += duration if next_role == :final_check
-        result[:DT4aug] += duration if next_role == :returned
+        result[:DT3] += duration if next_role == :final_check
+        result[:DT3aug] += duration if next_role == :returned
       when :final_check
-        result[:DT5] += duration if next_role == :done
-        result[:DT5aug] += duration if next_role == :returned
+        result[:DT4] += duration if next_role == :done
+        result[:DT4aug] += duration if next_role == :returned
       end
     end
 
@@ -655,10 +656,10 @@ class TicketJourneyController < ApplicationController
     returned_visits = visits[:returned] || []
     in_progress_visits = visits[:in_progress] || []
 
-    result[:DT2] = period_hours(todo_visits.first)
-    result[:DT2aug] = Array(todo_visits[1..]).sum { |period| period_hours(period) } + returned_visits.sum { |period| period_hours(period) }
-    result[:DT3] = period_hours(in_progress_visits.first)
-    result[:DT3aug] = Array(in_progress_visits[1..]).sum { |period| period_hours(period) }
+    result[:DT1] = period_hours(todo_visits.first)
+    result[:DT1aug] = Array(todo_visits[1..]).sum { |period| period_hours(period) } + returned_visits.sum { |period| period_hours(period) }
+    result[:DT2] = period_hours(in_progress_visits.first)
+    result[:DT2aug] = Array(in_progress_visits[1..]).sum { |period| period_hours(period) }
 
     stage_periods.each_cons(2) do |current_period, next_period|
       next unless status_role(next_period[:status]) == :returned
@@ -687,13 +688,13 @@ class TicketJourneyController < ApplicationController
 
       case status_role(period[:status])
       when :new
-        result[:DP1] += duration if next_role == :todo
+        result[:DP0] += duration if next_role == :todo
       when :todo
-        result[:DP2] += duration if next_role == :in_progress
+        result[:DP1] += duration if next_role == :in_progress
       when :in_progress
-        result[:DP3] += duration if next_role == :final_check
+        result[:DP2] += duration if next_role == :final_check
       when :final_check
-        result[:DP4] += duration if next_role == :done
+        result[:DP3] += duration if next_role == :done
       end
     end
 

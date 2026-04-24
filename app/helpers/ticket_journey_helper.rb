@@ -182,22 +182,23 @@ module TicketJourneyHelper
 
   def d_fields
     [
-      { key: :D1, label: 'D1', aug: false, desc: 'Planning (New -> To-Do)' },
-      { key: :D2, label: 'D2', aug: false, desc: 'Wait for Dev (1st)' },
-      { key: :D2aug, label: 'D2-aug', aug: true, desc: 'Wait for Dev (returns)' },
-      { key: :D3, label: 'D3', aug: false, desc: 'Under Development (1st)' },
-      { key: :D3aug, label: 'D3-aug', aug: true, desc: 'Under Dev (subsequent)' },
-      { key: :D4, label: 'D4', aug: false, desc: 'QA Time (1st)' },
-      { key: :D4aug, label: 'D4-aug', aug: true, desc: 'QA Time (returns)' },
-      { key: :D5, label: 'D5', aug: false, desc: 'Review -> Ready to Merge' },
-      { key: :D5aug, label: 'D5-aug', aug: true, desc: 'Review -> Returned' },
-      { key: :D6, label: 'D6', aug: false, desc: 'Ready to Merge -> Final Check' },
-      { key: :D6aug, label: 'D6-aug', aug: true, desc: 'Ready to Merge -> Returned' },
-      { key: :D7aug, label: 'D7-aug', aug: true, desc: 'Final Check -> Returned' },
-      { key: :D7, label: 'D7', aug: false, desc: 'Final Check -> Done / Closed' },
-      { key: :D8, label: 'D8', aug: false, desc: 'New -> Feedback' },
-      { key: :D9, label: 'D9', aug: false, desc: 'Feedback -> New' },
-      { key: :D10, label: 'D10', aug: false, desc: 'Feedback -> Archived' }
+      { key: :D0, label: 'D0', aug: false, desc: 'Planning (New -> To-Do)' },
+      { key: :D0aug, label: 'D0-aug', aug: true, desc: 'Unnecessary Ticket Identification (New -> Archived)' },
+      { key: :D1, label: 'D1', aug: false, desc: 'Wait for Dev (To-Do -> In Progress)' },
+      { key: :D1aug, label: 'D1-aug', aug: true, desc: 'Wait for Dev (Returned -> In Progress)' },
+      { key: :D2, label: 'D2', aug: false, desc: 'Under Development (In Progress -> Feedback)' },
+      { key: :D2aug, label: 'D2-aug', aug: true, desc: 'Under Development (re-do)' },
+      { key: :D3, label: 'D3', aug: false, desc: 'QA Time (Feedback -> Review)' },
+      { key: :D3aug, label: 'D3-aug', aug: true, desc: 'QA Time (Feedback -> Returned)' },
+      { key: :D4, label: 'D4', aug: false, desc: 'Review Time (Review -> Ready to Merge)' },
+      { key: :D4aug, label: 'D4-aug', aug: true, desc: 'Review Time (Review -> Returned)' },
+      { key: :D5, label: 'D5', aug: false, desc: 'Merging Time (Ready to Merge -> Final Check)' },
+      { key: :D5aug, label: 'D5-aug', aug: true, desc: 'Merging Time (Ready to Merge -> Returned)' },
+      { key: :D6, label: 'D6', aug: false, desc: 'Post-Integration Test Time (Final Check -> Done / Closed)' },
+      { key: :D6aug, label: 'D6-aug', aug: true, desc: 'Post-Integration Test Time (Final Check -> Returned)' },
+      { key: :D7, label: 'D7', aug: false, desc: 'Waiting for Validation (New -> Feedback)' },
+      { key: :D8, label: 'D8', aug: false, desc: 'Validation Time (Feedback -> New)' },
+      { key: :D9, label: 'D9', aug: false, desc: 'Not-Validation (Feedback -> Archived)' }
     ]
   end
 
@@ -234,22 +235,22 @@ module TicketJourneyHelper
         ]
       when :task
         [
-          { key: :DT1, label: 'DT1', aug: false, desc: 'New -> To-Do' },
-          { key: :DT2, label: 'DT2', aug: false, desc: 'To-Do -> In Progress' },
-          { key: :DT2aug, label: 'DT2-aug', aug: true, desc: 'Returned -> In Progress' },
-          { key: :DT3, label: 'DT3', aug: false, desc: 'In Progress (1st) -> Feedback' },
-          { key: :DT3aug, label: 'DT3-aug', aug: true, desc: 'In Progress (next) -> Feedback' },
-          { key: :DT4, label: 'DT4', aug: false, desc: 'Feedback -> Final Check' },
-          { key: :DT4aug, label: 'DT4-aug', aug: true, desc: 'Feedback -> Returned' },
-          { key: :DT5, label: 'DT5', aug: false, desc: 'Final Check -> Done / Closed' },
-          { key: :DT5aug, label: 'DT5-aug', aug: true, desc: 'Final Check -> Returned' }
+          { key: :DT0, label: 'DT0', aug: false, desc: 'Planning (New -> To-Do)' },
+          { key: :DT1, label: 'DT1', aug: false, desc: 'Wait for Job to Start (To-Do -> In Progress)' },
+          { key: :DT1aug, label: 'DT1-aug', aug: true, desc: 'Wait for Job to be Done (Returned -> In Progress)' },
+          { key: :DT2, label: 'DT2', aug: false, desc: 'Under Work (In Progress -> Feedback)' },
+          { key: :DT2aug, label: 'DT2-aug', aug: true, desc: 'Under Work (re-do)' },
+          { key: :DT3, label: 'DT3', aug: false, desc: 'Feedback Time (Feedback -> Final Check)' },
+          { key: :DT3aug, label: 'DT3-aug', aug: true, desc: 'Feedback Time (Feedback -> Returned)' },
+          { key: :DT4, label: 'DT4', aug: false, desc: 'Final Review & Check Time (Final Check -> Done / Closed)' },
+          { key: :DT4aug, label: 'DT4-aug', aug: true, desc: 'Final Review & Check Time (Final Check -> Returned)' }
         ]
       when :container
         [
-          { key: :DP1, label: 'DP1', aug: false, desc: 'New -> To-Do' },
-          { key: :DP2, label: 'DP2', aug: false, desc: 'To-Do -> In Progress' },
-          { key: :DP3, label: 'DP3', aug: false, desc: 'In Progress -> Final Check' },
-          { key: :DP4, label: 'DP4', aug: false, desc: 'Final Check -> Done / Closed' }
+          { key: :DP0, label: 'DP0', aug: false, desc: 'Initiation Time (New -> To-Do)' },
+          { key: :DP1, label: 'DP1', aug: false, desc: 'Planning Time (To-Do -> In Progress)' },
+          { key: :DP2, label: 'DP2', aug: false, desc: 'Execution Time (In Progress -> Final Check)' },
+          { key: :DP3, label: 'DP3', aug: false, desc: 'Pre-Closure Check (Final Check -> Done / Closed)' }
         ]
       else
         d_fields
