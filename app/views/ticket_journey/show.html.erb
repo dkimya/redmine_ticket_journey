@@ -45,7 +45,7 @@
 
   <div class="tj-summary-strip">
     <div class="tj-summary-card">
-      <div class="tj-sc-label">Total Cycle Time</div>
+    <div class="tj-sc-label">Cycle Total</div>
       <div class="tj-sc-value tj-sc-green"><%= format_hours(@duration_data[:TOTAL]) %></div>
     </div>
     <div class="tj-summary-card">
@@ -83,7 +83,7 @@
         <% duration_fields.each do |field| %>
           <% value = @duration_data[field[:key]].to_f %>
           <% pct = (value / max_val * 100).round %>
-          <% tooltip = [field[:desc], "Share of TOTAL: #{format_percentage(value, @duration_data[:TOTAL])}"].join("\n") %>
+          <% tooltip = [field[:desc], "Share of Cycle Total: #{format_percentage(value, @duration_data[:TOTAL])}"].join("\n") %>
           <div class="tj-bar-row">
             <div class="tj-bar-label"><%= field[:label] %></div>
             <div class="tj-bar-track" title="<%= tooltip %>">
@@ -97,16 +97,16 @@
         <% end %>
         <% total_value = @duration_data[:TOTAL].to_f %>
         <% total_width_pct = total_value > 0 ? 100 : 0 %>
-        <% total_tooltip = ["Full cycle time", "Share of Calendar Total: #{format_percentage(total_value, @duration_data[:CALENDAR_TOTAL])}"].join("\n") %>
+        <% total_tooltip = ["Cycle total", "Share of Calendar Total: #{format_percentage(total_value, @duration_data[:CALENDAR_TOTAL])}"].join("\n") %>
         <div class="tj-bar-row tj-bar-total">
-          <div class="tj-bar-label"><strong>TOTAL</strong></div>
+          <div class="tj-bar-label"><strong>Cycle Total</strong></div>
           <div class="tj-bar-track" title="<%= total_tooltip %>">
             <div class="tj-bar-fill <%= 'is-zero' if total_width_pct <= 0 %>" style="width:<%= total_width_pct %>%;background:<%= total_color %>">
               <% if total_value > 0 %><span><%= format_hours(total_value) %></span><% end %>
             </div>
           </div>
           <div class="tj-bar-val"><strong><%= format_hours(total_value) %></strong></div>
-          <div class="tj-bar-desc">Full cycle time</div>
+          <div class="tj-bar-desc">Cycle total</div>
         </div>
         <% supplemental_fields.each do |field| %>
           <% value = @duration_data[field[:key]].to_f %>

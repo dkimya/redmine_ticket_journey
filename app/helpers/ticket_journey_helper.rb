@@ -214,15 +214,15 @@ module TicketJourneyHelper
     desc =
       case family_key.to_sym
       when :internal
-        'TOTAL + D0 + On-Hold + Pending'
+        'Cycle Total + D0 + On-Hold + Pending'
       when :task
-        'TOTAL + DT0 + On-Hold + Pending'
+        'Cycle Total + DT0 + On-Hold + Pending'
       when :container
-        'TOTAL + DP0 + On-Hold + Pending'
+        'Cycle Total + DP0 + On-Hold + Pending'
       when :customer_support
-        'TOTAL + On-Hold'
+        'Cycle Total + On-Hold'
       else
-        'TOTAL + On-Hold + Pending'
+        'Cycle Total + On-Hold + Pending'
       end
 
     { key: :CALENDAR_TOTAL, label: 'Calendar Total', aug: false, desc: desc, css_class: 'tj-th-total' }

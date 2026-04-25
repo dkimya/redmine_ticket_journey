@@ -837,7 +837,7 @@ class TicketJourneyController < ApplicationController
   def csv_header_label_for(field)
     return 'On-Hold' if field == :ON_HOLD
     return 'Pending' if field == :PENDING
-    return 'TOTAL' if field == :TOTAL
+    return 'Cycle Total' if field == :TOTAL
     return 'Calendar Total' if field == :CALENDAR_TOTAL
     return field.to_s.sub(/\AC/, 'R') if ALL_COUNTER_KEYS.include?(field)
 

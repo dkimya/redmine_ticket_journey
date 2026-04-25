@@ -128,10 +128,10 @@
             <h3 class="tj-section-title"><%= section[:label] %></h3>
             <div class="tj-group-summary">
               <span>Issues: <strong><%= summary[:issues] %></strong></span>
-              <span>Avg Total: <strong><%= format_hours(summary[:avg_total]) %></strong></span>
-              <span>Max Total: <strong><%= format_hours(summary[:max_total]) %></strong></span>
+              <span>Avg Cycle: <strong><%= format_hours(summary[:avg_total]) %></strong></span>
+              <span>Max Cycle: <strong><%= format_hours(summary[:max_total]) %></strong></span>
               <span>Returns: <strong><%= summary[:returns] %></strong></span>
-              <span>Total Sum: <strong><%= format_hours(table_duration_totals[:TOTAL]) %></strong></span>
+              <span>Cycle Sum: <strong><%= format_hours(table_duration_totals[:TOTAL]) %></strong></span>
               <span>On-Hold: <strong><%= format_hours(table_duration_totals[:ON_HOLD]) %></strong></span>
               <% unless family_key.to_sym == :customer_support %>
                 <span>Pending: <strong><%= format_hours(table_duration_totals[:PENDING]) %></strong></span>
@@ -175,7 +175,7 @@
                   <th class="<%= duration_header_css_class(field) %>"><%= report_sort_link(@query, family_key, field[:key], field[:label], title: field[:desc]) %></th>
                 <% end %>
                 <th class="tj-th-peak"><%= report_sort_link(@query, family_key, :peak, 'Peak', title: 'Sort by the highest duration in this tracker family') %></th>
-                <th class="tj-th-total"><%= report_sort_link(@query, family_key, :TOTAL, 'TOTAL', title: 'Sort by total cycle time') %></th>
+                <th class="tj-th-total"><%= report_sort_link(@query, family_key, :TOTAL, 'Cycle Total', title: 'Sort by cycle total') %></th>
                 <% supplemental_fields.each do |field| %>
                   <th class="<%= duration_header_css_class(field) %>"><%= report_sort_link(@query, family_key, field[:key], field[:label], title: field[:desc]) %></th>
                 <% end %>
@@ -194,8 +194,8 @@
                       <div class="tj-group-head"><%= heading %></div>
                       <div class="tj-group-summary">
                         <span>Issues: <strong><%= grouped_summary[:issues] %></strong></span>
-                        <span>Avg Total: <strong><%= format_hours(grouped_summary[:avg_total]) %></strong></span>
-                        <span>Max Total: <strong><%= format_hours(grouped_summary[:max_total]) %></strong></span>
+                        <span>Avg Cycle: <strong><%= format_hours(grouped_summary[:avg_total]) %></strong></span>
+                        <span>Max Cycle: <strong><%= format_hours(grouped_summary[:max_total]) %></strong></span>
                         <span>Returns: <strong><%= grouped_summary[:returns] %></strong></span>
                       </div>
                     </td>
