@@ -5,7 +5,7 @@
 <%
   duration_fields = duration_fields_for_family(@tracker_family_key)
   supplemental_fields = supplemental_duration_fields_for_family(@tracker_family_key)
-  calendar_total = calendar_total_field
+  calendar_total = calendar_total_field(@tracker_family_key)
   counters = counter_definitions(@tracker_family_key)
   max_val = (duration_fields + supplemental_fields + [calendar_total]).map { |field| @duration_data[field[:key]].to_f }.max
   max_val = 1 if max_val.to_f <= 0

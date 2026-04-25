@@ -215,6 +215,10 @@ module TicketJourneyHelper
       case family_key.to_sym
       when :internal
         'TOTAL + D0 + On-Hold + Pending'
+      when :task
+        'TOTAL + DT0 + On-Hold + Pending'
+      when :container
+        'TOTAL + DP0 + On-Hold + Pending'
       when :customer_support
         'TOTAL + On-Hold'
       else
@@ -245,7 +249,7 @@ module TicketJourneyHelper
         ]
       when :task
         [
-          { key: :DT0, label: 'DT0', aug: false, desc: 'Planning (New -> To-Do)' },
+          { key: :DT0, label: 'DT0', aug: false, desc: 'Planning (New -> To-Do)', counted_in_total: false },
           { key: :DT1, label: 'DT1', aug: false, desc: 'Wait for Job to Start (To-Do -> In Progress)' },
           { key: :DT1aug, label: 'DT1-aug', aug: true, desc: 'Wait for Job to be Done (Returned -> In Progress)' },
           { key: :DT2, label: 'DT2', aug: false, desc: 'Under Work (In Progress -> Feedback)' },
@@ -257,7 +261,7 @@ module TicketJourneyHelper
         ]
       when :container
         [
-          { key: :DP0, label: 'DP0', aug: false, desc: 'Initiation Time (New -> To-Do)' },
+          { key: :DP0, label: 'DP0', aug: false, desc: 'Initiation Time (New -> To-Do)', counted_in_total: false },
           { key: :DP1, label: 'DP1', aug: false, desc: 'Planning Time (To-Do -> In Progress)' },
           { key: :DP2, label: 'DP2', aug: false, desc: 'Execution Time (In Progress -> Final Check)' },
           { key: :DP3, label: 'DP3', aug: false, desc: 'Pre-Closure Check (Final Check -> Done / Closed)' }

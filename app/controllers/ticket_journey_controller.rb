@@ -673,8 +673,9 @@ class TicketJourneyController < ApplicationController
       end
     end
 
-    result[:TOTAL] = FAMILY_DURATION_KEYS[:task].sum { |key| result[key].to_f }
-    result[:CALENDAR_TOTAL] = result[:TOTAL].to_f + result[:ON_HOLD].to_f + result[:PENDING].to_f
+    total_keys = FAMILY_DURATION_KEYS[:task] - [:DT0]
+    result[:TOTAL] = total_keys.sum { |key| result[key].to_f }
+    result[:CALENDAR_TOTAL] = result[:TOTAL].to_f + result[:DT0].to_f + result[:ON_HOLD].to_f + result[:PENDING].to_f
     result
   end
 
@@ -699,8 +700,9 @@ class TicketJourneyController < ApplicationController
       end
     end
 
-    result[:TOTAL] = FAMILY_DURATION_KEYS[:container].sum { |key| result[key].to_f }
-    result[:CALENDAR_TOTAL] = result[:TOTAL].to_f + result[:ON_HOLD].to_f + result[:PENDING].to_f
+    total_keys = FAMILY_DURATION_KEYS[:container] - [:DP0]
+    result[:TOTAL] = total_keys.sum { |key| result[key].to_f }
+    result[:CALENDAR_TOTAL] = result[:TOTAL].to_f + result[:DP0].to_f + result[:ON_HOLD].to_f + result[:PENDING].to_f
     result
   end
 
