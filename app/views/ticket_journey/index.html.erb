@@ -118,6 +118,9 @@
       <% calendar_total = calendar_total_field(family_key) %>
       <% counters = counter_definitions(family_key) %>
       <% summary = section_summary(items) %>
+      <% summed_fields = duration_fields + supplemental_fields + [calendar_total] + [{ key: :TOTAL }] %>
+      <% table_duration_totals = summed_fields.each_with_object({}) { |field, totals| totals[field[:key]] = items.sum { |item| item[:durations][field[:key]].to_f } } %>
+      <% table_counter_totals = counters.each_with_object({}) { |counter, totals| totals[counter[:key]] = items.sum { |item| item[:durations][counter[:key]].to_i } } %>
 
       <div class="tj-card tj-card-full tj-section-card">
         <div class="tj-section-header">
@@ -217,6 +220,29 @@
                   </tr>
                 <% end %>
               <% end %>
+              <tr class="tj-total-row">
+                <td class="tj-td-issue">Total</td>
+                <td class="tj-td-title"><span class="tj-total-label"><%= "#{items.size} issues" %></span></td>
+                <td class="tj-td-status">-</td>
+                <% native_columns.each do |_column| %>
+                  <td class="tj-td-native">-</td>
+                <% end %>
+                <% duration_fields.each do |field| %>
+                  <% value = table_duration_totals[field[:key]].to_f %>
+                  <td class="<%= duration_css_class(value, aug: field[:aug]) %>"><%= format_hours(value) %></td>
+                <% end %>
+                <td class="tj-td-peak">-</td>
+                <td class="tj-td-total"><%= format_hours(table_duration_totals[:TOTAL]) %></td>
+                <% supplemental_fields.each do |field| %>
+                  <% value = table_duration_totals[field[:key]].to_f %>
+                  <td class="<%= duration_css_class(value, aug: field[:aug]) %>"><%= format_hours(value) %></td>
+                <% end %>
+                <td class="tj-td-total"><%= format_hours(table_duration_totals[:CALENDAR_TOTAL]) %></td>
+                <% counters.each do |counter| %>
+                  <% count = table_counter_totals[counter[:key]].to_i %>
+                  <td class="<%= counter_css_class(count) %>"><%= count > 0 ? count : '-' %></td>
+                <% end %>
+              </tr>
             </tbody>
           </table>
         </div>

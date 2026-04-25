@@ -329,6 +329,22 @@
 .tj-group-summary strong {
   color: var(--tj-text);
 }
+.tj-total-row td {
+  background: #f8fafc;
+  font-weight: 700;
+}
+.tj-total-row .tj-td-title,
+.tj-total-row .tj-td-status,
+.tj-total-row .tj-td-native,
+.tj-total-row .tj-td-issue {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+.tj-total-row .tj-td-total {
+  background: #e3f2e8;
+}
+.tj-total-label {
+  color: var(--tj-text);
+}
 
 .tj-td-issue { text-align: left; }
 .tj-td-title {
