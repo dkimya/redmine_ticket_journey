@@ -329,6 +329,45 @@
 .tj-group-summary strong {
   color: var(--tj-text);
 }
+.tj-section-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+.tj-section-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--tj-border);
+  border-radius: var(--tj-radius);
+  background: #eef2f7;
+  color: var(--tj-text-dim);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+.tj-section-toggle:hover {
+  background: #e5ebf3;
+  color: var(--tj-text);
+}
+.tj-section-toggle-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background: var(--tj-surface);
+  border: 1px solid var(--tj-border);
+  font-family: 'Courier New', monospace;
+  line-height: 1;
+}
+.tj-section-card.is-collapsed [data-tj-section-body] {
+  display: none;
+}
 .tj-total-row td {
   background: #f8fafc;
   font-weight: 700;

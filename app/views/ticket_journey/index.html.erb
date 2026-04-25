@@ -122,7 +122,7 @@
       <% table_duration_totals = summed_fields.each_with_object({}) { |field, totals| totals[field[:key]] = items.sum { |item| item[:durations][field[:key]].to_f } } %>
       <% table_counter_totals = counters.each_with_object({}) { |counter, totals| totals[counter[:key]] = items.sum { |item| item[:durations][counter[:key]].to_i } } %>
 
-      <div class="tj-card tj-card-full tj-section-card">
+      <div class="tj-card tj-card-full tj-section-card" data-tj-section>
         <div class="tj-section-header">
           <div>
             <h3 class="tj-section-title"><%= section[:label] %></h3>
@@ -131,12 +131,22 @@
               <span>Avg Total: <strong><%= format_hours(summary[:avg_total]) %></strong></span>
               <span>Max Total: <strong><%= format_hours(summary[:max_total]) %></strong></span>
               <span>Returns: <strong><%= summary[:returns] %></strong></span>
+              <span>Total Sum: <strong><%= format_hours(table_duration_totals[:TOTAL]) %></strong></span>
+              <span>On-Hold: <strong><%= format_hours(table_duration_totals[:ON_HOLD]) %></strong></span>
+              <% unless family_key.to_sym == :customer_support %>
+                <span>Pending: <strong><%= format_hours(table_duration_totals[:PENDING]) %></strong></span>
+              <% end %>
+              <span>Calendar Sum: <strong><%= format_hours(table_duration_totals[:CALENDAR_TOTAL]) %></strong></span>
             </div>
           </div>
+          <button type="button" class="tj-section-toggle" data-tj-section-toggle aria-expanded="true">
+            <span class="tj-section-toggle-icon" aria-hidden="true">-</span>
+            <span data-tj-section-toggle-label>Collapse</span>
+          </button>
         </div>
 
         <% if counters.any? %>
-          <div class="tj-legend-strip tj-legend-strip-section">
+          <div class="tj-legend-strip tj-legend-strip-section" data-tj-section-body>
             <% counters.each do |counter| %>
               <% total = items.sum { |item| item[:durations][counter[:key]].to_i } %>
               <div class="tj-legend-item" title="<%= counter[:title] %>">
@@ -151,7 +161,7 @@
           </div>
         <% end %>
 
-        <div class="tj-table-wrap">
+        <div class="tj-table-wrap" data-tj-section-body>
           <table class="tj-table">
             <thead>
               <tr>
@@ -250,3 +260,22 @@
     <% end %>
   <% end %>
 </div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-tj-section-toggle]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        var section = button.closest('[data-tj-section]');
+        var expanded = button.getAttribute('aria-expanded') !== 'false';
+        var nextExpanded = !expanded;
+        var label = button.querySelector('[data-tj-section-toggle-label]');
+        var icon = button.querySelector('.tj-section-toggle-icon');
+
+        button.setAttribute('aria-expanded', String(nextExpanded));
+        section.classList.toggle('is-collapsed', !nextExpanded);
+        if (label) label.textContent = nextExpanded ? 'Collapse' : 'Expand';
+        if (icon) icon.textContent = nextExpanded ? '-' : '+';
+      });
+    });
+  });
+</script>
