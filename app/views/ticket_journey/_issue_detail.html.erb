@@ -223,10 +223,71 @@
   </div>
 </div>
 
+<div class="tj-card tj-card-full tj-history-detail-heading">
+  <h3 class="tj-section-title">History Detail</h3>
+  <div class="tj-group-summary">
+    <span>Status changes: <strong><%= @status_change_count %></strong></span>
+    <span>Assignment changes: <strong><%= [@assignment_periods.size - 1, 0].max %></strong></span>
+  </div>
+</div>
+
+<div class="tj-card tj-card-full tj-section-card tj-status-detail-card is-collapsed" data-tj-section>
+  <div class="tj-section-header">
+    <div>
+      <h3 class="tj-section-title">Status Time Detail</h3>
+      <div class="tj-group-summary">
+        <span>Changes: <strong><%= @status_change_count %></strong></span>
+        <span>Current: <strong><%= h(@issue.status.name) %></strong></span>
+      </div>
+    </div>
+    <button type="button" class="tj-section-toggle" data-tj-section-toggle aria-expanded="false">
+      <span class="tj-section-toggle-icon" aria-hidden="true">+</span>
+      <span data-tj-section-toggle-label>Expand</span>
+    </button>
+  </div>
+
+  <div class="tj-timeline" data-tj-section-body>
+    <% @transitions.each_with_index do |transition, index| %>
+      <%
+        is_return = transition[:to_status].to_s.downcase.include?('return')
+        is_done = ['done', 'closed'].include?(transition[:to_status].to_s.downcase)
+        dot_class = is_return ? 'tj-tl-dot-return' : (is_done ? 'tj-tl-dot-done' : 'tj-tl-dot-forward')
+        next_transition = @transitions[index + 1]
+        period_h = next_transition ? (next_transition[:changed_at] - transition[:changed_at]) / 3600.0 : nil
+      %>
+      <div class="tj-tl-item <%= is_return ? 'tj-tl-return' : '' %>">
+        <div class="tj-tl-dot <%= dot_class %>"></div>
+        <div class="tj-tl-content">
+          <div class="tj-tl-header">
+            <% if transition[:from_status] %>
+              <span class="tj-tl-from"><%= h(transition[:from_status]) %></span>
+              <span class="tj-tl-arrow">-&gt;</span>
+            <% end %>
+            <span class="tj-tl-to <%= is_return ? 'tj-tl-to-return' : '' %>"><%= h(transition[:to_status]) %></span>
+            <span class="tj-tl-time"><%= format_time(transition[:changed_at]) %></span>
+          </div>
+          <div class="tj-tl-meta">
+            by <strong><%= h(transition[:changed_by_name].presence || transition[:changed_by]) %></strong>
+            <% if period_h %>
+              &nbsp;|&nbsp; spent: <span class="tj-tl-spent"><%= format_hours(period_h) %></span>
+            <% end %>
+          </div>
+          <% if transition[:notes].present? %>
+            <div class="tj-tl-notes">
+              <div class="tj-tl-notes-label">Note</div>
+              <%= simple_format(h(transition[:notes]), {}, wrapper_tag: 'div') %>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</div>
+
 <div class="tj-card tj-card-full tj-section-card tj-assignment-timeline-card is-collapsed" data-tj-section>
   <div class="tj-section-header">
     <div>
-      <h3 class="tj-section-title">Assignment Timeline</h3>
+      <h3 class="tj-section-title">Assignment Time Detail</h3>
       <div class="tj-group-summary">
         <span>Changes: <strong><%= [@assignment_periods.size - 1, 0].max %></strong></span>
         <span>Current: <strong><%= h(@issue.assigned_to&.name || 'Unassigned') %></strong></span>
@@ -262,46 +323,6 @@
         <% end %>
       </tbody>
     </table>
-  </div>
-</div>
-
-<div class="tj-card tj-card-full">
-  <div class="tj-card-title">Status Change Timeline</div>
-  <div class="tj-timeline">
-    <% @transitions.each_with_index do |transition, index| %>
-      <%
-        is_return = transition[:to_status].to_s.downcase.include?('return')
-        is_done = ['done', 'closed'].include?(transition[:to_status].to_s.downcase)
-        dot_class = is_return ? 'tj-tl-dot-return' : (is_done ? 'tj-tl-dot-done' : 'tj-tl-dot-forward')
-        next_transition = @transitions[index + 1]
-        period_h = next_transition ? (next_transition[:changed_at] - transition[:changed_at]) / 3600.0 : nil
-      %>
-      <div class="tj-tl-item <%= is_return ? 'tj-tl-return' : '' %>">
-        <div class="tj-tl-dot <%= dot_class %>"></div>
-        <div class="tj-tl-content">
-          <div class="tj-tl-header">
-            <% if transition[:from_status] %>
-              <span class="tj-tl-from"><%= h(transition[:from_status]) %></span>
-              <span class="tj-tl-arrow">-&gt;</span>
-            <% end %>
-            <span class="tj-tl-to <%= is_return ? 'tj-tl-to-return' : '' %>"><%= h(transition[:to_status]) %></span>
-            <span class="tj-tl-time"><%= format_time(transition[:changed_at]) %></span>
-          </div>
-          <div class="tj-tl-meta">
-            by <strong><%= h(transition[:changed_by_name].presence || transition[:changed_by]) %></strong>
-            <% if period_h %>
-              &nbsp;|&nbsp; spent: <span class="tj-tl-spent"><%= format_hours(period_h) %></span>
-            <% end %>
-          </div>
-          <% if transition[:notes].present? %>
-            <div class="tj-tl-notes">
-              <div class="tj-tl-notes-label">Note</div>
-              <%= simple_format(h(transition[:notes]), {}, wrapper_tag: 'div') %>
-            </div>
-          <% end %>
-        </div>
-      </div>
-    <% end %>
   </div>
 </div>
 

@@ -570,6 +570,15 @@
   grid-template-columns: minmax(260px, 38%) 1fr 72px;
   align-items: center;
   gap: 10px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  transition: background .12s ease;
+}
+.tj-bar-row:nth-child(even) {
+  background: #fafbfe;
+}
+.tj-bar-row:hover {
+  background: #eef4ff;
 }
 .tj-bar-label {
   min-width: 0;
@@ -763,6 +772,16 @@
 
 .tj-history-card {
   margin-bottom: 16px;
+}
+
+.tj-history-detail-heading {
+  margin-bottom: 10px;
+  background: #fbfcfe;
+}
+
+.tj-status-detail-card,
+.tj-assignment-timeline-card {
+  margin-bottom: 12px;
 }
 
 .tj-history-summary-grid {
