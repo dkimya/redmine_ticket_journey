@@ -87,56 +87,52 @@
           <% share_label = field[:counted_in_total] == false ? 'Share of Calendar Total' : 'Share of Cycle Total' %>
           <% tooltip = [field[:desc], "#{share_label}: #{format_percentage(value, share_base)}"].join("\n") %>
           <div class="tj-bar-row">
-            <div class="tj-bar-label"><%= field[:label] %></div>
+            <div class="tj-bar-label"><%= field[:desc] %> <span>(<%= field[:label] %>)</span></div>
             <div class="tj-bar-track" title="<%= tooltip %>">
               <div class="tj-bar-fill <%= 'is-zero' if value <= 0 %>" style="width:<%= pct %>%;background:<%= bar_colors[field[:key]] || '#4fc3f7' %>">
                 <% if pct > 12 %><span><%= format_hours(value) %></span><% end %>
               </div>
             </div>
             <div class="tj-bar-val"><%= format_hours(value) %></div>
-            <div class="tj-bar-desc"><%= field[:desc] %></div>
           </div>
         <% end %>
         <% total_value = @duration_data[:TOTAL].to_f %>
         <% total_width_pct = total_value > 0 ? 100 : 0 %>
         <% total_tooltip = ["Cycle total", "Share of Calendar Total: #{format_percentage(total_value, @duration_data[:CALENDAR_TOTAL])}"].join("\n") %>
         <div class="tj-bar-row tj-bar-total">
-          <div class="tj-bar-label"><strong>Cycle Total</strong></div>
+          <div class="tj-bar-label"><strong>Cycle total</strong> <span>(Cycle Total)</span></div>
           <div class="tj-bar-track" title="<%= total_tooltip %>">
             <div class="tj-bar-fill <%= 'is-zero' if total_width_pct <= 0 %>" style="width:<%= total_width_pct %>%;background:<%= total_color %>">
               <% if total_value > 0 %><span><%= format_hours(total_value) %></span><% end %>
             </div>
           </div>
           <div class="tj-bar-val"><strong><%= format_hours(total_value) %></strong></div>
-          <div class="tj-bar-desc">Cycle total</div>
         </div>
         <% supplemental_fields.each do |field| %>
           <% value = @duration_data[field[:key]].to_f %>
           <% pct = (value / max_val * 100).round %>
           <% tooltip = [field[:desc], "Share of Calendar Total: #{format_percentage(value, @duration_data[:CALENDAR_TOTAL])}"].join("\n") %>
           <div class="tj-bar-row">
-            <div class="tj-bar-label"><%= field[:label] %></div>
+            <div class="tj-bar-label"><%= field[:desc] %> <span>(<%= field[:label] %>)</span></div>
             <div class="tj-bar-track" title="<%= tooltip %>">
               <div class="tj-bar-fill <%= 'is-zero' if value <= 0 %>" style="width:<%= pct %>%;background:<%= bar_colors[field[:key]] || '#7b8794' %>">
                 <% if pct > 12 %><span><%= format_hours(value) %></span><% end %>
               </div>
             </div>
             <div class="tj-bar-val"><%= format_hours(value) %></div>
-            <div class="tj-bar-desc"><%= field[:desc] %></div>
           </div>
         <% end %>
         <% calendar_total_value = @duration_data[:CALENDAR_TOTAL].to_f %>
         <% calendar_total_pct = (calendar_total_value / max_val * 100).round %>
         <% calendar_total_tooltip = calendar_total[:desc] %>
         <div class="tj-bar-row tj-bar-total">
-          <div class="tj-bar-label"><strong><%= calendar_total[:label] %></strong></div>
+          <div class="tj-bar-label"><strong><%= calendar_total[:desc] %></strong> <span>(<%= calendar_total[:label] %>)</span></div>
           <div class="tj-bar-track" title="<%= calendar_total_tooltip %>">
             <div class="tj-bar-fill <%= 'is-zero' if calendar_total_value <= 0 %>" style="width:<%= calendar_total_pct %>%;background:<%= calendar_total_color %>">
               <% if calendar_total_value > 0 %><span><%= format_hours(calendar_total_value) %></span><% end %>
             </div>
           </div>
           <div class="tj-bar-val"><strong><%= format_hours(calendar_total_value) %></strong></div>
-          <div class="tj-bar-desc"><%= calendar_total[:desc] %></div>
         </div>
       </div>
     </div>
