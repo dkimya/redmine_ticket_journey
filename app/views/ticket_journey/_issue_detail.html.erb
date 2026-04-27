@@ -253,11 +253,12 @@
       </thead>
       <tbody>
         <% @assignment_periods.each do |period| %>
+          <% period_duration = period[:enter] && period[:exit] ? ((period[:exit] - period[:enter]) / 3600.0) : 0.0 %>
           <tr>
             <td><strong><%= h(period[:assignee]) %></strong></td>
             <td><%= format_time(period[:enter]) %></td>
             <td><%= period[:changed_by] == 'Current' ? 'Now' : format_time(period[:exit]) %></td>
-            <td><%= format_hours(period_hours(period)) %></td>
+            <td><%= format_hours(period_duration) %></td>
             <td><%= h(period[:changed_by] || '-') %></td>
           </tr>
         <% end %>
