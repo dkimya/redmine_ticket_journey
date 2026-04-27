@@ -4,7 +4,7 @@ class TicketJourneyController < ApplicationController
   TRACKER_FAMILY_ORDER = %i[internal customer_support task container].freeze
   TRACKER_FAMILY_DEFINITIONS = {
     internal: {
-      label: 'Internal Ticket Journey',
+      label: 'Technical Ticket Journey',
       tracker_names: ['Bug', 'Change Request', 'Change Request / Improvement', 'Feature']
     },
     customer_support: {
@@ -608,9 +608,9 @@ class TicketJourneyController < ApplicationController
       end
     end
 
-    total_keys = FAMILY_DURATION_KEYS[:internal] - [:D0]
+    total_keys = FAMILY_DURATION_KEYS[:internal] - %i[D0 D0aug]
     result[:TOTAL] = total_keys.sum { |key| result[key].to_f }
-    result[:CALENDAR_TOTAL] = result[:TOTAL].to_f + result[:D0].to_f + result[:ON_HOLD].to_f + result[:PENDING].to_f
+    result[:CALENDAR_TOTAL] = result[:TOTAL].to_f + result[:D0].to_f + result[:D0aug].to_f + result[:ON_HOLD].to_f + result[:PENDING].to_f
     result
   end
 

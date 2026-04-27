@@ -369,8 +369,12 @@
   display: none;
 }
 .tj-total-row td {
-  background: #f8fafc;
-  font-weight: 700;
+  background: #f3f6fa;
+  border-top: 3px solid #aebacc;
+  border-bottom: 1px solid #d4dbe6;
+  color: var(--tj-text);
+  font-weight: 800;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.75);
 }
 .tj-total-row .tj-td-title,
 .tj-total-row .tj-td-status,
@@ -378,8 +382,19 @@
 .tj-total-row .tj-td-issue {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
+.tj-total-row .tj-td-issue,
+.tj-total-row .tj-td-title {
+  background: #eef3f8;
+}
+.tj-total-row .tj-td-peak {
+  background: #fff4dc;
+}
 .tj-total-row .tj-td-total {
-  background: #e3f2e8;
+  background: #d7ecdf;
+  color: #176437;
+}
+.tj-total-row .tj-counter-active {
+  background: #fde7e7;
 }
 .tj-total-label {
   color: var(--tj-text);

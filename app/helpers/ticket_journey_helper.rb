@@ -183,7 +183,7 @@ module TicketJourneyHelper
   def d_fields
     [
       { key: :D0, label: 'D0', aug: false, desc: 'Planning (New -> To-Do)', counted_in_total: false },
-      { key: :D0aug, label: 'D0-aug', aug: true, desc: 'Unnecessary Ticket Identification (New -> Archived)' },
+      { key: :D0aug, label: 'D0-aug', aug: true, desc: 'Unnecessary Ticket Identification (New -> Archived)', counted_in_total: false },
       { key: :D1, label: 'D1', aug: false, desc: 'Wait for Dev (To-Do -> In Progress)' },
       { key: :D1aug, label: 'D1-aug', aug: true, desc: 'Wait for Dev (Returned -> In Progress)' },
       { key: :D2, label: 'D2', aug: false, desc: 'Under Development (In Progress -> Feedback)' },
@@ -214,7 +214,7 @@ module TicketJourneyHelper
     desc =
       case family_key.to_sym
       when :internal
-        'Cycle Total + D0 + On-Hold + Pending'
+        'Cycle Total + D0 + D0-aug + On-Hold + Pending'
       when :task
         'Cycle Total + DT0 + On-Hold + Pending'
       when :container
