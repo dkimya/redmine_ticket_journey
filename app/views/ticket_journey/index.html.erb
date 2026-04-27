@@ -171,13 +171,13 @@
                 <% native_columns.each do |column| %>
                   <th class="tj-th-native"><%= query_sort_link(@query, column) %></th>
                 <% end %>
-                <% duration_fields.each do |field| %>
-                  <th class="<%= duration_header_css_class(field) %>"><%= report_sort_link(@query, family_key, field[:key], field[:label], title: field[:desc]) %></th>
+                <% duration_fields.each_with_index do |field, index| %>
+                  <th class="<%= [duration_header_css_class(field), duration_group_css_class(field, duration_fields, index)].reject(&:blank?).join(' ') %>"><%= report_sort_link(@query, family_key, field[:key], field[:label], title: field[:desc]) %></th>
                 <% end %>
                 <th class="tj-th-peak"><%= report_sort_link(@query, family_key, :peak, 'Peak', title: 'Sort by the highest duration in this tracker family') %></th>
-                <th class="tj-th-total"><%= report_sort_link(@query, family_key, :TOTAL, 'Cycle Total', title: 'Sort by cycle total') %></th>
+                <th class="tj-th-total tj-cycle-total-end"><%= report_sort_link(@query, family_key, :TOTAL, 'Cycle Total', title: 'Sort by cycle total') %></th>
                 <% supplemental_fields.each do |field| %>
-                  <th class="<%= duration_header_css_class(field) %>"><%= report_sort_link(@query, family_key, field[:key], field[:label], title: field[:desc]) %></th>
+                  <th class="<%= duration_header_css_class(field) %> tj-supplemental-col"><%= report_sort_link(@query, family_key, field[:key], field[:label], title: field[:desc]) %></th>
                 <% end %>
                 <th class="<%= duration_header_css_class(calendar_total) %>"><%= report_sort_link(@query, family_key, :CALENDAR_TOTAL, calendar_total[:label], title: calendar_total[:desc]) %></th>
                 <% counters.each do |counter| %>
@@ -212,15 +212,15 @@
                     <% native_columns.each do |column| %>
                       <td class="tj-td-native"><%= column_content(column, issue) %></td>
                     <% end %>
-                    <% duration_fields.each do |field| %>
+                    <% duration_fields.each_with_index do |field, index| %>
                       <% value = durations[field[:key]].to_f %>
-                      <td class="<%= duration_css_class(value, aug: field[:aug]) %>"><%= format_hours(value) %></td>
+                      <td class="<%= [duration_css_class(value, aug: field[:aug]), duration_group_css_class(field, duration_fields, index)].reject(&:blank?).join(' ') %>"><%= format_hours(value) %></td>
                     <% end %>
                     <td class="tj-td-peak"><%= peak_duration_label(durations, family_key) %></td>
-                    <td class="tj-td-total"><%= format_hours(durations[:TOTAL]) %></td>
+                    <td class="tj-td-total tj-cycle-total-end"><%= format_hours(durations[:TOTAL]) %></td>
                     <% supplemental_fields.each do |field| %>
                       <% value = durations[field[:key]].to_f %>
-                      <td class="<%= duration_css_class(value, aug: field[:aug]) %>"><%= format_hours(value) %></td>
+                      <td class="<%= duration_css_class(value, aug: field[:aug]) %> tj-supplemental-col"><%= format_hours(value) %></td>
                     <% end %>
                     <td class="tj-td-total"><%= format_hours(durations[:CALENDAR_TOTAL]) %></td>
                     <% counters.each do |counter| %>
@@ -237,15 +237,15 @@
                 <% native_columns.each do |_column| %>
                   <td class="tj-td-native">-</td>
                 <% end %>
-                <% duration_fields.each do |field| %>
+                <% duration_fields.each_with_index do |field, index| %>
                   <% value = table_duration_totals[field[:key]].to_f %>
-                  <td class="<%= duration_css_class(value, aug: field[:aug]) %>"><%= format_hours(value) %></td>
+                  <td class="<%= [duration_css_class(value, aug: field[:aug]), duration_group_css_class(field, duration_fields, index)].reject(&:blank?).join(' ') %>"><%= format_hours(value) %></td>
                 <% end %>
                 <td class="tj-td-peak">-</td>
-                <td class="tj-td-total"><%= format_hours(table_duration_totals[:TOTAL]) %></td>
+                <td class="tj-td-total tj-cycle-total-end"><%= format_hours(table_duration_totals[:TOTAL]) %></td>
                 <% supplemental_fields.each do |field| %>
                   <% value = table_duration_totals[field[:key]].to_f %>
-                  <td class="<%= duration_css_class(value, aug: field[:aug]) %>"><%= format_hours(value) %></td>
+                  <td class="<%= duration_css_class(value, aug: field[:aug]) %> tj-supplemental-col"><%= format_hours(value) %></td>
                 <% end %>
                 <td class="tj-td-total"><%= format_hours(table_duration_totals[:CALENDAR_TOTAL]) %></td>
                 <% counters.each do |counter| %>
