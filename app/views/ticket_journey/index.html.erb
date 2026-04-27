@@ -264,6 +264,9 @@
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('[data-tj-section-toggle]').forEach(function (button) {
+      if (button.dataset.tjToggleBound === 'true') return;
+      button.dataset.tjToggleBound = 'true';
+
       button.addEventListener('click', function () {
         var section = button.closest('[data-tj-section]');
         var expanded = button.getAttribute('aria-expanded') !== 'false';

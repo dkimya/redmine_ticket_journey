@@ -811,6 +811,20 @@
   font-size: 12px;
 }
 
+.tj-assignment-timeline-wrap .tj-table {
+  min-width: 760px;
+}
+
+.tj-assignment-timeline-table th,
+.tj-assignment-timeline-table td {
+  text-align: left;
+}
+
+.tj-assignment-timeline-table th:nth-child(4),
+.tj-assignment-timeline-table td:nth-child(4) {
+  text-align: center;
+}
+
 @media (max-width: 900px) {
   .tj-history-summary-grid {
     grid-template-columns: 1fr;
