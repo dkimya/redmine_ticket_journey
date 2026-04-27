@@ -83,7 +83,9 @@
         <% duration_fields.each do |field| %>
           <% value = @duration_data[field[:key]].to_f %>
           <% pct = (value / max_val * 100).round %>
-          <% tooltip = [field[:desc], "Share of Cycle Total: #{format_percentage(value, @duration_data[:TOTAL])}"].join("\n") %>
+          <% share_base = field[:counted_in_total] == false ? @duration_data[:CALENDAR_TOTAL] : @duration_data[:TOTAL] %>
+          <% share_label = field[:counted_in_total] == false ? 'Share of Calendar Total' : 'Share of Cycle Total' %>
+          <% tooltip = [field[:desc], "#{share_label}: #{format_percentage(value, share_base)}"].join("\n") %>
           <div class="tj-bar-row">
             <div class="tj-bar-label"><%= field[:label] %></div>
             <div class="tj-bar-track" title="<%= tooltip %>">

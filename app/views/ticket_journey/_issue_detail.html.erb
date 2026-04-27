@@ -152,6 +152,79 @@
   <% end %>
 </div>
 
+<div class="tj-card tj-card-full tj-section-card tj-history-card" data-tj-section>
+  <div class="tj-section-header">
+    <div>
+      <h3 class="tj-section-title">History Summary</h3>
+      <div class="tj-group-summary">
+        <span>Status groups: <strong><%= @status_time_summary.size %></strong></span>
+        <span>Assignment groups: <strong><%= @assignment_time_summary.size %></strong></span>
+        <span>Calendar Total: <strong><%= format_hours(@duration_data[:CALENDAR_TOTAL]) %></strong></span>
+      </div>
+    </div>
+    <button type="button" class="tj-section-toggle" data-tj-section-toggle aria-expanded="true">
+      <span class="tj-section-toggle-icon" aria-hidden="true">-</span>
+      <span data-tj-section-toggle-label>Collapse</span>
+    </button>
+  </div>
+
+  <div class="tj-history-summary-grid" data-tj-section-body>
+    <div class="tj-history-panel">
+      <div class="tj-history-panel-title">Status Time Summary</div>
+      <% if @status_time_summary.any? %>
+        <div class="tj-history-chart-list">
+          <% @status_time_summary.each_with_index do |row, index| %>
+            <% color = index.zero? ? '#1a6db5' : '#4fc3f7' %>
+            <div class="tj-history-row">
+              <div class="tj-history-pie" style="background: conic-gradient(<%= color %> 0 <%= row[:percentage] %>%, #eef0f5 <%= row[:percentage] %>% 100%);"></div>
+              <div class="tj-history-main">
+                <div class="tj-history-label"><%= h(row[:label]) %></div>
+                <div class="tj-history-meta">
+                  <span><%= row[:count] %> times</span>
+                  <span><%= format_hours(row[:hours]) %></span>
+                  <span><%= row[:percentage] %>%</span>
+                </div>
+                <div class="tj-history-bar-track">
+                  <div class="tj-history-bar-fill" style="width:<%= row[:percentage] %>%;background:<%= color %>"></div>
+                </div>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      <% else %>
+        <div class="tj-history-empty">No status history found.</div>
+      <% end %>
+    </div>
+
+    <div class="tj-history-panel">
+      <div class="tj-history-panel-title">Assignment Time Summary</div>
+      <% if @assignment_time_summary.any? %>
+        <div class="tj-history-chart-list">
+          <% @assignment_time_summary.each_with_index do |row, index| %>
+            <% color = index.zero? ? '#2e7d46' : '#8bc34a' %>
+            <div class="tj-history-row">
+              <div class="tj-history-pie" style="background: conic-gradient(<%= color %> 0 <%= row[:percentage] %>%, #eef0f5 <%= row[:percentage] %>% 100%);"></div>
+              <div class="tj-history-main">
+                <div class="tj-history-label"><%= h(row[:label]) %></div>
+                <div class="tj-history-meta">
+                  <span><%= row[:count] %> times</span>
+                  <span><%= format_hours(row[:hours]) %></span>
+                  <span><%= row[:percentage] %>%</span>
+                </div>
+                <div class="tj-history-bar-track">
+                  <div class="tj-history-bar-fill" style="width:<%= row[:percentage] %>%;background:<%= color %>"></div>
+                </div>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      <% else %>
+        <div class="tj-history-empty">No assignment history found.</div>
+      <% end %>
+    </div>
+  </div>
+</div>
+
 <div class="tj-card tj-card-full">
   <div class="tj-card-title">Status Change Timeline</div>
   <div class="tj-timeline">

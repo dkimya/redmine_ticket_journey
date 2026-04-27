@@ -133,6 +133,9 @@ class TicketJourneyController < ApplicationController
     @duration_data = compute_issue_durations(@issue)
     @transitions = load_transitions(@issue)[@issue.id] || []
     @status_change_count = @transitions.count { |transition| !transition[:synthetic] }
+    @status_time_summary = summarize_named_periods(@duration_data[:periods] || [], :status)
+    @assignment_periods = load_assignment_periods(@issue)
+    @assignment_time_summary = summarize_named_periods(@assignment_periods, :assignee)
   end
 
   def prepare_owner_role_filter
@@ -788,6 +791,69 @@ class TicketJourneyController < ApplicationController
     return 0.0 unless period && period[:enter] && period[:exit]
 
     [((period[:exit] - period[:enter]) / 3600.0), 0].max.round(2)
+  end
+
+  def load_assignment_periods(issue)
+    journals = issue.journals.includes(:user, :details).order(:created_on)
+    assignment_periods = []
+    current_assignee = nil
+    start_time = issue.created_on
+
+    journals.each do |journal|
+      journal.details.each do |detail|
+        next unless detail.property == 'attr' && detail.prop_key == 'assigned_to_id'
+
+        old_assignee = user_name_for_id(detail.old_value)
+        new_assignee = user_name_for_id(detail.value)
+        current_assignee ||= old_assignee || 'Unassigned'
+
+        assignment_periods << {
+          assignee: current_assignee,
+          enter: start_time,
+          exit: journal.created_on,
+          changed_by: journal.user&.name
+        }
+
+        current_assignee = new_assignee || 'Unassigned'
+        start_time = journal.created_on
+      end
+    end
+
+    assignment_periods << {
+      assignee: current_assignee || issue.assigned_to&.name || 'Unassigned',
+      enter: start_time,
+      exit: Time.current,
+      changed_by: 'Current'
+    }
+
+    assignment_periods
+  end
+
+  def user_name_for_id(user_id)
+    return nil if user_id.blank?
+
+    User.find_by(id: user_id)&.name
+  end
+
+  def summarize_named_periods(periods, label_key)
+    totals = Hash.new(0.0)
+    counts = Hash.new(0)
+
+    periods.each do |period|
+      label = period[label_key].presence || 'Unknown'
+      totals[label] += period_hours(period)
+      counts[label] += 1
+    end
+
+    grand_total = totals.values.sum
+    totals.map do |label, hours|
+      {
+        label: label,
+        count: counts[label],
+        hours: hours,
+        percentage: grand_total.positive? ? ((hours / grand_total) * 100).round(1) : 0.0
+      }
+    end.sort_by { |row| [-row[:hours], row[:label].to_s.downcase] }
   end
 
   def sum_role_hours(visits, role)
