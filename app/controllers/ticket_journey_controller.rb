@@ -22,7 +22,7 @@ class TicketJourneyController < ApplicationController
   }.freeze
   FAMILY_DURATION_KEYS = {
     internal: %i[D0 D0aug D1 D1aug D2 D2aug D3 D3aug D4 D4aug D5 D5aug D6 D6aug D7 D8 D9],
-    customer_support: %i[DC1 DC2 DC3 DC4 DC5 DC6 DC7],
+    customer_support: %i[DC0 DC1 DC2 DC3 DC4 DC5 DC6 DC7],
     task: %i[DT0 DT1 DT1aug DT2 DT2aug DT3 DT3aug DT4 DT4aug],
     container: %i[DP0 DP1 DP2 DP3]
   }.freeze
@@ -624,12 +624,14 @@ class TicketJourneyController < ApplicationController
 
       case status_role(period[:status])
       when :new
-        result[:DC1] += duration if next_role == :review
+        result[:DC0] += duration if next_role == :review
+        result[:DC1] += duration if next_role == :archived
       when :review
-        result[:DC2] += duration if next_role == :pending
+        result[:DC1] += duration if next_role == :archived
+        result[:DC2] += duration if next_role == :feedback
         result[:DC3] += duration if next_role == :in_progress
         result[:DC4] += duration if next_role == :done
-      when :pending
+      when :feedback
         result[:DC5] += duration if next_role == :in_progress
         result[:DC6] += duration if next_role == :done
       when :in_progress
@@ -637,8 +639,9 @@ class TicketJourneyController < ApplicationController
       end
     end
 
-    result[:TOTAL] = FAMILY_DURATION_KEYS[:customer_support].sum { |key| result[key].to_f }
-    result[:CALENDAR_TOTAL] = result[:TOTAL].to_f + result[:ON_HOLD].to_f
+    total_keys = FAMILY_DURATION_KEYS[:customer_support] - %i[DC0 DC1]
+    result[:TOTAL] = total_keys.sum { |key| result[key].to_f }
+    result[:CALENDAR_TOTAL] = result[:TOTAL].to_f + result[:DC0].to_f + result[:DC1].to_f + result[:ON_HOLD].to_f
     result
   end
 

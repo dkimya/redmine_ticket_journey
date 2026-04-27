@@ -220,7 +220,7 @@ module TicketJourneyHelper
       when :container
         'Cycle Total + DP0 + On-Hold + Pending'
       when :customer_support
-        'Cycle Total + On-Hold'
+        'Cycle Total + DC0 + DC1 + On-Hold'
       else
         'Cycle Total + On-Hold + Pending'
       end
@@ -239,12 +239,13 @@ module TicketJourneyHelper
       case family_key.to_sym
       when :customer_support
         [
-          { key: :DC1, label: 'DC1', aug: false, desc: 'New -> Review' },
-          { key: :DC2, label: 'DC2', aug: false, desc: 'Review -> Pending' },
+          { key: :DC0, label: 'DC0', aug: false, desc: 'Customer Inquiry Waiting Time (New -> Review)', counted_in_total: false },
+          { key: :DC1, label: 'DC1', aug: false, desc: 'Unnecessary Support Ticket Identification (Review/New -> Archived)', counted_in_total: false },
+          { key: :DC2, label: 'DC2', aug: false, desc: 'Getting Quote for Ticket (Review -> Feedback)' },
           { key: :DC3, label: 'DC3', aug: false, desc: 'Review -> In Progress' },
           { key: :DC4, label: 'DC4', aug: false, desc: 'Review -> Done / Closed' },
-          { key: :DC5, label: 'DC5', aug: false, desc: 'Pending -> In Progress' },
-          { key: :DC6, label: 'DC6', aug: false, desc: 'Pending -> Done / Closed' },
+          { key: :DC5, label: 'DC5', aug: false, desc: 'Decision Making (Feedback -> In Progress)' },
+          { key: :DC6, label: 'DC6', aug: false, desc: 'Closure Time (Feedback -> Done / Closed)' },
           { key: :DC7, label: 'DC7', aug: false, desc: 'In Progress -> Done / Closed' }
         ]
       when :task
