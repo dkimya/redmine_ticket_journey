@@ -159,7 +159,9 @@
       <div class="tj-group-summary">
         <span>Status groups: <strong><%= @status_time_summary.size %></strong></span>
         <span>Assignment groups: <strong><%= @assignment_time_summary.size %></strong></span>
-        <span>Calendar Total: <strong><%= format_hours(@duration_data[:CALENDAR_TOTAL]) %></strong></span>
+        <span>Summary Total: <strong><%= format_hours(@history_summary_total) %></strong></span>
+        <span>Window: <strong><%= @history_summary_until.present? ? 'Before terminal status' : 'Current journey' %></strong></span>
+        <span>Assignment: <strong>Active time only</strong></span>
       </div>
     </div>
     <button type="button" class="tj-section-toggle" data-tj-section-toggle aria-expanded="true">

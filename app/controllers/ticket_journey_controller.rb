@@ -133,9 +133,17 @@ class TicketJourneyController < ApplicationController
     @duration_data = compute_issue_durations(@issue)
     @transitions = load_transitions(@issue)[@issue.id] || []
     @status_change_count = @transitions.count { |transition| !transition[:synthetic] }
-    @status_time_summary = summarize_named_periods(@duration_data[:periods] || [], :status)
     @assignment_periods = load_assignment_periods(@issue)
-    @assignment_time_summary = summarize_named_periods(@assignment_periods, :assignee)
+    @history_summary_until = terminal_time_for_periods(@duration_data[:periods] || [])
+    status_summary_periods = clipped_periods(@duration_data[:periods] || [], @history_summary_until, exclude_terminal: true)
+    assignment_summary_periods = clipped_periods(@assignment_periods, @history_summary_until)
+    assignment_summary_periods = remove_pause_time_from_periods(
+      assignment_summary_periods,
+      pause_periods_for_summary(status_summary_periods, @tracker_family_key)
+    )
+    @history_summary_total = status_summary_periods.sum { |period| period_hours(period) }
+    @status_time_summary = summarize_named_periods(status_summary_periods, :status)
+    @assignment_time_summary = summarize_named_periods(assignment_summary_periods, :assignee)
   end
 
   def prepare_owner_role_filter
@@ -854,6 +862,55 @@ class TicketJourneyController < ApplicationController
         percentage: grand_total.positive? ? ((hours / grand_total) * 100).round(1) : 0.0
       }
     end.sort_by { |row| [-row[:hours], row[:label].to_s.downcase] }
+  end
+
+  def terminal_time_for_periods(periods)
+    terminal_period = periods.last
+    return unless terminal_period && %i[done archived].include?(status_role(terminal_period[:status]))
+
+    terminal_period[:enter]
+  end
+
+  def clipped_periods(periods, cutoff_time, exclude_terminal: false)
+    return periods if cutoff_time.blank?
+
+    periods.filter_map do |period|
+      next if period[:enter].blank? || period[:enter] >= cutoff_time
+      next if exclude_terminal && %i[done archived].include?(status_role(period[:status]))
+
+      clipped = period.dup
+      clipped[:exit] = [period[:exit], cutoff_time].compact.min
+      next if clipped[:exit].blank? || clipped[:exit] <= clipped[:enter]
+
+      clipped
+    end
+  end
+
+  def pause_periods_for_summary(periods, family_key)
+    pause_roles = pause_roles_for_family(family_key)
+
+    periods.select { |period| pause_roles.include?(status_role(period[:status])) }
+  end
+
+  def remove_pause_time_from_periods(periods, pause_periods)
+    return periods if pause_periods.blank?
+
+    periods.filter_map do |period|
+      active_hours = period_hours(period) - overlapping_hours(period, pause_periods)
+      next if active_hours <= 0
+
+      period.merge(hours: active_hours.round(2))
+    end
+  end
+
+  def overlapping_hours(period, other_periods)
+    other_periods.sum do |other_period|
+      overlap_start = [period[:enter], other_period[:enter]].compact.max
+      overlap_end = [period[:exit], other_period[:exit]].compact.min
+      next 0.0 if overlap_start.blank? || overlap_end.blank? || overlap_end <= overlap_start
+
+      ((overlap_end - overlap_start) / 3600.0).round(2)
+    end
   end
 
   def sum_role_hours(visits, role)
