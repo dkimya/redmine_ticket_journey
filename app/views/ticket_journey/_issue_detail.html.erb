@@ -7,7 +7,7 @@
   max_val = 1 if max_val.to_f <= 0
   bar_colors = {
     D0: '#4fc3f7', D0aug: '#2f80b8',
-    D1: '#4fc3f7', D1aug: '#2f80b8',
+    D1: '#818cf8', D1aug: '#6366f1',
     D2: '#f5c518', D2aug: '#b88900',
     D3: '#f28e2b', D3aug: '#c76f1a',
     D4: '#f28e2b', D4aug: '#c76f1a',
@@ -15,12 +15,12 @@
     D6: '#00acc1', D6aug: '#00838f',
     D7: '#00acc1', D8: '#00897b', D9: '#8b5e3c',
     DC0: '#4fc3f7', DC1: '#2f80b8', DC2: '#4fc3f7', DC3: '#f5c518', DC4: '#4caf7d', DC5: '#00acc1', DC6: '#4caf7d', DC7: '#f5c518',
-    DT0: '#4fc3f7', DT1: '#4fc3f7', DT1aug: '#2f80b8', DT2: '#f5c518', DT2aug: '#b88900', DT3: '#f28e2b', DT3aug: '#c76f1a', DT4: '#00acc1', DT4aug: '#00838f',
-    DP0: '#4fc3f7', DP1: '#4fc3f7', DP2: '#f5c518', DP3: '#4caf7d',
+    DT0: '#4fc3f7', DT1: '#818cf8', DT1aug: '#6366f1', DT2: '#f5c518', DT2aug: '#b88900', DT3: '#f28e2b', DT3aug: '#c76f1a', DT4: '#00acc1', DT4aug: '#00838f',
+    DP0: '#4fc3f7', DP1: '#818cf8', DP2: '#f5c518', DP3: '#4caf7d',
     ON_HOLD: '#7b8794', PENDING: '#94a3b8'
   }
-  total_color = '#2563eb'
-  calendar_total_color = '#1d4ed8'
+  total_color = '#4caf7d'
+  calendar_total_color = '#2e7d5b'
 %>
 
 <div class="tj-page-header">
@@ -80,6 +80,9 @@
             <div class="tj-bar-fill <%= 'is-zero' if value <= 0 %> <%= 'is-aug' if field[:aug] %>" style="width:<%= pct %>%;background-color:<%= bar_colors[field[:key]] || '#4fc3f7' %>">
               <% if pct > 12 %><span><%= format_hours(value) %></span><% end %>
             </div>
+            <% if value > 0 && pct <= 12 %>
+              <span class="tj-bar-outside-value" style="left:calc(<%= pct %>% + 6px)"><%= format_hours(value) %></span>
+            <% end %>
           </div>
           <div class="tj-bar-val"><%= format_hours(value) %></div>
         </div>
@@ -106,6 +109,9 @@
             <div class="tj-bar-fill <%= 'is-zero' if value <= 0 %>" style="width:<%= pct %>%;background-color:<%= bar_colors[field[:key]] || '#7b8794' %>">
               <% if pct > 12 %><span><%= format_hours(value) %></span><% end %>
             </div>
+            <% if value > 0 && pct <= 12 %>
+              <span class="tj-bar-outside-value" style="left:calc(<%= pct %>% + 6px)"><%= format_hours(value) %></span>
+            <% end %>
           </div>
           <div class="tj-bar-val"><%= format_hours(value) %></div>
         </div>
