@@ -109,7 +109,7 @@ class TicketJourneyController < ApplicationController
     @query.build_from_params(params, project: @project)
 
     unless params[:query_id].present? || params[:c].present? || params.dig(:query, :column_names).present?
-      @query.column_names = [:id, :subject, :status]
+      @query.column_names = [:id, :subject, :status, "cf_#{TICKET_OWNER_CF_ID}"]
     end
   end
 
