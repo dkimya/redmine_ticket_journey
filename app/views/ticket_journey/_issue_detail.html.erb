@@ -77,7 +77,7 @@
         <div class="tj-bar-row">
           <div class="tj-bar-label"><%= field[:desc] %> <span>(<%= field[:label] %>)</span></div>
           <div class="tj-bar-track" title="<%= tooltip %>">
-            <div class="tj-bar-fill <%= 'is-zero' if value <= 0 %>" style="width:<%= pct %>%;background:<%= bar_colors[field[:key]] || '#4fc3f7' %>">
+            <div class="tj-bar-fill <%= 'is-zero' if value <= 0 %> <%= 'is-aug' if field[:aug] %>" style="width:<%= pct %>%;background-color:<%= bar_colors[field[:key]] || '#4fc3f7' %>">
               <% if pct > 12 %><span><%= format_hours(value) %></span><% end %>
             </div>
           </div>
@@ -90,7 +90,7 @@
       <div class="tj-bar-row tj-bar-total">
         <div class="tj-bar-label"><strong>Cycle total</strong> <span>(Cycle Total)</span></div>
         <div class="tj-bar-track" title="<%= total_tooltip %>">
-          <div class="tj-bar-fill <%= 'is-zero' if total_width_pct <= 0 %>" style="width:<%= total_width_pct %>%;background:<%= total_color %>">
+          <div class="tj-bar-fill <%= 'is-zero' if total_width_pct <= 0 %>" style="width:<%= total_width_pct %>%;background-color:<%= total_color %>">
             <% if total_value > 0 %><span><%= format_hours(total_value) %></span><% end %>
           </div>
         </div>
@@ -103,7 +103,7 @@
         <div class="tj-bar-row">
           <div class="tj-bar-label"><%= field[:desc] %> <span>(<%= field[:label] %>)</span></div>
           <div class="tj-bar-track" title="<%= tooltip %>">
-            <div class="tj-bar-fill <%= 'is-zero' if value <= 0 %>" style="width:<%= pct %>%;background:<%= bar_colors[field[:key]] || '#7b8794' %>">
+            <div class="tj-bar-fill <%= 'is-zero' if value <= 0 %>" style="width:<%= pct %>%;background-color:<%= bar_colors[field[:key]] || '#7b8794' %>">
               <% if pct > 12 %><span><%= format_hours(value) %></span><% end %>
             </div>
           </div>
@@ -116,7 +116,7 @@
       <div class="tj-bar-row tj-bar-total">
         <div class="tj-bar-label"><strong><%= calendar_total[:desc] %></strong> <span>(<%= calendar_total[:label] %>)</span></div>
         <div class="tj-bar-track" title="<%= calendar_total_tooltip %>">
-          <div class="tj-bar-fill <%= 'is-zero' if calendar_total_value <= 0 %>" style="width:<%= calendar_total_pct %>%;background:<%= calendar_total_color %>">
+          <div class="tj-bar-fill <%= 'is-zero' if calendar_total_value <= 0 %>" style="width:<%= calendar_total_pct %>%;background-color:<%= calendar_total_color %>">
             <% if calendar_total_value > 0 %><span><%= format_hours(calendar_total_value) %></span><% end %>
           </div>
         </div>
