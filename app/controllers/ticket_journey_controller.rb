@@ -486,7 +486,8 @@ class TicketJourneyController < ApplicationController
   end
 
   def priority_performance_ticket?(issue)
-    %w[urgent immediate].include?(issue.priority&.name.to_s.downcase.strip)
+    priority_name = issue.priority&.name.to_s.downcase
+    priority_name.include?('urgent') || priority_name.include?('immediate')
   end
 
   def sort_owner_return_rows(rows)
