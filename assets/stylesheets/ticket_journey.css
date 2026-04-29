@@ -567,7 +567,7 @@
 .tj-bars { display: flex; flex-direction: column; gap: 7px; }
 .tj-bar-row {
   display: grid;
-  grid-template-columns: fit-content(48ch) minmax(260px, 1fr) 72px;
+  grid-template-columns: minmax(280px, clamp(320px, 30%, 520px)) minmax(260px, 1fr) 72px;
   align-items: center;
   gap: 10px;
   padding: 3px 6px;
@@ -582,7 +582,6 @@
 }
 .tj-bar-label {
   min-width: 0;
-  max-width: 48ch;
   font-size: 11px;
   font-weight: 650;
   text-align: left;
