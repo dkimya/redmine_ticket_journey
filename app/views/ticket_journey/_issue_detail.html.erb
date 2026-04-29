@@ -78,11 +78,8 @@
           <div class="tj-bar-label"><%= field[:desc] %> <span>(<%= field[:label] %>)</span></div>
           <div class="tj-bar-track" title="<%= tooltip %>">
             <div class="tj-bar-fill <%= 'is-zero' if value <= 0 %> <%= 'is-aug' if field[:aug] %>" style="width:<%= pct %>%;background-color:<%= bar_colors[field[:key]] || '#4fc3f7' %>">
-              <% if pct > 12 %><span><%= format_hours(value) %></span><% end %>
+              <% if value > 0 %><span><%= format_hours(value) %></span><% end %>
             </div>
-            <% if value > 0 && pct <= 12 %>
-              <span class="tj-bar-outside-value" style="left:calc(<%= pct %>% + 6px)"><%= format_hours(value) %></span>
-            <% end %>
           </div>
           <div class="tj-bar-val"><%= format_hours(value) %></div>
         </div>
@@ -107,11 +104,8 @@
           <div class="tj-bar-label"><%= field[:desc] %> <span>(<%= field[:label] %>)</span></div>
           <div class="tj-bar-track" title="<%= tooltip %>">
             <div class="tj-bar-fill <%= 'is-zero' if value <= 0 %>" style="width:<%= pct %>%;background-color:<%= bar_colors[field[:key]] || '#7b8794' %>">
-              <% if pct > 12 %><span><%= format_hours(value) %></span><% end %>
+              <% if value > 0 %><span><%= format_hours(value) %></span><% end %>
             </div>
-            <% if value > 0 && pct <= 12 %>
-              <span class="tj-bar-outside-value" style="left:calc(<%= pct %>% + 6px)"><%= format_hours(value) %></span>
-            <% end %>
           </div>
           <div class="tj-bar-val"><%= format_hours(value) %></div>
         </div>

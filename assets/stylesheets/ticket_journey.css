@@ -632,16 +632,6 @@
   color: rgba(0,0,0,.75);
   white-space: nowrap;
 }
-.tj-bar-outside-value {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--tj-text);
-  white-space: nowrap;
-  pointer-events: none;
-}
 .tj-bar-val {
   font-size: 12px;
   font-family: 'Courier New', monospace;
