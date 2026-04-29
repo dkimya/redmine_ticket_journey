@@ -638,7 +638,7 @@
   text-align: right;
 }
 .tj-bar-total .tj-bar-label,
-.tj-bar-total .tj-bar-val { color: var(--tj-green); }
+.tj-bar-total .tj-bar-val { color: #1d4ed8; }
 
 /* Return counters grid */
 .tj-counters-grid {
