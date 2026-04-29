@@ -32,7 +32,9 @@
       total_issues = @issues_data.size
       totals = @issues_data.map { |item| item[:durations][:TOTAL].to_f }.reject(&:zero?)
       avg_h = totals.any? ? totals.sum / totals.size : 0.0
-      max_h = totals.max || 0.0
+      max_item = @issues_data.select { |item| item[:durations][:TOTAL].to_f > 0 }.max_by { |item| item[:durations][:TOTAL].to_f }
+      max_h = max_item ? max_item[:durations][:TOTAL].to_f : 0.0
+      max_detail_params = duration_report_params(@query).merge('view' => 'detail', 'issue_id' => max_item[:issue].id) if max_item
       total_returns_all = @issues_data.sum { |item| total_returns(item[:durations]) }
     %>
     <div class="tj-summary-strip">
@@ -44,10 +46,17 @@
         <div class="tj-sc-label">Avg Cycle Time</div>
         <div class="tj-sc-value tj-sc-blue"><%= format_hours(avg_h) %></div>
       </div>
-      <div class="tj-summary-card">
-        <div class="tj-sc-label">Max Cycle Time</div>
-        <div class="tj-sc-value tj-sc-orange"><%= format_hours(max_h) %></div>
-      </div>
+      <% if max_item %>
+        <%= link_to ticket_journey_path(@project, max_detail_params), class: 'tj-summary-card tj-summary-link', title: "Open issue ##{max_item[:issue].id} detail" do %>
+          <div class="tj-sc-label">Max Cycle Time</div>
+          <div class="tj-sc-value tj-sc-orange"><%= format_hours(max_h) %></div>
+        <% end %>
+      <% else %>
+        <div class="tj-summary-card">
+          <div class="tj-sc-label">Max Cycle Time</div>
+          <div class="tj-sc-value tj-sc-orange"><%= format_hours(max_h) %></div>
+        </div>
+      <% end %>
       <div class="tj-summary-card">
         <div class="tj-sc-label">Total Returns</div>
         <div class="tj-sc-value tj-sc-red"><%= total_returns_all %></div>

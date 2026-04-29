@@ -127,7 +127,7 @@ class TicketJourneyController < ApplicationController
       return
     end
 
-    if @issue.project != @project
+    unless project_and_subproject_ids.include?(@issue.project_id)
       @detail_issue_error = "Issue ##{issue_id} does not belong to this project."
       @issue = nil
       return
