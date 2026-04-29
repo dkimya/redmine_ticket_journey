@@ -102,7 +102,7 @@ module TicketJourneyHelper
   end
 
   def visible_native_query_columns(query)
-    query.inline_columns.reject { |column| %w[id subject status].include?(column.name.to_s) }
+    query.inline_columns.reject { |column| %w[id subject].include?(column.name.to_s) }
   end
 
   def ticket_owner_filter_params(query, owner_value)

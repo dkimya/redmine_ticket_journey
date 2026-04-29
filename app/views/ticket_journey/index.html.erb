@@ -176,7 +176,6 @@
               <tr>
                 <th class="tj-th-issue"><%= query_sort_link(@query, :id, 'Issue') %></th>
                 <th class="tj-th-title"><%= query_sort_link(@query, :subject, 'Subject') %></th>
-                <th class="tj-th-status"><%= query_sort_link(@query, :status, 'Status') %></th>
                 <% native_columns.each do |column| %>
                   <th class="tj-th-native"><%= query_sort_link(@query, column) %></th>
                 <% end %>
@@ -217,7 +216,6 @@
                   <tr class="tj-row">
                     <td class="tj-td-issue"><%= link_to "##{issue.id}", issue_path(issue), class: 'tj-issue-link' %></td>
                     <td class="tj-td-title" title="<%= h(issue.subject) %>"><%= link_to h(issue.subject), ticket_journey_path(@project, issue_detail_params(@query, issue)), class: 'tj-subject-link' %></td>
-                    <td class="tj-td-status"><span class="tj-status-badge"><%= h(issue.status.name) %></span></td>
                     <% native_columns.each do |column| %>
                       <td class="tj-td-native"><%= column_content(column, issue) %></td>
                     <% end %>
@@ -242,7 +240,6 @@
               <tr class="tj-total-row">
                 <td class="tj-td-issue">Total</td>
                 <td class="tj-td-title"><span class="tj-total-label"><%= "#{items.size} issues" %></span></td>
-                <td class="tj-td-status">-</td>
                 <% native_columns.each do |_column| %>
                   <td class="tj-td-native">-</td>
                 <% end %>
