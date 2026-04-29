@@ -7,7 +7,7 @@
   <div class="tj-page-header">
     <div class="tj-page-header-left">
       <div>
-        <h2>Returned Tickets by Ticket Owner</h2>
+        <h2>Ticket Owner Performance</h2>
         <p class="tj-page-sub">Journey Report Summary &mdash; <%= @project.name %></p>
       </div>
     </div>
@@ -40,7 +40,7 @@
   <% elsif @owner_return_rows.empty? %>
     <div class="tj-empty">
       <div class="tj-empty-icon">📋</div>
-      <h3>No returned tickets found</h3>
+      <h3>No ticket owner performance data found</h3>
       <p>Try adjusting the Redmine query filters above.</p>
     </div>
   <% else %>
@@ -88,6 +88,9 @@
               <th class="tj-th-title"><%= owner_returns_sort_link(@query, :owner, 'Ticket Owner') %></th>
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :total_tickets, 'No. of Tickets') %></th>
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :ticket_share, '% of All Tickets') %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :done_tickets, 'No. of Done Tickets', title: 'Done / Closed tickets in the current filtered result') %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :avg_done_cycle_time, 'Avg Cycle Time', title: 'Average active time from first In Progress to Done / Closed') %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :avg_priority_done_cycle_time, 'Avg Priority Cycle Time', title: 'Average active cycle time for Urgent or Immediate done tickets') %></th>
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :returned_tickets, 'No. of Returned Tickets') %></th>
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :return_rate, 'Return Rate') %></th>
               <th class="tj-th-counter"><%= owner_returns_sort_link(@query, :c1, counter_definitions[0][:code], title: counter_definitions[0][:title]) %></th>
@@ -107,6 +110,9 @@
               </td>
               <td class="tj-td-native"><%= row[:total_tickets] %></td>
               <td class="tj-td-native"><%= format_percentage(row[:total_tickets], total_tickets) %></td>
+              <td class="tj-td-native"><%= row[:done_tickets] %></td>
+              <td class="tj-td-native"><%= format_hours(row[:avg_done_cycle_time]) %></td>
+              <td class="tj-td-native"><%= format_hours(row[:avg_priority_done_cycle_time]) %></td>
               <td class="tj-td-native"><%= row[:returned_tickets] %></td>
               <td class="tj-td-native"><%= format_percentage(row[:returned_tickets], row[:total_tickets]) %></td>
               <td class="<%= counter_css_class(row[:c1]) %>"><%= row[:c1] > 0 ? row[:c1] : '—' %></td>

@@ -1,6 +1,6 @@
 class TicketJourneyController < ApplicationController
   TICKET_OWNER_CF_ID = 57
-  OWNER_RETURN_SORTABLE_FIELDS = %w[owner total_tickets ticket_share returned_tickets return_rate c1 c2 c3 c4 total_returns].freeze
+  OWNER_RETURN_SORTABLE_FIELDS = %w[owner total_tickets ticket_share done_tickets avg_done_cycle_time avg_priority_done_cycle_time returned_tickets return_rate c1 c2 c3 c4 total_returns].freeze
   TRACKER_FAMILY_ORDER = %i[internal customer_support task container].freeze
   TRACKER_FAMILY_DEFINITIONS = {
     internal: {
@@ -301,7 +301,7 @@ class TicketJourneyController < ApplicationController
 
     issues = @query.issues(
       order: @query.sort_clause.presence || "#{Issue.table_name}.id DESC",
-      include: [:status, :author, :assigned_to, :tracker, { custom_values: :custom_field }]
+      include: [:status, :author, :assigned_to, :tracker, :priority, { custom_values: :custom_field }]
     )
     all_transitions = load_transitions(issues)
 
@@ -399,6 +399,13 @@ class TicketJourneyController < ApplicationController
         owner: owner_name,
         owner_value: owner_value,
         total_tickets: 0,
+        done_tickets: 0,
+        done_cycle_count: 0,
+        done_cycle_hours: 0.0,
+        priority_done_cycle_count: 0,
+        priority_done_cycle_hours: 0.0,
+        avg_done_cycle_time: 0.0,
+        avg_priority_done_cycle_time: 0.0,
         returned_tickets: 0,
         c1: 0,
         c2: 0,
@@ -415,6 +422,20 @@ class TicketJourneyController < ApplicationController
       row = rows[[owner_value, owner_name]]
       row[:total_tickets] += 1
 
+      cycle_hours = done_cycle_time_hours(item)
+      if status_role(item[:issue].status&.name) == :done
+        row[:done_tickets] += 1
+        if cycle_hours
+          row[:done_cycle_count] += 1
+          row[:done_cycle_hours] += cycle_hours
+
+          if priority_performance_ticket?(item[:issue])
+            row[:priority_done_cycle_count] += 1
+            row[:priority_done_cycle_hours] += cycle_hours
+          end
+        end
+      end
+
       durations = item[:durations]
       total_returns = durations[:C1].to_i + durations[:C2].to_i + durations[:C3].to_i + durations[:C4].to_i
       next if total_returns.zero?
@@ -427,7 +448,45 @@ class TicketJourneyController < ApplicationController
       row[:total_returns] += total_returns
     end
 
-    sort_owner_return_rows(rows.values)
+    owner_rows = rows.values
+    owner_rows.each do |row|
+      row[:avg_done_cycle_time] = row[:done_cycle_count].positive? ? row[:done_cycle_hours] / row[:done_cycle_count] : 0.0
+      row[:avg_priority_done_cycle_time] = row[:priority_done_cycle_count].positive? ? row[:priority_done_cycle_hours] / row[:priority_done_cycle_count] : 0.0
+    end
+
+    sort_owner_return_rows(owner_rows)
+  end
+
+  def done_cycle_time_hours(item)
+    issue = item[:issue]
+    return unless status_role(issue.status&.name) == :done
+
+    periods = item[:durations][:periods] || []
+    end_time = terminal_time_for_periods(periods)
+    start_time = periods.find { |period| status_role(period[:status]) == :in_progress }&.dig(:enter)
+    return unless start_time && end_time && start_time < end_time
+
+    cycle_periods = periods.filter_map do |period|
+      next if period[:enter].blank? || period[:exit].blank?
+      next if period[:exit] <= start_time || period[:enter] >= end_time
+
+      clipped = period.dup
+      clipped[:enter] = [period[:enter], start_time].max
+      clipped[:exit] = [period[:exit], end_time].min
+      next if clipped[:exit] <= clipped[:enter]
+
+      clipped
+    end
+
+    active_periods = remove_pause_time_from_periods(
+      cycle_periods,
+      pause_periods_for_summary(cycle_periods, item[:family_key])
+    )
+    active_periods.sum { |period| period_hours(period) }
+  end
+
+  def priority_performance_ticket?(issue)
+    %w[urgent immediate].include?(issue.priority&.name.to_s.downcase.strip)
   end
 
   def sort_owner_return_rows(rows)

@@ -16,7 +16,7 @@
   <%= link_to 'Issue Detail',
         ticket_journey_path(@project, detail_params),
         class: "tj-report-tab #{active_tab == :issue_detail ? 'is-active' : ''}" %>
-  <%= link_to 'Returns by Owner',
+  <%= link_to 'Ticket Owner Performance',
         ticket_journey_owner_returns_path(@project, owner_params),
         class: "tj-report-tab #{active_tab == :owner_returns ? 'is-active' : ''}" %>
 </div>
