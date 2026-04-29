@@ -113,6 +113,10 @@ class TicketJourneyController < ApplicationController
     end
   end
 
+  def project_and_subproject_ids
+    @project_and_subproject_ids ||= @project.self_and_descendants.pluck(:id)
+  end
+
   def load_issue_detail(issue_id)
     return if issue_id.blank?
 
@@ -148,7 +152,7 @@ class TicketJourneyController < ApplicationController
 
   def prepare_owner_role_filter
     @owner_roles = Role.joins(member_roles: :member)
-                       .where(members: { project_id: @project.id })
+                       .where(members: { project_id: project_and_subproject_ids })
                        .distinct
                        .order(:position, :name)
 
@@ -486,7 +490,7 @@ class TicketJourneyController < ApplicationController
 
     @ticket_owner_values_for_role ||= {}
     @ticket_owner_values_for_role[role_id] ||= Member.joins(:member_roles)
-                                                    .where(project_id: @project.id, member_roles: { role_id: role_id })
+                                                    .where(project_id: project_and_subproject_ids, member_roles: { role_id: role_id })
                                                     .distinct
                                                     .pluck(:user_id)
                                                     .compact
