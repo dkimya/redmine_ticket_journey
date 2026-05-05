@@ -2,6 +2,7 @@ class TicketJourneyController < ApplicationController
   TICKET_OWNER_CF_ID = 57
   RETURN_REASON_CF_ID = 66
   OWNER_RETURN_SORTABLE_FIELDS = %w[owner total_tickets ticket_share done_tickets avg_done_cycle_time avg_priority_done_cycle_time returned_tickets return_rate c1 c2 c3 c4 total_returns].freeze
+  PROJECT_HEALTH_ACTIVE_STATUS_ROLES = %i[todo in_progress feedback review ready_merge final_check].freeze
   TRACKER_FAMILY_ORDER = %i[internal customer_support task container].freeze
   TRACKER_FAMILY_DEFINITIONS = {
     internal: {
@@ -53,7 +54,7 @@ class TicketJourneyController < ApplicationController
 
   before_action :find_project
   before_action :authorize
-  before_action :build_query, only: [:index, :owner_returns, :flow_report, :export]
+  before_action :build_query, only: [:index, :owner_returns, :flow_report, :project_health, :export]
   before_action :prepare_owner_role_filter, only: [:owner_returns, :flow_report]
 
   helper :queries
@@ -92,6 +93,13 @@ class TicketJourneyController < ApplicationController
       @flow_status_rows, @flow_tracker_rows, @flow_summary = compute_flow_trends(@flow_issues, @flow_dates)
       @flow_return_reason_rows = compute_flow_return_reason_rows(@flow_issues)
     end
+  end
+
+  # ---------------------------------------------------------------
+  # PROJECT HEALTH - high-level open ticket health snapshot
+  # ---------------------------------------------------------------
+  def project_health
+    @project_health_report = compute_project_health_report
   end
 
   # ---------------------------------------------------------------
@@ -217,6 +225,7 @@ class TicketJourneyController < ApplicationController
     ready_merge:  ['Ready to Merge'],
     final_check:  ['Final Check'],
     on_hold:      ['On-Hold'],
+    ongoing:      ['Ongoing'],
     archived:     ['Archived'],
     done:         ['Done / Closed'],
   }.freeze
@@ -350,6 +359,121 @@ class TicketJourneyController < ApplicationController
         durations: durations
       }
     end
+  end
+
+  def compute_project_health_report
+    issues = project_health_issues
+    open_issues = issues.reject { |issue| issue.status&.is_closed? }
+
+    technical_issues = open_issues.select { |issue| technical_tracker?(issue.tracker&.name) }
+    planned_issues = open_issues.select { |issue| planned_work_issue?(issue) }
+    task_issues = open_issues.select { |issue| task_tracker?(issue.tracker&.name) }
+    milestone_issues = open_issues.select { |issue| milestone_tracker?(issue.tracker&.name) }
+
+    {
+      report_date: User.current.today,
+      project_count: project_and_subproject_ids.size,
+      total_open: open_issues.size,
+      technical: technical_health_block(technical_issues),
+      planned: planned_health_block(planned_issues),
+      tasks: task_health_block(task_issues),
+      milestones: milestone_health_block(milestone_issues)
+    }
+  end
+
+  def project_health_issues
+    Issue.includes(:status, :tracker, { custom_values: :custom_field })
+         .where(project_id: project_and_subproject_ids)
+         .references(:status, :tracker)
+  end
+
+  def technical_health_block(issues)
+    {
+      title: 'Open Technical Tickets',
+      total: issues.size,
+      rows: [
+        health_metric('Backlog', issues.count { |issue| status_role(issue.status&.name) == :new }, issues.size),
+        health_metric('Under Work', issues.count { |issue| active_work_status?(issue.status&.name) }, issues.size),
+        health_metric('Stopped', issues.count { |issue| paused_status?(issue.status&.name) }, issues.size),
+        health_metric('Ongoing', issues.count { |issue| status_role(issue.status&.name) == :ongoing }, issues.size)
+      ]
+    }
+  end
+
+  def planned_health_block(issues)
+    {
+      title: 'Open Planned Tickets Health',
+      total: issues.size,
+      rows: [
+        health_metric('Without Owner', issues.count { |issue| ticket_owner_info(issue).first.blank? }, issues.size),
+        health_metric('Without Start Date', issues.count { |issue| issue.start_date.blank? }, issues.size),
+        health_metric('Without Due Date', issues.count { |issue| issue.due_date.blank? }, issues.size),
+        health_metric('Without PM Estimation', issues.count { |issue| issue.estimated_hours.blank? || issue.estimated_hours.to_f <= 0 }, issues.size)
+      ]
+    }
+  end
+
+  def task_health_block(issues)
+    {
+      title: 'Open Tasks (Business Jobs)',
+      total: issues.size,
+      rows: [
+        health_metric('To Do Tasks', issues.count { |issue| %i[new todo].include?(status_role(issue.status&.name)) }, issues.size),
+        health_metric('Under Work Tasks', issues.count { |issue| active_work_status?(issue.status&.name) }, issues.size),
+        health_metric('Stopped Tasks', issues.count { |issue| paused_status?(issue.status&.name) }, issues.size),
+        health_metric('Ongoing Tasks', issues.count { |issue| status_role(issue.status&.name) == :ongoing }, issues.size)
+      ]
+    }
+  end
+
+  def milestone_health_block(issues)
+    {
+      title: 'Open Milestones',
+      total: issues.size,
+      rows: [
+        health_metric('To-Do Milestones', issues.count { |issue| %i[new todo].include?(status_role(issue.status&.name)) }, issues.size),
+        health_metric('In-Progress Milestones', issues.count { |issue| active_work_status?(issue.status&.name) }, issues.size),
+        health_metric('Stopped Milestones', issues.count { |issue| paused_status?(issue.status&.name) }, issues.size)
+      ]
+    }
+  end
+
+  def health_metric(label, count, total)
+    {
+      label: label,
+      count: count,
+      percent: total.to_i.positive? ? (count.to_f / total.to_f) : 0.0
+    }
+  end
+
+  def planned_work_issue?(issue)
+    return false if container_tracker?(issue.tracker&.name)
+
+    active_work_status?(issue.status&.name)
+  end
+
+  def active_work_status?(status_name)
+    PROJECT_HEALTH_ACTIVE_STATUS_ROLES.include?(status_role(status_name))
+  end
+
+  def paused_status?(status_name)
+    %i[pending on_hold].include?(status_role(status_name))
+  end
+
+  def technical_tracker?(tracker_name)
+    TRACKER_FAMILY_DEFINITIONS.fetch(:internal).fetch(:tracker_names).include?(tracker_name.to_s)
+  end
+
+  def task_tracker?(tracker_name)
+    TRACKER_FAMILY_DEFINITIONS.fetch(:task).fetch(:tracker_names).include?(tracker_name.to_s)
+  end
+
+  def container_tracker?(tracker_name)
+    TRACKER_FAMILY_DEFINITIONS.fetch(:container).fetch(:tracker_names).include?(tracker_name.to_s)
+  end
+
+  def milestone_tracker?(tracker_name)
+    %w[Milestone Milestones].include?(tracker_name.to_s)
   end
 
   def flow_period_dates

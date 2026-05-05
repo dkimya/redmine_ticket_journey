@@ -338,6 +338,51 @@
   font-size: 13px;
   padding: 10px 2px;
 }
+.tj-health-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+.tj-health-card {
+  min-height: 240px;
+}
+.tj-health-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.tj-health-total {
+  color: var(--tj-accent);
+  font-family: 'Courier New', monospace;
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1;
+}
+.tj-health-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.tj-health-table td {
+  padding: 9px 4px;
+  border-bottom: 1px solid #eef0f5;
+  font-family: 'Courier New', monospace;
+}
+.tj-health-label {
+  color: var(--tj-text);
+  font-weight: 700;
+}
+.tj-health-count {
+  width: 64px;
+  text-align: right;
+  color: var(--tj-blue);
+  font-weight: 800;
+}
+.tj-health-percent {
+  width: 76px;
+  text-align: right;
+  color: var(--tj-text-dim);
+}
 .tj-table thead tr {
   background: #f0f2f7;
   border-bottom: 2px solid var(--tj-border);

@@ -1,0 +1,57 @@
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'ticket_journey', plugin: 'redmine_ticket_journey' %>
+<% end %>
+
+<div id="tj-wrap">
+  <div class="tj-page-header">
+    <div class="tj-page-header-left">
+      <div>
+        <h2>Project Health</h2>
+        <p class="tj-page-sub">High-level open ticket health snapshot &mdash; <%= @project.name %></p>
+      </div>
+    </div>
+  </div>
+
+  <%= render partial: 'report_tabs', locals: { active_tab: :project_health } %>
+
+  <div class="tj-summary-strip">
+    <div class="tj-summary-card">
+      <div class="tj-sc-label">Report Date</div>
+      <div class="tj-sc-value tj-sc-accent"><%= format_date(@project_health_report[:report_date]) %></div>
+    </div>
+    <div class="tj-summary-card">
+      <div class="tj-sc-label">Projects</div>
+      <div class="tj-sc-value tj-sc-blue"><%= @project_health_report[:project_count] %></div>
+    </div>
+    <div class="tj-summary-card">
+      <div class="tj-sc-label">Total Open</div>
+      <div class="tj-sc-value tj-sc-green"><%= @project_health_report[:total_open] %></div>
+    </div>
+  </div>
+
+  <div class="tj-health-grid">
+    <% [:technical, :planned, :tasks, :milestones].each do |key| %>
+      <% block = @project_health_report[key] %>
+      <div class="tj-card tj-health-card">
+        <div class="tj-health-card-header">
+          <div>
+            <div class="tj-card-title"><%= block[:title] %></div>
+            <div class="tj-health-total"><%= block[:total] %></div>
+          </div>
+        </div>
+
+        <table class="tj-health-table">
+          <tbody>
+            <% block[:rows].each do |row| %>
+              <tr>
+                <td class="tj-health-label"><%= row[:label] %></td>
+                <td class="tj-health-count"><%= row[:count] %></td>
+                <td class="tj-health-percent"><%= number_to_percentage(row[:percent] * 100, precision: 1) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+  </div>
+</div>

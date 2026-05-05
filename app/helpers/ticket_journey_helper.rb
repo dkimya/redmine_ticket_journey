@@ -35,6 +35,10 @@ module TicketJourneyHelper
     query_params
   end
 
+  def project_health_params(query)
+    query.as_params.deep_dup.deep_stringify_keys
+  end
+
   def issue_detail_params(query, issue)
     duration_report_params(query).merge('issue_id' => issue.id, 'view' => 'detail')
   end
