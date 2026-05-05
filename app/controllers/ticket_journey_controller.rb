@@ -1,5 +1,6 @@
 class TicketJourneyController < ApplicationController
   TICKET_OWNER_CF_ID = 57
+  RETURN_REASON_CF_ID = 66
   OWNER_RETURN_SORTABLE_FIELDS = %w[owner total_tickets ticket_share done_tickets avg_done_cycle_time avg_priority_done_cycle_time returned_tickets return_rate c1 c2 c3 c4 total_returns].freeze
   TRACKER_FAMILY_ORDER = %i[internal customer_support task container].freeze
   TRACKER_FAMILY_DEFINITIONS = {
@@ -32,6 +33,21 @@ class TicketJourneyController < ApplicationController
     task: %i[C1 C4],
     container: []
   }.freeze
+  FLOW_STATUS_ORDER = [
+    'New',
+    'To-Do',
+    'In Progress',
+    'Feedback',
+    'Review',
+    'Ready to Merge',
+    'Final Check',
+    'Returned',
+    'Pending',
+    'On-Hold',
+    'Done / Closed',
+    'Archived'
+  ].freeze
+  FLOW_STATUS_SEPARATOR_BEFORE = ['To-Do', 'Pending', 'Done / Closed'].freeze
   ALL_DURATION_KEYS = (FAMILY_DURATION_KEYS.values.flatten + [:ON_HOLD, :PENDING, :TOTAL, :CALENDAR_TOTAL]).freeze
   ALL_COUNTER_KEYS = %i[C1 C2 C3 C4].freeze
 
@@ -69,10 +85,12 @@ class TicketJourneyController < ApplicationController
     @flow_issues = flow_report_issues
     @flow_status_rows = []
     @flow_tracker_rows = []
+    @flow_return_reason_rows = []
     @flow_summary = { issues: 0, snapshots: @flow_dates.size, start_total: 0, end_total: 0 }
 
     if @query&.valid?
       @flow_status_rows, @flow_tracker_rows, @flow_summary = compute_flow_trends(@flow_issues, @flow_dates)
+      @flow_return_reason_rows = compute_flow_return_reason_rows(@flow_issues)
     end
   end
 
@@ -411,7 +429,7 @@ class TicketJourneyController < ApplicationController
       end
     end
 
-    status_rows = build_flow_rows(status_counts)
+    status_rows = build_status_flow_rows(status_counts)
     tracker_rows = build_flow_rows(tracker_counts)
     summary = {
       issues: issues.size,
@@ -467,6 +485,73 @@ class TicketJourneyController < ApplicationController
         rate: flow_weekly_rate(counts.last.to_i - counts.first.to_i)
       }
     end.sort_by { |row| [-row[:counts].last.to_i, row[:label].to_s.downcase] }
+  end
+
+  def build_status_flow_rows(counts_by_label)
+    rows_by_label = counts_by_label.transform_values do |counts|
+      {
+        counts: counts,
+        change: counts.last.to_i - counts.first.to_i,
+        rate: flow_weekly_rate(counts.last.to_i - counts.first.to_i)
+      }
+    end
+
+    ordered_rows = FLOW_STATUS_ORDER.filter_map do |label|
+      next unless rows_by_label.key?(label)
+
+      row = rows_by_label.delete(label).merge(label: label)
+      row[:separator_before] = FLOW_STATUS_SEPARATOR_BEFORE.include?(label)
+      row
+    end
+
+    extra_rows = rows_by_label.map do |label, values|
+      values.merge(label: label, separator_before: ordered_rows.any?)
+    end.sort_by { |row| row[:label].to_s.downcase }
+
+    ordered_rows + extra_rows
+  end
+
+  def compute_flow_return_reason_rows(issues)
+    return [] if issues.empty?
+
+    issue_ids = issues.map(&:id)
+    returned_status_ids = IssueStatus.where(name: STATUS_NAMES.fetch(:returned)).pluck(:id).map(&:to_s)
+    return [] if returned_status_ids.empty?
+
+    period_start = @flow_start_date.beginning_of_day
+    period_end = @flow_end_date.end_of_day
+    reason_by_issue = issues.each_with_object({}) do |issue, hash|
+      reason_value = issue.custom_value_for(RETURN_REASON_CF_ID)&.value.presence || 'No Return Reason'
+      hash[issue.id] = reason_value
+    end
+
+    counts = Hash.new(0)
+    JournalDetail.joins(:journal)
+                 .where(
+                   journals: {
+                     journalized_type: 'Issue',
+                     journalized_id: issue_ids,
+                     created_on: period_start..period_end
+                   },
+                   property: 'attr',
+                   prop_key: 'status_id',
+                   value: returned_status_ids
+                 )
+                 .pluck('journals.journalized_id')
+                 .each do |issue_id|
+                   counts[reason_by_issue[issue_id.to_i] || 'No Return Reason'] += 1
+                 end
+
+    total = counts.values.sum
+    return [] if total.zero?
+
+    counts.map do |reason, count|
+      {
+        reason: reason,
+        count: count,
+        percent: count.to_f / total.to_f
+      }
+    end.sort_by { |row| [-row[:count], row[:reason].to_s.downcase] }
   end
 
   def flow_weekly_rate(change)

@@ -89,7 +89,7 @@
           </thead>
           <tbody>
             <% @flow_status_rows.each do |row| %>
-              <tr class="tj-row">
+              <tr class="tj-row <%= row[:separator_before] ? 'tj-flow-group-start' : '' %>">
                 <td class="tj-td-title"><%= h(row[:label]) %></td>
                 <% row[:counts].each do |count| %>
                   <td class="tj-td-native"><%= count.zero? ? '-' : count %></td>
@@ -131,6 +131,40 @@
           </tbody>
         </table>
       </div>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Return Reason Analysis</div>
+      <% if @flow_return_reason_rows.empty? %>
+        <div class="tj-flow-empty-note">No tickets entered Returned during this period.</div>
+      <% else %>
+        <% return_reason_total = @flow_return_reason_rows.sum { |row| row[:count].to_i } %>
+        <div class="tj-table-wrap tj-flow-reason-wrap">
+          <table class="tj-table tj-flow-reason-table">
+            <thead>
+              <tr>
+                <th class="tj-th-title">Return Reason</th>
+                <th class="tj-th-native">Count</th>
+                <th class="tj-th-native">%</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% @flow_return_reason_rows.each do |row| %>
+                <tr class="tj-row">
+                  <td class="tj-td-title"><%= h(row[:reason]) %></td>
+                  <td class="tj-td-native"><%= row[:count] %></td>
+                  <td class="tj-td-native"><%= number_to_percentage(row[:percent] * 100, precision: 0) %></td>
+                </tr>
+              <% end %>
+              <tr class="tj-total-row">
+                <td class="tj-td-title tj-total-label">Total</td>
+                <td class="tj-td-native"><%= return_reason_total %></td>
+                <td class="tj-td-native">100%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      <% end %>
     </div>
   <% end %>
 
