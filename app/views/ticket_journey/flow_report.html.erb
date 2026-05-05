@@ -1,0 +1,137 @@
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'ticket_journey', plugin: 'redmine_ticket_journey' %>
+<% end %>
+
+<div id="tj-wrap">
+
+  <div class="tj-page-header">
+    <div class="tj-page-header-left">
+      <div>
+        <h2>Flow Report</h2>
+        <p class="tj-page-sub">Status and tracker trend snapshots &mdash; <%= @project.name %></p>
+      </div>
+    </div>
+  </div>
+
+  <%= render partial: 'report_tabs', locals: { active_tab: :flow_report } %>
+
+  <%= form_tag(ticket_journey_flow_report_path(@project), method: :get, id: 'query_form') do %>
+    <%= render partial: 'queries/query_form' %>
+
+    <div class="tj-filter-bar tj-owner-filter-bar">
+      <div class="tj-filter-form">
+        <div class="tj-filter-group">
+          <label for="flow_start_date">Period Start</label>
+          <%= date_field_tag :flow_start_date, @flow_start_date, class: 'tj-input' %>
+        </div>
+        <div class="tj-filter-group">
+          <label for="flow_end_date">Period End</label>
+          <%= date_field_tag :flow_end_date, @flow_end_date, class: 'tj-input' %>
+        </div>
+        <div class="tj-filter-group">
+          <label for="ticket_owner_role_id">Ticket Owner Role</label>
+          <%= select_tag :ticket_owner_role_id,
+                options_for_select([['All roles', 'all']] + @owner_roles.map { |role| [role.name, role.id] }, @selected_owner_role_option),
+                class: 'tj-input' %>
+        </div>
+        <div class="tj-filter-group tj-flow-filter-note">
+          <span>Use the Redmine filters above for project/subprojects, tracker, ticket owner, status, and other issue fields.</span>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <% if !@query.valid? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">Report</div>
+      <h3>Invalid filters</h3>
+      <p>Please review the Redmine query filters above.</p>
+    </div>
+  <% elsif @flow_issues.empty? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">Report</div>
+      <h3>No flow data found</h3>
+      <p>Try adjusting the date range, role, or Redmine query filters above.</p>
+    </div>
+  <% else %>
+    <div class="tj-summary-strip">
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Issues</div>
+        <div class="tj-sc-value tj-sc-accent"><%= @flow_summary[:issues] %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Snapshots</div>
+        <div class="tj-sc-value tj-sc-blue"><%= @flow_summary[:snapshots] %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Start Total</div>
+        <div class="tj-sc-value tj-sc-dim"><%= @flow_summary[:start_total] %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">End Total</div>
+        <div class="tj-sc-value tj-sc-green"><%= @flow_summary[:end_total] %></div>
+      </div>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Status Trend</div>
+      <div class="tj-table-wrap tj-flow-table-wrap">
+        <table class="tj-table tj-flow-table">
+          <thead>
+            <tr>
+              <th class="tj-th-title">Status</th>
+              <% @flow_dates.each do |date| %>
+                <th class="tj-th-native"><%= format_date(date) %></th>
+              <% end %>
+              <th class="tj-th-native">Change</th>
+              <th class="tj-th-native">Rate / Week</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @flow_status_rows.each do |row| %>
+              <tr class="tj-row">
+                <td class="tj-td-title"><%= h(row[:label]) %></td>
+                <% row[:counts].each do |count| %>
+                  <td class="tj-td-native"><%= count.zero? ? '-' : count %></td>
+                <% end %>
+                <td class="tj-td-native <%= row[:change].positive? ? 'tj-flow-positive' : (row[:change].negative? ? 'tj-flow-negative' : '') %>"><%= row[:change] %></td>
+                <td class="tj-td-native"><%= number_with_precision(row[:rate], precision: 1, strip_insignificant_zeros: true) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Tracker Trend</div>
+      <div class="tj-table-wrap tj-flow-table-wrap">
+        <table class="tj-table tj-flow-table">
+          <thead>
+            <tr>
+              <th class="tj-th-title">Tracker</th>
+              <% @flow_dates.each do |date| %>
+                <th class="tj-th-native"><%= format_date(date) %></th>
+              <% end %>
+              <th class="tj-th-native">Change</th>
+              <th class="tj-th-native">Rate / Week</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @flow_tracker_rows.each do |row| %>
+              <tr class="tj-row">
+                <td class="tj-td-title"><%= h(row[:label]) %></td>
+                <% row[:counts].each do |count| %>
+                  <td class="tj-td-native"><%= count.zero? ? '-' : count %></td>
+                <% end %>
+                <td class="tj-td-native <%= row[:change].positive? ? 'tj-flow-positive' : (row[:change].negative? ? 'tj-flow-negative' : '') %>"><%= row[:change] %></td>
+                <td class="tj-td-native"><%= number_with_precision(row[:rate], precision: 1, strip_insignificant_zeros: true) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% end %>
+
+</div>

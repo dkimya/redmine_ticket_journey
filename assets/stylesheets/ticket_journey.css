@@ -162,6 +162,13 @@
 .tj-input:focus { border-color: var(--tj-accent); }
 .tj-filter-search .tj-input { width: 200px; }
 .tj-owner-filter-bar { margin-top: 12px; }
+.tj-flow-filter-note {
+  max-width: 520px;
+  color: var(--tj-text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+  padding-bottom: 5px;
+}
 
 /* ── Summary Strip ── */
 .tj-summary-strip {
@@ -278,6 +285,21 @@
   font-size: 12px;
   background: var(--tj-surface);
   min-width: 1400px;
+}
+.tj-flow-table {
+  min-width: 860px;
+}
+.tj-flow-table .tj-td-title {
+  text-align: left;
+  min-width: 180px;
+}
+.tj-flow-positive {
+  color: #0f7a3b;
+  font-weight: 700;
+}
+.tj-flow-negative {
+  color: #b91c1c;
+  font-weight: 700;
 }
 .tj-table thead tr {
   background: #f0f2f7;

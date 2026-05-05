@@ -37,8 +37,8 @@ class TicketJourneyController < ApplicationController
 
   before_action :find_project
   before_action :authorize
-  before_action :build_query, only: [:index, :owner_returns, :export]
-  before_action :prepare_owner_role_filter, only: [:owner_returns]
+  before_action :build_query, only: [:index, :owner_returns, :flow_report, :export]
+  before_action :prepare_owner_role_filter, only: [:owner_returns, :flow_report]
 
   helper :queries
 
@@ -58,6 +58,22 @@ class TicketJourneyController < ApplicationController
   def owner_returns
     @issues_data = compute_all_durations
     @owner_return_rows = compute_owner_returns_summary(@issues_data, role_id: @selected_owner_role&.id)
+  end
+
+  # ---------------------------------------------------------------
+  # FLOW REPORT - status/tracker snapshot trend over a date range
+  # ---------------------------------------------------------------
+  def flow_report
+    @flow_start_date, @flow_end_date = flow_period_dates
+    @flow_dates = flow_snapshot_dates(@flow_start_date, @flow_end_date)
+    @flow_issues = flow_report_issues
+    @flow_status_rows = []
+    @flow_tracker_rows = []
+    @flow_summary = { issues: 0, snapshots: @flow_dates.size, start_total: 0, end_total: 0 }
+
+    if @query&.valid?
+      @flow_status_rows, @flow_tracker_rows, @flow_summary = compute_flow_trends(@flow_issues, @flow_dates)
+    end
   end
 
   # ---------------------------------------------------------------
@@ -316,6 +332,148 @@ class TicketJourneyController < ApplicationController
         durations: durations
       }
     end
+  end
+
+  def flow_period_dates
+    start_date = parse_flow_date(params[:flow_start_date]) || (User.current.today - 13)
+    end_date = parse_flow_date(params[:flow_end_date]) || User.current.today
+
+    start_date, end_date = end_date, start_date if start_date > end_date
+    [start_date, end_date]
+  end
+
+  def parse_flow_date(value)
+    return if value.blank?
+
+    Date.parse(value.to_s)
+  rescue ArgumentError
+    nil
+  end
+
+  def flow_snapshot_dates(start_date, end_date)
+    return [start_date] if start_date == end_date
+
+    day_count = (end_date - start_date).to_i
+    if day_count <= 31
+      (start_date..end_date).to_a
+    else
+      dates = []
+      current = start_date
+      while current <= end_date
+        dates << current
+        current += 7
+      end
+      dates << end_date unless dates.last == end_date
+      dates
+    end
+  end
+
+  def flow_report_issues
+    return [] unless @query&.valid?
+
+    issues = @query.issues(
+      order: "#{Issue.table_name}.id ASC",
+      include: [:status, :tracker, { custom_values: :custom_field }]
+    )
+
+    allowed_owner_values = ticket_owner_values_for_role(@selected_owner_role&.id)
+    return issues unless allowed_owner_values
+
+    issues.select do |issue|
+      owner_value, = ticket_owner_info(issue)
+      allowed_owner_values.include?(owner_value.to_s)
+    end
+  end
+
+  def compute_flow_trends(issues, snapshot_dates)
+    return [[], [], { issues: 0, snapshots: snapshot_dates.size, start_total: 0, end_total: 0 }] if issues.empty? || snapshot_dates.empty?
+
+    issue_ids = issues.map(&:id)
+    status_changes = load_attribute_changes(issue_ids, 'status_id')
+    tracker_changes = load_attribute_changes(issue_ids, 'tracker_id')
+    status_names = IssueStatus.pluck(:id, :name).to_h.transform_keys(&:to_s)
+    tracker_names = Tracker.pluck(:id, :name).to_h.transform_keys(&:to_s)
+
+    status_counts = Hash.new { |hash, label| hash[label] = Array.new(snapshot_dates.size, 0) }
+    tracker_counts = Hash.new { |hash, label| hash[label] = Array.new(snapshot_dates.size, 0) }
+
+    snapshot_dates.each_with_index do |date, index|
+      snapshot_time = date.end_of_day
+
+      issues.each do |issue|
+        next if issue.created_on && issue.created_on > snapshot_time
+
+        status_id = historical_attribute_value(issue.status_id, status_changes[issue.id], snapshot_time)
+        tracker_id = historical_attribute_value(issue.tracker_id, tracker_changes[issue.id], snapshot_time)
+
+        status_counts[status_names[status_id.to_s] || "Status ##{status_id}"][index] += 1
+        tracker_counts[tracker_names[tracker_id.to_s] || "Tracker ##{tracker_id}"][index] += 1
+      end
+    end
+
+    status_rows = build_flow_rows(status_counts)
+    tracker_rows = build_flow_rows(tracker_counts)
+    summary = {
+      issues: issues.size,
+      snapshots: snapshot_dates.size,
+      start_total: status_rows.sum { |row| row[:counts].first.to_i },
+      end_total: status_rows.sum { |row| row[:counts].last.to_i }
+    }
+
+    [status_rows, tracker_rows, summary]
+  end
+
+  def load_attribute_changes(issue_ids, prop_key)
+    return {} if issue_ids.empty?
+
+    rows = JournalDetail.joins(:journal)
+                        .where(
+                          journals: {
+                            journalized_type: 'Issue',
+                            journalized_id: issue_ids
+                          },
+                          property: 'attr',
+                          prop_key: prop_key
+                        )
+                        .select(
+                          'journals.journalized_id AS issue_id',
+                          'journals.created_on AS changed_at',
+                          'journal_details.old_value AS old_value',
+                          'journal_details.value AS value'
+                        )
+                        .order('journals.journalized_id ASC, journals.created_on ASC')
+
+    rows.group_by { |row| row.issue_id.to_i }
+  end
+
+  def historical_attribute_value(current_value, changes, snapshot_time)
+    value = current_value
+
+    Array(changes).reverse_each do |change|
+      next unless change.changed_at && change.changed_at > snapshot_time
+
+      value = change.old_value
+    end
+
+    value
+  end
+
+  def build_flow_rows(counts_by_label)
+    counts_by_label.map do |label, counts|
+      {
+        label: label,
+        counts: counts,
+        change: counts.last.to_i - counts.first.to_i,
+        rate: flow_weekly_rate(counts.last.to_i - counts.first.to_i)
+      }
+    end.sort_by { |row| [-row[:counts].last.to_i, row[:label].to_s.downcase] }
+  end
+
+  def flow_weekly_rate(change)
+    days = (@flow_end_date - @flow_start_date).to_f
+    return 0.0 if days <= 0
+
+    change.to_f / (days / 7.0)
   end
 
   def build_report_sections(issues_data)

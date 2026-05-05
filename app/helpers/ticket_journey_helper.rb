@@ -23,6 +23,18 @@ module TicketJourneyHelper
     query_params
   end
 
+  def flow_report_params(query)
+    query_params = query.as_params.deep_dup.deep_stringify_keys
+
+    %w[flow_start_date flow_end_date ticket_owner_role_id].each do |key|
+      query_params.delete(key)
+      value = params[key]
+      query_params[key] = value if value.present?
+    end
+
+    query_params
+  end
+
   def issue_detail_params(query, issue)
     duration_report_params(query).merge('issue_id' => issue.id, 'view' => 'detail')
   end

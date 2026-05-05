@@ -1,6 +1,7 @@
 <%
   duration_params = duration_report_params(@query)
   owner_params = owner_returns_params(@query)
+  flow_params = flow_report_params(@query)
   duration_params = duration_params.except('issue_id', 'view')
   detail_params =
     if @issue.present?
@@ -19,4 +20,7 @@
   <%= link_to 'Ticket Owner Performance',
         ticket_journey_owner_returns_path(@project, owner_params),
         class: "tj-report-tab #{active_tab == :owner_returns ? 'is-active' : ''}" %>
+  <%= link_to 'Flow Report',
+        ticket_journey_flow_report_path(@project, flow_params),
+        class: "tj-report-tab #{active_tab == :flow_report ? 'is-active' : ''}" %>
 </div>
