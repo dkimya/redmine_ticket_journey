@@ -75,6 +75,11 @@
 
     <div class="tj-card tj-card-full">
       <div class="tj-card-title">Status Trend</div>
+      <%
+        status_column_totals = @flow_dates.each_index.map { |index| @flow_status_rows.sum { |row| row[:counts][index].to_i } }
+        status_change_total = @flow_status_rows.sum { |row| row[:change].to_i }
+        status_rate_total = @flow_status_rows.sum { |row| row[:rate].to_f }
+      %>
       <div class="tj-table-wrap tj-flow-table-wrap">
         <table class="tj-table tj-flow-table">
           <thead>
@@ -98,6 +103,14 @@
                 <td class="tj-td-native"><%= number_with_precision(row[:rate], precision: 1, strip_insignificant_zeros: true) %></td>
               </tr>
             <% end %>
+            <tr class="tj-flow-total-row">
+              <td class="tj-td-title tj-total-label">Total</td>
+              <% status_column_totals.each do |count| %>
+                <td class="tj-td-native"><%= count.zero? ? '-' : count %></td>
+              <% end %>
+              <td class="tj-td-native <%= status_change_total.positive? ? 'tj-flow-positive' : (status_change_total.negative? ? 'tj-flow-negative' : '') %>"><%= status_change_total %></td>
+              <td class="tj-td-native"><%= number_with_precision(status_rate_total, precision: 1, strip_insignificant_zeros: true) %></td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -105,6 +118,11 @@
 
     <div class="tj-card tj-card-full">
       <div class="tj-card-title">Tracker Trend</div>
+      <%
+        tracker_column_totals = @flow_dates.each_index.map { |index| @flow_tracker_rows.sum { |row| row[:counts][index].to_i } }
+        tracker_change_total = @flow_tracker_rows.sum { |row| row[:change].to_i }
+        tracker_rate_total = @flow_tracker_rows.sum { |row| row[:rate].to_f }
+      %>
       <div class="tj-table-wrap tj-flow-table-wrap">
         <table class="tj-table tj-flow-table">
           <thead>
@@ -128,6 +146,14 @@
                 <td class="tj-td-native"><%= number_with_precision(row[:rate], precision: 1, strip_insignificant_zeros: true) %></td>
               </tr>
             <% end %>
+            <tr class="tj-flow-total-row">
+              <td class="tj-td-title tj-total-label">Total</td>
+              <% tracker_column_totals.each do |count| %>
+                <td class="tj-td-native"><%= count.zero? ? '-' : count %></td>
+              <% end %>
+              <td class="tj-td-native <%= tracker_change_total.positive? ? 'tj-flow-positive' : (tracker_change_total.negative? ? 'tj-flow-negative' : '') %>"><%= tracker_change_total %></td>
+              <td class="tj-td-native"><%= number_with_precision(tracker_rate_total, precision: 1, strip_insignificant_zeros: true) %></td>
+            </tr>
           </tbody>
         </table>
       </div>

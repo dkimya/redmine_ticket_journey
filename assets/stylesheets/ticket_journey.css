@@ -315,6 +315,15 @@
   top: -3px;
   border-top: 1px solid #fff;
 }
+.tj-flow-total-row td {
+  background: #f7f9fc;
+  border-top: 2px solid #b8c4d6;
+  color: var(--tj-text);
+  font-weight: 700;
+}
+.tj-flow-total-row .tj-td-title {
+  background: #eef3f8;
+}
 .tj-flow-reason-table {
   min-width: 520px;
 }
