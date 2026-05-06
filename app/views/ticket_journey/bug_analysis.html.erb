@@ -7,7 +7,7 @@
     <div class="tj-page-header-left">
       <div>
         <h2>Bugs Analysis</h2>
-        <p class="tj-page-sub">Periodic Bug tracker movement by Return Reason &mdash; <%= @project.name %></p>
+        <p class="tj-page-sub">Periodic Bug tracker movement by Bug Source &mdash; <%= @project.name %></p>
       </div>
     </div>
   </div>
@@ -25,7 +25,7 @@
         <%= date_field_tag :bug_end_date, @bug_end_date, class: 'tj-input' %>
       </div>
       <div class="tj-filter-group tj-flow-filter-note">
-        <span>Counts Bug tracker issues in the current project and subprojects. Rows are grouped by custom field Return Reason.</span>
+        <span>Counts Bug tracker issues in the current project and subprojects. Rows are grouped by custom field Bug Source.</span>
       </div>
       <div class="tj-filter-group">
         <%= submit_tag 'Apply', class: 'tj-btn tj-btn-primary' %>
@@ -60,12 +60,12 @@
     </div>
   <% else %>
     <div class="tj-card tj-card-full">
-      <div class="tj-card-title">Bug Movement By Return Reason</div>
+      <div class="tj-card-title">Bug Movement By Bug Source</div>
       <div class="tj-table-wrap">
         <table class="tj-table tj-bug-analysis-table">
           <thead>
             <tr>
-              <th class="tj-th-title">Return Reason</th>
+              <th class="tj-th-title">Bug Source</th>
               <th class="tj-th-native">Bugs at Beginning</th>
               <th class="tj-th-native">%</th>
               <th class="tj-th-native">Bugs Found</th>

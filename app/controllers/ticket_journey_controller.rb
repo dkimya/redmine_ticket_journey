@@ -1,5 +1,7 @@
 class TicketJourneyController < ApplicationController
   TICKET_OWNER_CF_ID = 57
+  BUG_SOURCE_CF_ID = 63
+  BUG_IMPACT_RATING_CF_ID = 65
   RETURN_REASON_CF_ID = 66
   OWNER_RETURN_SORTABLE_FIELDS = %w[owner total_tickets ticket_share done_tickets avg_done_cycle_time avg_priority_done_cycle_time returned_tickets return_rate c1 c2 c3 c4 total_returns].freeze
   PROJECT_HEALTH_ACTIVE_STATUS_ROLES = %i[todo in_progress feedback review ready_merge final_check].freeze
@@ -103,7 +105,7 @@ class TicketJourneyController < ApplicationController
   end
 
   # ---------------------------------------------------------------
-  # BUG ANALYSIS - periodic bug movement by return reason
+  # BUG ANALYSIS - periodic bug movement by bug source
   # ---------------------------------------------------------------
   def bug_analysis
     @bug_start_date, @bug_end_date = bug_analysis_period_dates
@@ -523,7 +525,7 @@ class TicketJourneyController < ApplicationController
     end
 
     bug_list.each do |issue|
-      reason = issue.custom_value_for(RETURN_REASON_CF_ID)&.value.presence || 'No Return Reason'
+      reason = issue.custom_value_for(BUG_SOURCE_CF_ID)&.value.presence || 'No Bug Source'
       row = rows[reason]
 
       row[:beginning] += 1 if issue.created_on <= period_start && !historically_closed?(issue, status_changes[issue.id], period_start, closed_status_ids)
