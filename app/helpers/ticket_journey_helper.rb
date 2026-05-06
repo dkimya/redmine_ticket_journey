@@ -23,6 +23,18 @@ module TicketJourneyHelper
     query_params
   end
 
+  def owner_workload_params(query)
+    query_params = query.as_params.deep_dup.deep_stringify_keys
+
+    %w[ticket_owner_role_id workload_sort workload_dir].each do |key|
+      query_params.delete(key)
+      value = params[key]
+      query_params[key] = value if value.present?
+    end
+
+    query_params
+  end
+
   def flow_report_params(query)
     query_params = query.as_params.deep_dup.deep_stringify_keys
 
@@ -192,6 +204,52 @@ module TicketJourneyHelper
     )
   end
 
+  def owner_workload_issue_filter_params(row, scope)
+    query_params = @query.as_params.deep_dup.deep_stringify_keys
+    filters = Array(query_params['f']).map(&:to_s)
+    operators = (query_params['op'] || {}).deep_dup
+    values = (query_params['v'] || {}).deep_dup
+
+    add_ticket_owner_filter(filters, operators, values, row[:owner_value])
+    add_status_filter(filters, operators, values, 'o') unless filters.include?('status_id')
+
+    case scope.to_sym
+    when :technical_open
+      add_tracker_filter(filters, operators, values, technical_tracker_filter_values) unless filters.include?('tracker_id')
+    when :task_open
+      add_tracker_filter(filters, operators, values, task_tracker_filter_values) unless filters.include?('tracker_id')
+    when :stopped
+      replace_filter(filters, operators, values, 'status_id')
+      add_exact_status_filter(filters, operators, values, stopped_status_filter_values)
+    when :overdue
+      replace_filter(filters, operators, values, 'due_date')
+      add_date_filter(filters, operators, values, 'due_date', '<=', [User.current.today])
+    when :priority_open
+      replace_filter(filters, operators, values, 'priority_id')
+      add_priority_filter(filters, operators, values)
+    when :no_due_date
+      replace_filter(filters, operators, values, 'due_date')
+      add_missing_filter(filters, operators, values, 'due_date')
+    end
+
+    query_params['set_filter'] = '1'
+    query_params['f'] = filters
+    query_params['op'] = operators
+    query_params['v'] = values
+    query_params
+  end
+
+  def owner_workload_count_link(row, scope, value)
+    return '-' if value.to_i.zero?
+
+    link_to(
+      value,
+      project_issues_path(@project, owner_workload_issue_filter_params(row, scope)),
+      class: 'tj-drilldown-link',
+      title: 'Open matching issues'
+    )
+  end
+
   def release_readiness_no_target_filter_params
     filters = %w[status_id fixed_version_id]
     operators = { 'status_id' => 'o', 'fixed_version_id' => '!*' }
@@ -207,6 +265,14 @@ module TicketJourneyHelper
 
   def stopped_status_filter_values
     @stopped_status_filter_values ||= IssueStatus.where(name: ['Pending', 'On-Hold']).pluck(:id).map(&:to_s)
+  end
+
+  def technical_tracker_filter_values
+    @technical_tracker_filter_values ||= Tracker.where(name: TicketJourneyController::TRACKER_FAMILY_DEFINITIONS[:internal][:tracker_names]).pluck(:id).map(&:to_s)
+  end
+
+  def task_tracker_filter_values
+    @task_tracker_filter_values ||= Tracker.where(name: TicketJourneyController::TRACKER_FAMILY_DEFINITIONS[:task][:tracker_names]).pluck(:id).map(&:to_s)
   end
 
   def priority_filter_values
@@ -248,6 +314,33 @@ module TicketJourneyHelper
     filters << 'priority_id'
     operators['priority_id'] = '='
     values['priority_id'] = priority_filter_values.presence || ['0']
+  end
+
+  def add_tracker_filter(filters, operators, values, tracker_ids)
+    filters << 'tracker_id'
+    operators['tracker_id'] = '='
+    values['tracker_id'] = tracker_ids.presence || ['0']
+  end
+
+  def add_ticket_owner_filter(filters, operators, values, owner_value)
+    field_name = "cf_#{TicketJourneyController::TICKET_OWNER_CF_ID}"
+    replace_filter(filters, operators, values, field_name)
+
+    if owner_value.present?
+      operators[field_name] = '='
+      values[field_name] = [owner_value.to_s]
+    else
+      operators[field_name] = '!*'
+      values[field_name] = ['']
+    end
+
+    filters << field_name
+  end
+
+  def replace_filter(filters, operators, values, field_name)
+    filters.delete(field_name)
+    operators.delete(field_name)
+    values.delete(field_name)
   end
 
   def add_date_filter(filters, operators, values, field_name, operator, date_values)
@@ -334,6 +427,27 @@ module TicketJourneyHelper
     )
   end
 
+  def owner_workload_sort_link(query, sort_key, caption, title: nil)
+    current_key = params[:workload_sort].to_s
+    current_dir = params[:workload_dir].to_s
+    current_dir = (sort_key.to_s == 'owner' ? 'asc' : 'desc') unless %w[asc desc].include?(current_dir)
+    default_dir = sort_key.to_s == 'owner' ? 'asc' : 'desc'
+    next_dir = current_key == sort_key.to_s && current_dir == default_dir ? (default_dir == 'asc' ? 'desc' : 'asc') : default_dir
+
+    indicator =
+      if current_key == sort_key.to_s
+        current_dir == 'asc' ? ' ^' : ' v'
+      else
+        ''
+      end
+
+    link_to(
+      "#{caption}#{indicator}",
+      ticket_journey_owner_workload_path(@project, owner_workload_params(query).merge('workload_sort' => sort_key.to_s, 'workload_dir' => next_dir)),
+      title: title
+    )
+  end
+
   def visible_native_query_columns(query)
     query.inline_columns.reject { |column| %w[id subject].include?(column.name.to_s) }
   end
@@ -343,16 +457,7 @@ module TicketJourneyHelper
     filters = Array(query_params[:f] || query_params['f']).map(&:to_s)
     operators = (query_params[:op] || query_params['op'] || {}).deep_dup
     values = (query_params[:v] || query_params['v'] || {}).deep_dup
-    field_name = "cf_#{TicketJourneyController::TICKET_OWNER_CF_ID}"
-    filters << field_name unless filters.include?(field_name)
-
-    if owner_value.present?
-      operators[field_name] = '='
-      values[field_name] = [owner_value.to_s]
-    else
-      operators[field_name] = '!*'
-      values[field_name] = ['']
-    end
+    add_ticket_owner_filter(filters, operators, values, owner_value)
 
     query_params[:set_filter] = '1'
     query_params[:f] = filters

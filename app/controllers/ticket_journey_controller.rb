@@ -4,6 +4,7 @@ class TicketJourneyController < ApplicationController
   BUG_IMPACT_RATING_CF_ID = 65
   RETURN_REASON_CF_ID = 66
   OWNER_RETURN_SORTABLE_FIELDS = %w[owner total_tickets ticket_share done_tickets avg_done_cycle_time avg_priority_done_cycle_time returned_tickets return_rate c1 c2 c3 c4 total_returns].freeze
+  OWNER_WORKLOAD_SORTABLE_FIELDS = %w[owner total_open technical_open task_open stopped overdue priority_open no_due_date avg_age oldest_age].freeze
   BUG_ANALYSIS_SORTABLE_FIELDS = %w[reason beginning beginning_percent found found_percent closed closed_percent remaining remaining_percent impact_sum impact_average change_percent].freeze
   RELEASE_READINESS_SORTABLE_FIELDS = %w[name project due_date status total open done done_percent stopped overdue no_owner no_due_date priority_open risk].freeze
   PROJECT_HEALTH_ACTIVE_STATUS_ROLES = %i[todo in_progress feedback review ready_merge final_check].freeze
@@ -58,8 +59,8 @@ class TicketJourneyController < ApplicationController
 
   before_action :find_project
   before_action :authorize
-  before_action :build_query, only: [:index, :owner_returns, :flow_report, :project_health, :release_readiness, :bug_analysis, :export]
-  before_action :prepare_owner_role_filter, only: [:owner_returns, :flow_report]
+  before_action :build_query, only: [:index, :owner_returns, :owner_workload, :flow_report, :project_health, :release_readiness, :bug_analysis, :export]
+  before_action :prepare_owner_role_filter, only: [:owner_returns, :owner_workload, :flow_report]
 
   helper :queries
 
@@ -79,6 +80,13 @@ class TicketJourneyController < ApplicationController
   def owner_returns
     @issues_data = compute_all_durations
     @owner_return_rows = compute_owner_returns_summary(@issues_data, role_id: @selected_owner_role&.id)
+  end
+
+  # ---------------------------------------------------------------
+  # OWNER WORKLOAD - current open workload by ticket owner
+  # ---------------------------------------------------------------
+  def owner_workload
+    @owner_workload_rows, @owner_workload_totals = compute_owner_workload_report(role_id: @selected_owner_role&.id)
   end
 
   # ---------------------------------------------------------------
@@ -404,6 +412,107 @@ class TicketJourneyController < ApplicationController
     Issue.includes(:status, :tracker, { custom_values: :custom_field })
          .where(project_id: project_and_subproject_ids)
          .references(:status, :tracker)
+  end
+
+  def compute_owner_workload_report(role_id: nil)
+    return [[], empty_owner_workload_totals] unless @query&.valid?
+
+    today = User.current.today
+    allowed_owner_values = ticket_owner_values_for_role(role_id)
+    issues = owner_workload_issues.reject do |issue|
+      owner_value, = ticket_owner_info(issue)
+      allowed_owner_values && !allowed_owner_values.include?(owner_value.to_s)
+    end
+
+    rows = Hash.new do |hash, owner_key|
+      owner_value, owner_name = owner_key
+      hash[owner_key] = {
+        owner_value: owner_value,
+        owner: owner_name,
+        total_open: 0,
+        technical_open: 0,
+        task_open: 0,
+        stopped: 0,
+        overdue: 0,
+        priority_open: 0,
+        no_due_date: 0,
+        age_sum: 0,
+        oldest_age: 0,
+        avg_age: 0.0
+      }
+    end
+
+    issues.each do |issue|
+      owner_value, owner_name = ticket_owner_info(issue)
+      row = rows[[owner_value, owner_name]]
+      age_days = [(today - issue.created_on.to_date).to_i, 0].max
+
+      row[:total_open] += 1
+      row[:technical_open] += 1 if technical_tracker?(issue.tracker&.name)
+      row[:task_open] += 1 if task_tracker?(issue.tracker&.name)
+      row[:stopped] += 1 if paused_status?(issue.status&.name)
+      row[:overdue] += 1 if issue.due_date.present? && issue.due_date < today
+      row[:priority_open] += 1 if priority_performance_ticket?(issue)
+      row[:no_due_date] += 1 if issue.due_date.blank?
+      row[:age_sum] += age_days
+      row[:oldest_age] = [row[:oldest_age], age_days].max
+    end
+
+    owner_rows = rows.values.map do |row|
+      row[:avg_age] = row[:total_open].positive? ? row[:age_sum].to_f / row[:total_open] : 0.0
+      row
+    end
+
+    totals = {
+      owners: owner_rows.size,
+      total_open: owner_rows.sum { |row| row[:total_open] },
+      stopped: owner_rows.sum { |row| row[:stopped] },
+      overdue: owner_rows.sum { |row| row[:overdue] },
+      priority_open: owner_rows.sum { |row| row[:priority_open] }
+    }
+
+    [sort_owner_workload_rows(owner_rows), totals]
+  end
+
+  def empty_owner_workload_totals
+    { owners: 0, total_open: 0, stopped: 0, overdue: 0, priority_open: 0 }
+  end
+
+  def owner_workload_issues
+    @query.issues(
+      order: "#{Issue.table_name}.id ASC",
+      include: [:status, :tracker, :priority, { custom_values: :custom_field }]
+    ).reject { |issue| issue.status&.is_closed? }
+  end
+
+  def sort_owner_workload_rows(rows)
+    sort_key = params[:workload_sort].to_s
+    return rows.sort_by { |row| [-row[:total_open], -row[:stopped], -row[:overdue], row[:owner].to_s.downcase] } unless OWNER_WORKLOAD_SORTABLE_FIELDS.include?(sort_key)
+
+    if sort_key == 'owner'
+      sorted_rows = rows.sort_by { |row| [row[:owner].to_s.downcase, -row[:total_open].to_i] }
+      return owner_workload_sort_direction(sort_key) == 'desc' ? sorted_rows.reverse : sorted_rows
+    end
+
+    direction_factor = owner_workload_sort_direction(sort_key) == 'asc' ? 1 : -1
+    rows.sort_by do |row|
+      [
+        owner_workload_sort_value(row, sort_key, direction_factor),
+        -row[:total_open].to_i,
+        row[:owner].to_s.downcase
+      ]
+    end
+  end
+
+  def owner_workload_sort_value(row, sort_key, direction_factor)
+    direction_factor * row[sort_key.to_sym].to_f
+  end
+
+  def owner_workload_sort_direction(sort_key)
+    requested_dir = params[:workload_dir].to_s
+    return requested_dir if %w[asc desc].include?(requested_dir)
+
+    sort_key == 'owner' ? 'asc' : 'desc'
   end
 
   def technical_health_block(issues)

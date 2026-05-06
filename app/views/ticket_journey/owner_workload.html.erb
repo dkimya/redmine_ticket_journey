@@ -1,0 +1,147 @@
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'ticket_journey', plugin: 'redmine_ticket_journey' %>
+<% end %>
+
+<div id="tj-wrap">
+  <div class="tj-page-header">
+    <div class="tj-page-header-left">
+      <div>
+        <h2>Owner Workload</h2>
+        <p class="tj-page-sub">Current open workload by Ticket Owner &mdash; <%= @project.name %></p>
+      </div>
+    </div>
+  </div>
+
+  <%= render partial: 'report_tabs', locals: { active_tab: :owner_workload } %>
+
+  <%= form_tag(ticket_journey_owner_workload_path(@project), method: :get, id: 'query_form') do %>
+    <%= render partial: 'queries/query_form' %>
+
+    <div class="tj-filter-bar tj-owner-filter-bar">
+      <div class="tj-filter-form">
+        <div class="tj-filter-group">
+          <label for="ticket_owner_role_id">Ticket Owner Role</label>
+          <%= select_tag :ticket_owner_role_id,
+                options_for_select([['All roles', 'all']] + @owner_roles.map { |role| [role.name, role.id] }, @selected_owner_role_option),
+                class: 'tj-input',
+                onchange: 'this.form.submit();' %>
+        </div>
+        <div class="tj-filter-group tj-flow-filter-note">
+          <span>Uses the Redmine filters above, then summarizes currently open issues by Ticket Owner.</span>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <% if !@query.valid? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">Report</div>
+      <h3>Invalid filters</h3>
+      <p>Please review the Redmine query filters above.</p>
+    </div>
+  <% elsif @owner_workload_rows.empty? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">Report</div>
+      <h3>No owner workload data found</h3>
+      <p>Try adjusting the Redmine query filters above.</p>
+    </div>
+  <% else %>
+    <div class="tj-summary-strip">
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Ticket Owners</div>
+        <div class="tj-sc-value tj-sc-accent"><%= @owner_workload_totals[:owners] %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Total Open</div>
+        <div class="tj-sc-value tj-sc-blue"><%= @owner_workload_totals[:total_open] %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Stopped</div>
+        <div class="tj-sc-value <%= @owner_workload_totals[:stopped].to_i.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= @owner_workload_totals[:stopped] %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Overdue</div>
+        <div class="tj-sc-value <%= @owner_workload_totals[:overdue].to_i.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= @owner_workload_totals[:overdue] %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Priority Open</div>
+        <div class="tj-sc-value <%= @owner_workload_totals[:priority_open].to_i.positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= @owner_workload_totals[:priority_open] %></div>
+      </div>
+    </div>
+
+    <%
+      attention_rows = @owner_workload_rows
+        .select { |row| row[:stopped].positive? || row[:overdue].positive? || row[:priority_open].positive? }
+        .sort_by { |row| [-row[:overdue].to_i, -row[:stopped].to_i, -row[:priority_open].to_i, -row[:total_open].to_i, row[:owner].to_s.downcase] }
+        .first(12)
+      max_attention = attention_rows.map { |row| row[:total_open].to_i }.max.to_i
+    %>
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Workload Attention</div>
+      <% if attention_rows.empty? %>
+        <div class="tj-flow-empty-note">No stopped, overdue, or priority-open workload for the current filters.</div>
+      <% else %>
+        <div class="tj-workload-bars">
+          <% attention_rows.each do |row| %>
+            <% width = max_attention.positive? ? ((row[:total_open].to_f / max_attention) * 100).round : 0 %>
+            <%= link_to ticket_journey_path(@project, ticket_owner_filter_params(@query, row[:owner_value])),
+                  class: 'tj-workload-bar-row',
+                  title: "Open workload for #{row[:owner]}" do %>
+              <span class="tj-workload-bar-label"><%= h(row[:owner]) %></span>
+              <span class="tj-workload-bar-track">
+                <span class="tj-workload-bar-fill" style="width:<%= width %>%"></span>
+              </span>
+              <span class="tj-workload-bar-meta">
+                <strong><%= row[:total_open] %></strong>
+                <span>Stopped <%= row[:stopped] %></span>
+                <span>Overdue <%= row[:overdue] %></span>
+              </span>
+            <% end %>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Owner Workload Detail</div>
+      <div class="tj-table-wrap">
+        <table class="tj-table tj-owner-workload-table">
+          <thead>
+            <tr>
+              <th class="tj-th-title"><%= owner_workload_sort_link(@query, :owner, 'Ticket Owner') %></th>
+              <th class="tj-th-native"><%= owner_workload_sort_link(@query, :total_open, 'Total Open') %></th>
+              <th class="tj-th-native"><%= owner_workload_sort_link(@query, :technical_open, 'Technical Open') %></th>
+              <th class="tj-th-native"><%= owner_workload_sort_link(@query, :task_open, 'Tasks Open') %></th>
+              <th class="tj-th-native"><%= owner_workload_sort_link(@query, :stopped, 'Stopped', title: 'Open issues currently Pending or On-Hold') %></th>
+              <th class="tj-th-native"><%= owner_workload_sort_link(@query, :overdue, 'Overdue') %></th>
+              <th class="tj-th-native"><%= owner_workload_sort_link(@query, :priority_open, 'Priority Open', title: 'Open Urgent or Immediate issues') %></th>
+              <th class="tj-th-native"><%= owner_workload_sort_link(@query, :no_due_date, 'No Due Date') %></th>
+              <th class="tj-th-native"><%= owner_workload_sort_link(@query, :avg_age, 'Avg Age') %></th>
+              <th class="tj-th-native"><%= owner_workload_sort_link(@query, :oldest_age, 'Oldest Age') %></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @owner_workload_rows.each do |row| %>
+              <tr class="tj-row">
+                <td class="tj-td-title">
+                  <%= link_to row[:owner],
+                        ticket_journey_path(@project, ticket_owner_filter_params(@query, row[:owner_value])),
+                        class: 'tj-subject-link' %>
+                </td>
+                <td class="tj-td-native"><%= owner_workload_count_link(row, :total_open, row[:total_open]) %></td>
+                <td class="tj-td-native"><%= owner_workload_count_link(row, :technical_open, row[:technical_open]) %></td>
+                <td class="tj-td-native"><%= owner_workload_count_link(row, :task_open, row[:task_open]) %></td>
+                <td class="tj-td-native <%= row[:stopped].positive? ? 'tj-counter-active' : 'tj-counter-zero' %>"><%= owner_workload_count_link(row, :stopped, row[:stopped]) %></td>
+                <td class="tj-td-native <%= row[:overdue].positive? ? 'tj-counter-active' : 'tj-counter-zero' %>"><%= owner_workload_count_link(row, :overdue, row[:overdue]) %></td>
+                <td class="tj-td-native"><%= owner_workload_count_link(row, :priority_open, row[:priority_open]) %></td>
+                <td class="tj-td-native"><%= owner_workload_count_link(row, :no_due_date, row[:no_due_date]) %></td>
+                <td class="tj-td-native"><%= number_with_precision(row[:avg_age], precision: 1, strip_insignificant_zeros: true) %>d</td>
+                <td class="tj-td-native"><%= row[:oldest_age] %>d</td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% end %>
+</div>
