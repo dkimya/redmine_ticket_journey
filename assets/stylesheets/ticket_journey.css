@@ -470,6 +470,22 @@
 .tj-aging-bar-row .tj-workload-bar-fill {
   background: linear-gradient(90deg, #f59e0b, var(--tj-red));
 }
+.tj-priority-risk-table {
+  min-width: 1360px;
+}
+.tj-priority-risk-table .tj-td-title {
+  max-width: 360px;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tj-priority-bar-row .tj-workload-bar-fill {
+  background: linear-gradient(90deg, #dc2626, #7f1d1d);
+}
+.tj-priority-row-risk td {
+  background: #fffafa;
+}
 .tj-workload-bars {
   display: flex;
   flex-direction: column;

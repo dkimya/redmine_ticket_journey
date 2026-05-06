@@ -1,0 +1,153 @@
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'ticket_journey', plugin: 'redmine_ticket_journey' %>
+<% end %>
+
+<div id="tj-wrap">
+  <div class="tj-page-header">
+    <div class="tj-page-header-left">
+      <div>
+        <h2>Priority / SLA Risk</h2>
+        <p class="tj-page-sub">Open urgent and immediate ticket risk snapshot &mdash; <%= @project.name %></p>
+      </div>
+    </div>
+  </div>
+
+  <%= render partial: 'report_tabs', locals: { active_tab: :priority_risk } %>
+
+  <%= form_tag(ticket_journey_priority_risk_path(@project), method: :get, id: 'query_form') do %>
+    <%= render partial: 'queries/query_form' %>
+
+    <div class="tj-filter-bar tj-owner-filter-bar">
+      <div class="tj-filter-form">
+        <div class="tj-filter-group tj-flow-filter-note">
+          <span>Uses the Redmine filters above, then keeps only open Urgent / Immediate tickets. SLA risk is based on overdue, stopped, missing due date, and age.</span>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <% if !@query.valid? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">Report</div>
+      <h3>Invalid filters</h3>
+      <p>Please review the Redmine query filters above.</p>
+    </div>
+  <% elsif @priority_risk_rows.empty? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">Report</div>
+      <h3>No priority SLA risk found</h3>
+      <p>No open Urgent / Immediate tickets match the current filters.</p>
+    </div>
+  <% else %>
+    <div class="tj-summary-strip">
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Ticket Owners</div>
+        <div class="tj-sc-value tj-sc-accent"><%= @priority_risk_totals[:owners] %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Priority Open</div>
+        <div class="tj-sc-value tj-sc-blue"><%= priority_risk_count_link(:total_open, @priority_risk_totals[:total_open]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Overdue</div>
+        <div class="tj-sc-value <%= @priority_risk_totals[:overdue].to_i.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= priority_risk_count_link(:overdue, @priority_risk_totals[:overdue]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Stopped</div>
+        <div class="tj-sc-value <%= @priority_risk_totals[:stopped].to_i.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= priority_risk_count_link(:stopped, @priority_risk_totals[:stopped]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Without Due Date</div>
+        <div class="tj-sc-value <%= @priority_risk_totals[:no_due_date].to_i.positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= priority_risk_count_link(:no_due_date, @priority_risk_totals[:no_due_date]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Oldest Age</div>
+        <div class="tj-sc-value tj-sc-red"><%= @priority_risk_totals[:oldest_age] %>d</div>
+      </div>
+    </div>
+
+    <%
+      attention_rows = @priority_owner_rows.select { |row| row[:overdue].positive? || row[:stopped].positive? || row[:no_due_date].positive? }.first(12)
+      max_attention = attention_rows.map { |row| row[:total_open].to_i }.max.to_i
+    %>
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Priority Attention</div>
+      <% if attention_rows.empty? %>
+        <div class="tj-flow-empty-note">No overdue, stopped, or missing-due-date priority tickets for the current filters.</div>
+      <% else %>
+        <div class="tj-workload-bars">
+          <% attention_rows.each do |row| %>
+            <% width = max_attention.positive? ? ((row[:total_open].to_f / max_attention) * 100).round : 0 %>
+            <%= link_to project_issues_path(@project, priority_risk_issue_filter_params(:owner, row)),
+                  class: 'tj-workload-bar-row tj-priority-bar-row',
+                  title: "Open priority tickets for #{row[:owner]}" do %>
+              <span class="tj-workload-bar-label"><%= h(row[:owner]) %></span>
+              <span class="tj-workload-bar-track">
+                <span class="tj-workload-bar-fill" style="width:<%= width %>%"></span>
+              </span>
+              <span class="tj-workload-bar-meta">
+                <strong><%= row[:total_open] %></strong>
+                <span>Overdue <%= row[:overdue] %></span>
+                <span>Stopped <%= row[:stopped] %></span>
+                <span>No Due <%= row[:no_due_date] %></span>
+              </span>
+            <% end %>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Priority SLA Risk Detail</div>
+      <div class="tj-table-wrap">
+        <table class="tj-table tj-priority-risk-table">
+          <thead>
+            <tr>
+              <th class="tj-th-native"><%= priority_risk_sort_link(@query, :issue, 'Issue') %></th>
+              <th class="tj-th-title"><%= priority_risk_sort_link(@query, :subject, 'Subject') %></th>
+              <th class="tj-th-native"><%= priority_risk_sort_link(@query, :owner, 'Ticket Owner') %></th>
+              <th class="tj-th-native"><%= priority_risk_sort_link(@query, :priority, 'Priority') %></th>
+              <th class="tj-th-native"><%= priority_risk_sort_link(@query, :status, 'Status') %></th>
+              <th class="tj-th-native"><%= priority_risk_sort_link(@query, :tracker, 'Tracker') %></th>
+              <th class="tj-th-native"><%= priority_risk_sort_link(@query, :due_date, 'Due Date') %></th>
+              <th class="tj-th-native"><%= priority_risk_sort_link(@query, :age_days, 'Age') %></th>
+              <th class="tj-th-native"><%= priority_risk_sort_link(@query, :overdue, 'Overdue') %></th>
+              <th class="tj-th-native"><%= priority_risk_sort_link(@query, :stopped, 'Stopped') %></th>
+              <th class="tj-th-native"><%= priority_risk_sort_link(@query, :no_due_date, 'No Due Date') %></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @priority_risk_rows.each do |row| %>
+              <tr class="tj-row <%= row[:overdue] ? 'tj-priority-row-risk' : '' %>">
+                <td class="tj-td-native"><%= link_to "##{row[:issue_id]}", issue_path(row[:issue]), class: 'tj-issue-link' %></td>
+                <td class="tj-td-title"><%= link_to row[:subject], ticket_journey_path(@project, issue_id: row[:issue_id], view: 'detail'), class: 'tj-subject-link', title: row[:subject] %></td>
+                <td class="tj-td-native"><%= h(row[:owner]) %></td>
+                <td class="tj-td-native tj-counter-active"><%= h(row[:priority]) %></td>
+                <td class="tj-td-native"><%= h(row[:status]) %></td>
+                <td class="tj-td-native"><%= h(row[:tracker]) %></td>
+                <td class="tj-td-native"><%= row[:due_date].present? ? format_date(row[:due_date]) : '-' %></td>
+                <td class="tj-td-native"><%= row[:age_days] %>d</td>
+                <td class="tj-td-native <%= row[:overdue] ? 'tj-counter-active' : 'tj-counter-zero' %>"><%= row[:overdue] ? 'Yes' : '-' %></td>
+                <td class="tj-td-native <%= row[:stopped] ? 'tj-counter-active' : 'tj-counter-zero' %>"><%= row[:stopped] ? 'Yes' : '-' %></td>
+                <td class="tj-td-native <%= row[:no_due_date] ? 'tj-counter-active' : 'tj-counter-zero' %>"><%= row[:no_due_date] ? 'Yes' : '-' %></td>
+              </tr>
+            <% end %>
+            <tr class="tj-flow-total-row">
+              <td class="tj-td-native">Total</td>
+              <td class="tj-td-title"><%= @priority_risk_totals[:total_open] %> issues</td>
+              <td class="tj-td-native"><%= @priority_risk_totals[:owners] %> owners</td>
+              <td class="tj-td-native">-</td>
+              <td class="tj-td-native">-</td>
+              <td class="tj-td-native">-</td>
+              <td class="tj-td-native">-</td>
+              <td class="tj-td-native"><%= number_with_precision(@priority_risk_totals[:avg_age], precision: 1, strip_insignificant_zeros: true) %>d avg</td>
+              <td class="tj-td-native"><%= @priority_risk_totals[:overdue] %></td>
+              <td class="tj-td-native"><%= @priority_risk_totals[:stopped] %></td>
+              <td class="tj-td-native"><%= @priority_risk_totals[:no_due_date] %></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% end %>
+</div>

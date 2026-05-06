@@ -4,6 +4,7 @@ Rails.application.routes.draw do
     get  'ticket_journey/owner_returns', to: 'ticket_journey#owner_returns', as: 'ticket_journey_owner_returns'
     get  'ticket_journey/owner_workload', to: 'ticket_journey#owner_workload', as: 'ticket_journey_owner_workload'
     get  'ticket_journey/aging_risk', to: 'ticket_journey#aging_risk', as: 'ticket_journey_aging_risk'
+    get  'ticket_journey/priority_risk', to: 'ticket_journey#priority_risk', as: 'ticket_journey_priority_risk'
     get  'ticket_journey/flow_report',  to: 'ticket_journey#flow_report', as: 'ticket_journey_flow_report'
     get  'ticket_journey/project_health', to: 'ticket_journey#project_health', as: 'ticket_journey_project_health'
     get  'ticket_journey/release_readiness', to: 'ticket_journey#release_readiness', as: 'ticket_journey_release_readiness'

@@ -6,6 +6,7 @@ class TicketJourneyController < ApplicationController
   OWNER_RETURN_SORTABLE_FIELDS = %w[owner total_tickets ticket_share done_tickets avg_done_cycle_time avg_priority_done_cycle_time returned_tickets return_rate c1 c2 c3 c4 total_returns].freeze
   OWNER_WORKLOAD_SORTABLE_FIELDS = %w[owner total_open technical_open task_open stopped overdue priority_open no_due_date avg_age oldest_age].freeze
   AGING_RISK_SORTABLE_FIELDS = %w[group total_open bucket_0_7 bucket_8_14 bucket_15_30 bucket_31_60 bucket_60_plus stopped overdue priority_open no_due_date avg_age oldest_age].freeze
+  PRIORITY_RISK_SORTABLE_FIELDS = %w[issue subject owner priority status tracker due_date age_days overdue stopped no_due_date].freeze
   AGING_RISK_GROUP_OPTIONS = {
     'owner' => 'Ticket Owner',
     'tracker' => 'Tracker',
@@ -73,7 +74,7 @@ class TicketJourneyController < ApplicationController
 
   before_action :find_project
   before_action :authorize
-  before_action :build_query, only: [:index, :owner_returns, :owner_workload, :aging_risk, :flow_report, :project_health, :release_readiness, :bug_analysis, :export]
+  before_action :build_query, only: [:index, :owner_returns, :owner_workload, :aging_risk, :priority_risk, :flow_report, :project_health, :release_readiness, :bug_analysis, :export]
   before_action :prepare_owner_role_filter, only: [:owner_returns, :owner_workload, :flow_report]
 
   helper :queries
@@ -109,6 +110,13 @@ class TicketJourneyController < ApplicationController
   def aging_risk
     @aging_group_by = aging_group_by_param
     @aging_risk_rows, @aging_risk_totals = compute_aging_risk_report(@aging_group_by)
+  end
+
+  # ---------------------------------------------------------------
+  # PRIORITY / SLA RISK - urgent/immediate open ticket risk
+  # ---------------------------------------------------------------
+  def priority_risk
+    @priority_risk_rows, @priority_owner_rows, @priority_risk_totals = compute_priority_risk_report
   end
 
   # ---------------------------------------------------------------
@@ -664,6 +672,157 @@ class TicketJourneyController < ApplicationController
     return requested_dir if %w[asc desc].include?(requested_dir)
 
     sort_key == 'group' ? 'asc' : 'desc'
+  end
+
+  def compute_priority_risk_report
+    return [[], [], empty_priority_risk_totals] unless @query&.valid?
+
+    today = User.current.today
+    rows = priority_risk_issues.filter_map do |issue|
+      next unless priority_performance_ticket?(issue)
+
+      owner_value, owner_name = ticket_owner_info(issue)
+      due_date = issue.due_date
+      age_days = [(today - issue.created_on.to_date).to_i, 0].max
+
+      {
+        issue: issue,
+        issue_id: issue.id,
+        subject: issue.subject,
+        owner_value: owner_value,
+        owner: owner_name,
+        priority_id: issue.priority_id,
+        priority: issue.priority&.name.presence || '-',
+        status_id: issue.status_id,
+        status: issue.status&.name.presence || '-',
+        tracker_id: issue.tracker_id,
+        tracker: issue.tracker&.name.presence || '-',
+        due_date: due_date,
+        age_days: age_days,
+        overdue: due_date.present? && due_date < today,
+        stopped: paused_status?(issue.status&.name),
+        no_due_date: due_date.blank?
+      }
+    end
+
+    owner_rows = priority_owner_rows(rows)
+    totals = priority_risk_totals(rows, owner_rows)
+    [sort_priority_risk_rows(rows), owner_rows, totals]
+  end
+
+  def priority_risk_issues
+    @query.issues(
+      order: "#{Issue.table_name}.id ASC",
+      include: [:status, :tracker, :priority, { custom_values: :custom_field }]
+    ).reject { |issue| issue.status&.is_closed? }
+  end
+
+  def priority_owner_rows(rows)
+    grouped = rows.group_by { |row| [row[:owner_value], row[:owner]] }
+
+    grouped.map do |(owner_value, owner_name), owner_issues|
+      {
+        owner_value: owner_value,
+        owner: owner_name,
+        total_open: owner_issues.size,
+        overdue: owner_issues.count { |row| row[:overdue] },
+        stopped: owner_issues.count { |row| row[:stopped] },
+        no_due_date: owner_issues.count { |row| row[:no_due_date] },
+        oldest_age: owner_issues.map { |row| row[:age_days].to_i }.max.to_i
+      }
+    end.sort_by { |row| [-row[:overdue].to_i, -row[:stopped].to_i, -row[:total_open].to_i, row[:owner].to_s.downcase] }
+  end
+
+  def priority_risk_totals(rows, owner_rows)
+    return empty_priority_risk_totals if rows.empty?
+
+    {
+      owners: owner_rows.size,
+      total_open: rows.size,
+      overdue: rows.count { |row| row[:overdue] },
+      stopped: rows.count { |row| row[:stopped] },
+      no_due_date: rows.count { |row| row[:no_due_date] },
+      avg_age: rows.sum { |row| row[:age_days].to_i }.to_f / rows.size,
+      oldest_age: rows.map { |row| row[:age_days].to_i }.max.to_i
+    }
+  end
+
+  def empty_priority_risk_totals
+    {
+      owners: 0,
+      total_open: 0,
+      overdue: 0,
+      stopped: 0,
+      no_due_date: 0,
+      avg_age: 0.0,
+      oldest_age: 0
+    }
+  end
+
+  def sort_priority_risk_rows(rows)
+    sort_key = params[:priority_sort].to_s
+    return default_priority_risk_sort(rows) unless PRIORITY_RISK_SORTABLE_FIELDS.include?(sort_key)
+
+    direction = priority_risk_sort_direction(sort_key)
+    if %w[issue subject owner priority status tracker due_date].include?(sort_key)
+      sorted_rows = rows.sort_by do |row|
+        [
+          priority_risk_sort_comparable(row, sort_key),
+          row[:overdue] ? -1 : 0,
+          row[:stopped] ? -1 : 0,
+          -row[:age_days].to_i,
+          row[:issue_id].to_i
+        ]
+      end
+      return direction == 'desc' ? sorted_rows.reverse : sorted_rows
+    end
+
+    direction_factor = direction == 'asc' ? 1 : -1
+    rows.sort_by do |row|
+      [
+        direction_factor * priority_risk_sort_numeric_value(row, sort_key),
+        row[:overdue] ? -1 : 0,
+        row[:stopped] ? -1 : 0,
+        -row[:age_days].to_i,
+        row[:issue_id].to_i
+      ]
+    end
+  end
+
+  def default_priority_risk_sort(rows)
+    rows.sort_by do |row|
+      [
+        row[:due_date] || Date.new(9999, 12, 31),
+        row[:overdue] ? -1 : 0,
+        row[:stopped] ? -1 : 0,
+        -row[:age_days].to_i,
+        row[:owner].to_s.downcase,
+        row[:issue_id].to_i
+      ]
+    end
+  end
+
+  def priority_risk_sort_comparable(row, sort_key)
+    return row[:issue_id].to_i if sort_key == 'issue'
+    return row[:due_date] || Date.new(9999, 12, 31) if sort_key == 'due_date'
+
+    row[sort_key.to_sym].to_s.downcase
+  end
+
+  def priority_risk_sort_numeric_value(row, sort_key)
+    case sort_key
+    when 'overdue', 'stopped', 'no_due_date'
+      row[sort_key.to_sym] ? 1 : 0
+    else
+      row[sort_key.to_sym].to_f
+    end
+  end
+
+  def priority_risk_sort_direction(sort_key)
+    requested_dir = params[:priority_dir].to_s
+    return requested_dir if %w[asc desc].include?(requested_dir)
+
+    %w[issue subject owner priority status tracker due_date].include?(sort_key) ? 'asc' : 'desc'
   end
 
   def sort_owner_workload_rows(rows)

@@ -68,6 +68,40 @@ module TicketJourneyHelper
     )
   end
 
+  def priority_risk_params(query)
+    query_params = query.as_params.deep_dup.deep_stringify_keys
+
+    %w[priority_sort priority_dir].each do |key|
+      query_params.delete(key)
+      value = params[key]
+      query_params[key] = value if value.present?
+    end
+
+    query_params
+  end
+
+  def priority_risk_sort_link(query, sort_key, caption, title: nil)
+    current_key = params[:priority_sort].to_s
+    current_dir = params[:priority_dir].to_s
+    text_fields = %w[issue subject owner priority status tracker due_date]
+    current_dir = (text_fields.include?(sort_key.to_s) ? 'asc' : 'desc') unless %w[asc desc].include?(current_dir)
+    default_dir = text_fields.include?(sort_key.to_s) ? 'asc' : 'desc'
+    next_dir = current_key == sort_key.to_s && current_dir == default_dir ? (default_dir == 'asc' ? 'desc' : 'asc') : default_dir
+
+    indicator =
+      if current_key == sort_key.to_s
+        current_dir == 'asc' ? ' ^' : ' v'
+      else
+        ''
+      end
+
+    link_to(
+      "#{caption}#{indicator}",
+      ticket_journey_priority_risk_path(@project, priority_risk_params(query).merge('priority_sort' => sort_key.to_s, 'priority_dir' => next_dir)),
+      title: title
+    )
+  end
+
   def flow_report_params(query)
     query_params = query.as_params.deep_dup.deep_stringify_keys
 
@@ -314,6 +348,48 @@ module TicketJourneyHelper
       project_issues_path(@project, aging_risk_issue_filter_params(row, scope)),
       class: 'tj-drilldown-link',
       title: 'Open matching issues'
+    )
+  end
+
+  def priority_risk_issue_filter_params(scope, row = nil)
+    query_params = @query.as_params.deep_dup.deep_stringify_keys
+    filters = Array(query_params['f'] || query_params[:f]).map(&:to_s)
+    operators = (query_params['op'] || query_params[:op] || {}).deep_dup.deep_stringify_keys
+    values = (query_params['v'] || query_params[:v] || {}).deep_dup.deep_stringify_keys
+
+    replace_filter(filters, operators, values, 'status_id')
+    add_status_filter(filters, operators, values, 'o')
+    replace_filter(filters, operators, values, 'priority_id')
+    add_priority_filter(filters, operators, values)
+    add_ticket_owner_filter(filters, operators, values, row[:owner_value]) if row
+
+    case scope.to_sym
+    when :stopped
+      replace_filter(filters, operators, values, 'status_id')
+      add_exact_status_filter(filters, operators, values, stopped_status_filter_values)
+    when :overdue
+      replace_filter(filters, operators, values, 'due_date')
+      add_date_filter(filters, operators, values, 'due_date', '<=', [User.current.today - 1])
+    when :no_due_date
+      replace_filter(filters, operators, values, 'due_date')
+      add_missing_filter(filters, operators, values, 'due_date')
+    end
+
+    query_params['set_filter'] = '1'
+    query_params['f'] = filters
+    query_params['op'] = operators
+    query_params['v'] = values
+    query_params
+  end
+
+  def priority_risk_count_link(scope, value, row = nil)
+    return '-' if value.to_i.zero?
+
+    link_to(
+      value,
+      project_issues_path(@project, priority_risk_issue_filter_params(scope, row)),
+      class: 'tj-drilldown-link',
+      title: 'Open matching priority issues'
     )
   end
 
