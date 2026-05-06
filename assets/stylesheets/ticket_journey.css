@@ -461,6 +461,105 @@
 .tj-drilldown-link:hover {
   text-decoration: underline;
 }
+.tj-release-table {
+  min-width: 1260px;
+}
+.tj-release-table .tj-td-title {
+  text-align: left;
+  min-width: 220px;
+}
+.tj-release-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tj-release-bar-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 300px) minmax(180px, 1fr) 54px;
+  gap: 12px;
+  align-items: center;
+  padding: 7px 8px;
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+.tj-release-bar-row:hover {
+  background: #f7f9ff;
+  text-decoration: none;
+}
+.tj-release-bar-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--tj-text);
+  font-family: 'Courier New', monospace;
+  font-weight: 700;
+}
+.tj-release-bar-track,
+.tj-release-progress {
+  overflow: hidden;
+  border-radius: 999px;
+  background: #eef0f5;
+}
+.tj-release-bar-track {
+  height: 12px;
+}
+.tj-release-progress {
+  height: 7px;
+  margin-bottom: 4px;
+}
+.tj-release-bar-fill,
+.tj-release-progress span {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: 999px;
+  background: var(--tj-green);
+}
+.tj-release-bar-count {
+  color: var(--tj-green);
+  font-family: 'Courier New', monospace;
+  font-weight: 800;
+  text-align: right;
+}
+.tj-release-risk-red .tj-release-bar-fill,
+.tj-release-risk-red .tj-release-progress span {
+  background: var(--tj-red);
+}
+.tj-release-risk-amber .tj-release-bar-fill,
+.tj-release-risk-amber .tj-release-progress span {
+  background: var(--tj-orange);
+}
+.tj-release-risk-neutral .tj-release-bar-fill,
+.tj-release-risk-neutral .tj-release-progress span {
+  background: var(--tj-blue);
+}
+.tj-release-risk-pill {
+  display: inline-block;
+  min-width: 58px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+}
+.tj-release-risk-pill-green {
+  background: #e8f5ec;
+  color: var(--tj-green);
+}
+.tj-release-risk-pill-amber {
+  background: #fff5df;
+  color: var(--tj-orange);
+}
+.tj-release-risk-pill-red {
+  background: var(--tj-red-bg);
+  color: var(--tj-red);
+}
+.tj-release-risk-pill-neutral {
+  background: #eaf2fb;
+  color: var(--tj-blue);
+}
 .tj-table thead tr {
   background: #f0f2f7;
   border-bottom: 2px solid var(--tj-border);

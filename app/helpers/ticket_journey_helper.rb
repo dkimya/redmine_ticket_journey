@@ -39,6 +39,10 @@ module TicketJourneyHelper
     query.as_params.deep_dup.deep_stringify_keys
   end
 
+  def release_readiness_params(query)
+    query.as_params.deep_dup.deep_stringify_keys
+  end
+
   def bug_analysis_params(query)
     query_params = query.as_params.deep_dup.deep_stringify_keys
 
@@ -114,6 +118,59 @@ module TicketJourneyHelper
     @bug_tracker_filter_values ||= Tracker.where(name: 'Bug').pluck(:id).map(&:to_s)
   end
 
+  def release_readiness_issue_filter_params(row, scope)
+    filters = %w[fixed_version_id]
+    operators = { 'fixed_version_id' => '=' }
+    values = { 'fixed_version_id' => [row[:id].to_s] }
+
+    case scope.to_sym
+    when :open
+      add_status_filter(filters, operators, values, 'o')
+    when :done
+      add_status_filter(filters, operators, values, 'c')
+    when :stopped
+      add_exact_status_filter(filters, operators, values, stopped_status_filter_values)
+    when :overdue
+      add_status_filter(filters, operators, values, 'o')
+      add_date_filter(filters, operators, values, 'due_date', '<=', [User.current.today])
+    when :no_owner
+      add_status_filter(filters, operators, values, 'o')
+      add_missing_filter(filters, operators, values, "cf_#{TicketJourneyController::TICKET_OWNER_CF_ID}")
+    when :no_due_date
+      add_status_filter(filters, operators, values, 'o')
+      add_missing_filter(filters, operators, values, 'due_date')
+    when :priority_open
+      add_status_filter(filters, operators, values, 'o')
+      add_priority_filter(filters, operators, values)
+    end
+
+    {
+      set_filter: '1',
+      f: filters,
+      op: operators,
+      v: values
+    }
+  end
+
+  def release_readiness_count_link(row, scope, value)
+    return '-' if value.to_i.zero?
+
+    link_to(
+      value,
+      project_issues_path(@project, release_readiness_issue_filter_params(row, scope)),
+      class: 'tj-drilldown-link',
+      title: 'Open matching issues'
+    )
+  end
+
+  def stopped_status_filter_values
+    @stopped_status_filter_values ||= IssueStatus.where(name: ['Pending', 'On-Hold']).pluck(:id).map(&:to_s)
+  end
+
+  def priority_filter_values
+    @priority_filter_values ||= IssuePriority.where("LOWER(name) LIKE ? OR LOWER(name) LIKE ?", '%urgent%', '%immediate%').pluck(:id).map(&:to_s)
+  end
+
   def add_bug_source_filter(filters, operators, values, reason)
     field_name = "cf_#{TicketJourneyController::BUG_SOURCE_CF_ID}"
     filters << field_name
@@ -131,6 +188,24 @@ module TicketJourneyHelper
     filters << 'status_id'
     operators['status_id'] = operator
     values['status_id'] = ['']
+  end
+
+  def add_exact_status_filter(filters, operators, values, status_ids)
+    filters << 'status_id'
+    operators['status_id'] = '='
+    values['status_id'] = status_ids.presence || ['0']
+  end
+
+  def add_missing_filter(filters, operators, values, field_name)
+    filters << field_name
+    operators[field_name] = '!*'
+    values[field_name] = ['']
+  end
+
+  def add_priority_filter(filters, operators, values)
+    filters << 'priority_id'
+    operators['priority_id'] = '='
+    values['priority_id'] = priority_filter_values.presence || ['0']
   end
 
   def add_date_filter(filters, operators, values, field_name, operator, date_values)

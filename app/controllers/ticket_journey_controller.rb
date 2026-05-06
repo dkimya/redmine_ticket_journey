@@ -57,7 +57,7 @@ class TicketJourneyController < ApplicationController
 
   before_action :find_project
   before_action :authorize
-  before_action :build_query, only: [:index, :owner_returns, :flow_report, :project_health, :bug_analysis, :export]
+  before_action :build_query, only: [:index, :owner_returns, :flow_report, :project_health, :release_readiness, :bug_analysis, :export]
   before_action :prepare_owner_role_filter, only: [:owner_returns, :flow_report]
 
   helper :queries
@@ -103,6 +103,13 @@ class TicketJourneyController < ApplicationController
   # ---------------------------------------------------------------
   def project_health
     @project_health_report = compute_project_health_report
+  end
+
+  # ---------------------------------------------------------------
+  # RELEASE READINESS - target version / release readiness snapshot
+  # ---------------------------------------------------------------
+  def release_readiness
+    @release_readiness_report = compute_release_readiness_report
   end
 
   # ---------------------------------------------------------------
@@ -489,6 +496,90 @@ class TicketJourneyController < ApplicationController
 
   def milestone_tracker?(tracker_name)
     %w[Milestone Milestones].include?(tracker_name.to_s)
+  end
+
+  def compute_release_readiness_report
+    today = User.current.today
+    issues = release_readiness_issues
+    open_issues = issues.reject { |issue| issue.status&.is_closed? }
+    versions = release_readiness_versions
+    issues_by_version_id = issues.select(&:fixed_version_id).group_by(&:fixed_version_id)
+
+    rows = versions.filter_map do |version|
+      version_issues = issues_by_version_id.delete(version.id) || []
+      next if version_issues.empty? && version.status.to_s == 'closed'
+
+      release_readiness_row(version, version_issues, today)
+    end
+
+    rows += issues_by_version_id.filter_map do |version_id, version_issues|
+      version = version_issues.first&.fixed_version
+      version ? release_readiness_row(version, version_issues, today) : nil
+    end
+
+    rows = rows.sort_by { |row| [row[:status] == 'closed' ? 1 : 0, row[:due_date] || Date.new(9999, 12, 31), -row[:open], row[:name].to_s.downcase] }
+    no_target_open = open_issues.count { |issue| issue.fixed_version_id.blank? }
+
+    {
+      report_date: today,
+      project_count: project_and_subproject_ids.size,
+      versions: rows.size,
+      total_assigned: rows.sum { |row| row[:total] },
+      open_assigned: rows.sum { |row| row[:open] },
+      ready_versions: rows.count { |row| row[:total].positive? && row[:open].zero? },
+      at_risk_versions: rows.count { |row| row[:risk] == :red },
+      no_target_open: no_target_open,
+      rows: rows
+    }
+  end
+
+  def release_readiness_issues
+    Issue.includes(:status, :fixed_version, :priority, { custom_values: :custom_field })
+         .where(project_id: project_and_subproject_ids)
+  end
+
+  def release_readiness_versions
+    Version.includes(:project)
+           .where(project_id: project_and_subproject_ids)
+           .order(:effective_date, :name)
+           .to_a
+  end
+
+  def release_readiness_row(version, issues, today)
+    open_issues = issues.reject { |issue| issue.status&.is_closed? }
+    closed_count = issues.size - open_issues.size
+    done_percent = issues.any? ? (closed_count.to_f / issues.size.to_f) : 0.0
+    past_release_date = version.effective_date.present? && version.effective_date < today
+    due_soon = version.effective_date.present? && version.effective_date >= today && version.effective_date <= today + 14
+    overdue_open = open_issues.count { |issue| issue.due_date.present? && issue.due_date < today }
+
+    {
+      id: version.id,
+      name: version.name,
+      project: version.project&.name,
+      status: version.status.to_s.presence || '-',
+      due_date: version.effective_date,
+      total: issues.size,
+      open: open_issues.size,
+      done: closed_count,
+      done_percent: done_percent,
+      stopped: open_issues.count { |issue| paused_status?(issue.status&.name) },
+      overdue: overdue_open,
+      no_owner: open_issues.count { |issue| ticket_owner_info(issue).first.blank? },
+      no_due_date: open_issues.count { |issue| issue.due_date.blank? },
+      priority_open: open_issues.count { |issue| priority_performance_ticket?(issue) },
+      past_release_date: past_release_date,
+      due_soon: due_soon,
+      risk: release_readiness_risk(open_issues.size, past_release_date, due_soon, overdue_open)
+    }
+  end
+
+  def release_readiness_risk(open_count, past_release_date, due_soon, overdue_open)
+    return :green if open_count.zero?
+    return :red if past_release_date || overdue_open.positive?
+    return :amber if due_soon
+
+    :neutral
   end
 
   def bug_analysis_period_dates

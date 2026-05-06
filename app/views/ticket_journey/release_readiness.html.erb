@@ -1,0 +1,126 @@
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'ticket_journey', plugin: 'redmine_ticket_journey' %>
+<% end %>
+
+<div id="tj-wrap">
+  <div class="tj-page-header">
+    <div class="tj-page-header-left">
+      <div>
+        <h2>Release Readiness</h2>
+        <p class="tj-page-sub">Target version readiness snapshot &mdash; <%= @project.name %></p>
+      </div>
+    </div>
+  </div>
+
+  <%= render partial: 'report_tabs', locals: { active_tab: :release_readiness } %>
+
+  <div class="tj-summary-strip">
+    <div class="tj-summary-card">
+      <div class="tj-sc-label">Report Date</div>
+      <div class="tj-sc-value tj-sc-accent"><%= format_date(@release_readiness_report[:report_date]) %></div>
+    </div>
+    <div class="tj-summary-card">
+      <div class="tj-sc-label">Target Versions</div>
+      <div class="tj-sc-value tj-sc-blue"><%= @release_readiness_report[:versions] %></div>
+    </div>
+    <div class="tj-summary-card">
+      <div class="tj-sc-label">Assigned Tickets</div>
+      <div class="tj-sc-value tj-sc-green"><%= @release_readiness_report[:total_assigned] %></div>
+    </div>
+    <div class="tj-summary-card">
+      <div class="tj-sc-label">Open Assigned</div>
+      <div class="tj-sc-value tj-sc-orange"><%= @release_readiness_report[:open_assigned] %></div>
+    </div>
+    <div class="tj-summary-card">
+      <div class="tj-sc-label">Ready Versions</div>
+      <div class="tj-sc-value tj-sc-green"><%= @release_readiness_report[:ready_versions] %></div>
+    </div>
+    <div class="tj-summary-card">
+      <div class="tj-sc-label">At Risk Versions</div>
+      <div class="tj-sc-value tj-sc-red"><%= @release_readiness_report[:at_risk_versions] %></div>
+    </div>
+    <div class="tj-summary-card">
+      <div class="tj-sc-label">Open Without Target</div>
+      <div class="tj-sc-value tj-sc-dim"><%= @release_readiness_report[:no_target_open] %></div>
+    </div>
+  </div>
+
+  <% if @release_readiness_report[:rows].empty? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">Report</div>
+      <h3>No release data found</h3>
+      <p>No target versions with assigned tickets were found in this project or its subprojects.</p>
+    </div>
+  <% else %>
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Readiness by Target Version</div>
+      <div class="tj-release-bars">
+        <% @release_readiness_report[:rows].each do |row| %>
+          <% percent = (row[:done_percent].to_f * 100).round %>
+          <%= link_to project_issues_path(@project, release_readiness_issue_filter_params(row, :open)),
+                class: "tj-release-bar-row tj-release-risk-#{row[:risk]}",
+                title: "Open assigned issues for #{row[:name]}" do %>
+            <span class="tj-release-bar-label"><%= h(row[:name]) %></span>
+            <span class="tj-release-bar-track">
+              <span class="tj-release-bar-fill" style="width:<%= percent %>%"></span>
+            </span>
+            <span class="tj-release-bar-count"><%= percent %>%</span>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Target Version Readiness Detail</div>
+      <div class="tj-table-wrap">
+        <table class="tj-table tj-release-table">
+          <thead>
+            <tr>
+              <th class="tj-th-title">Target Version</th>
+              <th class="tj-th-native">Project</th>
+              <th class="tj-th-native">Due Date</th>
+              <th class="tj-th-native">Status</th>
+              <th class="tj-th-native">Total</th>
+              <th class="tj-th-native">Open</th>
+              <th class="tj-th-native">Done</th>
+              <th class="tj-th-native">Done %</th>
+              <th class="tj-th-native">Stopped</th>
+              <th class="tj-th-native">Overdue</th>
+              <th class="tj-th-native">No Owner</th>
+              <th class="tj-th-native">No Due Date</th>
+              <th class="tj-th-native">Priority Open</th>
+              <th class="tj-th-native">Risk</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @release_readiness_report[:rows].each do |row| %>
+              <tr class="tj-row tj-release-risk-<%= row[:risk] %>">
+                <td class="tj-td-title"><%= h(row[:name]) %></td>
+                <td class="tj-td-native"><%= h(row[:project]) %></td>
+                <td class="tj-td-native"><%= row[:due_date].present? ? format_date(row[:due_date]) : '-' %></td>
+                <td class="tj-td-native"><%= h(row[:status]) %></td>
+                <td class="tj-td-native"><%= release_readiness_count_link(row, :total, row[:total]) %></td>
+                <td class="tj-td-native"><%= release_readiness_count_link(row, :open, row[:open]) %></td>
+                <td class="tj-td-native"><%= release_readiness_count_link(row, :done, row[:done]) %></td>
+                <td class="tj-td-native">
+                  <div class="tj-release-progress">
+                    <span style="width:<%= (row[:done_percent].to_f * 100).round %>%"></span>
+                  </div>
+                  <%= number_to_percentage(row[:done_percent] * 100, precision: 0) %>
+                </td>
+                <td class="tj-td-native"><%= release_readiness_count_link(row, :stopped, row[:stopped]) %></td>
+                <td class="tj-td-native"><%= release_readiness_count_link(row, :overdue, row[:overdue]) %></td>
+                <td class="tj-td-native"><%= release_readiness_count_link(row, :no_owner, row[:no_owner]) %></td>
+                <td class="tj-td-native"><%= release_readiness_count_link(row, :no_due_date, row[:no_due_date]) %></td>
+                <td class="tj-td-native"><%= release_readiness_count_link(row, :priority_open, row[:priority_open]) %></td>
+                <td class="tj-td-native">
+                  <span class="tj-release-risk-pill tj-release-risk-pill-<%= row[:risk] %>"><%= row[:risk].to_s.humanize %></span>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% end %>
+</div>
