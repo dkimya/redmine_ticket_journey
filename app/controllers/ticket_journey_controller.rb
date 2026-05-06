@@ -520,27 +520,39 @@ class TicketJourneyController < ApplicationController
         beginning: 0,
         found: 0,
         closed: 0,
-        remaining: 0
+        remaining: 0,
+        impact_sum: 0,
+        impact_count: 0
       }
     end
 
     bug_list.each do |issue|
       reason = issue.custom_value_for(BUG_SOURCE_CF_ID)&.value.presence || 'No Bug Source'
       row = rows[reason]
+      impact_rating = issue.custom_value_for(BUG_IMPACT_RATING_CF_ID)&.value.to_i
+
+      remaining_at_period_end = issue.created_on <= period_end && !historically_closed?(issue, status_changes[issue.id], period_end, closed_status_ids)
 
       row[:beginning] += 1 if issue.created_on <= period_start && !historically_closed?(issue, status_changes[issue.id], period_start, closed_status_ids)
       row[:found] += 1 if issue.created_on >= period_start && issue.created_on <= period_end
       row[:closed] += 1 if closed_issue_ids.include?(issue.id)
-      row[:remaining] += 1 if issue.created_on <= period_end && !historically_closed?(issue, status_changes[issue.id], period_end, closed_status_ids)
+      row[:remaining] += 1 if remaining_at_period_end
+      if remaining_at_period_end && impact_rating.positive?
+        row[:impact_sum] += impact_rating
+        row[:impact_count] += 1
+      end
     end
 
     totals = {
       beginning: rows.values.sum { |row| row[:beginning] },
       found: rows.values.sum { |row| row[:found] },
       closed: rows.values.sum { |row| row[:closed] },
-      remaining: rows.values.sum { |row| row[:remaining] }
+      remaining: rows.values.sum { |row| row[:remaining] },
+      impact_sum: rows.values.sum { |row| row[:impact_sum] },
+      impact_count: rows.values.sum { |row| row[:impact_count] }
     }
     totals[:change_percent] = bug_start_end_change(totals[:beginning], totals[:remaining])
+    totals[:impact_average] = totals[:impact_count].positive? ? totals[:impact_sum].to_f / totals[:impact_count] : 0.0
 
     report_rows = rows.values.map do |row|
       row.merge(
@@ -548,7 +560,8 @@ class TicketJourneyController < ApplicationController
         found_percent: ratio(row[:found], totals[:found]),
         closed_percent: ratio(row[:closed], totals[:closed]),
         remaining_percent: ratio(row[:remaining], totals[:remaining]),
-        change_percent: bug_start_end_change(row[:beginning], row[:remaining])
+        change_percent: bug_start_end_change(row[:beginning], row[:remaining]),
+        impact_average: row[:impact_count].positive? ? row[:impact_sum].to_f / row[:impact_count] : 0.0
       )
     end.sort_by { |row| [-row[:remaining], -row[:found], row[:reason].to_s.downcase] }
 
@@ -561,7 +574,10 @@ class TicketJourneyController < ApplicationController
       found: 0,
       closed: 0,
       remaining: 0,
-      change_percent: nil
+      change_percent: nil,
+      impact_sum: 0,
+      impact_count: 0,
+      impact_average: 0.0
     }
   end
 

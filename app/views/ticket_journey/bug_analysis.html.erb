@@ -50,6 +50,14 @@
       <div class="tj-sc-label">Remaining</div>
       <div class="tj-sc-value tj-sc-red"><%= @bug_analysis_totals[:remaining] %></div>
     </div>
+    <div class="tj-summary-card">
+      <div class="tj-sc-label">Remaining Impact</div>
+      <div class="tj-sc-value tj-sc-orange"><%= @bug_analysis_totals[:impact_sum] %></div>
+    </div>
+    <div class="tj-summary-card">
+      <div class="tj-sc-label">Avg Remaining Impact</div>
+      <div class="tj-sc-value tj-sc-blue"><%= number_with_precision(@bug_analysis_totals[:impact_average], precision: 1, strip_insignificant_zeros: true) %></div>
+    </div>
   </div>
 
   <% if @bug_analysis_rows.empty? %>
@@ -74,6 +82,8 @@
               <th class="tj-th-native">%</th>
               <th class="tj-th-native">Remaining Bugs</th>
               <th class="tj-th-native">%</th>
+              <th class="tj-th-native">Remaining Impact</th>
+              <th class="tj-th-native">Avg Remaining Impact</th>
               <th class="tj-th-native">Start-End Change</th>
             </tr>
           </thead>
@@ -89,6 +99,8 @@
                 <td class="tj-td-native"><%= number_to_percentage(row[:closed_percent] * 100, precision: 1) %></td>
                 <td class="tj-td-native"><%= row[:remaining].zero? ? '-' : row[:remaining] %></td>
                 <td class="tj-td-native"><%= number_to_percentage(row[:remaining_percent] * 100, precision: 1) %></td>
+                <td class="tj-td-native"><%= row[:impact_sum].zero? ? '-' : row[:impact_sum] %></td>
+                <td class="tj-td-native"><%= row[:impact_count].zero? ? '-' : number_with_precision(row[:impact_average], precision: 1, strip_insignificant_zeros: true) %></td>
                 <td class="tj-td-native <%= row[:change_percent].to_f.positive? ? 'tj-flow-negative' : (row[:change_percent].to_f.negative? ? 'tj-flow-positive' : '') %>">
                   <%= row[:change_percent].nil? ? '-' : number_to_percentage(row[:change_percent] * 100, precision: 1) %>
                 </td>
@@ -104,6 +116,8 @@
               <td class="tj-td-native"><%= @bug_analysis_totals[:closed].positive? ? '100%' : '-' %></td>
               <td class="tj-td-native"><%= @bug_analysis_totals[:remaining] %></td>
               <td class="tj-td-native"><%= @bug_analysis_totals[:remaining].positive? ? '100%' : '-' %></td>
+              <td class="tj-td-native"><%= @bug_analysis_totals[:impact_sum] %></td>
+              <td class="tj-td-native"><%= @bug_analysis_totals[:impact_count].positive? ? number_with_precision(@bug_analysis_totals[:impact_average], precision: 1, strip_insignificant_zeros: true) : '-' %></td>
               <td class="tj-td-native">
                 <%= @bug_analysis_totals[:change_percent].nil? ? '-' : number_to_percentage(@bug_analysis_totals[:change_percent] * 100, precision: 1) %>
               </td>

@@ -391,7 +391,7 @@
   color: var(--tj-text-dim);
 }
 .tj-bug-analysis-table {
-  min-width: 1080px;
+  min-width: 1320px;
 }
 .tj-bug-analysis-table .tj-td-title {
   text-align: left;
