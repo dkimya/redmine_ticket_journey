@@ -14,7 +14,7 @@
 
   <%= render partial: 'report_tabs', locals: { active_tab: :bug_analysis } %>
 
-  <%= form_tag(ticket_journey_bug_analysis_path(@project), method: :get, class: 'tj-filter-bar') do %>
+  <%= form_tag(ticket_journey_bug_analysis_path(@project), method: :get, class: 'tj-filter-bar tj-bug-filter-bar') do %>
     <div class="tj-filter-form">
       <div class="tj-filter-group">
         <label for="bug_start_date">Period Start</label>

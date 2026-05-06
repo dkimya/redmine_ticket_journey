@@ -162,6 +162,16 @@
 .tj-input:focus { border-color: var(--tj-accent); }
 .tj-filter-search .tj-input { width: 200px; }
 .tj-owner-filter-bar { margin-top: 12px; }
+.tj-bug-filter-bar {
+  display: block;
+  margin-bottom: 24px;
+  min-height: 76px;
+  overflow: visible;
+  clear: both;
+}
+.tj-bug-filter-bar + .tj-summary-strip {
+  clear: both;
+}
 .tj-flow-filter-note {
   max-width: 520px;
   color: var(--tj-text-muted);
