@@ -4,6 +4,7 @@ Rails.application.routes.draw do
     get  'ticket_journey/owner_returns', to: 'ticket_journey#owner_returns', as: 'ticket_journey_owner_returns'
     get  'ticket_journey/flow_report',  to: 'ticket_journey#flow_report', as: 'ticket_journey_flow_report'
     get  'ticket_journey/project_health', to: 'ticket_journey#project_health', as: 'ticket_journey_project_health'
+    get  'ticket_journey/bug_analysis', to: 'ticket_journey#bug_analysis', as: 'ticket_journey_bug_analysis'
     get  'ticket_journey/issue/:id',    to: 'ticket_journey#show',     as: 'ticket_journey_issue'
     get  'ticket_journey/export',       to: 'ticket_journey#export',   as: 'ticket_journey_export'
   end

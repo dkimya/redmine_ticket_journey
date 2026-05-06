@@ -1,0 +1,116 @@
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'ticket_journey', plugin: 'redmine_ticket_journey' %>
+<% end %>
+
+<div id="tj-wrap">
+  <div class="tj-page-header">
+    <div class="tj-page-header-left">
+      <div>
+        <h2>Bugs Analysis</h2>
+        <p class="tj-page-sub">Periodic Bug tracker movement by Return Reason &mdash; <%= @project.name %></p>
+      </div>
+    </div>
+  </div>
+
+  <%= render partial: 'report_tabs', locals: { active_tab: :bug_analysis } %>
+
+  <%= form_tag(ticket_journey_bug_analysis_path(@project), method: :get, class: 'tj-filter-bar') do %>
+    <div class="tj-filter-form">
+      <div class="tj-filter-group">
+        <label for="bug_start_date">Period Start</label>
+        <%= date_field_tag :bug_start_date, @bug_start_date, class: 'tj-input' %>
+      </div>
+      <div class="tj-filter-group">
+        <label for="bug_end_date">Period End</label>
+        <%= date_field_tag :bug_end_date, @bug_end_date, class: 'tj-input' %>
+      </div>
+      <div class="tj-filter-group tj-flow-filter-note">
+        <span>Counts Bug tracker issues in the current project and subprojects. Rows are grouped by custom field Return Reason.</span>
+      </div>
+      <div class="tj-filter-group">
+        <%= submit_tag 'Apply', class: 'tj-btn tj-btn-primary' %>
+      </div>
+    </div>
+  <% end %>
+
+  <div class="tj-summary-strip">
+    <div class="tj-summary-card">
+      <div class="tj-sc-label">Beginning Bugs</div>
+      <div class="tj-sc-value tj-sc-dim"><%= @bug_analysis_totals[:beginning] %></div>
+    </div>
+    <div class="tj-summary-card">
+      <div class="tj-sc-label">Found</div>
+      <div class="tj-sc-value tj-sc-orange"><%= @bug_analysis_totals[:found] %></div>
+    </div>
+    <div class="tj-summary-card">
+      <div class="tj-sc-label">Closed</div>
+      <div class="tj-sc-value tj-sc-green"><%= @bug_analysis_totals[:closed] %></div>
+    </div>
+    <div class="tj-summary-card">
+      <div class="tj-sc-label">Remaining</div>
+      <div class="tj-sc-value tj-sc-red"><%= @bug_analysis_totals[:remaining] %></div>
+    </div>
+  </div>
+
+  <% if @bug_analysis_rows.empty? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">Report</div>
+      <h3>No bug data found</h3>
+      <p>No Bug tracker issues were found in this project or its subprojects.</p>
+    </div>
+  <% else %>
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Bug Movement By Return Reason</div>
+      <div class="tj-table-wrap">
+        <table class="tj-table tj-bug-analysis-table">
+          <thead>
+            <tr>
+              <th class="tj-th-title">Return Reason</th>
+              <th class="tj-th-native">Bugs at Beginning</th>
+              <th class="tj-th-native">%</th>
+              <th class="tj-th-native">Bugs Found</th>
+              <th class="tj-th-native">%</th>
+              <th class="tj-th-native">Bugs Closed</th>
+              <th class="tj-th-native">%</th>
+              <th class="tj-th-native">Remaining Bugs</th>
+              <th class="tj-th-native">%</th>
+              <th class="tj-th-native">Start-End Change</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @bug_analysis_rows.each do |row| %>
+              <tr class="tj-row">
+                <td class="tj-td-title"><%= h(row[:reason]) %></td>
+                <td class="tj-td-native"><%= row[:beginning].zero? ? '-' : row[:beginning] %></td>
+                <td class="tj-td-native"><%= number_to_percentage(row[:beginning_percent] * 100, precision: 1) %></td>
+                <td class="tj-td-native"><%= row[:found].zero? ? '-' : row[:found] %></td>
+                <td class="tj-td-native"><%= number_to_percentage(row[:found_percent] * 100, precision: 1) %></td>
+                <td class="tj-td-native"><%= row[:closed].zero? ? '-' : row[:closed] %></td>
+                <td class="tj-td-native"><%= number_to_percentage(row[:closed_percent] * 100, precision: 1) %></td>
+                <td class="tj-td-native"><%= row[:remaining].zero? ? '-' : row[:remaining] %></td>
+                <td class="tj-td-native"><%= number_to_percentage(row[:remaining_percent] * 100, precision: 1) %></td>
+                <td class="tj-td-native <%= row[:change_percent].to_f.positive? ? 'tj-flow-negative' : (row[:change_percent].to_f.negative? ? 'tj-flow-positive' : '') %>">
+                  <%= row[:change_percent].nil? ? '-' : number_to_percentage(row[:change_percent] * 100, precision: 1) %>
+                </td>
+              </tr>
+            <% end %>
+            <tr class="tj-flow-total-row">
+              <td class="tj-td-title tj-total-label">Total Bugs</td>
+              <td class="tj-td-native"><%= @bug_analysis_totals[:beginning] %></td>
+              <td class="tj-td-native"><%= @bug_analysis_totals[:beginning].positive? ? '100%' : '-' %></td>
+              <td class="tj-td-native"><%= @bug_analysis_totals[:found] %></td>
+              <td class="tj-td-native"><%= @bug_analysis_totals[:found].positive? ? '100%' : '-' %></td>
+              <td class="tj-td-native"><%= @bug_analysis_totals[:closed] %></td>
+              <td class="tj-td-native"><%= @bug_analysis_totals[:closed].positive? ? '100%' : '-' %></td>
+              <td class="tj-td-native"><%= @bug_analysis_totals[:remaining] %></td>
+              <td class="tj-td-native"><%= @bug_analysis_totals[:remaining].positive? ? '100%' : '-' %></td>
+              <td class="tj-td-native">
+                <%= @bug_analysis_totals[:change_percent].nil? ? '-' : number_to_percentage(@bug_analysis_totals[:change_percent] * 100, precision: 1) %>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% end %>
+</div>

@@ -54,7 +54,7 @@ class TicketJourneyController < ApplicationController
 
   before_action :find_project
   before_action :authorize
-  before_action :build_query, only: [:index, :owner_returns, :flow_report, :project_health, :export]
+  before_action :build_query, only: [:index, :owner_returns, :flow_report, :project_health, :bug_analysis, :export]
   before_action :prepare_owner_role_filter, only: [:owner_returns, :flow_report]
 
   helper :queries
@@ -100,6 +100,14 @@ class TicketJourneyController < ApplicationController
   # ---------------------------------------------------------------
   def project_health
     @project_health_report = compute_project_health_report
+  end
+
+  # ---------------------------------------------------------------
+  # BUG ANALYSIS - periodic bug movement by return reason
+  # ---------------------------------------------------------------
+  def bug_analysis
+    @bug_start_date, @bug_end_date = bug_analysis_period_dates
+    @bug_analysis_rows, @bug_analysis_totals = compute_bug_analysis_report(@bug_start_date, @bug_end_date)
   end
 
   # ---------------------------------------------------------------
@@ -480,15 +488,135 @@ class TicketJourneyController < ApplicationController
     %w[Milestone Milestones].include?(tracker_name.to_s)
   end
 
-  def flow_period_dates
-    start_date = parse_flow_date(params[:flow_start_date]) || (User.current.today - 13)
-    end_date = parse_flow_date(params[:flow_end_date]) || User.current.today
+  def bug_analysis_period_dates
+    start_date = parse_report_date(params[:bug_start_date]) || (User.current.today - 13)
+    end_date = parse_report_date(params[:bug_end_date]) || User.current.today
 
     start_date, end_date = end_date, start_date if start_date > end_date
     [start_date, end_date]
   end
 
-  def parse_flow_date(value)
+  def compute_bug_analysis_report(start_date, end_date)
+    bugs = Issue.includes(:status, :tracker, { custom_values: :custom_field })
+                .where(project_id: project_and_subproject_ids)
+                .joins(:tracker)
+                .where(trackers: { name: 'Bug' })
+
+    bug_list = bugs.to_a
+    return [[], empty_bug_analysis_totals] if bug_list.empty?
+
+    issue_ids = bug_list.map(&:id)
+    status_changes = load_attribute_changes(issue_ids, 'status_id')
+    closed_status_ids = bug_terminal_status_ids
+    period_start = start_date.beginning_of_day
+    period_end = end_date.end_of_day
+    closed_issue_ids = bug_closed_issue_ids(issue_ids, closed_status_ids, period_start, period_end)
+
+    rows = Hash.new do |hash, reason|
+      hash[reason] = {
+        reason: reason,
+        beginning: 0,
+        found: 0,
+        closed: 0,
+        remaining: 0
+      }
+    end
+
+    bug_list.each do |issue|
+      reason = issue.custom_value_for(RETURN_REASON_CF_ID)&.value.presence || 'No Return Reason'
+      row = rows[reason]
+
+      row[:beginning] += 1 if issue.created_on <= period_start && !historically_closed?(issue, status_changes[issue.id], period_start, closed_status_ids)
+      row[:found] += 1 if issue.created_on >= period_start && issue.created_on <= period_end
+      row[:closed] += 1 if closed_issue_ids.include?(issue.id)
+      row[:remaining] += 1 if issue.created_on <= period_end && !historically_closed?(issue, status_changes[issue.id], period_end, closed_status_ids)
+    end
+
+    totals = {
+      beginning: rows.values.sum { |row| row[:beginning] },
+      found: rows.values.sum { |row| row[:found] },
+      closed: rows.values.sum { |row| row[:closed] },
+      remaining: rows.values.sum { |row| row[:remaining] }
+    }
+    totals[:change_percent] = bug_start_end_change(totals[:beginning], totals[:remaining])
+
+    report_rows = rows.values.map do |row|
+      row.merge(
+        beginning_percent: ratio(row[:beginning], totals[:beginning]),
+        found_percent: ratio(row[:found], totals[:found]),
+        closed_percent: ratio(row[:closed], totals[:closed]),
+        remaining_percent: ratio(row[:remaining], totals[:remaining]),
+        change_percent: bug_start_end_change(row[:beginning], row[:remaining])
+      )
+    end.sort_by { |row| [-row[:remaining], -row[:found], row[:reason].to_s.downcase] }
+
+    [report_rows, totals]
+  end
+
+  def empty_bug_analysis_totals
+    {
+      beginning: 0,
+      found: 0,
+      closed: 0,
+      remaining: 0,
+      change_percent: nil
+    }
+  end
+
+  def bug_terminal_status_ids
+    IssueStatus.where(is_closed: true)
+               .or(IssueStatus.where(name: STATUS_NAMES.fetch(:done) + STATUS_NAMES.fetch(:archived)))
+               .pluck(:id)
+               .map(&:to_s)
+  end
+
+  def bug_closed_issue_ids(issue_ids, closed_status_ids, period_start, period_end)
+    require 'set'
+    return Set.new if issue_ids.empty? || closed_status_ids.empty?
+
+    Set.new(
+      JournalDetail.joins(:journal)
+                   .where(
+                     journals: {
+                       journalized_type: 'Issue',
+                       journalized_id: issue_ids,
+                       created_on: period_start..period_end
+                     },
+                     property: 'attr',
+                     prop_key: 'status_id',
+                     value: closed_status_ids
+                   )
+                   .pluck('journals.journalized_id')
+                   .map(&:to_i)
+    )
+  end
+
+  def historically_closed?(issue, changes, snapshot_time, closed_status_ids)
+    status_id = historical_attribute_value(issue.status_id, changes, snapshot_time)
+    closed_status_ids.include?(status_id.to_s)
+  end
+
+  def ratio(numerator, denominator)
+    return 0.0 if denominator.to_f <= 0
+
+    numerator.to_f / denominator.to_f
+  end
+
+  def bug_start_end_change(beginning, remaining)
+    return nil if beginning.to_i <= 0
+
+    (remaining.to_f - beginning.to_f) / beginning.to_f
+  end
+
+  def flow_period_dates
+    start_date = parse_report_date(params[:flow_start_date]) || (User.current.today - 13)
+    end_date = parse_report_date(params[:flow_end_date]) || User.current.today
+
+    start_date, end_date = end_date, start_date if start_date > end_date
+    [start_date, end_date]
+  end
+
+  def parse_report_date(value)
     return if value.blank?
 
     Date.parse(value.to_s)

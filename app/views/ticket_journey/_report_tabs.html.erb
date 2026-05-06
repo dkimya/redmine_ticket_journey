@@ -3,6 +3,7 @@
   owner_params = owner_returns_params(@query)
   flow_params = flow_report_params(@query)
   health_params = project_health_params(@query)
+  bug_params = bug_analysis_params(@query)
   duration_params = duration_params.except('issue_id', 'view')
   detail_params =
     if @issue.present?
@@ -27,4 +28,7 @@
   <%= link_to 'Project Health',
         ticket_journey_project_health_path(@project, health_params),
         class: "tj-report-tab #{active_tab == :project_health ? 'is-active' : ''}" %>
+  <%= link_to 'Bugs Analysis',
+        ticket_journey_bug_analysis_path(@project, bug_params),
+        class: "tj-report-tab #{active_tab == :bug_analysis ? 'is-active' : ''}" %>
 </div>

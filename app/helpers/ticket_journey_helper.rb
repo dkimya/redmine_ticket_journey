@@ -39,6 +39,18 @@ module TicketJourneyHelper
     query.as_params.deep_dup.deep_stringify_keys
   end
 
+  def bug_analysis_params(query)
+    query_params = query.as_params.deep_dup.deep_stringify_keys
+
+    %w[bug_start_date bug_end_date].each do |key|
+      query_params.delete(key)
+      value = params[key]
+      query_params[key] = value if value.present?
+    end
+
+    query_params
+  end
+
   def issue_detail_params(query, issue)
     duration_report_params(query).merge('issue_id' => issue.id, 'view' => 'detail')
   end

@@ -390,6 +390,13 @@
   text-align: right;
   color: var(--tj-text-dim);
 }
+.tj-bug-analysis-table {
+  min-width: 1080px;
+}
+.tj-bug-analysis-table .tj-td-title {
+  text-align: left;
+  min-width: 240px;
+}
 .tj-table thead tr {
   background: #f0f2f7;
   border-bottom: 2px solid var(--tj-border);
