@@ -206,12 +206,13 @@ module TicketJourneyHelper
 
   def owner_workload_issue_filter_params(row, scope)
     query_params = @query.as_params.deep_dup.deep_stringify_keys
-    filters = Array(query_params['f']).map(&:to_s)
-    operators = (query_params['op'] || {}).deep_dup
-    values = (query_params['v'] || {}).deep_dup
+    filters = Array(query_params['f'] || query_params[:f]).map(&:to_s)
+    operators = (query_params['op'] || query_params[:op] || {}).deep_dup.deep_stringify_keys
+    values = (query_params['v'] || query_params[:v] || {}).deep_dup.deep_stringify_keys
 
     add_ticket_owner_filter(filters, operators, values, row[:owner_value])
-    add_status_filter(filters, operators, values, 'o') unless filters.include?('status_id')
+    replace_filter(filters, operators, values, 'status_id')
+    add_status_filter(filters, operators, values, 'o')
 
     case scope.to_sym
     when :technical_open
@@ -237,6 +238,10 @@ module TicketJourneyHelper
     query_params['op'] = operators
     query_params['v'] = values
     query_params
+  end
+
+  def owner_workload_duration_filter_params(row, scope = :total_open)
+    owner_workload_issue_filter_params(row, scope).except('report_sort', 'report_dir', 'report_family')
   end
 
   def owner_workload_count_link(row, scope, value)
@@ -338,9 +343,13 @@ module TicketJourneyHelper
   end
 
   def replace_filter(filters, operators, values, field_name)
-    filters.delete(field_name)
-    operators.delete(field_name)
-    values.delete(field_name)
+    field_key = field_name.to_s
+    filters.delete(field_key)
+    filters.delete(field_key.to_sym)
+    operators.delete(field_key)
+    operators.delete(field_key.to_sym)
+    values.delete(field_key)
+    values.delete(field_key.to_sym)
   end
 
   def add_date_filter(filters, operators, values, field_name, operator, date_values)

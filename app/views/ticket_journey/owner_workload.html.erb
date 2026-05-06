@@ -84,7 +84,7 @@
         <div class="tj-workload-bars">
           <% attention_rows.each do |row| %>
             <% width = max_attention.positive? ? ((row[:total_open].to_f / max_attention) * 100).round : 0 %>
-            <%= link_to ticket_journey_path(@project, ticket_owner_filter_params(@query, row[:owner_value])),
+            <%= link_to ticket_journey_path(@project, owner_workload_duration_filter_params(row)),
                   class: 'tj-workload-bar-row',
                   title: "Open workload for #{row[:owner]}" do %>
               <span class="tj-workload-bar-label"><%= h(row[:owner]) %></span>
@@ -125,7 +125,7 @@
               <tr class="tj-row">
                 <td class="tj-td-title">
                   <%= link_to row[:owner],
-                        ticket_journey_path(@project, ticket_owner_filter_params(@query, row[:owner_value])),
+                        ticket_journey_path(@project, owner_workload_duration_filter_params(row)),
                         class: 'tj-subject-link' %>
                 </td>
                 <td class="tj-td-native"><%= owner_workload_count_link(row, :total_open, row[:total_open]) %></td>
