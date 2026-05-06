@@ -390,6 +390,7 @@ class TicketJourneyController < ApplicationController
   def technical_health_block(issues)
     {
       title: 'Open Technical Tickets',
+      note: 'Open Bug, Change Request / Improvement, and Feature tickets.',
       total: issues.size,
       rows: [
         health_metric('Backlog', issues.count { |issue| status_role(issue.status&.name) == :new }, issues.size),
@@ -403,6 +404,7 @@ class TicketJourneyController < ApplicationController
   def planned_health_block(issues)
     {
       title: 'Open Planned Tickets Health',
+      note: 'Open active non-container tickets; checks missing owner, start date, due date, and PM estimation.',
       total: issues.size,
       rows: [
         health_metric('Without Owner', issues.count { |issue| ticket_owner_info(issue).first.blank? }, issues.size),
@@ -416,6 +418,7 @@ class TicketJourneyController < ApplicationController
   def task_health_block(issues)
     {
       title: 'Open Tasks (Business Jobs)',
+      note: 'Open Task / Task (Business Jobs) tickets. Stopped means Pending or On-Hold.',
       total: issues.size,
       rows: [
         health_metric('To Do Tasks', issues.count { |issue| %i[new todo].include?(status_role(issue.status&.name)) }, issues.size),
@@ -429,6 +432,7 @@ class TicketJourneyController < ApplicationController
   def milestone_health_block(issues)
     {
       title: 'Open Milestones',
+      note: 'Open Milestone / Milestones tracker tickets. Stopped means Pending or On-Hold.',
       total: issues.size,
       rows: [
         health_metric('To-Do Milestones', issues.count { |issue| %i[new todo].include?(status_role(issue.status&.name)) }, issues.size),

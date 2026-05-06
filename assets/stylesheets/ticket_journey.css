@@ -359,6 +359,13 @@
   font-weight: 800;
   line-height: 1;
 }
+.tj-health-note {
+  min-height: 34px;
+  margin: -4px 0 10px;
+  color: var(--tj-text-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
 .tj-health-table {
   width: 100%;
   border-collapse: collapse;
