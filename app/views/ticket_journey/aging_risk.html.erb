@@ -1,0 +1,165 @@
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'ticket_journey', plugin: 'redmine_ticket_journey' %>
+<% end %>
+
+<div id="tj-wrap">
+  <div class="tj-page-header">
+    <div class="tj-page-header-left">
+      <div>
+        <h2>Aging / SLA Risk</h2>
+        <p class="tj-page-sub">Current open issue aging and risk snapshot &mdash; <%= @project.name %></p>
+      </div>
+    </div>
+  </div>
+
+  <%= render partial: 'report_tabs', locals: { active_tab: :aging_risk } %>
+
+  <%= form_tag(ticket_journey_aging_risk_path(@project), method: :get, id: 'query_form') do %>
+    <%= render partial: 'queries/query_form' %>
+
+    <div class="tj-filter-bar tj-owner-filter-bar">
+      <div class="tj-filter-form">
+        <div class="tj-filter-group">
+          <label for="aging_group_by">Group By</label>
+          <%= select_tag :aging_group_by,
+                options_for_select(TicketJourneyController::AGING_RISK_GROUP_OPTIONS.map { |value, label| [label, value] }, @aging_group_by),
+                class: 'tj-input',
+                onchange: 'this.form.submit();' %>
+        </div>
+        <div class="tj-filter-group tj-flow-filter-note">
+          <span>Uses the Redmine filters above, then summarizes currently open issues by age bucket and risk flags. Age is counted from issue creation date.</span>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <% if !@query.valid? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">Report</div>
+      <h3>Invalid filters</h3>
+      <p>Please review the Redmine query filters above.</p>
+    </div>
+  <% elsif @aging_risk_rows.empty? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">Report</div>
+      <h3>No aging risk data found</h3>
+      <p>Try adjusting the Redmine query filters above.</p>
+    </div>
+  <% else %>
+    <div class="tj-summary-strip">
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Groups</div>
+        <div class="tj-sc-value tj-sc-accent"><%= @aging_risk_totals[:groups] %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Total Open</div>
+        <div class="tj-sc-value tj-sc-blue"><%= @aging_risk_totals[:total_open] %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">30d+ Open</div>
+        <div class="tj-sc-value <%= (@aging_risk_totals[:bucket_31_60].to_i + @aging_risk_totals[:bucket_60_plus].to_i).positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= @aging_risk_totals[:bucket_31_60].to_i + @aging_risk_totals[:bucket_60_plus].to_i %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">60d+ Open</div>
+        <div class="tj-sc-value <%= @aging_risk_totals[:bucket_60_plus].to_i.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= @aging_risk_totals[:bucket_60_plus] %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Overdue</div>
+        <div class="tj-sc-value <%= @aging_risk_totals[:overdue].to_i.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= @aging_risk_totals[:overdue] %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Stopped</div>
+        <div class="tj-sc-value <%= @aging_risk_totals[:stopped].to_i.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= @aging_risk_totals[:stopped] %></div>
+      </div>
+    </div>
+
+    <%
+      attention_rows = @aging_risk_rows
+        .select { |row| row[:bucket_60_plus].positive? || row[:bucket_31_60].positive? || row[:overdue].positive? || row[:stopped].positive? }
+        .sort_by { |row| [-(row[:bucket_60_plus].to_i + row[:bucket_31_60].to_i), -row[:overdue].to_i, -row[:stopped].to_i, -row[:total_open].to_i, row[:group].to_s.downcase] }
+        .first(12)
+      max_attention = attention_rows.map { |row| row[:total_open].to_i }.max.to_i
+    %>
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Aging Attention</div>
+      <% if attention_rows.empty? %>
+        <div class="tj-flow-empty-note">No 30d+, overdue, or stopped open issues for the current filters.</div>
+      <% else %>
+        <div class="tj-workload-bars">
+          <% attention_rows.each do |row| %>
+            <% width = max_attention.positive? ? ((row[:total_open].to_f / max_attention) * 100).round : 0 %>
+            <%= link_to project_issues_path(@project, aging_risk_issue_filter_params(row, :total_open)),
+                  class: 'tj-workload-bar-row tj-aging-bar-row',
+                  title: "Open issues for #{row[:group]}" do %>
+              <span class="tj-workload-bar-label"><%= h(row[:group]) %></span>
+              <span class="tj-workload-bar-track">
+                <span class="tj-workload-bar-fill" style="width:<%= width %>%"></span>
+              </span>
+              <span class="tj-workload-bar-meta">
+                <strong><%= row[:total_open] %></strong>
+                <span>60d+ <%= row[:bucket_60_plus] %></span>
+                <span>Overdue <%= row[:overdue] %></span>
+                <span>Stopped <%= row[:stopped] %></span>
+              </span>
+            <% end %>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Aging Risk Detail</div>
+      <div class="tj-table-wrap">
+        <table class="tj-table tj-aging-risk-table">
+          <thead>
+            <tr>
+              <th class="tj-th-title"><%= aging_risk_sort_link(@query, :group, TicketJourneyController::AGING_RISK_GROUP_OPTIONS.fetch(@aging_group_by)) %></th>
+              <th class="tj-th-native"><%= aging_risk_sort_link(@query, :total_open, 'Total Open') %></th>
+              <% TicketJourneyController::AGING_BUCKETS.each do |bucket| %>
+                <th class="tj-th-native"><%= aging_risk_sort_link(@query, bucket[:key], bucket[:label]) %></th>
+              <% end %>
+              <th class="tj-th-native"><%= aging_risk_sort_link(@query, :stopped, 'Stopped', title: 'Open issues currently Pending or On-Hold') %></th>
+              <th class="tj-th-native"><%= aging_risk_sort_link(@query, :overdue, 'Overdue') %></th>
+              <th class="tj-th-native"><%= aging_risk_sort_link(@query, :priority_open, 'Priority Open', title: 'Open Urgent or Immediate issues') %></th>
+              <th class="tj-th-native"><%= aging_risk_sort_link(@query, :no_due_date, 'Without Due Date') %></th>
+              <th class="tj-th-native"><%= aging_risk_sort_link(@query, :avg_age, 'Avg Age') %></th>
+              <th class="tj-th-native"><%= aging_risk_sort_link(@query, :oldest_age, 'Oldest Age') %></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @aging_risk_rows.each do |row| %>
+              <tr class="tj-row">
+                <td class="tj-td-title"><%= h(row[:group]) %></td>
+                <td class="tj-td-native"><%= aging_risk_count_link(row, :total_open, row[:total_open]) %></td>
+                <% TicketJourneyController::AGING_BUCKETS.each do |bucket| %>
+                  <td class="tj-td-native <%= bucket[:key] == :bucket_60_plus && row[bucket[:key]].positive? ? 'tj-counter-active' : '' %>">
+                    <%= aging_risk_count_link(row, bucket[:key], row[bucket[:key]]) %>
+                  </td>
+                <% end %>
+                <td class="tj-td-native <%= row[:stopped].positive? ? 'tj-counter-active' : 'tj-counter-zero' %>"><%= aging_risk_count_link(row, :stopped, row[:stopped]) %></td>
+                <td class="tj-td-native <%= row[:overdue].positive? ? 'tj-counter-active' : 'tj-counter-zero' %>"><%= aging_risk_count_link(row, :overdue, row[:overdue]) %></td>
+                <td class="tj-td-native"><%= aging_risk_count_link(row, :priority_open, row[:priority_open]) %></td>
+                <td class="tj-td-native"><%= aging_risk_count_link(row, :no_due_date, row[:no_due_date]) %></td>
+                <td class="tj-td-native"><%= number_with_precision(row[:avg_age], precision: 1, strip_insignificant_zeros: true) %>d</td>
+                <td class="tj-td-native"><%= row[:oldest_age] %>d</td>
+              </tr>
+            <% end %>
+            <tr class="tj-flow-total-row">
+              <td class="tj-td-title tj-total-label">Total</td>
+              <td class="tj-td-native"><%= @aging_risk_totals[:total_open] %></td>
+              <% TicketJourneyController::AGING_BUCKETS.each do |bucket| %>
+                <td class="tj-td-native"><%= @aging_risk_totals[bucket[:key]] %></td>
+              <% end %>
+              <td class="tj-td-native"><%= @aging_risk_totals[:stopped] %></td>
+              <td class="tj-td-native"><%= @aging_risk_totals[:overdue] %></td>
+              <td class="tj-td-native"><%= @aging_risk_totals[:priority_open] %></td>
+              <td class="tj-td-native"><%= @aging_risk_totals[:no_due_date] %></td>
+              <td class="tj-td-native"><%= number_with_precision(@aging_risk_totals[:avg_age], precision: 1, strip_insignificant_zeros: true) %>d</td>
+              <td class="tj-td-native"><%= @aging_risk_totals[:oldest_age] %>d</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% end %>
+</div>

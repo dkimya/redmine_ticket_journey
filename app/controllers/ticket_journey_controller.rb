@@ -5,6 +5,20 @@ class TicketJourneyController < ApplicationController
   RETURN_REASON_CF_ID = 66
   OWNER_RETURN_SORTABLE_FIELDS = %w[owner total_tickets ticket_share done_tickets avg_done_cycle_time avg_priority_done_cycle_time returned_tickets return_rate c1 c2 c3 c4 total_returns].freeze
   OWNER_WORKLOAD_SORTABLE_FIELDS = %w[owner total_open technical_open task_open stopped overdue priority_open no_due_date avg_age oldest_age].freeze
+  AGING_RISK_SORTABLE_FIELDS = %w[group total_open bucket_0_7 bucket_8_14 bucket_15_30 bucket_31_60 bucket_60_plus stopped overdue priority_open no_due_date avg_age oldest_age].freeze
+  AGING_RISK_GROUP_OPTIONS = {
+    'owner' => 'Ticket Owner',
+    'tracker' => 'Tracker',
+    'status' => 'Status',
+    'priority' => 'Priority'
+  }.freeze
+  AGING_BUCKETS = [
+    { key: :bucket_0_7, label: '0-7d', min: 0, max: 7 },
+    { key: :bucket_8_14, label: '8-14d', min: 8, max: 14 },
+    { key: :bucket_15_30, label: '15-30d', min: 15, max: 30 },
+    { key: :bucket_31_60, label: '31-60d', min: 31, max: 60 },
+    { key: :bucket_60_plus, label: '60d+', min: 61, max: nil }
+  ].freeze
   BUG_ANALYSIS_SORTABLE_FIELDS = %w[reason beginning beginning_percent found found_percent closed closed_percent remaining remaining_percent impact_sum impact_average change_percent].freeze
   RELEASE_READINESS_SORTABLE_FIELDS = %w[name project due_date status total open done done_percent stopped overdue no_owner no_due_date priority_open risk].freeze
   PROJECT_HEALTH_ACTIVE_STATUS_ROLES = %i[todo in_progress feedback review ready_merge final_check].freeze
@@ -59,7 +73,7 @@ class TicketJourneyController < ApplicationController
 
   before_action :find_project
   before_action :authorize
-  before_action :build_query, only: [:index, :owner_returns, :owner_workload, :flow_report, :project_health, :release_readiness, :bug_analysis, :export]
+  before_action :build_query, only: [:index, :owner_returns, :owner_workload, :aging_risk, :flow_report, :project_health, :release_readiness, :bug_analysis, :export]
   before_action :prepare_owner_role_filter, only: [:owner_returns, :owner_workload, :flow_report]
 
   helper :queries
@@ -87,6 +101,14 @@ class TicketJourneyController < ApplicationController
   # ---------------------------------------------------------------
   def owner_workload
     @owner_workload_rows, @owner_workload_totals = compute_owner_workload_report(role_id: @selected_owner_role&.id)
+  end
+
+  # ---------------------------------------------------------------
+  # AGING / SLA RISK - current open issue age buckets and risk flags
+  # ---------------------------------------------------------------
+  def aging_risk
+    @aging_group_by = aging_group_by_param
+    @aging_risk_rows, @aging_risk_totals = compute_aging_risk_report(@aging_group_by)
   end
 
   # ---------------------------------------------------------------
@@ -483,6 +505,165 @@ class TicketJourneyController < ApplicationController
       order: "#{Issue.table_name}.id ASC",
       include: [:status, :tracker, :priority, { custom_values: :custom_field }]
     ).reject { |issue| issue.status&.is_closed? }
+  end
+
+  def compute_aging_risk_report(group_by)
+    return [[], empty_aging_risk_totals] unless @query&.valid?
+
+    today = User.current.today
+    rows = Hash.new do |hash, group_key|
+      group_value, group_label = group_key
+      hash[group_key] = empty_aging_risk_row(group_by, group_value, group_label)
+    end
+
+    aging_risk_issues.each do |issue|
+      group_value, group_label = aging_group_value(issue, group_by)
+      row = rows[[group_value, group_label]]
+      age_days = [(today - issue.created_on.to_date).to_i, 0].max
+      bucket_key = aging_bucket_key(age_days)
+
+      row[:total_open] += 1
+      row[bucket_key] += 1 if bucket_key
+      row[:stopped] += 1 if paused_status?(issue.status&.name)
+      row[:overdue] += 1 if issue.due_date.present? && issue.due_date < today
+      row[:priority_open] += 1 if priority_performance_ticket?(issue)
+      row[:no_due_date] += 1 if issue.due_date.blank?
+      row[:age_sum] += age_days
+      row[:oldest_age] = [row[:oldest_age], age_days].max
+    end
+
+    report_rows = rows.values.map do |row|
+      row[:avg_age] = row[:total_open].positive? ? row[:age_sum].to_f / row[:total_open] : 0.0
+      row
+    end
+
+    totals = aging_risk_totals(report_rows)
+    [sort_aging_risk_rows(report_rows), totals]
+  end
+
+  def aging_risk_issues
+    @query.issues(
+      order: "#{Issue.table_name}.id ASC",
+      include: [:status, :tracker, :priority, { custom_values: :custom_field }]
+    ).reject { |issue| issue.status&.is_closed? }
+  end
+
+  def empty_aging_risk_row(group_by, group_value, group_label)
+    {
+      group_by: group_by,
+      group_value: group_value,
+      group: group_label,
+      total_open: 0,
+      bucket_0_7: 0,
+      bucket_8_14: 0,
+      bucket_15_30: 0,
+      bucket_31_60: 0,
+      bucket_60_plus: 0,
+      stopped: 0,
+      overdue: 0,
+      priority_open: 0,
+      no_due_date: 0,
+      age_sum: 0,
+      avg_age: 0.0,
+      oldest_age: 0
+    }
+  end
+
+  def empty_aging_risk_totals
+    {
+      groups: 0,
+      total_open: 0,
+      bucket_0_7: 0,
+      bucket_8_14: 0,
+      bucket_15_30: 0,
+      bucket_31_60: 0,
+      bucket_60_plus: 0,
+      stopped: 0,
+      overdue: 0,
+      priority_open: 0,
+      no_due_date: 0,
+      avg_age: 0.0,
+      oldest_age: 0
+    }
+  end
+
+  def aging_risk_totals(rows)
+    totals = empty_aging_risk_totals
+    totals[:groups] = rows.size
+    %i[total_open bucket_0_7 bucket_8_14 bucket_15_30 bucket_31_60 bucket_60_plus stopped overdue priority_open no_due_date].each do |key|
+      totals[key] = rows.sum { |row| row[key].to_i }
+    end
+
+    age_sum = rows.sum { |row| row[:age_sum].to_i }
+    totals[:avg_age] = totals[:total_open].positive? ? age_sum.to_f / totals[:total_open] : 0.0
+    totals[:oldest_age] = rows.map { |row| row[:oldest_age].to_i }.max.to_i
+    totals
+  end
+
+  def aging_group_by_param
+    group_by = params[:aging_group_by].to_s
+    AGING_RISK_GROUP_OPTIONS.key?(group_by) ? group_by : 'owner'
+  end
+
+  def aging_group_value(issue, group_by)
+    case group_by
+    when 'tracker'
+      [issue.tracker_id, issue.tracker&.name.presence || 'No Tracker']
+    when 'status'
+      [issue.status_id, issue.status&.name.presence || 'No Status']
+    when 'priority'
+      [issue.priority_id, issue.priority&.name.presence || 'No Priority']
+    else
+      ticket_owner_info(issue)
+    end
+  end
+
+  def aging_bucket_key(age_days)
+    AGING_BUCKETS.find do |bucket|
+      age_days >= bucket[:min] && (bucket[:max].nil? || age_days <= bucket[:max])
+    end&.dig(:key)
+  end
+
+  def sort_aging_risk_rows(rows)
+    sort_key = params[:aging_sort].to_s
+    return default_aging_risk_sort(rows) unless AGING_RISK_SORTABLE_FIELDS.include?(sort_key)
+
+    if sort_key == 'group'
+      sorted_rows = rows.sort_by { |row| [row[:group].to_s.downcase, -row[:total_open].to_i] }
+      return aging_risk_sort_direction(sort_key) == 'desc' ? sorted_rows.reverse : sorted_rows
+    end
+
+    direction_factor = aging_risk_sort_direction(sort_key) == 'asc' ? 1 : -1
+    rows.sort_by do |row|
+      [
+        direction_factor * row[sort_key.to_sym].to_f,
+        -row[:bucket_60_plus].to_i,
+        -row[:bucket_31_60].to_i,
+        -row[:overdue].to_i,
+        -row[:total_open].to_i,
+        row[:group].to_s.downcase
+      ]
+    end
+  end
+
+  def default_aging_risk_sort(rows)
+    rows.sort_by do |row|
+      [
+        -row[:bucket_60_plus].to_i,
+        -row[:bucket_31_60].to_i,
+        -row[:overdue].to_i,
+        -row[:stopped].to_i,
+        -row[:total_open].to_i,
+        row[:group].to_s.downcase
+      ]
+    end
+  end
+
+  def aging_risk_sort_direction(sort_key)
+    requested_dir = params[:aging_dir].to_s
+    return requested_dir if %w[asc desc].include?(requested_dir)
+
+    sort_key == 'group' ? 'asc' : 'desc'
   end
 
   def sort_owner_workload_rows(rows)
