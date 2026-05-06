@@ -1,0 +1,193 @@
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'ticket_journey', plugin: 'redmine_ticket_journey' %>
+<% end %>
+
+<div id="tj-wrap">
+  <div class="tj-page-header">
+    <div class="tj-page-header-left">
+      <div>
+        <h2>Cycle Distribution</h2>
+        <p class="tj-page-sub">Completed ticket cycle-time distribution &mdash; <%= @project.name %></p>
+      </div>
+    </div>
+  </div>
+
+  <%= render partial: 'report_tabs', locals: { active_tab: :cycle_distribution } %>
+
+  <%= form_tag(ticket_journey_cycle_distribution_path(@project), method: :get, id: 'query_form') do %>
+    <%= render partial: 'queries/query_form' %>
+
+    <div class="tj-filter-bar tj-owner-filter-bar">
+      <div class="tj-filter-form">
+        <div class="tj-filter-group">
+          <label for="cycle_group_by">Group By</label>
+          <%= select_tag :cycle_group_by,
+                options_for_select(TicketJourneyController::CYCLE_DISTRIBUTION_GROUP_OPTIONS.map { |value, label| [label, value] }, @cycle_group_by),
+                class: 'tj-input',
+                onchange: 'this.form.submit();' %>
+        </div>
+        <div class="tj-filter-group tj-flow-filter-note">
+          <span>Status is forced to closed/done for this report. Cycle time is measured from first In Progress to terminal Done / Archived, excluding paused time.</span>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <% if !@query.valid? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">Report</div>
+      <h3>Invalid filters</h3>
+      <p>Please review the Redmine query filters above.</p>
+    </div>
+  <% elsif @cycle_distribution_rows.empty? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">Report</div>
+      <h3>No completed cycle data found</h3>
+      <p>No completed tickets with a calculable In Progress to Done / Archived cycle match the current filters.</p>
+    </div>
+  <% else %>
+    <div class="tj-summary-strip">
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Groups</div>
+        <div class="tj-sc-value tj-sc-accent"><%= @cycle_distribution_totals[:groups] %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Completed Tickets</div>
+        <div class="tj-sc-value tj-sc-blue"><%= @cycle_distribution_totals[:completed_count] %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Avg Cycle Time</div>
+        <div class="tj-sc-value tj-sc-blue"><%= format_hours(@cycle_distribution_totals[:avg_cycle_hours]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Max Cycle Time</div>
+        <div class="tj-sc-value tj-sc-orange">
+          <% if @cycle_distribution_totals[:max_issue] %>
+            <%= link_to format_hours(@cycle_distribution_totals[:max_cycle_hours]),
+                  ticket_journey_path(@project, issue_id: @cycle_distribution_totals[:max_issue].id, view: 'detail'),
+                  class: 'tj-drilldown-link',
+                  title: "Open issue ##{@cycle_distribution_totals[:max_issue].id} detail" %>
+          <% else %>
+            <%= format_hours(@cycle_distribution_totals[:max_cycle_hours]) %>
+          <% end %>
+        </div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">30d+ Tickets</div>
+        <div class="tj-sc-value <%= @cycle_distribution_totals[:bucket_30_plus].to_i.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= @cycle_distribution_totals[:bucket_30_plus] %></div>
+      </div>
+    </div>
+
+    <%
+      attention_rows = @cycle_distribution_rows.first(12)
+      max_completed = attention_rows.map { |row| row[:completed_count].to_i }.max.to_i
+    %>
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Cycle Distribution Summary</div>
+      <div class="tj-workload-bars">
+        <% attention_rows.each do |row| %>
+          <% width = max_completed.positive? ? ((row[:completed_count].to_f / max_completed) * 100).round : 0 %>
+          <div class="tj-workload-bar-row tj-cycle-bar-row" title="<%= row[:group] %>">
+            <span class="tj-workload-bar-label"><%= h(row[:group]) %></span>
+            <span class="tj-workload-bar-track">
+              <span class="tj-workload-bar-fill" style="width:<%= width %>%"></span>
+            </span>
+            <span class="tj-workload-bar-meta">
+              <strong><%= row[:completed_count] %></strong>
+              <span>Avg <%= format_hours(row[:avg_cycle_hours]) %></span>
+              <span>30d+ <%= row[:bucket_30_plus] %></span>
+            </span>
+          </div>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Cycle Distribution Detail</div>
+      <div class="tj-table-wrap">
+        <table class="tj-table tj-cycle-distribution-table">
+          <thead>
+            <tr>
+              <th class="tj-th-title"><%= cycle_distribution_sort_link(@query, :group, TicketJourneyController::CYCLE_DISTRIBUTION_GROUP_OPTIONS.fetch(@cycle_group_by)) %></th>
+              <th class="tj-th-native"><%= cycle_distribution_sort_link(@query, :completed_count, 'Completed') %></th>
+              <th class="tj-th-native"><%= cycle_distribution_sort_link(@query, :avg_cycle_hours, 'Avg Cycle') %></th>
+              <th class="tj-th-native"><%= cycle_distribution_sort_link(@query, :max_cycle_hours, 'Max Cycle') %></th>
+              <% TicketJourneyController::CYCLE_DISTRIBUTION_BUCKETS.each do |bucket| %>
+                <th class="tj-th-native <%= bucket[:key] == :bucket_30_plus ? 'tj-th-risk' : '' %>"><%= cycle_distribution_sort_link(@query, bucket[:key], bucket[:label]) %></th>
+              <% end %>
+              <th class="tj-th-native">30d+ %</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @cycle_distribution_rows.each do |row| %>
+              <tr class="tj-row">
+                <td class="tj-td-title"><%= h(row[:group]) %></td>
+                <td class="tj-td-native"><%= row[:completed_count] %></td>
+                <td class="tj-td-native"><%= format_hours(row[:avg_cycle_hours]) %></td>
+                <td class="tj-td-native">
+                  <% if row[:max_issue] %>
+                    <%= link_to format_hours(row[:max_cycle_hours]),
+                          ticket_journey_path(@project, issue_id: row[:max_issue].id, view: 'detail'),
+                          class: 'tj-drilldown-link',
+                          title: "Open issue ##{row[:max_issue].id} detail" %>
+                  <% else %>
+                    <%= format_hours(row[:max_cycle_hours]) %>
+                  <% end %>
+                </td>
+                <% TicketJourneyController::CYCLE_DISTRIBUTION_BUCKETS.each do |bucket| %>
+                  <td class="tj-td-native <%= bucket[:key] == :bucket_30_plus && row[bucket[:key]].positive? ? 'tj-counter-active' : '' %>"><%= row[bucket[:key]].positive? ? row[bucket[:key]] : '-' %></td>
+                <% end %>
+                <td class="tj-td-native <%= row[:bucket_30_plus].positive? ? 'tj-counter-active' : 'tj-counter-zero' %>"><%= format_percentage(row[:bucket_30_plus], row[:completed_count]) %></td>
+              </tr>
+            <% end %>
+            <tr class="tj-flow-total-row">
+              <td class="tj-td-title tj-total-label">Total</td>
+              <td class="tj-td-native"><%= @cycle_distribution_totals[:completed_count] %></td>
+              <td class="tj-td-native"><%= format_hours(@cycle_distribution_totals[:avg_cycle_hours]) %></td>
+              <td class="tj-td-native"><%= format_hours(@cycle_distribution_totals[:max_cycle_hours]) %></td>
+              <% TicketJourneyController::CYCLE_DISTRIBUTION_BUCKETS.each do |bucket| %>
+                <td class="tj-td-native"><%= @cycle_distribution_totals[bucket[:key]] %></td>
+              <% end %>
+              <td class="tj-td-native"><%= format_percentage(@cycle_distribution_totals[:bucket_30_plus], @cycle_distribution_totals[:completed_count]) %></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Slowest Completed Tickets</div>
+      <div class="tj-table-wrap">
+        <table class="tj-table tj-cycle-slowest-table">
+          <thead>
+            <tr>
+              <th class="tj-th-native">Issue</th>
+              <th class="tj-th-title">Subject</th>
+              <th class="tj-th-native">Ticket Owner</th>
+              <th class="tj-th-native">Tracker</th>
+              <th class="tj-th-native">Status</th>
+              <th class="tj-th-native">Cycle Time</th>
+              <th class="tj-th-native">Created</th>
+              <th class="tj-th-native">Closed</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @cycle_slowest_items.each do |item| %>
+              <% issue = item[:issue] %>
+              <tr class="tj-row">
+                <td class="tj-td-native"><%= link_to "##{issue.id}", issue_path(issue), class: 'tj-issue-link' %></td>
+                <td class="tj-td-title"><%= link_to issue.subject, ticket_journey_path(@project, issue_id: issue.id, view: 'detail'), class: 'tj-subject-link', title: issue.subject %></td>
+                <td class="tj-td-native"><%= h(item[:ticket_owner]) %></td>
+                <td class="tj-td-native"><%= h(issue.tracker&.name || '-') %></td>
+                <td class="tj-td-native"><%= h(issue.status&.name || '-') %></td>
+                <td class="tj-td-native tj-counter-active"><%= format_hours(item[:cycle_hours]) %></td>
+                <td class="tj-td-native"><%= format_date(issue.created_on) %></td>
+                <td class="tj-td-native"><%= issue.closed_on.present? ? format_date(issue.closed_on) : '-' %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% end %>
+</div>

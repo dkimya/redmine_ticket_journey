@@ -102,6 +102,50 @@ module TicketJourneyHelper
     )
   end
 
+  def cycle_distribution_params(query)
+    query_params = query.as_params.deep_dup.deep_stringify_keys
+
+    %w[cycle_group_by cycle_sort cycle_dir].each do |key|
+      query_params.delete(key)
+      value = params[key]
+      query_params[key] = value if value.present?
+    end
+
+    filters = Array(query_params['f']).map(&:to_s)
+    operators = (query_params['op'] || {}).deep_dup.deep_stringify_keys
+    values = (query_params['v'] || {}).deep_dup.deep_stringify_keys
+
+    replace_filter(filters, operators, values, 'status_id')
+    add_status_filter(filters, operators, values, 'c')
+
+    query_params['set_filter'] = '1'
+    query_params['f'] = filters
+    query_params['op'] = operators
+    query_params['v'] = values
+    query_params
+  end
+
+  def cycle_distribution_sort_link(query, sort_key, caption, title: nil)
+    current_key = params[:cycle_sort].to_s
+    current_dir = params[:cycle_dir].to_s
+    current_dir = (sort_key.to_s == 'group' ? 'asc' : 'desc') unless %w[asc desc].include?(current_dir)
+    default_dir = sort_key.to_s == 'group' ? 'asc' : 'desc'
+    next_dir = current_key == sort_key.to_s && current_dir == default_dir ? (default_dir == 'asc' ? 'desc' : 'asc') : default_dir
+
+    indicator =
+      if current_key == sort_key.to_s
+        current_dir == 'asc' ? ' ^' : ' v'
+      else
+        ''
+      end
+
+    link_to(
+      "#{caption}#{indicator}",
+      ticket_journey_cycle_distribution_path(@project, cycle_distribution_params(query).merge('cycle_sort' => sort_key.to_s, 'cycle_dir' => next_dir)),
+      title: title
+    )
+  end
+
   def flow_report_params(query)
     query_params = query.as_params.deep_dup.deep_stringify_keys
 

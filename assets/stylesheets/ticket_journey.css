@@ -486,6 +486,29 @@
 .tj-priority-row-risk td {
   background: #fffafa;
 }
+.tj-cycle-distribution-table {
+  min-width: 1120px;
+}
+.tj-cycle-distribution-table .tj-td-title {
+  text-align: left;
+  min-width: 220px;
+}
+.tj-cycle-slowest-table {
+  min-width: 1180px;
+}
+.tj-cycle-slowest-table .tj-td-title {
+  max-width: 360px;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tj-cycle-bar-row .tj-workload-bar-fill {
+  background: linear-gradient(90deg, #2563eb, #0f766e);
+}
+.tj-th-risk {
+  background: #fff1f2 !important;
+}
 .tj-workload-bars {
   display: flex;
   flex-direction: column;

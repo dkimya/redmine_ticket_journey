@@ -4,6 +4,7 @@
   workload_params = owner_workload_params(@query)
   aging_params = aging_risk_params(@query)
   priority_params = priority_risk_params(@query)
+  cycle_params = cycle_distribution_params(@query)
   flow_params = flow_report_params(@query)
   health_params = project_health_params(@query)
   release_params = release_readiness_params(@query)
@@ -35,6 +36,9 @@
   <%= link_to 'Priority / SLA Risk',
         ticket_journey_priority_risk_path(@project, priority_params),
         class: "tj-report-tab #{active_tab == :priority_risk ? 'is-active' : ''}" %>
+  <%= link_to 'Cycle Distribution',
+        ticket_journey_cycle_distribution_path(@project, cycle_params),
+        class: "tj-report-tab #{active_tab == :cycle_distribution ? 'is-active' : ''}" %>
   <%= link_to 'Flow Report',
         ticket_journey_flow_report_path(@project, flow_params),
         class: "tj-report-tab #{active_tab == :flow_report ? 'is-active' : ''}" %>

@@ -7,6 +7,19 @@ class TicketJourneyController < ApplicationController
   OWNER_WORKLOAD_SORTABLE_FIELDS = %w[owner total_open technical_open task_open stopped overdue priority_open no_due_date avg_age oldest_age].freeze
   AGING_RISK_SORTABLE_FIELDS = %w[group total_open bucket_0_7 bucket_8_14 bucket_15_30 bucket_31_60 bucket_60_plus stopped overdue priority_open no_due_date avg_age oldest_age].freeze
   PRIORITY_RISK_SORTABLE_FIELDS = %w[issue subject owner priority status tracker due_date age_days overdue stopped no_due_date].freeze
+  CYCLE_DISTRIBUTION_SORTABLE_FIELDS = %w[group completed_count avg_cycle_hours max_cycle_hours bucket_0_2 bucket_3_7 bucket_8_14 bucket_15_30 bucket_30_plus].freeze
+  CYCLE_DISTRIBUTION_GROUP_OPTIONS = {
+    'family' => 'Tracker Family',
+    'owner' => 'Ticket Owner',
+    'tracker' => 'Tracker'
+  }.freeze
+  CYCLE_DISTRIBUTION_BUCKETS = [
+    { key: :bucket_0_2, label: '0-2d', min_hours: 0, max_hours: 48 },
+    { key: :bucket_3_7, label: '3-7d', min_hours: 48, max_hours: 168 },
+    { key: :bucket_8_14, label: '8-14d', min_hours: 168, max_hours: 336 },
+    { key: :bucket_15_30, label: '15-30d', min_hours: 336, max_hours: 720 },
+    { key: :bucket_30_plus, label: '30d+', min_hours: 720, max_hours: nil }
+  ].freeze
   AGING_RISK_GROUP_OPTIONS = {
     'owner' => 'Ticket Owner',
     'tracker' => 'Tracker',
@@ -74,7 +87,7 @@ class TicketJourneyController < ApplicationController
 
   before_action :find_project
   before_action :authorize
-  before_action :build_query, only: [:index, :owner_returns, :owner_workload, :aging_risk, :priority_risk, :flow_report, :project_health, :release_readiness, :bug_analysis, :export]
+  before_action :build_query, only: [:index, :owner_returns, :owner_workload, :aging_risk, :priority_risk, :cycle_distribution, :flow_report, :project_health, :release_readiness, :bug_analysis, :export]
   before_action :prepare_owner_role_filter, only: [:owner_returns, :owner_workload, :flow_report]
 
   helper :queries
@@ -117,6 +130,16 @@ class TicketJourneyController < ApplicationController
   # ---------------------------------------------------------------
   def priority_risk
     @priority_risk_rows, @priority_owner_rows, @priority_risk_totals = compute_priority_risk_report
+  end
+
+  # ---------------------------------------------------------------
+  # CYCLE DISTRIBUTION - completed ticket cycle time distribution
+  # ---------------------------------------------------------------
+  def cycle_distribution
+    build_query_from(ActionController::Parameters.new(completed_status_query_params))
+    @cycle_group_by = cycle_distribution_group_by_param
+    @issues_data = compute_all_durations
+    @cycle_distribution_rows, @cycle_distribution_totals, @cycle_slowest_items = compute_cycle_distribution_report(@issues_data, @cycle_group_by)
   end
 
   # ---------------------------------------------------------------
@@ -196,20 +219,44 @@ class TicketJourneyController < ApplicationController
   end
 
   def build_query
+    build_query_from(params)
+  end
+
+  def build_query_from(query_params)
     base_query =
-      if params[:query_id].present?
-        IssueQuery.visible.where(project_id: [nil, @project.id]).find_by(id: params[:query_id])
+      if query_params[:query_id].present? || query_params['query_id'].present?
+        IssueQuery.visible.where(project_id: [nil, @project.id]).find_by(id: query_params[:query_id] || query_params['query_id'])
       else
         IssueQuery.default(project: @project, user: User.current)
       end
 
     @query = (base_query || IssueQuery.new(name: '_'))
     @query.project = @project
-    @query.build_from_params(params, project: @project)
+    @query.build_from_params(query_params, project: @project)
 
-    unless params[:query_id].present? || params[:c].present? || params.dig(:query, :column_names).present?
+    unless query_params[:query_id].present? || query_params['query_id'].present? || query_params[:c].present? || query_params['c'].present? || query_params.dig(:query, :column_names).present? || query_params.dig('query', 'column_names').present?
       @query.column_names = [:id, :subject, :status, "cf_#{TICKET_OWNER_CF_ID}"]
     end
+  end
+
+  def completed_status_query_params
+    query_params = params.to_unsafe_h.deep_dup.deep_stringify_keys
+    filters = Array(query_params['f']).map(&:to_s)
+    operators = (query_params['op'] || {}).deep_dup.deep_stringify_keys
+    values = (query_params['v'] || {}).deep_dup.deep_stringify_keys
+
+    filters.delete('status_id')
+    operators.delete('status_id')
+    values.delete('status_id')
+
+    filters << 'status_id'
+    operators['status_id'] = 'c'
+    values['status_id'] = ['']
+    query_params['set_filter'] = '1'
+    query_params['f'] = filters
+    query_params['op'] = operators
+    query_params['v'] = values
+    query_params
   end
 
   def project_and_subproject_ids
@@ -823,6 +870,154 @@ class TicketJourneyController < ApplicationController
     return requested_dir if %w[asc desc].include?(requested_dir)
 
     %w[issue subject owner priority status tracker due_date].include?(sort_key) ? 'asc' : 'desc'
+  end
+
+  def compute_cycle_distribution_report(issues_data, group_by)
+    completed_items = issues_data.filter_map do |item|
+      cycle_hours = completed_cycle_time_hours(item)
+      next unless cycle_hours
+
+      _owner_value, owner_name = ticket_owner_info(item[:issue])
+      item.merge(cycle_hours: cycle_hours, ticket_owner: owner_name)
+    end
+
+    rows = Hash.new do |hash, group_key|
+      group_value, group_label = group_key
+      hash[group_key] = empty_cycle_distribution_row(group_by, group_value, group_label)
+    end
+
+    completed_items.each do |item|
+      group_value, group_label = cycle_distribution_group_value(item, group_by)
+      row = rows[[group_value, group_label]]
+      cycle_hours = item[:cycle_hours].to_f
+      bucket_key = cycle_distribution_bucket_key(cycle_hours)
+
+      row[:completed_count] += 1
+      row[bucket_key] += 1 if bucket_key
+      row[:cycle_hours_sum] += cycle_hours
+
+      next unless cycle_hours > row[:max_cycle_hours].to_f
+
+      row[:max_cycle_hours] = cycle_hours
+      row[:max_issue] = item[:issue]
+    end
+
+    row_values = rows.values.map do |row|
+      row[:avg_cycle_hours] = row[:completed_count].positive? ? row[:cycle_hours_sum] / row[:completed_count] : 0.0
+      row
+    end
+
+    totals = cycle_distribution_totals(row_values, completed_items)
+    slowest_items = completed_items.sort_by { |item| [-item[:cycle_hours].to_f, item[:issue].id] }.first(20)
+
+    [sort_cycle_distribution_rows(row_values), totals, slowest_items]
+  end
+
+  def cycle_distribution_group_by_param
+    group_by = params[:cycle_group_by].to_s
+    CYCLE_DISTRIBUTION_GROUP_OPTIONS.key?(group_by) ? group_by : 'family'
+  end
+
+  def cycle_distribution_group_value(item, group_by)
+    issue = item[:issue]
+
+    case group_by
+    when 'owner'
+      ticket_owner_info(issue)
+    when 'tracker'
+      [issue.tracker_id, issue.tracker&.name.presence || 'No Tracker']
+    else
+      family_key = item[:family_key]
+      family_label = TRACKER_FAMILY_DEFINITIONS.fetch(family_key, { label: family_key.to_s.humanize })[:label]
+      [family_key, family_label]
+    end
+  end
+
+  def cycle_distribution_bucket_key(hours)
+    CYCLE_DISTRIBUTION_BUCKETS.find do |bucket|
+      hours >= bucket[:min_hours] && (bucket[:max_hours].nil? || hours < bucket[:max_hours])
+    end&.dig(:key)
+  end
+
+  def empty_cycle_distribution_row(group_by, group_value, group_label)
+    {
+      group_by: group_by,
+      group_value: group_value,
+      group: group_label,
+      completed_count: 0,
+      bucket_0_2: 0,
+      bucket_3_7: 0,
+      bucket_8_14: 0,
+      bucket_15_30: 0,
+      bucket_30_plus: 0,
+      cycle_hours_sum: 0.0,
+      avg_cycle_hours: 0.0,
+      max_cycle_hours: 0.0,
+      max_issue: nil
+    }
+  end
+
+  def empty_cycle_distribution_totals
+    {
+      groups: 0,
+      completed_count: 0,
+      bucket_0_2: 0,
+      bucket_3_7: 0,
+      bucket_8_14: 0,
+      bucket_15_30: 0,
+      bucket_30_plus: 0,
+      avg_cycle_hours: 0.0,
+      max_cycle_hours: 0.0,
+      max_issue: nil
+    }
+  end
+
+  def cycle_distribution_totals(rows, completed_items)
+    totals = empty_cycle_distribution_totals
+    totals[:groups] = rows.size
+
+    %i[completed_count bucket_0_2 bucket_3_7 bucket_8_14 bucket_15_30 bucket_30_plus].each do |key|
+      totals[key] = rows.sum { |row| row[key].to_i }
+    end
+
+    cycle_hours_sum = completed_items.sum { |item| item[:cycle_hours].to_f }
+    totals[:avg_cycle_hours] = totals[:completed_count].positive? ? cycle_hours_sum / totals[:completed_count] : 0.0
+
+    max_item = completed_items.max_by { |item| item[:cycle_hours].to_f }
+    totals[:max_cycle_hours] = max_item&.dig(:cycle_hours).to_f
+    totals[:max_issue] = max_item&.dig(:issue)
+    totals
+  end
+
+  def sort_cycle_distribution_rows(rows)
+    sort_key = params[:cycle_sort].to_s
+    return default_cycle_distribution_sort(rows) unless CYCLE_DISTRIBUTION_SORTABLE_FIELDS.include?(sort_key)
+
+    if sort_key == 'group'
+      sorted_rows = rows.sort_by { |row| [row[:group].to_s.downcase, -row[:completed_count].to_i] }
+      return cycle_distribution_sort_direction(sort_key) == 'desc' ? sorted_rows.reverse : sorted_rows
+    end
+
+    direction_factor = cycle_distribution_sort_direction(sort_key) == 'asc' ? 1 : -1
+    rows.sort_by do |row|
+      [
+        direction_factor * row[sort_key.to_sym].to_f,
+        -row[:completed_count].to_i,
+        -row[:avg_cycle_hours].to_f,
+        row[:group].to_s.downcase
+      ]
+    end
+  end
+
+  def default_cycle_distribution_sort(rows)
+    rows.sort_by { |row| [-row[:completed_count].to_i, -row[:avg_cycle_hours].to_f, row[:group].to_s.downcase] }
+  end
+
+  def cycle_distribution_sort_direction(sort_key)
+    requested_dir = params[:cycle_dir].to_s
+    return requested_dir if %w[asc desc].include?(requested_dir)
+
+    sort_key == 'group' ? 'asc' : 'desc'
   end
 
   def sort_owner_workload_rows(rows)
@@ -1608,6 +1803,17 @@ class TicketJourneyController < ApplicationController
     issue = item[:issue]
     return unless status_role(issue.status&.name) == :done
 
+    cycle_time_hours_from_periods(item)
+  end
+
+  def completed_cycle_time_hours(item)
+    issue = item[:issue]
+    return unless %i[done archived].include?(status_role(issue.status&.name))
+
+    cycle_time_hours_from_periods(item)
+  end
+
+  def cycle_time_hours_from_periods(item)
     periods = item[:durations][:periods] || []
     end_time = terminal_time_for_periods(periods)
     start_time = periods.find { |period| status_role(period[:status]) == :in_progress }&.dig(:enter)
