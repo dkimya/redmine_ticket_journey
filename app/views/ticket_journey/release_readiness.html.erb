@@ -39,10 +39,19 @@
       <div class="tj-sc-label">At Risk Versions</div>
       <div class="tj-sc-value tj-sc-red"><%= @release_readiness_report[:at_risk_versions] %></div>
     </div>
-    <div class="tj-summary-card">
-      <div class="tj-sc-label">Open Without Target</div>
-      <div class="tj-sc-value tj-sc-dim"><%= @release_readiness_report[:no_target_open] %></div>
-    </div>
+    <% if @release_readiness_report[:no_target_open].positive? %>
+      <%= link_to project_issues_path(@project, release_readiness_no_target_filter_params),
+            class: 'tj-summary-card tj-summary-link',
+            title: 'Open issues without a target version' do %>
+        <div class="tj-sc-label">Open Without Target</div>
+        <div class="tj-sc-value tj-sc-dim"><%= @release_readiness_report[:no_target_open] %></div>
+      <% end %>
+    <% else %>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Open Without Target</div>
+        <div class="tj-sc-value tj-sc-dim"><%= @release_readiness_report[:no_target_open] %></div>
+      </div>
+    <% end %>
   </div>
 
   <% if @release_readiness_report[:rows].empty? %>
@@ -53,9 +62,19 @@
     </div>
   <% else %>
     <div class="tj-card tj-card-full">
-      <div class="tj-card-title">Readiness by Target Version</div>
+      <div class="tj-card-title">Readiness Attention List</div>
+      <div class="tj-flow-empty-note">Showing at-risk, open, or due-soon target versions first. The full target version list remains in the table below.</div>
       <div class="tj-release-bars">
-        <% @release_readiness_report[:rows].each do |row| %>
+        <%
+          attention_rows = @release_readiness_report[:rows]
+            .select { |row| row[:open].positive? || row[:risk] != :green || row[:due_soon] }
+            .sort_by { |row| [row[:risk] == :red ? 0 : (row[:risk] == :amber ? 1 : 2), -row[:open].to_i, row[:due_date] || Date.new(9999, 12, 31), row[:name].to_s.downcase] }
+            .first(15)
+        %>
+        <% if attention_rows.empty? %>
+          <div class="tj-flow-empty-note">No target versions currently need attention.</div>
+        <% end %>
+        <% attention_rows.each do |row| %>
           <% percent = (row[:done_percent].to_f * 100).round %>
           <%= link_to project_issues_path(@project, release_readiness_issue_filter_params(row, :open)),
                 class: "tj-release-bar-row tj-release-risk-#{row[:risk]}",
@@ -76,20 +95,20 @@
         <table class="tj-table tj-release-table">
           <thead>
             <tr>
-              <th class="tj-th-title">Target Version</th>
-              <th class="tj-th-native">Project</th>
-              <th class="tj-th-native">Due Date</th>
-              <th class="tj-th-native">Status</th>
-              <th class="tj-th-native">Total</th>
-              <th class="tj-th-native">Open</th>
-              <th class="tj-th-native">Done</th>
-              <th class="tj-th-native">Done %</th>
-              <th class="tj-th-native">Stopped</th>
-              <th class="tj-th-native">Overdue</th>
-              <th class="tj-th-native">No Owner</th>
-              <th class="tj-th-native">No Due Date</th>
-              <th class="tj-th-native">Priority Open</th>
-              <th class="tj-th-native">Risk</th>
+              <th class="tj-th-title"><%= release_readiness_sort_link(@query, :name, 'Target Version') %></th>
+              <th class="tj-th-native"><%= release_readiness_sort_link(@query, :project, 'Project') %></th>
+              <th class="tj-th-native"><%= release_readiness_sort_link(@query, :due_date, 'Due Date') %></th>
+              <th class="tj-th-native"><%= release_readiness_sort_link(@query, :status, 'Status') %></th>
+              <th class="tj-th-native"><%= release_readiness_sort_link(@query, :total, 'Total') %></th>
+              <th class="tj-th-native"><%= release_readiness_sort_link(@query, :open, 'Open') %></th>
+              <th class="tj-th-native"><%= release_readiness_sort_link(@query, :done, 'Done') %></th>
+              <th class="tj-th-native"><%= release_readiness_sort_link(@query, :done_percent, 'Done %') %></th>
+              <th class="tj-th-native"><%= release_readiness_sort_link(@query, :stopped, 'Stopped') %></th>
+              <th class="tj-th-native"><%= release_readiness_sort_link(@query, :overdue, 'Overdue') %></th>
+              <th class="tj-th-native"><%= release_readiness_sort_link(@query, :no_owner, 'No Owner') %></th>
+              <th class="tj-th-native"><%= release_readiness_sort_link(@query, :no_due_date, 'No Due Date') %></th>
+              <th class="tj-th-native"><%= release_readiness_sort_link(@query, :priority_open, 'Priority Open') %></th>
+              <th class="tj-th-native"><%= release_readiness_sort_link(@query, :risk, 'Risk') %></th>
             </tr>
           </thead>
           <tbody>

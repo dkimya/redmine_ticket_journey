@@ -40,7 +40,36 @@ module TicketJourneyHelper
   end
 
   def release_readiness_params(query)
-    query.as_params.deep_dup.deep_stringify_keys
+    query_params = query.as_params.deep_dup.deep_stringify_keys
+
+    %w[release_sort release_dir].each do |key|
+      query_params.delete(key)
+      value = params[key]
+      query_params[key] = value if value.present?
+    end
+
+    query_params
+  end
+
+  def release_readiness_sort_link(query, sort_key, caption, title: nil)
+    current_key = params[:release_sort].to_s
+    current_dir = params[:release_dir].to_s
+    current_dir = (%w[name project status due_date].include?(sort_key.to_s) ? 'asc' : 'desc') unless %w[asc desc].include?(current_dir)
+    default_dir = %w[name project status due_date].include?(sort_key.to_s) ? 'asc' : 'desc'
+    next_dir = current_key == sort_key.to_s && current_dir == default_dir ? (default_dir == 'asc' ? 'desc' : 'asc') : default_dir
+
+    indicator =
+      if current_key == sort_key.to_s
+        current_dir == 'asc' ? ' ^' : ' v'
+      else
+        ''
+      end
+
+    link_to(
+      "#{caption}#{indicator}",
+      ticket_journey_release_readiness_path(@project, release_readiness_params(query).merge('release_sort' => sort_key.to_s, 'release_dir' => next_dir)),
+      title: title
+    )
   end
 
   def bug_analysis_params(query)
@@ -161,6 +190,19 @@ module TicketJourneyHelper
       class: 'tj-drilldown-link',
       title: 'Open matching issues'
     )
+  end
+
+  def release_readiness_no_target_filter_params
+    filters = %w[status_id fixed_version_id]
+    operators = { 'status_id' => 'o', 'fixed_version_id' => '!*' }
+    values = { 'status_id' => [''], 'fixed_version_id' => [''] }
+
+    {
+      set_filter: '1',
+      f: filters,
+      op: operators,
+      v: values
+    }
   end
 
   def stopped_status_filter_values

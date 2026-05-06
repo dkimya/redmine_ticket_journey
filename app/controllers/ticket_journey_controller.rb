@@ -5,6 +5,7 @@ class TicketJourneyController < ApplicationController
   RETURN_REASON_CF_ID = 66
   OWNER_RETURN_SORTABLE_FIELDS = %w[owner total_tickets ticket_share done_tickets avg_done_cycle_time avg_priority_done_cycle_time returned_tickets return_rate c1 c2 c3 c4 total_returns].freeze
   BUG_ANALYSIS_SORTABLE_FIELDS = %w[reason beginning beginning_percent found found_percent closed closed_percent remaining remaining_percent impact_sum impact_average change_percent].freeze
+  RELEASE_READINESS_SORTABLE_FIELDS = %w[name project due_date status total open done done_percent stopped overdue no_owner no_due_date priority_open risk].freeze
   PROJECT_HEALTH_ACTIVE_STATUS_ROLES = %i[todo in_progress feedback review ready_merge final_check].freeze
   TRACKER_FAMILY_ORDER = %i[internal customer_support task container].freeze
   TRACKER_FAMILY_DEFINITIONS = {
@@ -517,7 +518,7 @@ class TicketJourneyController < ApplicationController
       version ? release_readiness_row(version, version_issues, today) : nil
     end
 
-    rows = rows.sort_by { |row| [row[:status] == 'closed' ? 1 : 0, row[:due_date] || Date.new(9999, 12, 31), -row[:open], row[:name].to_s.downcase] }
+    rows = sort_release_readiness_rows(rows)
     no_target_open = open_issues.count { |issue| issue.fixed_version_id.blank? }
 
     {
@@ -580,6 +581,64 @@ class TicketJourneyController < ApplicationController
     return :amber if due_soon
 
     :neutral
+  end
+
+  def sort_release_readiness_rows(rows)
+    sort_key = params[:release_sort].to_s
+    return default_release_readiness_sort(rows) unless RELEASE_READINESS_SORTABLE_FIELDS.include?(sort_key)
+
+    direction = release_readiness_sort_direction(sort_key)
+    if %w[name project status due_date].include?(sort_key)
+      sorted = rows.sort_by do |row|
+        [
+          release_readiness_sort_comparable(row, sort_key),
+          row[:due_date] || Date.new(9999, 12, 31),
+          -row[:open].to_i,
+          row[:name].to_s.downcase
+        ]
+      end
+      return direction == 'desc' ? sorted.reverse : sorted
+    end
+
+    direction_factor = direction == 'asc' ? 1 : -1
+    rows.sort_by do |row|
+      [
+        release_readiness_sort_value(row, sort_key, direction_factor),
+        row[:due_date] || Date.new(9999, 12, 31),
+        -row[:open].to_i,
+        row[:name].to_s.downcase
+      ]
+    end
+  end
+
+  def default_release_readiness_sort(rows)
+    rows.sort_by { |row| [row[:status] == 'closed' ? 1 : 0, row[:due_date] || Date.new(9999, 12, 31), -row[:open], row[:name].to_s.downcase] }
+  end
+
+  def release_readiness_sort_comparable(row, sort_key)
+    return row[:due_date] || Date.new(9999, 12, 31) if sort_key == 'due_date'
+
+    row[sort_key.to_sym].to_s.downcase
+  end
+
+  def release_readiness_sort_value(row, sort_key, direction_factor)
+    case sort_key
+    when 'risk'
+      direction_factor * release_readiness_risk_sort_weight(row[:risk])
+    else
+      direction_factor * row[sort_key.to_sym].to_f
+    end
+  end
+
+  def release_readiness_risk_sort_weight(risk)
+    { red: 3, amber: 2, neutral: 1, green: 0 }.fetch(risk.to_sym, 0)
+  end
+
+  def release_readiness_sort_direction(sort_key)
+    requested_dir = params[:release_dir].to_s
+    return requested_dir if %w[asc desc].include?(requested_dir)
+
+    %w[name project status due_date].include?(sort_key) ? 'asc' : 'desc'
   end
 
   def bug_analysis_period_dates
