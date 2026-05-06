@@ -68,38 +68,61 @@
     </div>
   <% else %>
     <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Remaining Bugs by Bug Source</div>
+      <div class="tj-bug-bars">
+        <% max_remaining = @bug_analysis_rows.map { |row| row[:remaining].to_i }.max.to_i %>
+        <% remaining_rows = @bug_analysis_rows.select { |row| row[:remaining].to_i.positive? }.sort_by { |row| [-row[:remaining].to_i, row[:reason].to_s.downcase] } %>
+        <% if remaining_rows.empty? %>
+          <div class="tj-flow-empty-note">No remaining bugs in this period.</div>
+        <% end %>
+        <% remaining_rows.each do |row| %>
+          <% width = max_remaining.positive? ? ((row[:remaining].to_f / max_remaining) * 100).round : 0 %>
+          <%= link_to project_issues_path(@project, bug_analysis_issue_filter_params(row, :remaining)),
+                class: 'tj-bug-bar-row',
+                title: "Open remaining Bug issues for #{row[:reason]}" do %>
+            <span class="tj-bug-bar-label"><%= h(row[:reason]) %></span>
+            <span class="tj-bug-bar-track">
+              <span class="tj-bug-bar-fill" style="width:<%= width %>%"></span>
+            </span>
+            <span class="tj-bug-bar-count"><%= row[:remaining] %></span>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="tj-card tj-card-full">
       <div class="tj-card-title">Bug Movement By Bug Source</div>
       <div class="tj-table-wrap">
         <table class="tj-table tj-bug-analysis-table">
           <thead>
             <tr>
-              <th class="tj-th-title">Bug Source</th>
-              <th class="tj-th-native">Bugs at Beginning</th>
-              <th class="tj-th-native">%</th>
-              <th class="tj-th-native">Bugs Found</th>
-              <th class="tj-th-native">%</th>
-              <th class="tj-th-native">Bugs Closed</th>
-              <th class="tj-th-native">%</th>
-              <th class="tj-th-native">Remaining Bugs</th>
-              <th class="tj-th-native">%</th>
-              <th class="tj-th-native">Remaining Impact</th>
-              <th class="tj-th-native">Avg Remaining Impact</th>
-              <th class="tj-th-native">Start-End Change</th>
+              <th class="tj-th-title"><%= bug_analysis_sort_link(@query, :reason, 'Bug Source') %></th>
+              <th class="tj-th-native"><%= bug_analysis_sort_link(@query, :beginning, 'Bugs at Beginning') %></th>
+              <th class="tj-th-native"><%= bug_analysis_sort_link(@query, :beginning_percent, '%') %></th>
+              <th class="tj-th-native"><%= bug_analysis_sort_link(@query, :found, 'Bugs Found') %></th>
+              <th class="tj-th-native"><%= bug_analysis_sort_link(@query, :found_percent, '%') %></th>
+              <th class="tj-th-native"><%= bug_analysis_sort_link(@query, :closed, 'Bugs Closed') %></th>
+              <th class="tj-th-native"><%= bug_analysis_sort_link(@query, :closed_percent, '%') %></th>
+              <th class="tj-th-native"><%= bug_analysis_sort_link(@query, :remaining, 'Remaining Bugs') %></th>
+              <th class="tj-th-native"><%= bug_analysis_sort_link(@query, :remaining_percent, '%') %></th>
+              <th class="tj-th-native"><%= bug_analysis_sort_link(@query, :impact_sum, 'Remaining Impact') %></th>
+              <th class="tj-th-native"><%= bug_analysis_sort_link(@query, :impact_average, 'Avg Remaining Impact') %></th>
+              <th class="tj-th-native"><%= bug_analysis_sort_link(@query, :change_percent, 'Start-End Change') %></th>
             </tr>
           </thead>
           <tbody>
             <% @bug_analysis_rows.each do |row| %>
               <tr class="tj-row">
                 <td class="tj-td-title"><%= h(row[:reason]) %></td>
-                <td class="tj-td-native"><%= row[:beginning].zero? ? '-' : row[:beginning] %></td>
+                <td class="tj-td-native"><%= bug_analysis_count_link(row, :beginning, row[:beginning]) %></td>
                 <td class="tj-td-native"><%= number_to_percentage(row[:beginning_percent] * 100, precision: 1) %></td>
-                <td class="tj-td-native"><%= row[:found].zero? ? '-' : row[:found] %></td>
+                <td class="tj-td-native"><%= bug_analysis_count_link(row, :found, row[:found]) %></td>
                 <td class="tj-td-native"><%= number_to_percentage(row[:found_percent] * 100, precision: 1) %></td>
-                <td class="tj-td-native"><%= row[:closed].zero? ? '-' : row[:closed] %></td>
+                <td class="tj-td-native"><%= bug_analysis_count_link(row, :closed, row[:closed]) %></td>
                 <td class="tj-td-native"><%= number_to_percentage(row[:closed_percent] * 100, precision: 1) %></td>
-                <td class="tj-td-native"><%= row[:remaining].zero? ? '-' : row[:remaining] %></td>
+                <td class="tj-td-native"><%= bug_analysis_count_link(row, :remaining, row[:remaining]) %></td>
                 <td class="tj-td-native"><%= number_to_percentage(row[:remaining_percent] * 100, precision: 1) %></td>
-                <td class="tj-td-native"><%= row[:impact_sum].zero? ? '-' : row[:impact_sum] %></td>
+                <td class="tj-td-native"><%= bug_analysis_count_link(row, :impact, row[:impact_sum]) %></td>
                 <td class="tj-td-native"><%= row[:impact_count].zero? ? '-' : number_with_precision(row[:impact_average], precision: 1, strip_insignificant_zeros: true) %></td>
                 <td class="tj-td-native <%= row[:change_percent].to_f.positive? ? 'tj-flow-negative' : (row[:change_percent].to_f.negative? ? 'tj-flow-positive' : '') %>">
                   <%= row[:change_percent].nil? ? '-' : number_to_percentage(row[:change_percent] * 100, precision: 1) %>

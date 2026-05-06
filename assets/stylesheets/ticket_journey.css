@@ -407,6 +407,60 @@
   text-align: left;
   min-width: 240px;
 }
+.tj-bug-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tj-bug-bar-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 280px) minmax(180px, 1fr) 48px;
+  gap: 12px;
+  align-items: center;
+  padding: 7px 8px;
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+.tj-bug-bar-row:hover {
+  background: #f7f9ff;
+  text-decoration: none;
+}
+.tj-bug-bar-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--tj-text);
+  font-family: 'Courier New', monospace;
+  font-weight: 700;
+}
+.tj-bug-bar-track {
+  height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #eef0f5;
+}
+.tj-bug-bar-fill {
+  display: block;
+  height: 100%;
+  min-width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #f59e0b, #dc2626);
+}
+.tj-bug-bar-count {
+  color: var(--tj-red);
+  font-family: 'Courier New', monospace;
+  font-weight: 800;
+  text-align: right;
+}
+.tj-drilldown-link {
+  color: var(--tj-blue);
+  font-weight: 800;
+  text-decoration: none;
+}
+.tj-drilldown-link:hover {
+  text-decoration: underline;
+}
 .tj-table thead tr {
   background: #f0f2f7;
   border-bottom: 2px solid var(--tj-border);

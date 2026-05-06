@@ -4,6 +4,7 @@ class TicketJourneyController < ApplicationController
   BUG_IMPACT_RATING_CF_ID = 65
   RETURN_REASON_CF_ID = 66
   OWNER_RETURN_SORTABLE_FIELDS = %w[owner total_tickets ticket_share done_tickets avg_done_cycle_time avg_priority_done_cycle_time returned_tickets return_rate c1 c2 c3 c4 total_returns].freeze
+  BUG_ANALYSIS_SORTABLE_FIELDS = %w[reason beginning beginning_percent found found_percent closed closed_percent remaining remaining_percent impact_sum impact_average change_percent].freeze
   PROJECT_HEALTH_ACTIVE_STATUS_ROLES = %i[todo in_progress feedback review ready_merge final_check].freeze
   TRACKER_FAMILY_ORDER = %i[internal customer_support task container].freeze
   TRACKER_FAMILY_DEFINITIONS = {
@@ -563,9 +564,39 @@ class TicketJourneyController < ApplicationController
         change_percent: bug_start_end_change(row[:beginning], row[:remaining]),
         impact_average: row[:impact_count].positive? ? row[:impact_sum].to_f / row[:impact_count] : 0.0
       )
-    end.sort_by { |row| [-row[:remaining], -row[:found], row[:reason].to_s.downcase] }
+    end
 
-    [report_rows, totals]
+    [sort_bug_analysis_rows(report_rows), totals]
+  end
+
+  def sort_bug_analysis_rows(rows)
+    sort_key = params[:bug_sort].to_s
+    return rows.sort_by { |row| [-row[:remaining], -row[:found], row[:reason].to_s.downcase] } unless BUG_ANALYSIS_SORTABLE_FIELDS.include?(sort_key)
+
+    direction_factor = bug_analysis_sort_direction(sort_key) == 'asc' ? 1 : -1
+    rows.sort_by do |row|
+      [
+        bug_analysis_sort_value(row, sort_key, direction_factor),
+        -row[:remaining].to_i,
+        row[:reason].to_s.downcase
+      ]
+    end
+  end
+
+  def bug_analysis_sort_value(row, sort_key, direction_factor)
+    return row[:reason].to_s.downcase if sort_key == 'reason'
+
+    value = row[sort_key.to_sym]
+    value = -Float::INFINITY if value.nil? && direction_factor == -1
+    value = Float::INFINITY if value.nil? && direction_factor == 1
+    direction_factor * value.to_f
+  end
+
+  def bug_analysis_sort_direction(sort_key)
+    requested_dir = params[:bug_dir].to_s
+    return requested_dir if %w[asc desc].include?(requested_dir)
+
+    sort_key == 'reason' ? 'asc' : 'desc'
   end
 
   def empty_bug_analysis_totals

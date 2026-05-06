@@ -42,13 +42,101 @@ module TicketJourneyHelper
   def bug_analysis_params(query)
     query_params = query.as_params.deep_dup.deep_stringify_keys
 
-    %w[bug_start_date bug_end_date].each do |key|
+    %w[bug_start_date bug_end_date bug_sort bug_dir].each do |key|
       query_params.delete(key)
       value = params[key]
       query_params[key] = value if value.present?
     end
 
     query_params
+  end
+
+  def bug_analysis_sort_link(query, sort_key, caption, title: nil)
+    current_key = params[:bug_sort].to_s
+    current_dir = params[:bug_dir].to_s
+    current_dir = (sort_key.to_s == 'reason' ? 'asc' : 'desc') unless %w[asc desc].include?(current_dir)
+    default_dir = sort_key.to_s == 'reason' ? 'asc' : 'desc'
+    next_dir = current_key == sort_key.to_s && current_dir == default_dir ? (default_dir == 'asc' ? 'desc' : 'asc') : default_dir
+
+    indicator =
+      if current_key == sort_key.to_s
+        current_dir == 'asc' ? ' ^' : ' v'
+      else
+        ''
+      end
+
+    link_to(
+      "#{caption}#{indicator}",
+      ticket_journey_bug_analysis_path(@project, bug_analysis_params(query).merge('bug_sort' => sort_key.to_s, 'bug_dir' => next_dir)),
+      title: title
+    )
+  end
+
+  def bug_analysis_issue_filter_params(row, scope)
+    filters = %w[tracker_id]
+    operators = { 'tracker_id' => '=' }
+    values = { 'tracker_id' => bug_tracker_filter_values }
+    add_bug_source_filter(filters, operators, values, row[:reason])
+
+    case scope.to_sym
+    when :found
+      add_date_filter(filters, operators, values, 'created_on', '><', [@bug_start_date, @bug_end_date])
+    when :closed
+      add_date_filter(filters, operators, values, 'closed_on', '><', [@bug_start_date, @bug_end_date])
+    when :remaining, :impact
+      add_status_filter(filters, operators, values, 'o')
+      add_date_filter(filters, operators, values, 'created_on', '<=', [@bug_end_date])
+    when :beginning
+      add_status_filter(filters, operators, values, 'o')
+      add_date_filter(filters, operators, values, 'created_on', '<=', [@bug_start_date])
+    end
+
+    {
+      set_filter: '1',
+      f: filters,
+      op: operators,
+      v: values
+    }
+  end
+
+  def bug_analysis_count_link(row, scope, value)
+    return '-' if value.to_i.zero?
+
+    link_to(
+      value,
+      project_issues_path(@project, bug_analysis_issue_filter_params(row, scope)),
+      class: 'tj-drilldown-link',
+      title: 'Open matching issues'
+    )
+  end
+
+  def bug_tracker_filter_values
+    @bug_tracker_filter_values ||= Tracker.where(name: 'Bug').pluck(:id).map(&:to_s)
+  end
+
+  def add_bug_source_filter(filters, operators, values, reason)
+    field_name = "cf_#{TicketJourneyController::BUG_SOURCE_CF_ID}"
+    filters << field_name
+
+    if reason.to_s == 'No Bug Source'
+      operators[field_name] = '!*'
+      values[field_name] = ['']
+    else
+      operators[field_name] = '='
+      values[field_name] = [reason.to_s]
+    end
+  end
+
+  def add_status_filter(filters, operators, values, operator)
+    filters << 'status_id'
+    operators['status_id'] = operator
+    values['status_id'] = ['']
+  end
+
+  def add_date_filter(filters, operators, values, field_name, operator, date_values)
+    filters << field_name
+    operators[field_name] = operator
+    values[field_name] = date_values.map { |date| date.respond_to?(:strftime) ? date.strftime('%Y-%m-%d') : date.to_s }
   end
 
   def issue_detail_params(query, issue)
