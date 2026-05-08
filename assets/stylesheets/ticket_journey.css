@@ -163,6 +163,15 @@
 .tj-filter-search .tj-input { width: 200px; }
 .tj-small-number-input { max-width: 110px; }
 .tj-owner-filter-bar { margin-top: 12px; }
+.tj-drilldown-note {
+  background: #fff8e6;
+  border: 1px solid #f1d28f;
+  border-radius: var(--tj-radius);
+  color: #6f4b00;
+  font-size: 13px;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+}
 .tj-bug-filter-bar {
   display: block;
   margin-bottom: 24px;

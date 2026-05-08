@@ -22,6 +22,11 @@
   <%= render partial: 'report_tabs', locals: { active_tab: (@detail_view_active ? :issue_detail : :duration) } %>
 
   <% unless @detail_view_active %>
+    <% if params[:sprint_issue_ids].present? %>
+      <div class="tj-drilldown-note">
+        Sprint drill-down is active. Results are limited to <strong><%= params[:sprint_issue_ids].to_s.split(',').reject(&:blank?).size %></strong> selected sprint tickets.
+      </div>
+    <% end %>
     <%= form_tag(ticket_journey_path(@project), method: :get, id: 'query_form') do %>
       <% if params[:sprint_id].present? %>
         <%= hidden_field_tag :sprint_id, params[:sprint_id] %>

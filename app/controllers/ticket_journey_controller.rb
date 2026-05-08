@@ -659,7 +659,7 @@ class TicketJourneyController < ApplicationController
   end
 
   def build_query
-    build_query_from(params)
+    build_query_from(sprint_drilldown_query_params)
   end
 
   def build_query_from(query_params)
@@ -677,6 +677,20 @@ class TicketJourneyController < ApplicationController
     unless query_params[:query_id].present? || query_params['query_id'].present? || query_params[:c].present? || query_params['c'].present? || query_params.dig(:query, :column_names).present? || query_params.dig('query', 'column_names').present?
       @query.column_names = [:id, :subject, :status, "cf_#{TICKET_OWNER_CF_ID}"]
     end
+  end
+
+  def sprint_drilldown_query_params
+    return params if params[:sprint_issue_ids].blank? && params['sprint_issue_ids'].blank?
+
+    query_params = params.to_unsafe_h.deep_dup.deep_stringify_keys
+    operators = (query_params['op'] || {}).deep_stringify_keys
+
+    # Sprint drill-downs are controlled by sprint_issue_ids; a carried "open"
+    # status filter is only visual noise and can change the result when applied.
+    remove_query_param_filter(query_params, 'status_id') if operators['status_id'] == 'o'
+    query_params['set_filter'] = '1'
+    query_params['f'] = Array(query_params['f']).map(&:to_s).reject(&:blank?)
+    query_params
   end
 
   def completed_status_query_params
