@@ -2,13 +2,46 @@ module TicketJourneyHelper
   def duration_report_params(query)
     query_params = query.as_params.deep_dup.deep_stringify_keys
 
-    %w[report_sort report_dir report_family sprint_id sprint_issue_ids].each do |key|
+    %w[report_sort report_dir report_family sprint_id sprint_issue_ids tj_issue_ids].each do |key|
       query_params.delete(key)
       value = params[key]
       query_params[key] = value if value.present?
     end
 
     query_params
+  end
+
+  def duration_report_drilldown_params(query, issue_ids)
+    query_params = duration_report_params(query)
+    ids = Array(issue_ids).map(&:to_i).reject(&:zero?).uniq
+
+    query_params.except!('issue_id', 'view', 'sprint_id', 'sprint_issue_ids')
+    query_params['tj_issue_ids'] = ids.join(',')
+    query_params
+  end
+
+  def duration_report_drilldown_link(query, issue_ids, text, title: nil, class_name: 'tj-drilldown-link')
+    ids = Array(issue_ids).map(&:to_i).reject(&:zero?).uniq
+    return text if ids.empty?
+
+    link_to(
+      text,
+      ticket_journey_path(@project, duration_report_drilldown_params(query, ids)),
+      class: class_name,
+      title: title || 'Open matching tickets in Duration Report'
+    )
+  end
+
+  def duration_report_drilldown_block(query, issue_ids, html_options = {}, &block)
+    ids = Array(issue_ids).map(&:to_i).reject(&:zero?).uniq
+
+    if ids.empty?
+      inactive_options = html_options.deep_dup
+      inactive_options[:class] = inactive_options[:class].to_s.gsub(/\btj-summary-link\b|\btj-legend-link\b/, '').squish
+      content_tag(:div, capture(&block), inactive_options.except(:title))
+    else
+      link_to(ticket_journey_path(@project, duration_report_drilldown_params(query, ids)), html_options, &block)
+    end
   end
 
   def pmo_control_params(query)

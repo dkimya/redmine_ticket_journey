@@ -27,6 +27,7 @@
   <% else %>
     <%
       totals = @qa_returns_report[:totals]
+      drilldowns = @qa_returns_report[:drilldowns]
       counter_rows = @qa_returns_report[:counter_rows]
       rework_rows = @qa_returns_report[:rework_rows]
       reason_rows = @qa_returns_report[:reason_rows]
@@ -36,26 +37,26 @@
     %>
 
     <div class="tj-summary-strip">
-      <div class="tj-summary-card">
+      <%= duration_report_drilldown_block(@query, drilldowns[:done_tickets], class: 'tj-summary-card tj-summary-link', title: 'Open done tickets in Duration Report') do %>
         <div class="tj-sc-label">Done Tickets</div>
         <div class="tj-sc-value tj-sc-blue"><%= totals[:done_tickets] %></div>
-      </div>
-      <div class="tj-summary-card">
+      <% end %>
+      <%= duration_report_drilldown_block(@query, drilldowns[:done_tickets_with_returns], class: 'tj-summary-card tj-summary-link', title: 'Open done tickets with returns in Duration Report') do %>
         <div class="tj-sc-label">Tickets With Returns</div>
         <div class="tj-sc-value <%= totals[:done_tickets_with_returns].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= totals[:done_tickets_with_returns] %></div>
-      </div>
-      <div class="tj-summary-card">
+      <% end %>
+      <%= duration_report_drilldown_block(@query, drilldowns[:done_tickets_without_returns], class: 'tj-summary-card tj-summary-link', title: 'Open first-pass done tickets in Duration Report') do %>
         <div class="tj-sc-label">First-Time Pass</div>
         <div class="tj-sc-value <%= totals[:first_pass_rate] >= 0.8 ? 'tj-sc-green' : 'tj-sc-orange' %>"><%= number_to_percentage(totals[:first_pass_rate] * 100, precision: 1) %></div>
-      </div>
-      <div class="tj-summary-card">
+      <% end %>
+      <%= duration_report_drilldown_block(@query, drilldowns[:done_tickets_with_returns], class: 'tj-summary-card tj-summary-link', title: 'Open done tickets with returns in Duration Report') do %>
         <div class="tj-sc-label">Return Rate</div>
         <div class="tj-sc-value <%= totals[:return_rate].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= number_to_percentage(totals[:return_rate] * 100, precision: 1) %></div>
-      </div>
-      <div class="tj-summary-card">
+      <% end %>
+      <%= duration_report_drilldown_block(@query, drilldowns[:tickets_with_returns], class: 'tj-summary-card tj-summary-link', title: 'Open all tickets with returns in Duration Report') do %>
         <div class="tj-sc-label">Total Returns</div>
         <div class="tj-sc-value <%= totals[:return_events].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= totals[:return_events] %></div>
-      </div>
+      <% end %>
       <div class="tj-summary-card">
         <div class="tj-sc-label">Rework Time</div>
         <div class="tj-sc-value <%= totals[:total_rework_hours].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= format_hours(totals[:total_rework_hours]) %></div>
@@ -75,14 +76,14 @@
     <% else %>
       <div class="tj-legend-strip tj-legend-strip-section">
         <% counter_rows.each do |counter| %>
-          <div class="tj-legend-item" title="<%= h(counter[:title]) %>">
+          <%= duration_report_drilldown_block(@query, counter[:issue_ids], class: 'tj-legend-item tj-legend-link', title: "Open #{counter[:code]} tickets in Duration Report") do %>
             <div class="tj-legend-code"><%= counter[:code] %></div>
             <div class="tj-legend-copy">
               <div class="tj-legend-title"><%= h(counter[:title]) %></div>
               <div class="tj-legend-sub"><%= h(counter[:transition]) %></div>
             </div>
             <div class="tj-legend-total <%= counter[:count].positive? ? 'is-active' : '' %>"><%= counter[:count] %></div>
-          </div>
+          <% end %>
         <% end %>
       </div>
 
@@ -93,17 +94,17 @@
             <tbody>
               <tr>
                 <td class="tj-health-label">Tickets with Min 1 Return</td>
-                <td class="tj-health-count"><%= totals[:done_tickets_with_returns].zero? ? '-' : totals[:done_tickets_with_returns] %></td>
+                <td class="tj-health-count"><%= duration_report_drilldown_link(@query, drilldowns[:done_tickets_with_returns], totals[:done_tickets_with_returns].zero? ? '-' : totals[:done_tickets_with_returns], title: 'Open tickets with returns') %></td>
                 <td class="tj-health-percent"><%= number_to_percentage(totals[:return_rate] * 100, precision: 1) %></td>
               </tr>
               <tr>
                 <td class="tj-health-label">Tickets with No Return</td>
-                <td class="tj-health-count"><%= totals[:done_tickets_without_returns].zero? ? '-' : totals[:done_tickets_without_returns] %></td>
+                <td class="tj-health-count"><%= duration_report_drilldown_link(@query, drilldowns[:done_tickets_without_returns], totals[:done_tickets_without_returns].zero? ? '-' : totals[:done_tickets_without_returns], title: 'Open tickets with no return') %></td>
                 <td class="tj-health-percent"><%= number_to_percentage(totals[:first_pass_rate] * 100, precision: 1) %></td>
               </tr>
               <tr>
                 <td class="tj-health-label">Total Done Tickets</td>
-                <td class="tj-health-count"><%= totals[:done_tickets] %></td>
+                <td class="tj-health-count"><%= duration_report_drilldown_link(@query, drilldowns[:done_tickets], totals[:done_tickets], title: 'Open done tickets') %></td>
                 <td class="tj-health-percent">100%</td>
               </tr>
             </tbody>
@@ -141,7 +142,7 @@
             <% width = (row[:hours].to_f / max_rework * 100).round(1) %>
             <div class="tj-workload-bar-row">
               <div class="tj-workload-bar-label">
-                <strong><%= h(row[:label]) %></strong>
+                <strong><%= duration_report_drilldown_link(@query, row[:issue_ids], h(row[:label]), title: "Open #{row[:label]} tickets") %></strong>
                 <span><%= h(row[:description]) %></span>
               </div>
               <div class="tj-workload-bar-track">
@@ -162,7 +163,7 @@
             <% reason_rows.each do |row| %>
               <% width = (row[:count].to_f / max_reason * 100).round(1) %>
               <div class="tj-bug-bar-row">
-                <div class="tj-bug-bar-label"><%= h(row[:reason]) %></div>
+                <div class="tj-bug-bar-label"><%= duration_report_drilldown_link(@query, row[:issue_ids], h(row[:reason]), title: "Open #{row[:reason]} tickets") %></div>
                 <div class="tj-bug-bar-track">
                   <div class="tj-bug-bar-fill" style="width:<%= width %>%"></div>
                 </div>

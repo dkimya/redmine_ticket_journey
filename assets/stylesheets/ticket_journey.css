@@ -256,6 +256,16 @@
 .tj-legend-total.is-active {
   color: var(--tj-red);
 }
+.tj-legend-link,
+.tj-legend-link:link,
+.tj-legend-link:visited {
+  color: inherit;
+  text-decoration: none;
+}
+.tj-legend-link:hover {
+  border-color: #f59e0b;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, .2);
+}
 .tj-summary-card {
   background: var(--tj-surface);
   border: 1px solid var(--tj-border);

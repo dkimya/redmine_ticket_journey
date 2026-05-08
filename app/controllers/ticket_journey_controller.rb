@@ -679,8 +679,15 @@ class TicketJourneyController < ApplicationController
     end
   end
 
+  def ticket_journey_drilldown_active?(query_params = params)
+    query_params[:sprint_issue_ids].present? ||
+      query_params['sprint_issue_ids'].present? ||
+      query_params[:tj_issue_ids].present? ||
+      query_params['tj_issue_ids'].present?
+  end
+
   def sprint_drilldown_query_params
-    return params if params[:sprint_issue_ids].blank? && params['sprint_issue_ids'].blank?
+    return params unless ticket_journey_drilldown_active?
 
     query_params = params.to_unsafe_h.deep_dup.deep_stringify_keys
     operators = (query_params['op'] || {}).deep_stringify_keys
@@ -921,8 +928,11 @@ class TicketJourneyController < ApplicationController
   end
 
   def filter_sprint_drilldown_issues(issues)
-    issue_ids = params[:sprint_issue_ids].to_s.split(',').map(&:to_i).reject(&:zero?)
-    return issues if issue_ids.empty?
+    raw_issue_ids = params[:sprint_issue_ids].presence || params[:tj_issue_ids].presence
+    return issues if raw_issue_ids.blank?
+
+    issue_ids = raw_issue_ids.to_s.split(',').map(&:to_i).reject(&:zero?)
+    return [] if issue_ids.empty?
 
     allowed_ids = issue_ids.to_set
     issues.select { |issue| allowed_ids.include?(issue.id) }
@@ -2490,6 +2500,12 @@ class TicketJourneyController < ApplicationController
         total_duration_hours: total_duration_hours,
         rework_ratio: ratio(total_rework_hours, total_duration_hours)
       },
+      drilldowns: {
+        done_tickets: completed_items.map { |item| item[:issue].id },
+        tickets_with_returns: returned_items.map { |item| item[:issue].id },
+        done_tickets_with_returns: completed_returned_items.map { |item| item[:issue].id },
+        done_tickets_without_returns: completed_no_return_items.map { |item| item[:issue].id }
+      },
       counter_rows: counter_rows,
       rework_rows: rework_rows,
       reason_rows: qa_return_reason_rows(returned_items),
@@ -2504,7 +2520,9 @@ class TicketJourneyController < ApplicationController
         code: counter[:code],
         title: counter[:title],
         transition: counter[:transition],
-        count: issues_data.sum { |item| item[:durations][counter[:key]].to_i }
+        count: issues_data.sum { |item| item[:durations][counter[:key]].to_i },
+        issue_ids: issues_data.select { |item| item[:durations][counter[:key]].to_i.positive? }
+                              .map { |item| item[:issue].id }
       }
     end
   end
@@ -2559,11 +2577,12 @@ class TicketJourneyController < ApplicationController
 
     rows.map do |row|
       keys_by_family = row[:keys_by_family]
-      hours = issues_data.sum do |item|
-        Array(keys_by_family[item[:family_key]]).sum { |key| item[:durations][key].to_f }
+      matched_items = issues_data.select do |item|
+        Array(keys_by_family[item[:family_key]]).sum { |key| item[:durations][key].to_f }.positive?
       end
+      hours = matched_items.sum { |item| Array(keys_by_family[item[:family_key]]).sum { |key| item[:durations][key].to_f } }
 
-      row.merge(hours: hours)
+      row.merge(hours: hours, issue_ids: matched_items.map { |item| item[:issue].id })
     end
   end
 
@@ -2582,7 +2601,9 @@ class TicketJourneyController < ApplicationController
       {
         reason: reason,
         count: count,
-        percent: count.to_f / total.to_f
+        percent: count.to_f / total.to_f,
+        issue_ids: returned_items.select { |item| (item[:issue].custom_value_for(RETURN_REASON_CF_ID)&.value.presence || 'No Return Reason') == reason }
+                                .map { |item| item[:issue].id }
       }
     end.sort_by { |row| [-row[:count], row[:reason].to_s.downcase] }
   end
