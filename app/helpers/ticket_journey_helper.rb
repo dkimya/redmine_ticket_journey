@@ -405,7 +405,7 @@ module TicketJourneyHelper
     when :missing_priority
       add_missing_data_filter(filters, operators, values, 'priority_id')
     when :missing_sprint
-      add_missing_data_filter(filters, operators, values, 'fixed_version_id')
+      add_missing_data_filter(filters, operators, values, "cf_#{TicketJourneyController::TICKET_ORIGINAL_SPRINT_CF_ID}")
     when :no_update
       replace_filter(filters, operators, values, 'updated_on')
       add_date_filter(filters, operators, values, 'updated_on', '<=', [User.current.today - (@data_quality_stale_days || TicketJourneyController::DATA_QUALITY_DEFAULT_STALE_DAYS)])

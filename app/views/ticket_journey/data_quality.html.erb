@@ -24,7 +24,7 @@
           <%= number_field_tag :stale_days, @data_quality_stale_days, min: 1, class: 'tj-input tj-small-number-input', onchange: 'this.form.submit();' %>
         </div>
         <div class="tj-filter-group tj-flow-filter-note">
-          <span>Uses the Redmine filters above, keeps open issues, then checks owner, dates, estimation, priority, sprint/target version, and stale updates.</span>
+          <span>Uses the Redmine filters above, keeps open issues, then checks owner, dates, estimation, priority, original sprint, and stale updates.</span>
         </div>
       </div>
     </div>

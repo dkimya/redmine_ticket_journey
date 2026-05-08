@@ -1,5 +1,6 @@
 class TicketJourneyController < ApplicationController
   TICKET_OWNER_CF_ID = 57
+  TICKET_ORIGINAL_SPRINT_CF_ID = 68
   BUG_SOURCE_CF_ID = 63
   BUG_IMPACT_RATING_CF_ID = 65
   RETURN_REASON_CF_ID = 66
@@ -1330,6 +1331,7 @@ class TicketJourneyController < ApplicationController
 
   def data_quality_issue_row(issue, today)
     owner_value, owner_name = ticket_owner_info(issue)
+    original_sprint = issue.custom_value_for(TICKET_ORIGINAL_SPRINT_CF_ID)&.value.presence
     days_since_update = issue.updated_on.present? ? [(today - issue.updated_on.to_date).to_i, 0].max : nil
     missing_fields = []
     missing_fields << 'Ticket Owner' if owner_value.blank?
@@ -1337,7 +1339,7 @@ class TicketJourneyController < ApplicationController
     missing_fields << 'Due Date' if issue.due_date.blank?
     missing_fields << 'PM Estimation' if issue.estimated_hours.blank? || issue.estimated_hours.to_f <= 0
     missing_fields << 'Priority' if issue.priority_id.blank?
-    missing_fields << 'Sprint / Target Version' if issue.fixed_version_id.blank?
+    missing_fields << 'Ticket Original Sprint' if original_sprint.blank?
 
     without_updates = days_since_update.present? && days_since_update >= @data_quality_stale_days
 
@@ -1353,7 +1355,7 @@ class TicketJourneyController < ApplicationController
       status: issue.status&.name || '-',
       priority: issue.priority&.name || '-',
       tracker: issue.tracker&.name || '-',
-      sprint: issue.fixed_version&.name || '-',
+      sprint: original_sprint || issue.fixed_version&.name || '-',
       updated_on: issue.updated_on,
       days_since_update: days_since_update,
       missing_fields: missing_fields,
@@ -1362,7 +1364,7 @@ class TicketJourneyController < ApplicationController
       missing_due_date: issue.due_date.blank?,
       missing_estimation: issue.estimated_hours.blank? || issue.estimated_hours.to_f <= 0,
       missing_priority: issue.priority_id.blank?,
-      missing_sprint: issue.fixed_version_id.blank?,
+      missing_sprint: original_sprint.blank?,
       missing_required: missing_fields.any?,
       without_updates: without_updates,
       risk: data_quality_issue_risk(missing_fields.size, without_updates)
@@ -1449,7 +1451,7 @@ class TicketJourneyController < ApplicationController
       { key: :missing_due_date, label: 'Missing Due Date', scope: :missing_due_date },
       { key: :missing_estimation, label: 'Missing PM Estimation', scope: :missing_estimation },
       { key: :missing_priority, label: 'Missing Priority', scope: :missing_priority },
-      { key: :missing_sprint, label: 'Missing Sprint / Target Version', scope: :missing_sprint },
+      { key: :missing_sprint, label: 'Missing Original Sprint', scope: :missing_sprint },
       { key: :tickets_without_updates, label: "No Update #{@data_quality_stale_days}d+", scope: :no_update }
     ].map do |field|
       field.merge(count: totals[field[:key]].to_i, percent: ratio(totals[field[:key]].to_i, totals[:total_active]))
