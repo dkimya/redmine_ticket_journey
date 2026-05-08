@@ -1,0 +1,225 @@
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'ticket_journey', plugin: 'redmine_ticket_journey' %>
+<% end %>
+
+<div id="tj-wrap">
+  <div class="tj-page-header">
+    <div class="tj-page-header-left">
+      <div>
+        <h2>QA &amp; Returns</h2>
+        <p class="tj-page-sub">Return behavior, rework effort, and first-pass quality &mdash; <%= @project.name %></p>
+      </div>
+    </div>
+  </div>
+
+  <%= render partial: 'report_tabs', locals: { active_tab: :qa_returns } %>
+
+  <%= form_tag(ticket_journey_qa_returns_path(@project), method: :get, id: 'query_form') do %>
+    <%= render partial: 'queries/query_form' %>
+  <% end %>
+
+  <% if !@query.valid? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">Report</div>
+      <h3>Invalid filters</h3>
+      <p>Please review the Redmine query filters above.</p>
+    </div>
+  <% else %>
+    <%
+      totals = @qa_returns_report[:totals]
+      counter_rows = @qa_returns_report[:counter_rows]
+      rework_rows = @qa_returns_report[:rework_rows]
+      reason_rows = @qa_returns_report[:reason_rows]
+      returned_ticket_rows = @qa_returns_report[:returned_ticket_rows]
+      max_rework = [rework_rows.map { |row| row[:hours].to_f }.max.to_f, 1.0].max
+      max_reason = [reason_rows.map { |row| row[:count].to_i }.max.to_i, 1].max
+    %>
+
+    <div class="tj-summary-strip">
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Done Tickets</div>
+        <div class="tj-sc-value tj-sc-blue"><%= totals[:done_tickets] %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Tickets With Returns</div>
+        <div class="tj-sc-value <%= totals[:done_tickets_with_returns].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= totals[:done_tickets_with_returns] %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">First-Time Pass</div>
+        <div class="tj-sc-value <%= totals[:first_pass_rate] >= 0.8 ? 'tj-sc-green' : 'tj-sc-orange' %>"><%= number_to_percentage(totals[:first_pass_rate] * 100, precision: 1) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Return Rate</div>
+        <div class="tj-sc-value <%= totals[:return_rate].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= number_to_percentage(totals[:return_rate] * 100, precision: 1) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Total Returns</div>
+        <div class="tj-sc-value <%= totals[:return_events].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= totals[:return_events] %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Rework Time</div>
+        <div class="tj-sc-value <%= totals[:total_rework_hours].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= format_hours(totals[:total_rework_hours]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Rework Ratio</div>
+        <div class="tj-sc-value <%= totals[:rework_ratio].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= number_to_percentage(totals[:rework_ratio] * 100, precision: 1) %></div>
+      </div>
+    </div>
+
+    <% if totals[:issues].zero? %>
+      <div class="tj-empty">
+        <div class="tj-empty-icon">QA</div>
+        <h3>No QA return data found</h3>
+        <p>Try adjusting the Redmine query filters above.</p>
+      </div>
+    <% else %>
+      <div class="tj-legend-strip tj-legend-strip-section">
+        <% counter_rows.each do |counter| %>
+          <div class="tj-legend-item" title="<%= h(counter[:title]) %>">
+            <div class="tj-legend-code"><%= counter[:code] %></div>
+            <div class="tj-legend-copy">
+              <div class="tj-legend-title"><%= h(counter[:title]) %></div>
+              <div class="tj-legend-sub"><%= h(counter[:transition]) %></div>
+            </div>
+            <div class="tj-legend-total <%= counter[:count].positive? ? 'is-active' : '' %>"><%= counter[:count] %></div>
+          </div>
+        <% end %>
+      </div>
+
+      <div class="tj-health-grid">
+        <div class="tj-card tj-health-card">
+          <div class="tj-card-title">Done Tickets Analysis</div>
+          <table class="tj-health-table">
+            <tbody>
+              <tr>
+                <td class="tj-health-label">Tickets with Min 1 Return</td>
+                <td class="tj-health-count"><%= totals[:done_tickets_with_returns].zero? ? '-' : totals[:done_tickets_with_returns] %></td>
+                <td class="tj-health-percent"><%= number_to_percentage(totals[:return_rate] * 100, precision: 1) %></td>
+              </tr>
+              <tr>
+                <td class="tj-health-label">Tickets with No Return</td>
+                <td class="tj-health-count"><%= totals[:done_tickets_without_returns].zero? ? '-' : totals[:done_tickets_without_returns] %></td>
+                <td class="tj-health-percent"><%= number_to_percentage(totals[:first_pass_rate] * 100, precision: 1) %></td>
+              </tr>
+              <tr>
+                <td class="tj-health-label">Total Done Tickets</td>
+                <td class="tj-health-count"><%= totals[:done_tickets] %></td>
+                <td class="tj-health-percent">100%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="tj-card tj-health-card">
+          <div class="tj-card-title">Work &amp; Rework Ratio</div>
+          <table class="tj-health-table">
+            <tbody>
+              <tr>
+                <td class="tj-health-label">Total Work Duration</td>
+                <td class="tj-health-count"><%= format_hours(totals[:total_work_hours]) %></td>
+                <td class="tj-health-percent"><%= number_to_percentage((1.0 - totals[:rework_ratio]) * 100, precision: 1) %></td>
+              </tr>
+              <tr>
+                <td class="tj-health-label">Total Rework Duration</td>
+                <td class="tj-health-count"><%= format_hours(totals[:total_rework_hours]) %></td>
+                <td class="tj-health-percent"><%= number_to_percentage(totals[:rework_ratio] * 100, precision: 1) %></td>
+              </tr>
+              <tr>
+                <td class="tj-health-label">Total Durations</td>
+                <td class="tj-health-count"><%= format_hours(totals[:total_duration_hours]) %></td>
+                <td class="tj-health-percent">100%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tj-card tj-card-full">
+        <div class="tj-card-title">Returned Tickets Analysis - Duration</div>
+        <div class="tj-workload-bars">
+          <% rework_rows.each do |row| %>
+            <% width = (row[:hours].to_f / max_rework * 100).round(1) %>
+            <div class="tj-workload-bar-row">
+              <div class="tj-workload-bar-label">
+                <strong><%= h(row[:label]) %></strong>
+                <span><%= h(row[:description]) %></span>
+              </div>
+              <div class="tj-workload-bar-track">
+                <div class="tj-workload-bar-fill" style="width:<%= width %>%"></div>
+              </div>
+              <div class="tj-workload-bar-meta"><strong><%= format_hours(row[:hours]) %></strong></div>
+            </div>
+          <% end %>
+        </div>
+      </div>
+
+      <div class="tj-card tj-card-full">
+        <div class="tj-card-title">Return Reason Analysis</div>
+        <% if reason_rows.empty? %>
+          <div class="tj-flow-empty-note">No returned tickets found in the current filtered result.</div>
+        <% else %>
+          <div class="tj-bug-bars">
+            <% reason_rows.each do |row| %>
+              <% width = (row[:count].to_f / max_reason * 100).round(1) %>
+              <div class="tj-bug-bar-row">
+                <div class="tj-bug-bar-label"><%= h(row[:reason]) %></div>
+                <div class="tj-bug-bar-track">
+                  <div class="tj-bug-bar-fill" style="width:<%= width %>%"></div>
+                </div>
+                <div class="tj-bug-bar-count"><%= row[:count] %> <span><%= number_to_percentage(row[:percent] * 100, precision: 0) %></span></div>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+
+      <div class="tj-card tj-card-full">
+        <div class="tj-card-title">Returned Ticket Detail</div>
+        <% if returned_ticket_rows.empty? %>
+          <div class="tj-flow-empty-note">No returned tickets found in the current filtered result.</div>
+        <% else %>
+          <div class="tj-table-wrap">
+            <table class="tj-table">
+              <thead>
+                <tr>
+                  <th class="tj-th-issue">Issue</th>
+                  <th class="tj-th-title">Subject</th>
+                  <th class="tj-th-native">Tracker</th>
+                  <th class="tj-th-native">Status</th>
+                  <th class="tj-th-native">Ticket Owner</th>
+                  <th class="tj-th-native">Return Reason</th>
+                  <th class="tj-th-counter">R1</th>
+                  <th class="tj-th-counter">R2</th>
+                  <th class="tj-th-counter">R3</th>
+                  <th class="tj-th-counter">R4</th>
+                  <th class="tj-th-total">Total Returns</th>
+                  <th class="tj-th-native">Rework Time</th>
+                  <th class="tj-th-total">Cycle Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% returned_ticket_rows.first(150).each do |row| %>
+                  <tr class="tj-row">
+                    <td class="tj-td-issue"><%= link_to "##{row[:issue_id]}", issue_path(row[:issue]), class: 'tj-issue-link' %></td>
+                    <td class="tj-td-title" title="<%= h(row[:subject]) %>"><%= link_to h(row[:subject]), ticket_journey_path(@project, issue_detail_params(@query, row[:issue])), class: 'tj-subject-link' %></td>
+                    <td class="tj-td-native"><%= h(row[:tracker]) %></td>
+                    <td class="tj-td-native"><span class="tj-status-badge"><%= h(row[:status]) %></span></td>
+                    <td class="tj-td-native"><%= h(row[:owner]) %></td>
+                    <td class="tj-td-title"><%= h(row[:return_reason]) %></td>
+                    <td class="<%= counter_css_class(row[:c1]) %>"><%= row[:c1].positive? ? row[:c1] : '-' %></td>
+                    <td class="<%= counter_css_class(row[:c2]) %>"><%= row[:c2].positive? ? row[:c2] : '-' %></td>
+                    <td class="<%= counter_css_class(row[:c3]) %>"><%= row[:c3].positive? ? row[:c3] : '-' %></td>
+                    <td class="<%= counter_css_class(row[:c4]) %>"><%= row[:c4].positive? ? row[:c4] : '-' %></td>
+                    <td class="tj-td-total"><%= row[:total_returns] %></td>
+                    <td class="tj-td-native"><%= format_hours(row[:rework_hours]) %></td>
+                    <td class="tj-td-total"><%= format_hours(row[:cycle_hours]) %></td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+  <% end %>
+</div>

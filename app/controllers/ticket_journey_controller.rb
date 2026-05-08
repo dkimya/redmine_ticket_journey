@@ -90,7 +90,7 @@ class TicketJourneyController < ApplicationController
 
   before_action :find_project
   before_action :authorize
-  before_action :build_query, only: [:index, :pmo_control, :sprint_delivery, :owner_returns, :owner_workload, :aging_risk, :priority_risk, :cycle_distribution, :flow_report, :project_health, :release_readiness, :bug_analysis, :data_quality, :export]
+  before_action :build_query, only: [:index, :pmo_control, :sprint_delivery, :owner_returns, :qa_returns, :owner_workload, :aging_risk, :priority_risk, :cycle_distribution, :flow_report, :project_health, :release_readiness, :bug_analysis, :data_quality, :export]
   before_action :prepare_owner_role_filter, only: [:owner_returns, :owner_workload, :flow_report]
 
   helper :queries
@@ -129,6 +129,14 @@ class TicketJourneyController < ApplicationController
   def owner_returns
     @issues_data = compute_all_durations
     @owner_return_rows = compute_owner_returns_summary(@issues_data, role_id: @selected_owner_role&.id)
+  end
+
+  # ---------------------------------------------------------------
+  # QA & RETURNS - return behavior, rework effort, and first-pass view
+  # ---------------------------------------------------------------
+  def qa_returns
+    @issues_data = compute_all_durations
+    @qa_returns_report = compute_qa_returns_report(@issues_data)
   end
 
   # ---------------------------------------------------------------
@@ -2431,6 +2439,163 @@ class TicketJourneyController < ApplicationController
     end
 
     sort_owner_return_rows(owner_rows)
+  end
+
+  def compute_qa_returns_report(issues_data)
+    completed_items = issues_data.select { |item| %i[done archived].include?(status_role(item[:issue].status&.name)) }
+    returned_items = issues_data.select { |item| item_total_returns(item).positive? }
+    completed_returned_items = completed_items.select { |item| item_total_returns(item).positive? }
+    completed_no_return_items = completed_items - completed_returned_items
+    rework_rows = qa_rework_rows(issues_data)
+    total_rework_hours = rework_rows.sum { |row| row[:hours].to_f }
+    total_duration_hours = issues_data.sum { |item| item[:durations][:TOTAL].to_f }
+    total_work_hours = [total_duration_hours - total_rework_hours, 0.0].max
+    counter_rows = qa_counter_rows(issues_data)
+
+    {
+      totals: {
+        issues: issues_data.size,
+        done_tickets: completed_items.size,
+        tickets_with_returns: returned_items.size,
+        done_tickets_with_returns: completed_returned_items.size,
+        done_tickets_without_returns: completed_no_return_items.size,
+        return_events: counter_rows.sum { |row| row[:count].to_i },
+        return_rate: ratio(completed_returned_items.size, completed_items.size),
+        first_pass_rate: ratio(completed_no_return_items.size, completed_items.size),
+        total_work_hours: total_work_hours,
+        total_rework_hours: total_rework_hours,
+        total_duration_hours: total_duration_hours,
+        rework_ratio: ratio(total_rework_hours, total_duration_hours)
+      },
+      counter_rows: counter_rows,
+      rework_rows: rework_rows,
+      reason_rows: qa_return_reason_rows(returned_items),
+      returned_ticket_rows: qa_returned_ticket_rows(returned_items)
+    }
+  end
+
+  def qa_counter_rows(issues_data)
+    qa_counter_definitions.map do |counter|
+      {
+        key: counter[:key],
+        code: counter[:code],
+        title: counter[:title],
+        transition: counter[:transition],
+        count: issues_data.sum { |item| item[:durations][counter[:key]].to_i }
+      }
+    end
+  end
+
+  def qa_counter_definitions
+    [
+      { key: :C1, code: 'R1', title: 'Function-Fail / Granular Error', transition: 'Feedback -> Returned' },
+      { key: :C2, code: 'R2', title: 'Code Quality Fail', transition: 'Review -> Returned' },
+      { key: :C3, code: 'R3', title: 'Merge Conflict Error', transition: 'Ready to Merge -> Returned' },
+      { key: :C4, code: 'R4', title: 'E2E Fail / Side-Effect Error', transition: 'Final Check -> Returned' }
+    ]
+  end
+
+  def qa_rework_rows(issues_data)
+    rows = [
+      {
+        key: :development,
+        label: 'Development Rework',
+        description: 'Wait/redo after return',
+        keys_by_family: {
+          internal: %i[D1aug D2aug],
+          task: %i[DT1aug DT2aug]
+        }
+      },
+      {
+        key: :qa,
+        label: 'QA / Feedback Rework',
+        description: 'QA or feedback returned time',
+        keys_by_family: {
+          internal: %i[D3aug],
+          task: %i[DT3aug]
+        }
+      },
+      {
+        key: :review,
+        label: 'Review Rework',
+        description: 'Review returned time',
+        keys_by_family: {
+          internal: %i[D4aug]
+        }
+      },
+      {
+        key: :integration,
+        label: 'Merge / Final Check Rework',
+        description: 'Integration and final-check returned time',
+        keys_by_family: {
+          internal: %i[D5aug D6aug],
+          task: %i[DT4aug]
+        }
+      }
+    ]
+
+    rows.map do |row|
+      keys_by_family = row[:keys_by_family]
+      hours = issues_data.sum do |item|
+        Array(keys_by_family[item[:family_key]]).sum { |key| item[:durations][key].to_f }
+      end
+
+      row.merge(hours: hours)
+    end
+  end
+
+  def qa_return_reason_rows(returned_items)
+    counts = Hash.new(0)
+
+    returned_items.each do |item|
+      reason = item[:issue].custom_value_for(RETURN_REASON_CF_ID)&.value.presence || 'No Return Reason'
+      counts[reason] += 1
+    end
+
+    total = counts.values.sum
+    return [] if total.zero?
+
+    counts.map do |reason, count|
+      {
+        reason: reason,
+        count: count,
+        percent: count.to_f / total.to_f
+      }
+    end.sort_by { |row| [-row[:count], row[:reason].to_s.downcase] }
+  end
+
+  def qa_returned_ticket_rows(returned_items)
+    returned_items.map do |item|
+      issue = item[:issue]
+      owner_value, owner_name = ticket_owner_info(issue)
+      durations = item[:durations]
+
+      {
+        issue: issue,
+        issue_id: issue.id,
+        subject: issue.subject,
+        tracker: issue.tracker&.name || '-',
+        status: issue.status&.name || '-',
+        owner_value: owner_value,
+        owner: owner_name,
+        return_reason: issue.custom_value_for(RETURN_REASON_CF_ID)&.value.presence || 'No Return Reason',
+        c1: durations[:C1].to_i,
+        c2: durations[:C2].to_i,
+        c3: durations[:C3].to_i,
+        c4: durations[:C4].to_i,
+        total_returns: item_total_returns(item),
+        rework_hours: qa_rework_hours_for_item(item),
+        cycle_hours: completed_cycle_time_hours(item) || durations[:TOTAL].to_f
+      }
+    end.sort_by { |row| [-row[:total_returns], -row[:rework_hours], row[:issue_id]] }
+  end
+
+  def qa_rework_hours_for_item(item)
+    qa_rework_rows([item]).sum { |row| row[:hours].to_f }
+  end
+
+  def item_total_returns(item)
+    ALL_COUNTER_KEYS.sum { |key| item[:durations][key].to_i }
   end
 
   def done_cycle_time_hours(item)

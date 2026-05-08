@@ -3,6 +3,7 @@
   sprint_params = sprint_delivery_params(@query)
   duration_params = duration_report_params(@query)
   owner_params = owner_returns_params(@query)
+  qa_params = qa_returns_params(@query)
   workload_params = owner_workload_params(@query)
   aging_params = aging_risk_params(@query)
   priority_params = priority_risk_params(@query)
@@ -36,6 +37,9 @@
   <%= link_to 'Ticket Owner Performance',
         ticket_journey_owner_returns_path(@project, owner_params),
         class: "tj-report-tab #{active_tab == :owner_returns ? 'is-active' : ''}" %>
+  <%= link_to 'QA & Returns',
+        ticket_journey_qa_returns_path(@project, qa_params),
+        class: "tj-report-tab #{active_tab == :qa_returns ? 'is-active' : ''}" %>
   <%= link_to 'Owner Workload',
         ticket_journey_owner_workload_path(@project, workload_params),
         class: "tj-report-tab #{active_tab == :owner_workload ? 'is-active' : ''}" %>

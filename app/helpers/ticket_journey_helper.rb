@@ -214,6 +214,10 @@ module TicketJourneyHelper
     query_params
   end
 
+  def qa_returns_params(query)
+    query.as_params.deep_dup.deep_stringify_keys
+  end
+
   def owner_workload_params(query)
     query_params = query.as_params.deep_dup.deep_stringify_keys
 
