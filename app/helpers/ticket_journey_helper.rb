@@ -35,6 +35,100 @@ module TicketJourneyHelper
     query_params
   end
 
+  def sprint_delivery_issue_filter_params(scope = :committed, owner_value = :all)
+    query_params = @query.as_params.deep_dup.deep_stringify_keys
+    filters = Array(query_params['f'] || query_params[:f]).map(&:to_s)
+    operators = (query_params['op'] || query_params[:op] || {}).deep_dup.deep_stringify_keys
+    values = (query_params['v'] || query_params[:v] || {}).deep_dup.deep_stringify_keys
+    issue_ids = sprint_delivery_issue_ids(scope, owner_value)
+
+    replace_filter(filters, operators, values, 'issue_id')
+    add_exact_filter(filters, operators, values, 'issue_id', issue_ids)
+
+    query_params['set_filter'] = '1'
+    query_params['f'] = filters
+    query_params['op'] = operators
+    query_params['v'] = values
+    query_params
+  end
+
+  def sprint_delivery_duration_filter_params(scope = :committed, owner_value = :all)
+    sprint_delivery_issue_filter_params(scope, owner_value).merge('sprint_id' => @selected_sprint&.id)
+  end
+
+  def sprint_delivery_count_link(scope, value, owner_value = :all, target: :issues)
+    return '-' if value.to_i.zero?
+
+    path =
+      if target == :duration
+        ticket_journey_path(@project, sprint_delivery_duration_filter_params(scope, owner_value))
+      else
+        project_issues_path(@project, sprint_delivery_issue_filter_params(scope, owner_value))
+      end
+
+    link_to(value, path, class: 'tj-drilldown-link', title: 'Open matching sprint tickets')
+  end
+
+  def sprint_delivery_issue_ids(scope = :committed, owner_value = :all)
+    rows = Array(@sprint_delivery_report && @sprint_delivery_report[:issue_rows])
+    rows = rows.select { |row| sprint_delivery_owner_matches?(row, owner_value) } unless owner_value == :all
+    rows.select { |row| sprint_delivery_row_matches_scope?(row, scope) }
+        .map { |row| row[:issue]&.id }
+        .compact
+  end
+
+  def sprint_delivery_owner_matches?(row, owner_value)
+    owner_value.blank? ? row[:owner_value].blank? : row[:owner_value].to_s == owner_value.to_s
+  end
+
+  def sprint_delivery_row_matches_scope?(row, scope)
+    issue = row[:issue]
+    flags = Array(row[:flags])
+
+    case scope.to_sym
+    when :completed
+      %w[done archived].include?(sprint_delivery_status_role(issue.status&.name))
+    when :not_delivered
+      !%w[done archived].include?(sprint_delivery_status_role(issue.status&.name))
+    when :carry_over
+      flags.include?('Carry-over')
+    when :stopped
+      flags.include?('Stopped')
+    when :not_started
+      flags.include?('Not Started')
+    when :returned
+      flags.include?('Returned')
+    when :overdue
+      flags.include?('Overdue')
+    when :technical_debt
+      flags.include?('Carry-over') && !%w[done archived].include?(sprint_delivery_status_role(issue.status&.name))
+    else
+      true
+    end
+  end
+
+  def sprint_delivery_status_role(status_name)
+    case status_name.to_s.downcase.strip
+    when 'done / closed', 'done', 'closed'
+      'done'
+    when 'archived', 'archive'
+      'archived'
+    else
+      status_name.to_s.downcase.strip
+    end
+  end
+
+  def sprint_delivery_flag_scope(flag)
+    case flag.to_s
+    when 'Carry-over'
+      :carry_over
+    when 'Not Started'
+      :not_started
+    else
+      flag.to_s.parameterize.underscore.to_sym
+    end
+  end
+
   def pmo_control_attention_path(item)
     case item[:path]
     when :issues

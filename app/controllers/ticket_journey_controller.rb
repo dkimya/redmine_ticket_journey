@@ -431,15 +431,17 @@ class TicketJourneyController < ApplicationController
 
   def sprint_delivery_issue_rows(sprint, issues)
     issues.map do |issue|
-      _owner_value, owner_name = ticket_owner_info(issue)
+      owner_value, owner_name = ticket_owner_info(issue)
       flags = []
       flags << 'Carry-over' if carry_over_sprint_issue?(sprint, issue)
       flags << 'Stopped' if paused_status?(issue.status&.name)
       flags << 'Overdue' if sprint_delivery_overdue?(issue)
       flags << 'Not Started' if not_started_sprint_status?(issue.status&.name)
+      flags << 'Returned' if status_role(issue.status&.name) == :returned
 
       {
         issue: issue,
+        owner_value: owner_value,
         owner: owner_name.presence || 'Unassigned',
         original_sprint: issue.custom_value_for(TICKET_ORIGINAL_SPRINT_CF_ID)&.value.presence || '-',
         flags: flags

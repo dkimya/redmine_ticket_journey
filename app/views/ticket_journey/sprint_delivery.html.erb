@@ -58,11 +58,11 @@
       </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label">Committed Tickets</div>
-        <div class="tj-sc-value tj-sc-blue"><%= totals[:committed] %></div>
+        <div class="tj-sc-value tj-sc-blue"><%= sprint_delivery_count_link(:committed, totals[:committed]) %></div>
       </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label">Completed</div>
-        <div class="tj-sc-value tj-sc-green"><%= totals[:completed] %></div>
+        <div class="tj-sc-value tj-sc-green"><%= sprint_delivery_count_link(:completed, totals[:completed]) %></div>
       </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label">Completion Rate</div>
@@ -70,19 +70,19 @@
       </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label">Carry-over</div>
-        <div class="tj-sc-value <%= totals[:carry_over].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= totals[:carry_over] %></div>
+        <div class="tj-sc-value <%= totals[:carry_over].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= sprint_delivery_count_link(:carry_over, totals[:carry_over]) %></div>
       </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label">Stopped</div>
-        <div class="tj-sc-value <%= totals[:stopped].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= totals[:stopped] %></div>
+        <div class="tj-sc-value <%= totals[:stopped].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= sprint_delivery_count_link(:stopped, totals[:stopped]) %></div>
       </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label">Not Started</div>
-        <div class="tj-sc-value <%= totals[:not_started].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= totals[:not_started] %></div>
+        <div class="tj-sc-value <%= totals[:not_started].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= sprint_delivery_count_link(:not_started, totals[:not_started]) %></div>
       </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label">Technical Debt</div>
-        <div class="tj-sc-value <%= totals[:technical_debt].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= totals[:technical_debt] %></div>
+        <div class="tj-sc-value <%= totals[:technical_debt].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= sprint_delivery_count_link(:technical_debt, totals[:technical_debt]) %></div>
       </div>
     </div>
 
@@ -131,22 +131,22 @@
               </tr>
               <tr>
                 <td class="tj-health-label">Carry-over</td>
-                <td class="tj-health-count"><%= totals[:carry_over] %></td>
+                <td class="tj-health-count"><%= sprint_delivery_count_link(:carry_over, totals[:carry_over]) %></td>
                 <td class="tj-health-percent"><%= number_to_percentage(totals[:carry_over_rate] * 100, precision: 1) %></td>
               </tr>
               <tr>
                 <td class="tj-health-label">Not Delivered</td>
-                <td class="tj-health-count"><%= totals[:not_delivered] %></td>
+                <td class="tj-health-count"><%= sprint_delivery_count_link(:not_delivered, totals[:not_delivered]) %></td>
                 <td class="tj-health-percent"><%= number_to_percentage((1.0 - totals[:completion_rate]) * 100, precision: 1) %></td>
               </tr>
               <tr>
                 <td class="tj-health-label">Returned</td>
-                <td class="tj-health-count"><%= totals[:returned] %></td>
+                <td class="tj-health-count"><%= sprint_delivery_count_link(:returned, totals[:returned]) %></td>
                 <td class="tj-health-percent"><%= number_to_percentage(totals[:returned].to_f / totals[:committed].to_f * 100, precision: 1) %></td>
               </tr>
               <tr>
                 <td class="tj-health-label">Overdue</td>
-                <td class="tj-health-count"><%= totals[:overdue] %></td>
+                <td class="tj-health-count"><%= sprint_delivery_count_link(:overdue, totals[:overdue]) %></td>
                 <td class="tj-health-percent"><%= number_to_percentage(totals[:overdue].to_f / totals[:committed].to_f * 100, precision: 1) %></td>
               </tr>
             </tbody>
@@ -175,15 +175,15 @@
             <tbody>
               <% @sprint_delivery_report[:owner_rows].each do |row| %>
                 <tr class="tj-row">
-                  <td class="tj-td-title"><%= h(row[:owner]) %></td>
-                  <td class="tj-td-native"><%= row[:committed] %></td>
-                  <td class="tj-td-native"><%= row[:completed] %></td>
+                  <td class="tj-td-title"><%= link_to h(row[:owner]), ticket_journey_path(@project, sprint_delivery_duration_filter_params(:committed, row[:owner_value])), class: 'tj-drilldown-link', title: 'Open this owner sprint tickets in Duration Report' %></td>
+                  <td class="tj-td-native"><%= sprint_delivery_count_link(:committed, row[:committed], row[:owner_value], target: :duration) %></td>
+                  <td class="tj-td-native"><%= sprint_delivery_count_link(:completed, row[:completed], row[:owner_value]) %></td>
                   <td class="tj-td-native"><%= number_to_percentage(row[:completion_rate] * 100, precision: 1) %></td>
-                  <td class="tj-td-native"><%= row[:not_started].zero? ? '-' : row[:not_started] %></td>
-                  <td class="tj-td-native"><%= row[:stopped].zero? ? '-' : row[:stopped] %></td>
-                  <td class="tj-td-native"><%= row[:returned].zero? ? '-' : row[:returned] %></td>
-                  <td class="tj-td-native"><%= row[:overdue].zero? ? '-' : row[:overdue] %></td>
-                  <td class="tj-td-native"><%= row[:carry_over].zero? ? '-' : row[:carry_over] %></td>
+                  <td class="tj-td-native"><%= sprint_delivery_count_link(:not_started, row[:not_started], row[:owner_value]) %></td>
+                  <td class="tj-td-native"><%= sprint_delivery_count_link(:stopped, row[:stopped], row[:owner_value]) %></td>
+                  <td class="tj-td-native"><%= sprint_delivery_count_link(:returned, row[:returned], row[:owner_value]) %></td>
+                  <td class="tj-td-native"><%= sprint_delivery_count_link(:overdue, row[:overdue], row[:owner_value]) %></td>
+                  <td class="tj-td-native"><%= sprint_delivery_count_link(:carry_over, row[:carry_over], row[:owner_value]) %></td>
                   <td class="tj-td-native"><%= number_to_percentage(row[:share] * 100, precision: 1) %></td>
                 </tr>
               <% end %>
@@ -235,7 +235,13 @@
                   <td class="tj-td-native"><%= format_date(issue.due_date) %></td>
                   <td class="tj-td-native"><%= issue.estimated_hours.present? ? number_with_precision(issue.estimated_hours, precision: 1, strip_insignificant_zeros: true) : '-' %></td>
                   <td class="tj-td-native"><%= h(row[:original_sprint]) %></td>
-                  <td class="tj-td-native"><%= row[:flags].any? ? row[:flags].join(', ') : '-' %></td>
+                  <td class="tj-td-native">
+                    <% if row[:flags].any? %>
+                      <%= safe_join(row[:flags].map { |flag| link_to flag, project_issues_path(@project, sprint_delivery_issue_filter_params(sprint_delivery_flag_scope(flag), row[:owner_value])), class: 'tj-drilldown-link', title: "Open #{flag.downcase} sprint tickets" }, ', ') %>
+                    <% else %>
+                      -
+                    <% end %>
+                  </td>
                 </tr>
               <% end %>
               <tr class="tj-total-row">
