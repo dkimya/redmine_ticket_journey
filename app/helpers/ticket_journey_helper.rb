@@ -25,6 +25,8 @@ module TicketJourneyHelper
 
   def pmo_control_attention_path(item)
     case item[:path]
+    when :issues
+      project_issues_path(@project, pmo_control_issue_filter_params(item[:scope]))
     when :aging_risk
       ticket_journey_aging_risk_path(@project, aging_risk_params(@query))
     when :priority_risk
@@ -38,6 +40,60 @@ module TicketJourneyHelper
     else
       ticket_journey_path(@project, duration_report_params(@query))
     end
+  end
+
+  def pmo_control_value_class(tone)
+    case tone
+    when :red
+      'tj-sc-red'
+    when :orange
+      'tj-sc-orange'
+    when :blue
+      'tj-sc-blue'
+    when :green
+      'tj-sc-green'
+    else
+      'tj-sc-dim'
+    end
+  end
+
+  def pmo_control_issue_filter_params(scope)
+    query_params = @query.as_params.deep_dup.deep_stringify_keys
+    filters = Array(query_params['f'] || query_params[:f]).map(&:to_s)
+    operators = (query_params['op'] || query_params[:op] || {}).deep_dup.deep_stringify_keys
+    values = (query_params['v'] || query_params[:v] || {}).deep_dup.deep_stringify_keys
+    today = User.current.today
+
+    replace_filter(filters, operators, values, 'status_id')
+    add_status_filter(filters, operators, values, 'o')
+
+    case scope.to_sym
+    when :overdue
+      replace_filter(filters, operators, values, 'due_date')
+      add_date_filter(filters, operators, values, 'due_date', '<=', [today - 1])
+    when :stopped
+      replace_filter(filters, operators, values, 'status_id')
+      add_exact_status_filter(filters, operators, values, stopped_status_filter_values)
+    when :priority_open
+      replace_filter(filters, operators, values, 'priority_id')
+      add_priority_filter(filters, operators, values)
+    when :bucket_60_plus
+      replace_filter(filters, operators, values, 'created_on')
+      add_date_filter(filters, operators, values, 'created_on', '<=', [today - 61])
+    when :missing_owner
+      add_missing_data_filter(filters, operators, values, "cf_#{TicketJourneyController::TICKET_OWNER_CF_ID}")
+    when :missing_due_date
+      add_missing_data_filter(filters, operators, values, 'due_date')
+    when :no_update
+      replace_filter(filters, operators, values, 'updated_on')
+      add_date_filter(filters, operators, values, 'updated_on', '<=', [today - (@data_quality_stale_days || TicketJourneyController::DATA_QUALITY_DEFAULT_STALE_DAYS)])
+    end
+
+    query_params['set_filter'] = '1'
+    query_params['f'] = filters
+    query_params['op'] = operators
+    query_params['v'] = values
+    query_params
   end
 
   def owner_returns_params(query)

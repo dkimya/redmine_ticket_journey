@@ -43,22 +43,24 @@
         <div class="tj-sc-label">Report Date</div>
         <div class="tj-sc-value tj-sc-accent"><%= format_date(report[:report_date]) %></div>
       </div>
+      <div class="tj-summary-card" title="<%= h(report[:overall_status][:note]) %>">
+        <div class="tj-sc-label">Overall Health</div>
+        <div class="tj-sc-value <%= pmo_control_value_class(report[:overall_status][:tone]) %>"><%= report[:overall_status][:label] %></div>
+      </div>
       <% report[:kpis].each do |kpi| %>
-        <%
-          value_class =
-            case kpi[:tone]
-            when :red then 'tj-sc-red'
-            when :orange then 'tj-sc-orange'
-            when :blue then 'tj-sc-blue'
-            when :green then 'tj-sc-green'
-            else 'tj-sc-dim'
-            end
-        %>
-        <div class="tj-summary-card">
+        <div class="tj-summary-card" title="<%= h(kpi[:help]) %>">
           <div class="tj-sc-label"><%= h(kpi[:label]) %></div>
-          <div class="tj-sc-value <%= value_class %>"><%= kpi[:value] %></div>
+          <div class="tj-sc-value <%= pmo_control_value_class(kpi[:tone]) %>"><%= kpi[:value] %></div>
         </div>
       <% end %>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">PMO Health Rule</div>
+      <div class="tj-flow-empty-note">
+        Overall Health becomes <strong>Risk</strong> when priority SLA, overdue, stopped, release risk, or high missing-data signals exist.
+        It becomes <strong>Watch</strong> when aging, missing data, or stale-update cleanup is still needed.
+      </div>
     </div>
 
     <div class="tj-detail-grid">

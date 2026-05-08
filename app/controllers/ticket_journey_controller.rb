@@ -255,36 +255,59 @@ class TicketJourneyController < ApplicationController
       data_quality_field_rows: data_quality_report[:field_rows].select { |row| row[:count].to_i.positive? }.first(8),
       bug_period: [bug_start_date, bug_end_date],
       bug: bug_totals,
+      overall_status: pmo_control_status(aging_totals, priority_totals, release_report, data_quality_report),
       kpis: pmo_control_kpis(health_report, aging_totals, priority_totals, release_report, data_quality_report, bug_totals),
       attention_items: pmo_control_attention_items(aging_totals, priority_totals, release_report, data_quality_report, bug_totals)
     }
   end
 
+  def pmo_control_status(aging_totals, priority_totals, release_report, data_quality_report)
+    data_totals = data_quality_report[:totals]
+
+    risk_reasons = []
+    risk_reasons << 'priority SLA risk exists' if priority_totals[:total_open].to_i.positive?
+    risk_reasons << 'overdue tickets exist' if aging_totals[:overdue].to_i.positive?
+    risk_reasons << 'stopped tickets exist' if aging_totals[:stopped].to_i.positive?
+    risk_reasons << 'release risk exists' if release_report[:at_risk_versions].to_i.positive?
+    risk_reasons << 'missing required data is high' if data_totals[:missing_required_percent].to_f >= 0.3
+
+    return { label: 'Risk', tone: :red, note: risk_reasons.join(', ') } if risk_reasons.any?
+
+    watch_reasons = []
+    watch_reasons << '60d+ aging exists' if aging_totals[:bucket_60_plus].to_i.positive?
+    watch_reasons << 'missing required data needs cleanup' if data_totals[:missing_required].to_i.positive?
+    watch_reasons << 'stale updates exist' if data_totals[:tickets_without_updates].to_i.positive?
+
+    return { label: 'Watch', tone: :orange, note: watch_reasons.join(', ') } if watch_reasons.any?
+
+    { label: 'Good', tone: :green, note: 'No major PMO risk signals for the current filters' }
+  end
+
   def pmo_control_kpis(health_report, aging_totals, priority_totals, release_report, data_quality_report, bug_totals)
     data_totals = data_quality_report[:totals]
     [
-      { label: 'Total Open', value: health_report[:total_open], tone: :blue },
-      { label: 'Priority / SLA Risk', value: priority_totals[:total_open], tone: priority_totals[:total_open].to_i.positive? ? :red : :dim },
-      { label: 'Overdue', value: aging_totals[:overdue], tone: aging_totals[:overdue].to_i.positive? ? :red : :dim },
-      { label: 'Stopped', value: aging_totals[:stopped], tone: aging_totals[:stopped].to_i.positive? ? :red : :dim },
-      { label: '60d+ Open', value: aging_totals[:bucket_60_plus], tone: aging_totals[:bucket_60_plus].to_i.positive? ? :orange : :dim },
-      { label: 'Missing Required', value: pmo_percent_value(data_totals[:missing_required_percent]), tone: data_totals[:missing_required].to_i.positive? ? :red : :dim },
-      { label: 'No Update', value: pmo_percent_value(data_totals[:tickets_without_updates_percent]), tone: data_totals[:tickets_without_updates].to_i.positive? ? :orange : :dim },
-      { label: 'Release Risk', value: release_report[:at_risk_versions], tone: release_report[:at_risk_versions].to_i.positive? ? :red : :dim },
-      { label: 'Remaining Bugs', value: bug_totals[:remaining], tone: bug_totals[:remaining].to_i.positive? ? :orange : :dim }
+      { label: 'Total Open', value: health_report[:total_open], tone: :blue, help: 'All currently open tickets in the selected project scope.' },
+      { label: 'Priority / SLA Risk', value: priority_totals[:total_open], tone: priority_totals[:total_open].to_i.positive? ? :red : :dim, help: 'Open Urgent or Immediate tickets.' },
+      { label: 'Overdue', value: aging_totals[:overdue], tone: aging_totals[:overdue].to_i.positive? ? :red : :dim, help: 'Open tickets with due date before today.' },
+      { label: 'Stopped', value: aging_totals[:stopped], tone: aging_totals[:stopped].to_i.positive? ? :red : :dim, help: 'Open tickets currently Pending or On-Hold.' },
+      { label: '60d+ Open', value: aging_totals[:bucket_60_plus], tone: aging_totals[:bucket_60_plus].to_i.positive? ? :orange : :dim, help: 'Open tickets created more than 60 days ago.' },
+      { label: 'Missing Required', value: pmo_percent_value(data_totals[:missing_required_percent]), tone: data_totals[:missing_required].to_i.positive? ? :red : :dim, help: 'Percent of open tickets missing at least one required planning field.' },
+      { label: 'No Update', value: pmo_percent_value(data_totals[:tickets_without_updates_percent]), tone: data_totals[:tickets_without_updates].to_i.positive? ? :orange : :dim, help: 'Percent of open tickets not updated within the selected threshold.' },
+      { label: 'Release Risk', value: release_report[:at_risk_versions], tone: release_report[:at_risk_versions].to_i.positive? ? :red : :dim, help: 'Target versions marked red by release readiness rules.' },
+      { label: 'Remaining Bugs', value: bug_totals[:remaining], tone: bug_totals[:remaining].to_i.positive? ? :orange : :dim, help: 'Bug tracker tickets still open at the end of the selected bug period.' }
     ]
   end
 
   def pmo_control_attention_items(aging_totals, priority_totals, release_report, data_quality_report, bug_totals)
     data_totals = data_quality_report[:totals]
     items = [
-      { label: 'Overdue open tickets', value: aging_totals[:overdue], tone: :red, path: :aging_risk },
-      { label: 'Stopped tickets', value: aging_totals[:stopped], tone: :red, path: :aging_risk },
-      { label: 'Urgent / Immediate open tickets', value: priority_totals[:total_open], tone: :red, path: :priority_risk },
-      { label: 'Open tickets older than 60 days', value: aging_totals[:bucket_60_plus], tone: :orange, path: :aging_risk },
-      { label: 'Tickets missing owner', value: data_totals[:missing_owner], tone: :red, path: :data_quality },
-      { label: 'Tickets missing due date', value: data_totals[:missing_due_date], tone: :orange, path: :data_quality },
-      { label: 'Tickets without recent update', value: data_totals[:tickets_without_updates], tone: :orange, path: :data_quality },
+      { label: 'Overdue open tickets', value: aging_totals[:overdue], tone: :red, path: :issues, scope: :overdue },
+      { label: 'Stopped tickets', value: aging_totals[:stopped], tone: :red, path: :issues, scope: :stopped },
+      { label: 'Urgent / Immediate open tickets', value: priority_totals[:total_open], tone: :red, path: :issues, scope: :priority_open },
+      { label: 'Open tickets older than 60 days', value: aging_totals[:bucket_60_plus], tone: :orange, path: :issues, scope: :bucket_60_plus },
+      { label: 'Tickets missing owner', value: data_totals[:missing_owner], tone: :red, path: :issues, scope: :missing_owner },
+      { label: 'Tickets missing due date', value: data_totals[:missing_due_date], tone: :orange, path: :issues, scope: :missing_due_date },
+      { label: 'Tickets without recent update', value: data_totals[:tickets_without_updates], tone: :orange, path: :issues, scope: :no_update },
       { label: 'At-risk releases', value: release_report[:at_risk_versions], tone: :red, path: :release_readiness },
       { label: 'Remaining bugs in selected period', value: bug_totals[:remaining], tone: :orange, path: :bug_analysis }
     ]
