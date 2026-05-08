@@ -180,6 +180,10 @@
   line-height: 1.4;
   padding-bottom: 5px;
 }
+.tj-filter-actions {
+  justify-content: flex-end;
+  padding-top: 22px;
+}
 
 /* ── Summary Strip ── */
 .tj-summary-strip {
@@ -385,6 +389,9 @@
   padding: 9px 4px;
   border-bottom: 1px solid #eef0f5;
   font-family: 'Courier New', monospace;
+}
+.tj-health-table tr.tj-flow-group-start td {
+  border-top: 2px solid #b8c5d8;
 }
 .tj-health-label {
   color: var(--tj-text);

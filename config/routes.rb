@@ -2,6 +2,7 @@ Rails.application.routes.draw do
   scope '/projects/:project_id' do
     get  'ticket_journey',              to: 'ticket_journey#index',    as: 'ticket_journey'
     get  'ticket_journey/pmo_control',  to: 'ticket_journey#pmo_control', as: 'ticket_journey_pmo_control'
+    get  'ticket_journey/sprint_delivery', to: 'ticket_journey#sprint_delivery', as: 'ticket_journey_sprint_delivery'
     get  'ticket_journey/owner_returns', to: 'ticket_journey#owner_returns', as: 'ticket_journey_owner_returns'
     get  'ticket_journey/owner_workload', to: 'ticket_journey#owner_workload', as: 'ticket_journey_owner_workload'
     get  'ticket_journey/aging_risk', to: 'ticket_journey#aging_risk', as: 'ticket_journey_aging_risk'

@@ -90,7 +90,7 @@ class TicketJourneyController < ApplicationController
 
   before_action :find_project
   before_action :authorize
-  before_action :build_query, only: [:index, :pmo_control, :owner_returns, :owner_workload, :aging_risk, :priority_risk, :cycle_distribution, :flow_report, :project_health, :release_readiness, :bug_analysis, :data_quality, :export]
+  before_action :build_query, only: [:index, :pmo_control, :sprint_delivery, :owner_returns, :owner_workload, :aging_risk, :priority_risk, :cycle_distribution, :flow_report, :project_health, :release_readiness, :bug_analysis, :data_quality, :export]
   before_action :prepare_owner_role_filter, only: [:owner_returns, :owner_workload, :flow_report]
 
   helper :queries
@@ -111,6 +111,16 @@ class TicketJourneyController < ApplicationController
   def pmo_control
     @data_quality_stale_days = data_quality_stale_days_param
     @pmo_control_report = compute_pmo_control_report
+  end
+
+  # ---------------------------------------------------------------
+  # SPRINT DELIVERY - sprint commitment, completion, and carry-over
+  # ---------------------------------------------------------------
+  def sprint_delivery
+    build_query_from(sprint_delivery_query_params)
+    @sprint_options = sprint_delivery_sprints
+    @selected_sprint = selected_sprint(@sprint_options)
+    @sprint_delivery_report = compute_sprint_delivery_report(@selected_sprint)
   end
 
   # ---------------------------------------------------------------
@@ -227,6 +237,270 @@ class TicketJourneyController < ApplicationController
   end
 
   private
+
+  # ---------------------------------------------------------------
+  # SPRINT DELIVERY helpers
+  # ---------------------------------------------------------------
+  def sprint_delivery_sprints
+    sprint_tracker_ids = Tracker.where(name: ['Sprint']).pluck(:id)
+    return [] if sprint_tracker_ids.empty?
+
+    Issue.includes(:status, :tracker)
+         .where(project_id: project_and_subproject_ids, tracker_id: sprint_tracker_ids)
+         .order(Arel.sql("#{Issue.table_name}.id DESC"))
+         .limit(50)
+         .to_a
+  end
+
+  def sprint_delivery_query_params
+    query_params = params.to_unsafe_h.deep_dup.deep_stringify_keys
+    operators = (query_params['op'] || {}).deep_stringify_keys
+
+    remove_query_param_filter(query_params, 'status_id') if operators['status_id'] == 'o'
+    query_params
+  end
+
+  def remove_query_param_filter(query_params, field_name)
+    filters = Array(query_params['f']).map(&:to_s)
+    query_params['f'] = filters.reject { |filter| filter == field_name }
+    query_params['op'] ||= {}
+    query_params['v'] ||= {}
+    query_params['op'].delete(field_name)
+    query_params['v'].delete(field_name)
+  end
+
+  def selected_sprint(sprints)
+    requested_id = params[:sprint_id].presence
+    return sprints.find { |sprint| sprint.id == requested_id.to_i } if requested_id.present?
+
+    sprints.find { |sprint| !sprint.status&.is_closed? } || sprints.first
+  end
+
+  def compute_sprint_delivery_report(sprint)
+    empty_report = empty_sprint_delivery_report(sprint)
+    return empty_report if sprint.nil? || !@query&.valid?
+
+    issues = sprint_related_issues(sprint)
+    issues = apply_sprint_delivery_query_filters(issues) if sprint_delivery_query_filter_active?
+    issues = issues.reject { |issue| issue.id == sprint.id || issue.tracker&.name.to_s == 'Sprint' }
+                   .sort_by { |issue| [issue.due_date || Date.new(9999, 12, 31), issue.start_date || Date.new(9999, 12, 31), issue.id] }
+
+    totals = sprint_delivery_totals(sprint, issues)
+    status_rows = sprint_delivery_status_rows(issues)
+    owner_rows = sprint_delivery_owner_rows(sprint, issues)
+    issue_rows = sprint_delivery_issue_rows(sprint, issues)
+
+    empty_report.merge(
+      issues: issues,
+      issue_rows: issue_rows,
+      totals: totals,
+      status_rows: status_rows,
+      owner_rows: owner_rows,
+      health: sprint_delivery_health(totals)
+    )
+  end
+
+  def empty_sprint_delivery_report(sprint)
+    {
+      sprint: sprint,
+      issues: [],
+      totals: {
+        committed: 0,
+        completed: 0,
+        not_delivered: 0,
+        completion_rate: 0.0,
+        carry_over: 0,
+        carry_over_rate: 0.0,
+        current_scope: 0,
+        stopped: 0,
+        not_started: 0,
+        returned: 0,
+        overdue: 0,
+        technical_debt: 0
+      },
+      issue_rows: [],
+      status_rows: [],
+      owner_rows: [],
+      health: { label: 'No Sprint', tone: :dim, note: 'No Sprint tracker issue was found for this project.' }
+    }
+  end
+
+  def sprint_related_issues(sprint)
+    relations = IssueRelation.where(issue_from_id: sprint.id)
+                             .or(IssueRelation.where(issue_to_id: sprint.id))
+
+    related_ids = relations.flat_map do |relation|
+      [relation.issue_from_id, relation.issue_to_id]
+    end.uniq - [sprint.id]
+
+    return [] if related_ids.empty?
+
+    Issue.includes(:status, :tracker, :priority, :assigned_to, :fixed_version, { custom_values: :custom_field })
+         .where(id: related_ids, project_id: project_and_subproject_ids)
+         .to_a
+  end
+
+  def sprint_delivery_query_filter_active?
+    query_params = sprint_delivery_query_params
+    return true if query_params['query_id'].present?
+
+    Array(query_params['f']).map(&:to_s).reject(&:blank?).any?
+  end
+
+  def apply_sprint_delivery_query_filters(issues)
+    return issues unless @query&.valid?
+
+    filtered_ids = @query.issues(include: []).map(&:id)
+    issues.select { |issue| filtered_ids.include?(issue.id) }
+  end
+
+  def sprint_delivery_totals(sprint, issues)
+    committed = issues.size
+    completed = issues.count { |issue| completed_sprint_status?(issue.status&.name) }
+    stopped = issues.count { |issue| paused_status?(issue.status&.name) }
+    not_started = issues.count { |issue| not_started_sprint_status?(issue.status&.name) }
+    returned = issues.count { |issue| status_role(issue.status&.name) == :returned }
+    overdue = issues.count { |issue| sprint_delivery_overdue?(issue) }
+    carry_over = issues.count { |issue| carry_over_sprint_issue?(sprint, issue) }
+    technical_debt = issues.count { |issue| carry_over_sprint_issue?(sprint, issue) && !completed_sprint_status?(issue.status&.name) }
+
+    {
+      committed: committed,
+      completed: completed,
+      not_delivered: committed - completed,
+      completion_rate: ratio(completed, committed),
+      carry_over: carry_over,
+      carry_over_rate: ratio(carry_over, committed),
+      current_scope: committed - carry_over,
+      stopped: stopped,
+      not_started: not_started,
+      returned: returned,
+      overdue: overdue,
+      technical_debt: technical_debt
+    }
+  end
+
+  def sprint_delivery_status_rows(issues)
+    status_counts = issues.group_by { |issue| issue.status&.name.to_s.presence || 'No Status' }
+                          .transform_values(&:size)
+    total = issues.size
+
+    FLOW_STATUS_ORDER.map do |status_name|
+      count = status_counts.delete(status_name).to_i
+      {
+        status: status_name,
+        group: sprint_delivery_status_group(status_name),
+        count: count,
+        percent: ratio(count, total),
+        separator_before: FLOW_STATUS_SEPARATOR_BEFORE.include?(status_name)
+      }
+    end.select { |row| row[:count].positive? || sprint_delivery_core_status?(row[:status]) } +
+      status_counts.sort_by { |status_name, _count| status_name.downcase }.map do |status_name, count|
+        {
+          status: status_name,
+          group: 'Other',
+          count: count,
+          percent: ratio(count, total),
+          separator_before: false
+        }
+      end
+  end
+
+  def sprint_delivery_owner_rows(sprint, issues)
+    total = issues.size
+    rows = issues.group_by { |issue| ticket_owner_info(issue) }
+                 .map do |(owner_value, owner_name), owner_issues|
+      completed = owner_issues.count { |issue| completed_sprint_status?(issue.status&.name) }
+      {
+        owner_value: owner_value,
+        owner: owner_name.presence || 'No Ticket Owner',
+        committed: owner_issues.size,
+        completed: completed,
+        completion_rate: ratio(completed, owner_issues.size),
+        not_started: owner_issues.count { |issue| not_started_sprint_status?(issue.status&.name) },
+        stopped: owner_issues.count { |issue| paused_status?(issue.status&.name) },
+        returned: owner_issues.count { |issue| status_role(issue.status&.name) == :returned },
+        overdue: owner_issues.count { |issue| sprint_delivery_overdue?(issue) },
+        carry_over: owner_issues.count { |issue| carry_over_sprint_issue?(sprint, issue) },
+        share: ratio(owner_issues.size, total)
+      }
+    end
+
+    rows.sort_by { |row| [-row[:committed], -row[:stopped], -row[:overdue], row[:owner].to_s.downcase] }
+  end
+
+  def sprint_delivery_issue_rows(sprint, issues)
+    issues.map do |issue|
+      _owner_value, owner_name = ticket_owner_info(issue)
+      flags = []
+      flags << 'Carry-over' if carry_over_sprint_issue?(sprint, issue)
+      flags << 'Stopped' if paused_status?(issue.status&.name)
+      flags << 'Overdue' if sprint_delivery_overdue?(issue)
+      flags << 'Not Started' if not_started_sprint_status?(issue.status&.name)
+
+      {
+        issue: issue,
+        owner: owner_name.presence || 'Unassigned',
+        original_sprint: issue.custom_value_for(TICKET_ORIGINAL_SPRINT_CF_ID)&.value.presence || '-',
+        flags: flags
+      }
+    end
+  end
+
+  def sprint_delivery_health(totals)
+    if totals[:committed].to_i.zero?
+      { label: 'No Scope', tone: :dim, note: 'The selected sprint has no related committed tickets.' }
+    elsif totals[:stopped].to_i.positive? || totals[:overdue].to_i.positive?
+      { label: 'Risk', tone: :red, note: 'Stopped or overdue sprint work needs PM/team follow-up.' }
+    elsif totals[:carry_over].to_i.positive? || totals[:not_started].to_i.positive? || totals[:returned].to_i.positive?
+      { label: 'Watch', tone: :orange, note: 'Sprint scope has carry-over, not-started, or returned work to monitor.' }
+    else
+      { label: 'Good', tone: :green, note: 'No stopped, overdue, returned, or carry-over signals were found.' }
+    end
+  end
+
+  def sprint_delivery_status_group(status_name)
+    case status_role(status_name)
+    when :pending, :on_hold
+      'Stopped'
+    when :done, :archived
+      'Done'
+    else
+      'WIP'
+    end
+  end
+
+  def sprint_delivery_core_status?(status_name)
+    FLOW_STATUS_ORDER.include?(status_name)
+  end
+
+  def completed_sprint_status?(status_name)
+    %i[done archived].include?(status_role(status_name))
+  end
+
+  def not_started_sprint_status?(status_name)
+    %i[new todo].include?(status_role(status_name))
+  end
+
+  def sprint_delivery_overdue?(issue)
+    return false if completed_sprint_status?(issue.status&.name)
+    return false if issue.due_date.blank?
+
+    issue.due_date < User.current.today
+  end
+
+  def carry_over_sprint_issue?(sprint, issue)
+    original_sprint = issue.custom_value_for(TICKET_ORIGINAL_SPRINT_CF_ID)&.value.to_s.strip
+    return false if original_sprint.blank?
+
+    current_names = [
+      sprint.id.to_s,
+      "##{sprint.id}",
+      sprint.subject.to_s
+    ].map { |value| value.downcase.strip }
+
+    current_names.exclude?(original_sprint.downcase)
+  end
 
   # ---------------------------------------------------------------
   # PMO CONTROL helpers

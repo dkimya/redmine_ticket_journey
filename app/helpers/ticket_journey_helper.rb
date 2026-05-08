@@ -23,6 +23,18 @@ module TicketJourneyHelper
     query_params
   end
 
+  def sprint_delivery_params(query)
+    query_params = query.as_params.deep_dup.deep_stringify_keys
+
+    %w[sprint_id].each do |key|
+      query_params.delete(key)
+      value = params[key]
+      query_params[key] = value if value.present?
+    end
+
+    query_params
+  end
+
   def pmo_control_attention_path(item)
     case item[:path]
     when :issues

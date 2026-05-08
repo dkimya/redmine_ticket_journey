@@ -1,5 +1,6 @@
 <%
   pmo_params = pmo_control_params(@query)
+  sprint_params = sprint_delivery_params(@query)
   duration_params = duration_report_params(@query)
   owner_params = owner_returns_params(@query)
   workload_params = owner_workload_params(@query)
@@ -23,6 +24,9 @@
   <%= link_to 'PMO Control',
         ticket_journey_pmo_control_path(@project, pmo_params),
         class: "tj-report-tab #{active_tab == :pmo_control ? 'is-active' : ''}" %>
+  <%= link_to 'Sprint Delivery',
+        ticket_journey_sprint_delivery_path(@project, sprint_params),
+        class: "tj-report-tab #{active_tab == :sprint_delivery ? 'is-active' : ''}" %>
   <%= link_to 'Duration Report',
         ticket_journey_path(@project, duration_params),
         class: "tj-report-tab #{active_tab == :duration ? 'is-active' : ''}" %>
