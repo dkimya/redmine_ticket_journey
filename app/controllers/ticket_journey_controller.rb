@@ -306,6 +306,7 @@ class TicketJourneyController < ApplicationController
 
     totals = sprint_delivery_totals(sprint, issues)
     status_rows = sprint_delivery_status_rows(issues)
+    status_owner_matrix = sprint_delivery_status_owner_matrix(issues)
     owner_rows = sprint_delivery_owner_rows(sprint, issues)
     issue_rows = sprint_delivery_issue_rows(sprint, issues)
 
@@ -314,6 +315,7 @@ class TicketJourneyController < ApplicationController
       issue_rows: issue_rows,
       totals: totals,
       status_rows: status_rows,
+      status_owner_matrix: status_owner_matrix,
       owner_rows: owner_rows,
       health: sprint_delivery_health(totals)
     )
@@ -516,6 +518,7 @@ class TicketJourneyController < ApplicationController
       },
       issue_rows: [],
       status_rows: [],
+      status_owner_matrix: { owners: [], rows: [], group_rows: [], total: 0 },
       owner_rows: [],
       health: { label: 'No Sprint', tone: :dim, note: 'No Sprint tracker issue was found for this project.' }
     }
@@ -577,7 +580,7 @@ class TicketJourneyController < ApplicationController
   end
 
   def sprint_delivery_status_rows(issues)
-    status_counts = issues.group_by { |issue| issue.status&.name.to_s.presence || 'No Status' }
+    status_counts = issues.group_by { |issue| sprint_delivery_matrix_status_label(issue.status&.name) }
                           .transform_values(&:size)
     total = issues.size
 
@@ -600,6 +603,118 @@ class TicketJourneyController < ApplicationController
           separator_before: false
         }
       end
+  end
+
+  def sprint_delivery_status_owner_matrix(issues)
+    total = issues.size
+    owners = sprint_delivery_matrix_owners(issues)
+    rows = sprint_delivery_matrix_status_rows(issues, owners, total)
+
+    {
+      owners: owners,
+      rows: rows,
+      group_rows: sprint_delivery_matrix_group_rows(rows, owners, total),
+      total: total
+    }
+  end
+
+  def sprint_delivery_matrix_owners(issues)
+    issues.group_by { |issue| ticket_owner_info(issue) }
+          .map do |(owner_value, owner_name), owner_issues|
+      {
+        key: sprint_delivery_owner_key(owner_value),
+        value: owner_value,
+        name: owner_name.presence || 'No Ticket Owner',
+        count: owner_issues.size,
+        issue_ids: owner_issues.map(&:id)
+      }
+    end
+          .sort_by { |owner| [-owner[:count], owner[:name].to_s.downcase] }
+  end
+
+  def sprint_delivery_matrix_status_rows(issues, owners, total)
+    issues_by_status = issues.group_by { |issue| sprint_delivery_matrix_status_label(issue.status&.name) }
+
+    rows = FLOW_STATUS_ORDER.map do |status_name|
+      status_issues = issues_by_status.delete(status_name) || []
+      sprint_delivery_matrix_status_row(status_name, status_issues, owners, total)
+    end.select { |row| row[:total].positive? || sprint_delivery_core_status?(row[:status]) }
+
+    extra_rows = issues_by_status.sort_by { |status_name, _status_issues| status_name.to_s.downcase }
+                                 .map do |status_name, status_issues|
+      sprint_delivery_matrix_status_row(status_name, status_issues, owners, total, group: 'Other')
+    end
+
+    rows + extra_rows
+  end
+
+  def sprint_delivery_matrix_status_row(status_name, status_issues, owners, total, group: nil)
+    issues_by_owner = status_issues.group_by { |issue| sprint_delivery_owner_key(ticket_owner_info(issue).first) }
+    issue_ids = status_issues.map(&:id)
+
+    {
+      status: status_name,
+      group: group || sprint_delivery_status_group(status_name),
+      total: status_issues.size,
+      percent: ratio(status_issues.size, total),
+      issue_ids: issue_ids,
+      separator_before: FLOW_STATUS_SEPARATOR_BEFORE.include?(status_name),
+      cells: owners.map do |owner|
+        owner_issues = issues_by_owner[owner[:key]] || []
+        {
+          owner_key: owner[:key],
+          owner_value: owner[:value],
+          count: owner_issues.size,
+          issue_ids: owner_issues.map(&:id)
+        }
+      end
+    }
+  end
+
+  def sprint_delivery_matrix_group_rows(rows, owners, total)
+    %w[WIP Stopped Done].filter_map do |group_name|
+      group_rows = rows.select { |row| row[:group] == group_name }
+      group_issue_ids = group_rows.flat_map { |row| row[:issue_ids] }.uniq
+      next if group_issue_ids.empty?
+
+      {
+        status: "#{group_name} Total",
+        group: group_name,
+        total: group_issue_ids.size,
+        percent: ratio(group_issue_ids.size, total),
+        issue_ids: group_issue_ids,
+        cells: owners.map do |owner|
+          owner_issue_ids = group_rows.flat_map do |row|
+            row[:cells].find { |cell| cell[:owner_key] == owner[:key] }&.fetch(:issue_ids, [])
+          end.uniq
+          {
+            owner_key: owner[:key],
+            owner_value: owner[:value],
+            count: owner_issue_ids.size,
+            issue_ids: owner_issue_ids
+          }
+        end
+      }
+    end
+  end
+
+  def sprint_delivery_matrix_status_label(status_name)
+    role = status_role(status_name)
+
+    case role
+    when :done
+      'Done / Closed'
+    when :archived
+      'Archived'
+    else
+      FLOW_STATUS_ORDER.find { |label| status_role(label) == role } ||
+        status_name.to_s.presence ||
+        'No Status'
+    end
+  end
+
+  def sprint_delivery_owner_key(owner_value)
+    owner_value.present? ? owner_value.to_s : '__no_ticket_owner__'
   end
 
   def sprint_delivery_owner_rows(sprint, issues)

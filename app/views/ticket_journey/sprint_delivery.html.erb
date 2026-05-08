@@ -104,6 +104,67 @@
         <p>The selected Sprint has no related issues after applying the current filters.</p>
       </div>
     <% else %>
+      <% matrix = @sprint_delivery_report[:status_owner_matrix] %>
+      <div class="tj-card tj-card-full">
+        <div class="tj-card-title">Sprint Tasks Distribution in Statuses</div>
+        <div class="tj-table-wrap">
+          <table class="tj-table tj-flow-table">
+            <thead>
+              <tr>
+                <th class="tj-th-title">Status</th>
+                <% matrix[:owners].each do |owner| %>
+                  <th class="tj-th-native"><%= h(owner[:name]) %></th>
+                <% end %>
+                <th class="tj-th-native">Sum</th>
+                <th class="tj-th-native">%</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% matrix[:rows].each do |row| %>
+                <tr class="tj-row <%= row[:separator_before] ? 'tj-flow-group-start' : '' %>">
+                  <td class="tj-td-title"><%= h(row[:status]) %></td>
+                  <% row[:cells].each do |cell| %>
+                    <td class="tj-td-native">
+                      <% if cell[:count].positive? %>
+                        <%= duration_report_drilldown_link(@query, cell[:issue_ids], cell[:count], title: "Open #{row[:status]} tickets for this owner") %>
+                      <% else %>
+                        -
+                      <% end %>
+                    </td>
+                  <% end %>
+                  <td class="tj-td-native"><%= row[:total].positive? ? duration_report_drilldown_link(@query, row[:issue_ids], row[:total], title: "Open #{row[:status]} sprint tickets") : '-' %></td>
+                  <td class="tj-td-native"><%= number_to_percentage(row[:percent] * 100, precision: 1) %></td>
+                </tr>
+              <% end %>
+              <% matrix[:group_rows].each do |row| %>
+                <tr class="tj-total-row">
+                  <td class="tj-td-title tj-total-label"><%= h(row[:status]) %></td>
+                  <% row[:cells].each do |cell| %>
+                    <td class="tj-td-native">
+                      <% if cell[:count].positive? %>
+                        <%= duration_report_drilldown_link(@query, cell[:issue_ids], cell[:count], title: "Open #{row[:status]} tickets for this owner") %>
+                      <% else %>
+                        -
+                      <% end %>
+                    </td>
+                  <% end %>
+                  <td class="tj-td-native"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:total], title: "Open #{row[:status]} sprint tickets") %></td>
+                  <td class="tj-td-native"><%= number_to_percentage(row[:percent] * 100, precision: 1) %></td>
+                </tr>
+              <% end %>
+              <tr class="tj-total-row">
+                <td class="tj-td-title tj-total-label">Total</td>
+                <% matrix[:owners].each do |owner| %>
+                  <td class="tj-td-native"><%= duration_report_drilldown_link(@query, owner[:issue_ids], owner[:count], title: "Open all sprint tickets for #{owner[:name]}") %></td>
+                <% end %>
+                <td class="tj-td-native"><%= sprint_delivery_count_link(:committed, matrix[:total]) %></td>
+                <td class="tj-td-native">100%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div class="tj-health-grid">
         <div class="tj-card tj-health-card">
           <div class="tj-card-title">Sprint Status Distribution</div>
