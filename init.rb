@@ -10,7 +10,7 @@ Redmine::Plugin.register :redmine_ticket_journey do
 
   # Register as a project module so it appears in Settings > Modules.
   project_module :ticket_journey do
-    permission :view_ticket_journey, { ticket_journey: [:index, :show, :export, :pmo_control, :sprint_delivery, :owner_returns, :qa_returns, :owner_workload, :aging_risk, :priority_risk, :cycle_distribution, :flow_report, :project_health, :release_readiness, :bug_analysis, :data_quality] }, read: true
+    permission :view_ticket_journey, { ticket_journey: [:index, :show, :export, :pmo_control, :sprint_delivery, :planning_estimation, :owner_returns, :qa_returns, :owner_workload, :aging_risk, :priority_risk, :cycle_distribution, :flow_report, :project_health, :release_readiness, :bug_analysis, :data_quality] }, read: true
   end
 
   # Add a menu item under the project menu.
