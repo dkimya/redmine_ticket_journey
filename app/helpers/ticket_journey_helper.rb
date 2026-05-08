@@ -2,7 +2,7 @@ module TicketJourneyHelper
   def duration_report_params(query)
     query_params = query.as_params.deep_dup.deep_stringify_keys
 
-    %w[report_sort report_dir report_family].each do |key|
+    %w[report_sort report_dir report_family sprint_id sprint_issue_ids].each do |key|
       query_params.delete(key)
       value = params[key]
       query_params[key] = value if value.present?
@@ -43,6 +43,7 @@ module TicketJourneyHelper
     issue_ids = sprint_delivery_issue_ids(scope, owner_value)
 
     replace_filter(filters, operators, values, 'issue_id')
+    replace_filter(filters, operators, values, 'status_id')
     query_params['set_filter'] = '1'
     query_params['f'] = filters
     query_params['op'] = operators

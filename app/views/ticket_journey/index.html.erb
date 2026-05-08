@@ -23,6 +23,12 @@
 
   <% unless @detail_view_active %>
     <%= form_tag(ticket_journey_path(@project), method: :get, id: 'query_form') do %>
+      <% if params[:sprint_id].present? %>
+        <%= hidden_field_tag :sprint_id, params[:sprint_id] %>
+      <% end %>
+      <% if params[:sprint_issue_ids].present? %>
+        <%= hidden_field_tag :sprint_issue_ids, params[:sprint_issue_ids] %>
+      <% end %>
       <%= render partial: 'queries/query_form' %>
     <% end %>
   <% end %>
