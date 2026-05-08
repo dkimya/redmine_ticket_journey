@@ -493,13 +493,51 @@ class TicketJourneyController < ApplicationController
     original_sprint = issue.custom_value_for(TICKET_ORIGINAL_SPRINT_CF_ID)&.value.to_s.strip
     return false if original_sprint.blank?
 
+    return false if sprint_reference_matches?(sprint, original_sprint)
+
+    true
+  end
+
+  def sprint_reference_matches?(sprint, original_sprint)
+    original_normalized = normalize_sprint_reference(original_sprint)
     current_names = [
       sprint.id.to_s,
       "##{sprint.id}",
       sprint.subject.to_s
-    ].map { |value| value.downcase.strip }
+    ].map { |value| normalize_sprint_reference(value) }
 
-    current_names.exclude?(original_sprint.downcase)
+    return true if current_names.include?(original_normalized)
+
+    sprint_number = sprint_number_from(sprint.subject)
+    return false if sprint_number.blank?
+    return false unless sprint_number_from(original_sprint) == sprint_number
+
+    sprint_prefix_matches?(sprint, original_sprint)
+  end
+
+  def normalize_sprint_reference(value)
+    value.to_s.downcase.gsub(/[^a-z0-9]+/, ' ').squish
+  end
+
+  def sprint_number_from(value)
+    text = value.to_s.downcase
+    text[/\bsprint\s*#?\s*(\d+)\b/, 1].presence || text[/\bs\s*(\d+)\b/, 1].presence
+  end
+
+  def sprint_prefix_matches?(sprint, original_sprint)
+    subject_prefix = sprint.subject.to_s.split(/-\s*sprint/i).first.to_s
+    normalized_prefix = normalize_sprint_reference(subject_prefix)
+    return true if normalized_prefix.blank?
+
+    original_normalized = normalize_sprint_reference(original_sprint)
+    prefix_tokens = normalized_prefix.split
+    prefix_aliases = [
+      normalized_prefix,
+      prefix_tokens.map { |token| token[0] }.join,
+      prefix_tokens.first.to_s[0, 3]
+    ].reject(&:blank?)
+
+    prefix_aliases.any? { |prefix| original_normalized.start_with?(prefix) || original_normalized.include?(" #{prefix} ") }
   end
 
   # ---------------------------------------------------------------
