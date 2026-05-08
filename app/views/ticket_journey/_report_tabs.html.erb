@@ -1,4 +1,5 @@
 <%
+  pmo_params = pmo_control_params(@query)
   duration_params = duration_report_params(@query)
   owner_params = owner_returns_params(@query)
   workload_params = owner_workload_params(@query)
@@ -19,6 +20,9 @@
     end
 %>
 <div class="tj-report-tabs">
+  <%= link_to 'PMO Control',
+        ticket_journey_pmo_control_path(@project, pmo_params),
+        class: "tj-report-tab #{active_tab == :pmo_control ? 'is-active' : ''}" %>
   <%= link_to 'Duration Report',
         ticket_journey_path(@project, duration_params),
         class: "tj-report-tab #{active_tab == :duration ? 'is-active' : ''}" %>

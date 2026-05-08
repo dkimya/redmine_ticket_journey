@@ -90,7 +90,7 @@ class TicketJourneyController < ApplicationController
 
   before_action :find_project
   before_action :authorize
-  before_action :build_query, only: [:index, :owner_returns, :owner_workload, :aging_risk, :priority_risk, :cycle_distribution, :flow_report, :project_health, :release_readiness, :bug_analysis, :data_quality, :export]
+  before_action :build_query, only: [:index, :pmo_control, :owner_returns, :owner_workload, :aging_risk, :priority_risk, :cycle_distribution, :flow_report, :project_health, :release_readiness, :bug_analysis, :data_quality, :export]
   before_action :prepare_owner_role_filter, only: [:owner_returns, :owner_workload, :flow_report]
 
   helper :queries
@@ -103,6 +103,14 @@ class TicketJourneyController < ApplicationController
     @report_sections = build_report_sections(@issues_data)
     load_issue_detail(params[:issue_id])
     @detail_view_active = params[:view].to_s == 'detail'
+  end
+
+  # ---------------------------------------------------------------
+  # PMO CONTROL - executive project control snapshot
+  # ---------------------------------------------------------------
+  def pmo_control
+    @data_quality_stale_days = data_quality_stale_days_param
+    @pmo_control_report = compute_pmo_control_report
   end
 
   # ---------------------------------------------------------------
@@ -219,6 +227,82 @@ class TicketJourneyController < ApplicationController
   end
 
   private
+
+  # ---------------------------------------------------------------
+  # PMO CONTROL helpers
+  # ---------------------------------------------------------------
+  def compute_pmo_control_report
+    health_report = compute_project_health_report
+    _aging_rows, aging_totals = compute_aging_risk_report('owner')
+    priority_rows, _priority_owner_rows, priority_totals = compute_priority_risk_report
+    owner_rows, owner_totals = compute_owner_workload_report
+    release_report = compute_release_readiness_report
+    data_quality_report = compute_data_quality_report
+    bug_start_date, bug_end_date = bug_analysis_period_dates
+    _bug_rows, bug_totals = compute_bug_analysis_report(bug_start_date, bug_end_date)
+
+    {
+      report_date: User.current.today,
+      health: health_report,
+      aging: aging_totals,
+      priority: priority_totals,
+      owner_workload: owner_totals,
+      owner_attention_rows: owner_rows.first(8),
+      priority_rows: priority_rows.first(8),
+      release: release_report,
+      release_attention_rows: pmo_release_attention_rows(release_report[:rows]),
+      data_quality: data_quality_report,
+      data_quality_field_rows: data_quality_report[:field_rows].select { |row| row[:count].to_i.positive? }.first(8),
+      bug_period: [bug_start_date, bug_end_date],
+      bug: bug_totals,
+      kpis: pmo_control_kpis(health_report, aging_totals, priority_totals, release_report, data_quality_report, bug_totals),
+      attention_items: pmo_control_attention_items(aging_totals, priority_totals, release_report, data_quality_report, bug_totals)
+    }
+  end
+
+  def pmo_control_kpis(health_report, aging_totals, priority_totals, release_report, data_quality_report, bug_totals)
+    data_totals = data_quality_report[:totals]
+    [
+      { label: 'Total Open', value: health_report[:total_open], tone: :blue },
+      { label: 'Priority / SLA Risk', value: priority_totals[:total_open], tone: priority_totals[:total_open].to_i.positive? ? :red : :dim },
+      { label: 'Overdue', value: aging_totals[:overdue], tone: aging_totals[:overdue].to_i.positive? ? :red : :dim },
+      { label: 'Stopped', value: aging_totals[:stopped], tone: aging_totals[:stopped].to_i.positive? ? :red : :dim },
+      { label: '60d+ Open', value: aging_totals[:bucket_60_plus], tone: aging_totals[:bucket_60_plus].to_i.positive? ? :orange : :dim },
+      { label: 'Missing Required', value: pmo_percent_value(data_totals[:missing_required_percent]), tone: data_totals[:missing_required].to_i.positive? ? :red : :dim },
+      { label: 'No Update', value: pmo_percent_value(data_totals[:tickets_without_updates_percent]), tone: data_totals[:tickets_without_updates].to_i.positive? ? :orange : :dim },
+      { label: 'Release Risk', value: release_report[:at_risk_versions], tone: release_report[:at_risk_versions].to_i.positive? ? :red : :dim },
+      { label: 'Remaining Bugs', value: bug_totals[:remaining], tone: bug_totals[:remaining].to_i.positive? ? :orange : :dim }
+    ]
+  end
+
+  def pmo_control_attention_items(aging_totals, priority_totals, release_report, data_quality_report, bug_totals)
+    data_totals = data_quality_report[:totals]
+    items = [
+      { label: 'Overdue open tickets', value: aging_totals[:overdue], tone: :red, path: :aging_risk },
+      { label: 'Stopped tickets', value: aging_totals[:stopped], tone: :red, path: :aging_risk },
+      { label: 'Urgent / Immediate open tickets', value: priority_totals[:total_open], tone: :red, path: :priority_risk },
+      { label: 'Open tickets older than 60 days', value: aging_totals[:bucket_60_plus], tone: :orange, path: :aging_risk },
+      { label: 'Tickets missing owner', value: data_totals[:missing_owner], tone: :red, path: :data_quality },
+      { label: 'Tickets missing due date', value: data_totals[:missing_due_date], tone: :orange, path: :data_quality },
+      { label: 'Tickets without recent update', value: data_totals[:tickets_without_updates], tone: :orange, path: :data_quality },
+      { label: 'At-risk releases', value: release_report[:at_risk_versions], tone: :red, path: :release_readiness },
+      { label: 'Remaining bugs in selected period', value: bug_totals[:remaining], tone: :orange, path: :bug_analysis }
+    ]
+
+    items.select { |item| item[:value].to_i.positive? }
+         .sort_by { |item| [-item[:value].to_i, item[:label]] }
+         .first(8)
+  end
+
+  def pmo_release_attention_rows(rows)
+    rows.select { |row| %i[red amber].include?(row[:risk]) }
+        .sort_by { |row| [row[:risk] == :red ? 0 : 1, row[:due_date] || Date.new(9999, 12, 31), -row[:open].to_i, row[:name].to_s.downcase] }
+        .first(8)
+  end
+
+  def pmo_percent_value(value)
+    "#{(value.to_f * 100).round(1)}%"
+  end
 
   # ---------------------------------------------------------------
   # FIND PROJECT (standard Redmine pattern)

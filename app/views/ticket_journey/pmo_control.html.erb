@@ -1,0 +1,209 @@
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'ticket_journey', plugin: 'redmine_ticket_journey' %>
+<% end %>
+
+<div id="tj-wrap">
+  <div class="tj-page-header">
+    <div class="tj-page-header-left">
+      <div>
+        <h2>PMO Control Dashboard</h2>
+        <p class="tj-page-sub">Executive project control snapshot &mdash; <%= @project.name %></p>
+      </div>
+    </div>
+  </div>
+
+  <%= render partial: 'report_tabs', locals: { active_tab: :pmo_control } %>
+
+  <%= form_tag(ticket_journey_pmo_control_path(@project), method: :get, id: 'query_form') do %>
+    <%= render partial: 'queries/query_form' %>
+
+    <div class="tj-filter-bar tj-owner-filter-bar">
+      <div class="tj-filter-form">
+        <div class="tj-filter-group">
+          <label for="stale_days">No Update Threshold</label>
+          <%= number_field_tag :stale_days, @data_quality_stale_days, min: 1, class: 'tj-input tj-small-number-input', onchange: 'this.form.submit();' %>
+        </div>
+        <div class="tj-filter-group tj-flow-filter-note">
+          <span>Uses the Redmine filters above, then combines open ticket health, SLA risk, release readiness, bug health, and data discipline signals.</span>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <% if !@query.valid? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">Report</div>
+      <h3>Invalid filters</h3>
+      <p>Please review the Redmine query filters above.</p>
+    </div>
+  <% else %>
+    <% report = @pmo_control_report %>
+    <div class="tj-summary-strip">
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Report Date</div>
+        <div class="tj-sc-value tj-sc-accent"><%= format_date(report[:report_date]) %></div>
+      </div>
+      <% report[:kpis].each do |kpi| %>
+        <%
+          value_class =
+            case kpi[:tone]
+            when :red then 'tj-sc-red'
+            when :orange then 'tj-sc-orange'
+            when :blue then 'tj-sc-blue'
+            when :green then 'tj-sc-green'
+            else 'tj-sc-dim'
+            end
+        %>
+        <div class="tj-summary-card">
+          <div class="tj-sc-label"><%= h(kpi[:label]) %></div>
+          <div class="tj-sc-value <%= value_class %>"><%= kpi[:value] %></div>
+        </div>
+      <% end %>
+    </div>
+
+    <div class="tj-detail-grid">
+      <div class="tj-card">
+        <div class="tj-card-title">Executive Attention</div>
+        <% if report[:attention_items].empty? %>
+          <div class="tj-flow-empty-note">No high-priority PMO attention items for the current filters.</div>
+        <% else %>
+          <table class="tj-health-table">
+            <tbody>
+              <% report[:attention_items].each do |item| %>
+                <tr>
+                  <td class="tj-health-label"><%= link_to item[:label], pmo_control_attention_path(item), class: 'tj-drilldown-link' %></td>
+                  <td class="tj-health-count <%= item[:tone] == :red ? 'tj-counter-active' : '' %>"><%= item[:value] %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        <% end %>
+      </div>
+
+      <div class="tj-card">
+        <div class="tj-card-title">Open Work Mix</div>
+        <table class="tj-health-table">
+          <tbody>
+            <% [:technical, :planned, :tasks, :milestones].each do |key| %>
+              <% block = report[:health][key] %>
+              <tr>
+                <td class="tj-health-label"><%= block[:title] %></td>
+                <td class="tj-health-count"><%= block[:total] %></td>
+                <td class="tj-health-percent"><%= number_to_percentage(block[:total].to_f / [report[:health][:total_open].to_i, 1].max * 100, precision: 1) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Data Discipline Attention</div>
+      <% if report[:data_quality_field_rows].empty? %>
+        <div class="tj-flow-empty-note">No missing data or stale-update signals for the current filters.</div>
+      <% else %>
+        <div class="tj-data-quality-bars">
+          <% max_data_count = report[:data_quality_field_rows].map { |row| row[:count].to_i }.max.to_i %>
+          <% report[:data_quality_field_rows].each do |row| %>
+            <% width = max_data_count.positive? ? ((row[:count].to_f / max_data_count) * 100).round : 0 %>
+            <%= link_to project_issues_path(@project, data_quality_issue_filter_params(nil, row[:scope])),
+                  class: 'tj-workload-bar-row tj-data-quality-bar-row',
+                  title: "Open issues: #{row[:label]}" do %>
+              <span class="tj-workload-bar-label"><%= h(row[:label]) %></span>
+              <span class="tj-workload-bar-track">
+                <span class="tj-workload-bar-fill" style="width:<%= width %>%"></span>
+              </span>
+              <span class="tj-workload-bar-meta">
+                <strong><%= row[:count] %></strong>
+                <span><%= number_to_percentage(row[:percent] * 100, precision: 1) %></span>
+              </span>
+            <% end %>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+
+    <div class="tj-detail-grid">
+      <div class="tj-card">
+        <div class="tj-card-title">Owner Workload Watch</div>
+        <% if report[:owner_attention_rows].empty? %>
+          <div class="tj-flow-empty-note">No owner workload data for the current filters.</div>
+        <% else %>
+          <table class="tj-health-table">
+            <tbody>
+              <% report[:owner_attention_rows].each do |row| %>
+                <tr>
+                  <td class="tj-health-label"><%= h(row[:owner]) %></td>
+                  <td class="tj-health-count"><%= row[:total_open] %></td>
+                  <td class="tj-health-percent">Overdue <%= row[:overdue] %> / Stopped <%= row[:stopped] %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        <% end %>
+      </div>
+
+      <div class="tj-card">
+        <div class="tj-card-title">Priority Ticket Watch</div>
+        <% if report[:priority_rows].empty? %>
+          <div class="tj-flow-empty-note">No open Urgent or Immediate tickets for the current filters.</div>
+        <% else %>
+          <table class="tj-health-table">
+            <tbody>
+              <% report[:priority_rows].each do |row| %>
+                <tr>
+                  <td class="tj-health-label"><%= link_to "##{row[:issue_id]} #{row[:subject]}", issue_path(row[:issue]), class: 'tj-subject-link', title: row[:subject] %></td>
+                  <td class="tj-health-count"><%= row[:age_days] %>d</td>
+                  <td class="tj-health-percent"><%= h(row[:owner]) %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="tj-detail-grid">
+      <div class="tj-card">
+        <div class="tj-card-title">Release Watch</div>
+        <% if report[:release_attention_rows].empty? %>
+          <div class="tj-flow-empty-note">No red or amber releases for the current project scope.</div>
+        <% else %>
+          <table class="tj-health-table">
+            <tbody>
+              <% report[:release_attention_rows].each do |row| %>
+                <tr>
+                  <td class="tj-health-label"><%= h(row[:name]) %></td>
+                  <td class="tj-health-count"><%= row[:open] %></td>
+                  <td class="tj-health-percent"><%= row[:due_date].present? ? format_date(row[:due_date]) : '-' %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        <% end %>
+      </div>
+
+      <div class="tj-card">
+        <div class="tj-card-title">Bug Health</div>
+        <table class="tj-health-table">
+          <tbody>
+            <tr>
+              <td class="tj-health-label">Period</td>
+              <td class="tj-health-count" colspan="2"><%= format_date(report[:bug_period].first) %> - <%= format_date(report[:bug_period].last) %></td>
+            </tr>
+            <tr>
+              <td class="tj-health-label">Found</td>
+              <td class="tj-health-count"><%= report[:bug][:found] %></td>
+              <td class="tj-health-percent">Closed <%= report[:bug][:closed] %></td>
+            </tr>
+            <tr>
+              <td class="tj-health-label">Remaining</td>
+              <td class="tj-health-count <%= report[:bug][:remaining].to_i.positive? ? 'tj-counter-active' : '' %>"><%= report[:bug][:remaining] %></td>
+              <td class="tj-health-percent">Impact <%= report[:bug][:impact_sum] %></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% end %>
+</div>

@@ -11,6 +11,35 @@ module TicketJourneyHelper
     query_params
   end
 
+  def pmo_control_params(query)
+    query_params = query.as_params.deep_dup.deep_stringify_keys
+
+    %w[stale_days bug_start_date bug_end_date].each do |key|
+      query_params.delete(key)
+      value = params[key]
+      query_params[key] = value if value.present?
+    end
+
+    query_params
+  end
+
+  def pmo_control_attention_path(item)
+    case item[:path]
+    when :aging_risk
+      ticket_journey_aging_risk_path(@project, aging_risk_params(@query))
+    when :priority_risk
+      ticket_journey_priority_risk_path(@project, priority_risk_params(@query))
+    when :release_readiness
+      ticket_journey_release_readiness_path(@project, release_readiness_params(@query))
+    when :bug_analysis
+      ticket_journey_bug_analysis_path(@project, bug_analysis_params(@query))
+    when :data_quality
+      ticket_journey_data_quality_path(@project, data_quality_params(@query))
+    else
+      ticket_journey_path(@project, duration_report_params(@query))
+    end
+  end
+
   def owner_returns_params(query)
     query_params = query.as_params.deep_dup.deep_stringify_keys
 

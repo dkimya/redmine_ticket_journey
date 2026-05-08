@@ -78,7 +78,7 @@
         <div class="tj-sc-value <%= totals[:missing_priority].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= totals[:missing_priority] %></div>
       </div>
       <div class="tj-summary-card">
-        <div class="tj-sc-label">Missing Sprint</div>
+        <div class="tj-sc-label">Missing Original Sprint</div>
         <div class="tj-sc-value <%= totals[:missing_sprint].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= totals[:missing_sprint] %></div>
       </div>
     </div>
@@ -124,8 +124,8 @@
               <th class="tj-th-native">Without Due Date</th>
               <th class="tj-th-native">Due %</th>
               <th class="tj-th-native"><%= data_quality_sort_link(@query, :missing_estimation_percent, 'PM Est. %') %></th>
-              <th class="tj-th-native">Without Sprint</th>
-              <th class="tj-th-native">Sprint %</th>
+              <th class="tj-th-native">Without Original Sprint</th>
+              <th class="tj-th-native">Original Sprint %</th>
               <th class="tj-th-native"><%= data_quality_sort_link(@query, :no_update_percent, 'No Update %') %></th>
               <th class="tj-th-native"><%= data_quality_sort_link(@query, :reliability_rank, 'Reliability') %></th>
             </tr>
@@ -189,7 +189,7 @@
                   <th class="tj-th-native">Status</th>
                   <th class="tj-th-native">Last Update</th>
                   <th class="tj-th-native">Days</th>
-                  <th class="tj-th-native">Sprint</th>
+                  <th class="tj-th-native">Original Sprint</th>
                   <th class="tj-th-native">Risk</th>
                 </tr>
               </thead>
