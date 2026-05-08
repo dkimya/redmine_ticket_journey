@@ -180,6 +180,14 @@ module TicketJourneyHelper
     end
   end
 
+  def pmo_control_card(content_options, path = nil, &block)
+    if path.present?
+      link_to(path, content_options, &block)
+    else
+      content_tag(:div, capture(&block), content_options)
+    end
+  end
+
   def pmo_control_value_class(tone)
     case tone
     when :red

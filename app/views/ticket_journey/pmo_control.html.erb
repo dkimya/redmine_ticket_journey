@@ -48,10 +48,10 @@
         <div class="tj-sc-value <%= pmo_control_value_class(report[:overall_status][:tone]) %>"><%= report[:overall_status][:label] %></div>
       </div>
       <% report[:kpis].each do |kpi| %>
-        <div class="tj-summary-card" title="<%= h(kpi[:help]) %>">
+        <%= pmo_control_card({ class: "tj-summary-card #{kpi[:path].present? ? 'tj-summary-link' : ''}", title: h(kpi[:help]) }, kpi[:path].present? ? pmo_control_attention_path(kpi) : nil) do %>
           <div class="tj-sc-label"><%= h(kpi[:label]) %></div>
           <div class="tj-sc-value <%= pmo_control_value_class(kpi[:tone]) %>"><%= kpi[:value] %></div>
-        </div>
+        <% end %>
       <% end %>
     </div>
 
@@ -90,7 +90,7 @@
               <% block = report[:health][key] %>
               <tr>
                 <td class="tj-health-label"><%= block[:title] %></td>
-                <td class="tj-health-count"><%= block[:total] %></td>
+                <td class="tj-health-count"><%= duration_report_drilldown_link(@query, block[:issue_ids], block[:total], title: "Open #{block[:title]}") %></td>
                 <td class="tj-health-percent"><%= number_to_percentage(block[:total].to_f / [report[:health][:total_open].to_i, 1].max * 100, precision: 1) %></td>
               </tr>
             <% end %>
@@ -135,9 +135,9 @@
             <tbody>
               <% report[:owner_attention_rows].each do |row| %>
                 <tr>
-                  <td class="tj-health-label"><%= h(row[:owner]) %></td>
-                  <td class="tj-health-count"><%= row[:total_open] %></td>
-                  <td class="tj-health-percent">Overdue <%= row[:overdue] %> / Stopped <%= row[:stopped] %></td>
+                  <td class="tj-health-label"><%= link_to h(row[:owner]), project_issues_path(@project, owner_workload_issue_filter_params(row, :total_open)), class: 'tj-drilldown-link' %></td>
+                  <td class="tj-health-count"><%= owner_workload_count_link(row, :total_open, row[:total_open]) %></td>
+                  <td class="tj-health-percent">Overdue <%= owner_workload_count_link(row, :overdue, row[:overdue]) %> / Stopped <%= owner_workload_count_link(row, :stopped, row[:stopped]) %></td>
                 </tr>
               <% end %>
             </tbody>
@@ -176,7 +176,7 @@
               <% report[:release_attention_rows].each do |row| %>
                 <tr>
                   <td class="tj-health-label"><%= h(row[:name]) %></td>
-                  <td class="tj-health-count"><%= row[:open] %></td>
+                  <td class="tj-health-count"><%= release_readiness_count_link(row, :open, row[:open]) %></td>
                   <td class="tj-health-percent"><%= row[:due_date].present? ? format_date(row[:due_date]) : '-' %></td>
                 </tr>
               <% end %>

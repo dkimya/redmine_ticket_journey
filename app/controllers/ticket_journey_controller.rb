@@ -608,15 +608,15 @@ class TicketJourneyController < ApplicationController
   def pmo_control_kpis(health_report, aging_totals, priority_totals, release_report, data_quality_report, bug_totals)
     data_totals = data_quality_report[:totals]
     [
-      { label: 'Total Open', value: health_report[:total_open], tone: :blue, help: 'All currently open tickets in the selected project scope.' },
-      { label: 'Priority / SLA Risk', value: priority_totals[:total_open], tone: priority_totals[:total_open].to_i.positive? ? :red : :dim, help: 'Open Urgent or Immediate tickets.' },
-      { label: 'Overdue', value: aging_totals[:overdue], tone: aging_totals[:overdue].to_i.positive? ? :red : :dim, help: 'Open tickets with due date before today.' },
-      { label: 'Stopped', value: aging_totals[:stopped], tone: aging_totals[:stopped].to_i.positive? ? :red : :dim, help: 'Open tickets currently Pending or On-Hold.' },
-      { label: '60d+ Open', value: aging_totals[:bucket_60_plus], tone: aging_totals[:bucket_60_plus].to_i.positive? ? :orange : :dim, help: 'Open tickets created more than 60 days ago.' },
-      { label: 'Missing Required', value: pmo_percent_value(data_totals[:missing_required_percent]), tone: data_totals[:missing_required].to_i.positive? ? :red : :dim, help: 'Percent of open tickets missing at least one required planning field.' },
-      { label: 'No Update', value: pmo_percent_value(data_totals[:tickets_without_updates_percent]), tone: data_totals[:tickets_without_updates].to_i.positive? ? :orange : :dim, help: 'Percent of open tickets not updated within the selected threshold.' },
-      { label: 'Release Risk', value: release_report[:at_risk_versions], tone: release_report[:at_risk_versions].to_i.positive? ? :red : :dim, help: 'Target versions marked red by release readiness rules.' },
-      { label: 'Remaining Bugs', value: bug_totals[:remaining], tone: bug_totals[:remaining].to_i.positive? ? :orange : :dim, help: 'Bug tracker tickets still open at the end of the selected bug period.' }
+      { label: 'Total Open', value: health_report[:total_open], tone: :blue, help: 'All currently open tickets in the selected project scope.', path: :issues, scope: :total_open },
+      { label: 'Priority / SLA Risk', value: priority_totals[:total_open], tone: priority_totals[:total_open].to_i.positive? ? :red : :dim, help: 'Open Urgent or Immediate tickets.', path: :priority_risk },
+      { label: 'Overdue', value: aging_totals[:overdue], tone: aging_totals[:overdue].to_i.positive? ? :red : :dim, help: 'Open tickets with due date before today.', path: :issues, scope: :overdue },
+      { label: 'Stopped', value: aging_totals[:stopped], tone: aging_totals[:stopped].to_i.positive? ? :red : :dim, help: 'Open tickets currently Pending or On-Hold.', path: :issues, scope: :stopped },
+      { label: '60d+ Open', value: aging_totals[:bucket_60_plus], tone: aging_totals[:bucket_60_plus].to_i.positive? ? :orange : :dim, help: 'Open tickets created more than 60 days ago.', path: :issues, scope: :bucket_60_plus },
+      { label: 'Missing Required', value: pmo_percent_value(data_totals[:missing_required_percent]), tone: data_totals[:missing_required].to_i.positive? ? :red : :dim, help: 'Percent of open tickets missing at least one required planning field.', path: :data_quality },
+      { label: 'No Update', value: pmo_percent_value(data_totals[:tickets_without_updates_percent]), tone: data_totals[:tickets_without_updates].to_i.positive? ? :orange : :dim, help: 'Percent of open tickets not updated within the selected threshold.', path: :issues, scope: :no_update },
+      { label: 'Release Risk', value: release_report[:at_risk_versions], tone: release_report[:at_risk_versions].to_i.positive? ? :red : :dim, help: 'Target versions marked red by release readiness rules.', path: :release_readiness },
+      { label: 'Remaining Bugs', value: bug_totals[:remaining], tone: bug_totals[:remaining].to_i.positive? ? :orange : :dim, help: 'Bug tracker tickets still open at the end of the selected bug period.', path: :bug_analysis }
     ]
   end
 
@@ -1528,6 +1528,7 @@ class TicketJourneyController < ApplicationController
       title: 'Open Technical Tickets',
       note: 'Open Bug, Change Request / Improvement, and Feature tickets.',
       total: issues.size,
+      issue_ids: issues.map(&:id),
       rows: [
         health_metric('Backlog', issues.count { |issue| status_role(issue.status&.name) == :new }, issues.size),
         health_metric('Under Work', issues.count { |issue| active_work_status?(issue.status&.name) }, issues.size),
@@ -1542,6 +1543,7 @@ class TicketJourneyController < ApplicationController
       title: 'Open Planned Tickets Health',
       note: 'Open active non-container tickets; checks missing owner, start date, due date, and PM estimation.',
       total: issues.size,
+      issue_ids: issues.map(&:id),
       rows: [
         health_metric('Without Owner', issues.count { |issue| ticket_owner_info(issue).first.blank? }, issues.size),
         health_metric('Without Start Date', issues.count { |issue| issue.start_date.blank? }, issues.size),
@@ -1556,6 +1558,7 @@ class TicketJourneyController < ApplicationController
       title: 'Open Tasks (Business Jobs)',
       note: 'Open Task / Task (Business Jobs) tickets. Stopped means Pending or On-Hold.',
       total: issues.size,
+      issue_ids: issues.map(&:id),
       rows: [
         health_metric('To Do Tasks', issues.count { |issue| %i[new todo].include?(status_role(issue.status&.name)) }, issues.size),
         health_metric('Under Work Tasks', issues.count { |issue| active_work_status?(issue.status&.name) }, issues.size),
@@ -1570,6 +1573,7 @@ class TicketJourneyController < ApplicationController
       title: 'Open Milestones',
       note: 'Open Milestone / Milestones tracker tickets. Stopped means Pending or On-Hold.',
       total: issues.size,
+      issue_ids: issues.map(&:id),
       rows: [
         health_metric('To-Do Milestones', issues.count { |issue| %i[new todo].include?(status_role(issue.status&.name)) }, issues.size),
         health_metric('In-Progress Milestones', issues.count { |issue| active_work_status?(issue.status&.name) }, issues.size),
