@@ -890,6 +890,7 @@ class TicketJourneyController < ApplicationController
       order: @query.sort_clause.presence || "#{Issue.table_name}.id DESC",
       include: [:status, :author, :assigned_to, :tracker, :priority, { custom_values: :custom_field }]
     )
+    issues = filter_sprint_drilldown_issues(issues)
     all_transitions = load_transitions(issues)
 
     issues.map do |issue|
@@ -903,6 +904,14 @@ class TicketJourneyController < ApplicationController
         durations: durations
       }
     end
+  end
+
+  def filter_sprint_drilldown_issues(issues)
+    issue_ids = params[:sprint_issue_ids].to_s.split(',').map(&:to_i).reject(&:zero?)
+    return issues if issue_ids.empty?
+
+    allowed_ids = issue_ids.to_set
+    issues.select { |issue| allowed_ids.include?(issue.id) }
   end
 
   def compute_project_health_report

@@ -43,30 +43,28 @@ module TicketJourneyHelper
     issue_ids = sprint_delivery_issue_ids(scope, owner_value)
 
     replace_filter(filters, operators, values, 'issue_id')
-    add_exact_filter(filters, operators, values, 'issue_id', issue_ids)
-
     query_params['set_filter'] = '1'
     query_params['f'] = filters
     query_params['op'] = operators
     query_params['v'] = values
+    query_params['sprint_id'] = @selected_sprint&.id
+    query_params['sprint_issue_ids'] = issue_ids.join(',')
     query_params
   end
 
   def sprint_delivery_duration_filter_params(scope = :committed, owner_value = :all)
-    sprint_delivery_issue_filter_params(scope, owner_value).merge('sprint_id' => @selected_sprint&.id)
+    sprint_delivery_issue_filter_params(scope, owner_value)
   end
 
-  def sprint_delivery_count_link(scope, value, owner_value = :all, target: :issues)
+  def sprint_delivery_count_link(scope, value, owner_value = :all, target: :duration)
     return '-' if value.to_i.zero?
 
-    path =
-      if target == :duration
-        ticket_journey_path(@project, sprint_delivery_duration_filter_params(scope, owner_value))
-      else
-        project_issues_path(@project, sprint_delivery_issue_filter_params(scope, owner_value))
-      end
-
-    link_to(value, path, class: 'tj-drilldown-link', title: 'Open matching sprint tickets')
+    link_to(
+      value,
+      ticket_journey_path(@project, sprint_delivery_duration_filter_params(scope, owner_value)),
+      class: 'tj-drilldown-link',
+      title: 'Open matching sprint tickets in Duration Report'
+    )
   end
 
   def sprint_delivery_issue_ids(scope = :committed, owner_value = :all)

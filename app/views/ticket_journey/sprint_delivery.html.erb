@@ -237,7 +237,7 @@
                   <td class="tj-td-native"><%= h(row[:original_sprint]) %></td>
                   <td class="tj-td-native">
                     <% if row[:flags].any? %>
-                      <%= safe_join(row[:flags].map { |flag| link_to flag, project_issues_path(@project, sprint_delivery_issue_filter_params(sprint_delivery_flag_scope(flag), row[:owner_value])), class: 'tj-drilldown-link', title: "Open #{flag.downcase} sprint tickets" }, ', ') %>
+                      <%= safe_join(row[:flags].map { |flag| link_to flag, ticket_journey_path(@project, sprint_delivery_duration_filter_params(sprint_delivery_flag_scope(flag), row[:owner_value])), class: 'tj-drilldown-link', title: "Open #{flag.downcase} sprint tickets in Duration Report" }, ', ') %>
                     <% else %>
                       -
                     <% end %>
