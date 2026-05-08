@@ -4,7 +4,7 @@ class TicketJourneyController < ApplicationController
   BUG_SOURCE_CF_ID = 63
   BUG_IMPACT_RATING_CF_ID = 65
   RETURN_REASON_CF_ID = 66
-  OWNER_RETURN_SORTABLE_FIELDS = %w[owner total_tickets ticket_share done_tickets avg_done_cycle_time avg_priority_done_cycle_time returned_tickets return_rate c1 c2 c3 c4 total_returns].freeze
+  OWNER_RETURN_SORTABLE_FIELDS = %w[owner total_tickets ticket_share done_tickets completion_rate avg_done_cycle_time avg_priority_done_cycle_time open_tickets owner_debt tickets_without_updates avg_idle_days returned_tickets return_rate c1 c2 c3 c4 total_returns].freeze
   OWNER_WORKLOAD_SORTABLE_FIELDS = %w[owner total_open technical_open task_open stopped overdue priority_open no_due_date avg_age oldest_age].freeze
   AGING_RISK_SORTABLE_FIELDS = %w[group total_open bucket_0_7 bucket_8_14 bucket_15_30 bucket_31_60 bucket_60_plus stopped overdue priority_open no_due_date avg_age oldest_age].freeze
   PRIORITY_RISK_SORTABLE_FIELDS = %w[issue subject owner priority status tracker due_date age_days overdue stopped no_due_date].freeze
@@ -137,8 +137,9 @@ class TicketJourneyController < ApplicationController
   # OWNER RETURNS — summary of returned tickets by ticket owner
   # ---------------------------------------------------------------
   def owner_returns
+    @owner_performance_stale_days = data_quality_stale_days_param
     @issues_data = compute_all_durations
-    @owner_return_rows = compute_owner_returns_summary(@issues_data, role_id: @selected_owner_role&.id)
+    @owner_return_rows = compute_owner_returns_summary(@issues_data, role_id: @selected_owner_role&.id, stale_days: @owner_performance_stale_days)
   end
 
   # ---------------------------------------------------------------
@@ -2603,8 +2604,9 @@ class TicketJourneyController < ApplicationController
                         &.last || 0
   end
 
-  def compute_owner_returns_summary(issues_data, role_id: nil)
+  def compute_owner_returns_summary(issues_data, role_id: nil, stale_days: DATA_QUALITY_DEFAULT_STALE_DAYS)
     allowed_owner_values = ticket_owner_values_for_role(role_id)
+    today = User.current.today
 
     rows = Hash.new do |hash, owner_key|
       owner_value, owner_name = owner_key
@@ -2612,14 +2614,27 @@ class TicketJourneyController < ApplicationController
         owner: owner_name,
         owner_value: owner_value,
         total_tickets: 0,
+        all_issue_ids: [],
         done_tickets: 0,
+        done_issue_ids: [],
+        completion_rate: 0.0,
         done_cycle_count: 0,
         done_cycle_hours: 0.0,
         priority_done_cycle_count: 0,
         priority_done_cycle_hours: 0.0,
         avg_done_cycle_time: 0.0,
         avg_priority_done_cycle_time: 0.0,
+        open_tickets: 0,
+        open_issue_ids: [],
+        owner_debt: 0,
+        owner_debt_issue_ids: [],
+        tickets_without_updates: 0,
+        no_update_issue_ids: [],
+        idle_days_sum: 0,
+        avg_idle_days: 0.0,
+        highest_idle_days: 0,
         returned_tickets: 0,
+        returned_issue_ids: [],
         c1: 0,
         c2: 0,
         c3: 0,
@@ -2634,10 +2649,31 @@ class TicketJourneyController < ApplicationController
 
       row = rows[[owner_value, owner_name]]
       row[:total_tickets] += 1
+      row[:all_issue_ids] << item[:issue].id
+
+      if !item[:issue].status&.is_closed?
+        days_since_update = item[:issue].updated_on.present? ? [(today - item[:issue].updated_on.to_date).to_i, 0].max : 0
+
+        row[:open_tickets] += 1
+        row[:open_issue_ids] << item[:issue].id
+        row[:idle_days_sum] += days_since_update
+        row[:highest_idle_days] = [row[:highest_idle_days], days_since_update].max
+
+        if item[:issue].due_date.present? && item[:issue].due_date < today
+          row[:owner_debt] += 1
+          row[:owner_debt_issue_ids] << item[:issue].id
+        end
+
+        if days_since_update >= stale_days
+          row[:tickets_without_updates] += 1
+          row[:no_update_issue_ids] << item[:issue].id
+        end
+      end
 
       cycle_hours = done_cycle_time_hours(item)
       if status_role(item[:issue].status&.name) == :done
         row[:done_tickets] += 1
+        row[:done_issue_ids] << item[:issue].id
         if cycle_hours
           row[:done_cycle_count] += 1
           row[:done_cycle_hours] += cycle_hours
@@ -2654,6 +2690,7 @@ class TicketJourneyController < ApplicationController
       next if total_returns.zero?
 
       row[:returned_tickets] += 1
+      row[:returned_issue_ids] << item[:issue].id
       row[:c1] += durations[:C1].to_i
       row[:c2] += durations[:C2].to_i
       row[:c3] += durations[:C3].to_i
@@ -2663,8 +2700,10 @@ class TicketJourneyController < ApplicationController
 
     owner_rows = rows.values
     owner_rows.each do |row|
+      row[:completion_rate] = ratio(row[:done_tickets], row[:total_tickets])
       row[:avg_done_cycle_time] = row[:done_cycle_count].positive? ? row[:done_cycle_hours] / row[:done_cycle_count] : 0.0
       row[:avg_priority_done_cycle_time] = row[:priority_done_cycle_count].positive? ? row[:priority_done_cycle_hours] / row[:priority_done_cycle_count] : 0.0
+      row[:avg_idle_days] = row[:open_tickets].positive? ? row[:idle_days_sum].to_f / row[:open_tickets] : 0.0
     end
 
     sort_owner_return_rows(owner_rows)

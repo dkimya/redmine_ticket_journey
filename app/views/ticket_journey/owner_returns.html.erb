@@ -27,6 +27,10 @@
                 class: 'tj-input',
                 onchange: 'this.form.submit();' %>
         </div>
+        <div class="tj-filter-group">
+          <label for="stale_days">No Update Threshold</label>
+          <%= number_field_tag :stale_days, @owner_performance_stale_days, min: 1, class: 'tj-input tj-small-number-input', onchange: 'this.form.submit();' %>
+        </div>
       </div>
     </div>
   <% end %>
@@ -52,6 +56,9 @@
       c3_total = @owner_return_rows.sum { |row| row[:c3] }
       c4_total = @owner_return_rows.sum { |row| row[:c4] }
       total_returns = @owner_return_rows.sum { |row| row[:total_returns] }
+      done_tickets = @owner_return_rows.sum { |row| row[:done_tickets] }
+      owner_debt = @owner_return_rows.sum { |row| row[:owner_debt] }
+      tickets_without_updates = @owner_return_rows.sum { |row| row[:tickets_without_updates] }
       counter_totals = { C1: c1_total, C2: c2_total, C3: c3_total, C4: c4_total }
     %>
 
@@ -67,6 +74,18 @@
       <div class="tj-summary-card">
         <div class="tj-sc-label">No. of Returned Tickets</div>
         <div class="tj-sc-value tj-sc-orange"><%= returned_tickets %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Completion Rate</div>
+        <div class="tj-sc-value <%= done_tickets.positive? ? 'tj-sc-green' : 'tj-sc-dim' %>"><%= format_percentage(done_tickets, total_tickets) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Owner Debt</div>
+        <div class="tj-sc-value <%= owner_debt.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= owner_debt %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">No Update <%= @owner_performance_stale_days %>d+</div>
+        <div class="tj-sc-value <%= tickets_without_updates.positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= tickets_without_updates %></div>
       </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label">Total Returns</div>
@@ -89,8 +108,13 @@
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :total_tickets, 'No. of Tickets') %></th>
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :ticket_share, '% of All Tickets') %></th>
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :done_tickets, 'No. of Done Tickets', title: 'Done / Closed tickets in the current filtered result') %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :completion_rate, 'Completion Rate', title: 'Done tickets divided by all tickets in the current filtered result') %></th>
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :avg_done_cycle_time, 'Avg Cycle Time', title: 'Average active time from first In Progress to Done / Closed') %></th>
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :avg_priority_done_cycle_time, 'Avg Priority Cycle Time', title: 'Average active cycle time for Urgent or Immediate done tickets') %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :open_tickets, 'Open Tickets', title: 'Open tickets in the current filtered result') %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :owner_debt, 'Owner Debt', title: 'Open overdue tickets') %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :tickets_without_updates, "No Update #{@owner_performance_stale_days}d+", title: 'Open tickets not updated within the selected threshold') %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :avg_idle_days, 'Avg Idle', title: 'Average days since update for open tickets') %></th>
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :returned_tickets, 'No. of Returned Tickets') %></th>
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :return_rate, 'Return Rate') %></th>
               <th class="tj-th-counter"><%= owner_returns_sort_link(@query, :c1, counter_definitions[0][:code], title: counter_definitions[0][:title]) %></th>
@@ -108,12 +132,17 @@
                       ticket_journey_path(@project, ticket_owner_filter_params(@query, row[:owner_value])),
                       class: 'tj-subject-link' %>
               </td>
-              <td class="tj-td-native"><%= row[:total_tickets] %></td>
+              <td class="tj-td-native"><%= duration_report_drilldown_link(@query, row[:all_issue_ids], row[:total_tickets]) %></td>
               <td class="tj-td-native"><%= format_percentage(row[:total_tickets], total_tickets) %></td>
-              <td class="tj-td-native"><%= row[:done_tickets] %></td>
+              <td class="tj-td-native"><%= duration_report_drilldown_link(@query, row[:done_issue_ids], row[:done_tickets]) %></td>
+              <td class="tj-td-native"><%= number_to_percentage(row[:completion_rate] * 100, precision: 1) %></td>
               <td class="tj-td-native"><%= format_hours(row[:avg_done_cycle_time]) %></td>
               <td class="tj-td-native"><%= format_hours(row[:avg_priority_done_cycle_time]) %></td>
-              <td class="tj-td-native"><%= row[:returned_tickets] %></td>
+              <td class="tj-td-native"><%= duration_report_drilldown_link(@query, row[:open_issue_ids], row[:open_tickets]) %></td>
+              <td class="tj-td-native <%= row[:owner_debt].positive? ? 'tj-counter-active' : '' %>"><%= duration_report_drilldown_link(@query, row[:owner_debt_issue_ids], row[:owner_debt]) %></td>
+              <td class="tj-td-native <%= row[:tickets_without_updates].positive? ? 'tj-counter-active' : '' %>"><%= duration_report_drilldown_link(@query, row[:no_update_issue_ids], row[:tickets_without_updates]) %></td>
+              <td class="tj-td-native"><%= row[:open_tickets].positive? ? "#{number_with_precision(row[:avg_idle_days], precision: 1, strip_insignificant_zeros: true)}d" : '-' %></td>
+              <td class="tj-td-native"><%= duration_report_drilldown_link(@query, row[:returned_issue_ids], row[:returned_tickets]) %></td>
               <td class="tj-td-native"><%= format_percentage(row[:returned_tickets], row[:total_tickets]) %></td>
               <td class="<%= counter_css_class(row[:c1]) %>"><%= row[:c1] > 0 ? row[:c1] : '—' %></td>
               <td class="<%= counter_css_class(row[:c2]) %>"><%= row[:c2] > 0 ? row[:c2] : '—' %></td>

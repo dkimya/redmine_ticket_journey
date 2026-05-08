@@ -249,7 +249,7 @@ module TicketJourneyHelper
   def owner_returns_params(query)
     query_params = query.as_params.deep_dup.deep_stringify_keys
 
-    %w[ticket_owner_role_id owner_sort owner_dir].each do |key|
+    %w[ticket_owner_role_id stale_days owner_sort owner_dir].each do |key|
       query_params.delete(key)
       value = params[key]
       query_params[key] = value if value.present?
