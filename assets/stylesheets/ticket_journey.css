@@ -161,6 +161,7 @@
 }
 .tj-input:focus { border-color: var(--tj-accent); }
 .tj-filter-search .tj-input { width: 200px; }
+.tj-small-number-input { max-width: 110px; }
 .tj-owner-filter-bar { margin-top: 12px; }
 .tj-bug-filter-bar {
   display: block;
@@ -452,6 +453,37 @@
   font-family: 'Courier New', monospace;
   font-weight: 800;
   text-align: right;
+}
+.tj-data-quality-table {
+  min-width: 1540px;
+}
+.tj-data-quality-table .tj-td-title {
+  text-align: left;
+  min-width: 220px;
+}
+.tj-data-quality-bars .tj-workload-bar-fill {
+  background: linear-gradient(90deg, #f59e0b, #dc2626);
+}
+.tj-data-quality-detail-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+.tj-data-quality-detail-table {
+  min-width: 1180px;
+}
+.tj-data-quality-missing-table {
+  min-width: 1120px;
+}
+.tj-data-quality-detail-table .tj-td-title,
+.tj-data-quality-missing-table .tj-td-title {
+  max-width: 280px;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tj-data-missing-fields {
+  min-width: 220px;
+  text-align: left;
 }
 .tj-owner-workload-table {
   min-width: 1180px;

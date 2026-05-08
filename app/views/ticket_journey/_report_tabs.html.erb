@@ -9,6 +9,7 @@
   health_params = project_health_params(@query)
   release_params = release_readiness_params(@query)
   bug_params = bug_analysis_params(@query)
+  data_quality_tab_params = data_quality_params(@query)
   duration_params = duration_params.except('issue_id', 'view')
   detail_params =
     if @issue.present?
@@ -51,4 +52,7 @@
   <%= link_to 'Bugs Analysis',
         ticket_journey_bug_analysis_path(@project, bug_params),
         class: "tj-report-tab #{active_tab == :bug_analysis ? 'is-active' : ''}" %>
+  <%= link_to 'Data Quality',
+        ticket_journey_data_quality_path(@project, data_quality_tab_params),
+        class: "tj-report-tab #{active_tab == :data_quality ? 'is-active' : ''}" %>
 </div>

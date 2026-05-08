@@ -228,6 +228,39 @@ module TicketJourneyHelper
     )
   end
 
+  def data_quality_params(query)
+    query_params = query.as_params.deep_dup.deep_stringify_keys
+
+    %w[stale_days data_sort data_dir].each do |key|
+      query_params.delete(key)
+      value = params[key]
+      query_params[key] = value if value.present?
+    end
+
+    query_params
+  end
+
+  def data_quality_sort_link(query, sort_key, caption, title: nil)
+    current_key = params[:data_sort].to_s
+    current_dir = params[:data_dir].to_s
+    current_dir = (sort_key.to_s == 'project' ? 'asc' : 'desc') unless %w[asc desc].include?(current_dir)
+    default_dir = sort_key.to_s == 'project' ? 'asc' : 'desc'
+    next_dir = current_key == sort_key.to_s && current_dir == default_dir ? (default_dir == 'asc' ? 'desc' : 'asc') : default_dir
+
+    indicator =
+      if current_key == sort_key.to_s
+        current_dir == 'asc' ? ' ^' : ' v'
+      else
+        ''
+      end
+
+    link_to(
+      "#{caption}#{indicator}",
+      ticket_journey_data_quality_path(@project, data_quality_params(query).merge('data_sort' => sort_key.to_s, 'data_dir' => next_dir)),
+      title: title
+    )
+  end
+
   def bug_analysis_issue_filter_params(row, scope)
     filters = %w[tracker_id]
     operators = { 'tracker_id' => '=' }
@@ -349,6 +382,62 @@ module TicketJourneyHelper
     query_params['op'] = operators
     query_params['v'] = values
     query_params
+  end
+
+  def data_quality_issue_filter_params(row, scope)
+    query_params = @query.as_params.deep_dup.deep_stringify_keys
+    filters = Array(query_params['f'] || query_params[:f]).map(&:to_s)
+    operators = (query_params['op'] || query_params[:op] || {}).deep_dup.deep_stringify_keys
+    values = (query_params['v'] || query_params[:v] || {}).deep_dup.deep_stringify_keys
+
+    replace_filter(filters, operators, values, 'status_id')
+    add_status_filter(filters, operators, values, 'o')
+
+    case scope.to_sym
+    when :missing_owner
+      add_missing_data_filter(filters, operators, values, "cf_#{TicketJourneyController::TICKET_OWNER_CF_ID}")
+    when :missing_start_date
+      add_missing_data_filter(filters, operators, values, 'start_date')
+    when :missing_due_date
+      add_missing_data_filter(filters, operators, values, 'due_date')
+    when :missing_estimation
+      add_missing_data_filter(filters, operators, values, 'estimated_hours')
+    when :missing_priority
+      add_missing_data_filter(filters, operators, values, 'priority_id')
+    when :missing_sprint
+      add_missing_data_filter(filters, operators, values, 'fixed_version_id')
+    when :no_update
+      replace_filter(filters, operators, values, 'updated_on')
+      add_date_filter(filters, operators, values, 'updated_on', '<=', [User.current.today - (@data_quality_stale_days || TicketJourneyController::DATA_QUALITY_DEFAULT_STALE_DAYS)])
+    end
+
+    query_params['set_filter'] = '1'
+    query_params['f'] = filters
+    query_params['op'] = operators
+    query_params['v'] = values
+    query_params
+  end
+
+  def data_quality_count_link(row, scope, value)
+    return '-' if value.to_i.zero?
+
+    link_to(
+      value,
+      project_issues_path((row && row[:project]) || @project, data_quality_issue_filter_params(row, scope)),
+      class: 'tj-drilldown-link',
+      title: 'Open matching issues'
+    )
+  end
+
+  def data_quality_status_class(status)
+    case status.to_s.downcase
+    when 'good'
+      'tj-release-risk-pill-green'
+    when 'watch'
+      'tj-release-risk-pill-amber'
+    else
+      'tj-release-risk-pill-red'
+    end
   end
 
   def owner_workload_duration_filter_params(row, scope = :total_open)
@@ -549,6 +638,11 @@ module TicketJourneyHelper
     filters << field_name
     operators[field_name] = '!*'
     values[field_name] = ['']
+  end
+
+  def add_missing_data_filter(filters, operators, values, field_name)
+    replace_filter(filters, operators, values, field_name)
+    add_missing_filter(filters, operators, values, field_name)
   end
 
   def add_priority_filter(filters, operators, values)

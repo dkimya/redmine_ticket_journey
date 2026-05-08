@@ -1,0 +1,253 @@
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'ticket_journey', plugin: 'redmine_ticket_journey' %>
+<% end %>
+
+<div id="tj-wrap">
+  <div class="tj-page-header">
+    <div class="tj-page-header-left">
+      <div>
+        <h2>Ticket Quality &amp; Data Discipline</h2>
+        <p class="tj-page-sub">Open ticket data reliability snapshot &mdash; <%= @project.name %></p>
+      </div>
+    </div>
+  </div>
+
+  <%= render partial: 'report_tabs', locals: { active_tab: :data_quality } %>
+
+  <%= form_tag(ticket_journey_data_quality_path(@project), method: :get, id: 'query_form') do %>
+    <%= render partial: 'queries/query_form' %>
+
+    <div class="tj-filter-bar tj-owner-filter-bar">
+      <div class="tj-filter-form">
+        <div class="tj-filter-group">
+          <label for="stale_days">No Update Threshold</label>
+          <%= number_field_tag :stale_days, @data_quality_stale_days, min: 1, class: 'tj-input tj-small-number-input', onchange: 'this.form.submit();' %>
+        </div>
+        <div class="tj-filter-group tj-flow-filter-note">
+          <span>Uses the Redmine filters above, keeps open issues, then checks owner, dates, estimation, priority, sprint/target version, and stale updates.</span>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <% if !@query.valid? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">Report</div>
+      <h3>Invalid filters</h3>
+      <p>Please review the Redmine query filters above.</p>
+    </div>
+  <% elsif @data_quality_report[:totals][:total_active].zero? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">Report</div>
+      <h3>No open ticket data found</h3>
+      <p>Try adjusting the Redmine query filters above.</p>
+    </div>
+  <% else %>
+    <% totals = @data_quality_report[:totals] %>
+    <div class="tj-summary-strip">
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Active Tickets</div>
+        <div class="tj-sc-value tj-sc-blue"><%= totals[:total_active] %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Missing Required Fields</div>
+        <div class="tj-sc-value <%= totals[:missing_required].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= number_to_percentage(totals[:missing_required_percent] * 100, precision: 1) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Tickets Without Updates</div>
+        <div class="tj-sc-value <%= totals[:tickets_without_updates].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= number_to_percentage(totals[:tickets_without_updates_percent] * 100, precision: 1) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Missing Owner</div>
+        <div class="tj-sc-value <%= totals[:missing_owner].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= totals[:missing_owner] %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Missing Start Date</div>
+        <div class="tj-sc-value <%= totals[:missing_start_date].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= totals[:missing_start_date] %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Missing Due Date</div>
+        <div class="tj-sc-value <%= totals[:missing_due_date].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= totals[:missing_due_date] %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Missing PM Estimation</div>
+        <div class="tj-sc-value <%= totals[:missing_estimation].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= totals[:missing_estimation] %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Missing Priority</div>
+        <div class="tj-sc-value <%= totals[:missing_priority].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= totals[:missing_priority] %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Missing Sprint</div>
+        <div class="tj-sc-value <%= totals[:missing_sprint].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= totals[:missing_sprint] %></div>
+      </div>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Missing Field Attention</div>
+      <div class="tj-data-quality-bars">
+        <% max_field_count = @data_quality_report[:field_rows].map { |row| row[:count].to_i }.max.to_i %>
+        <% @data_quality_report[:field_rows].each do |row| %>
+          <% width = max_field_count.positive? ? ((row[:count].to_f / max_field_count) * 100).round : 0 %>
+          <%= link_to project_issues_path(@project, data_quality_issue_filter_params(nil, row[:scope])),
+                class: 'tj-workload-bar-row tj-data-quality-bar-row',
+                title: "Open issues: #{row[:label]}" do %>
+            <span class="tj-workload-bar-label"><%= h(row[:label]) %></span>
+            <span class="tj-workload-bar-track">
+              <% if row[:count].positive? %>
+                <span class="tj-workload-bar-fill" style="width:<%= width %>%"></span>
+              <% end %>
+            </span>
+            <span class="tj-workload-bar-meta">
+              <strong><%= row[:count] %></strong>
+              <span><%= number_to_percentage(row[:percent] * 100, precision: 1) %></span>
+            </span>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Open Planned Tickets Health</div>
+      <div class="tj-table-wrap">
+        <table class="tj-table tj-data-quality-table">
+          <thead>
+            <tr>
+              <th class="tj-th-title"><%= data_quality_sort_link(@query, :project, 'Project') %></th>
+              <th class="tj-th-native"><%= data_quality_sort_link(@query, :total_active, 'Total Active') %></th>
+              <th class="tj-th-native"><%= data_quality_sort_link(@query, :missing_required, 'Missing Required') %></th>
+              <th class="tj-th-native"><%= data_quality_sort_link(@query, :missing_required_percent, 'Missing %') %></th>
+              <th class="tj-th-native">Without Owner</th>
+              <th class="tj-th-native">Owner %</th>
+              <th class="tj-th-native">Without Start Date</th>
+              <th class="tj-th-native">Start %</th>
+              <th class="tj-th-native">Without Due Date</th>
+              <th class="tj-th-native">Due %</th>
+              <th class="tj-th-native"><%= data_quality_sort_link(@query, :missing_estimation_percent, 'PM Est. %') %></th>
+              <th class="tj-th-native">Without Sprint</th>
+              <th class="tj-th-native">Sprint %</th>
+              <th class="tj-th-native"><%= data_quality_sort_link(@query, :no_update_percent, 'No Update %') %></th>
+              <th class="tj-th-native"><%= data_quality_sort_link(@query, :reliability_rank, 'Reliability') %></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @data_quality_report[:project_rows].each do |row| %>
+              <tr class="tj-row">
+                <td class="tj-td-title"><%= h(row[:project_name]) %></td>
+                <td class="tj-td-native"><%= data_quality_count_link(row, :total_active, row[:total_active]) %></td>
+                <td class="tj-td-native <%= row[:missing_required].positive? ? 'tj-counter-active' : 'tj-counter-zero' %>"><%= row[:missing_required] %></td>
+                <td class="tj-td-native"><%= number_to_percentage(row[:missing_required_percent] * 100, precision: 1) %></td>
+                <td class="tj-td-native"><%= data_quality_count_link(row, :missing_owner, row[:missing_owner]) %></td>
+                <td class="tj-td-native"><%= number_to_percentage(row[:missing_owner_percent] * 100, precision: 1) %></td>
+                <td class="tj-td-native"><%= data_quality_count_link(row, :missing_start_date, row[:missing_start_date]) %></td>
+                <td class="tj-td-native"><%= number_to_percentage(row[:missing_start_date_percent] * 100, precision: 1) %></td>
+                <td class="tj-td-native"><%= data_quality_count_link(row, :missing_due_date, row[:missing_due_date]) %></td>
+                <td class="tj-td-native"><%= number_to_percentage(row[:missing_due_date_percent] * 100, precision: 1) %></td>
+                <td class="tj-td-native"><%= number_to_percentage(row[:missing_estimation_percent] * 100, precision: 1) %></td>
+                <td class="tj-td-native"><%= data_quality_count_link(row, :missing_sprint, row[:missing_sprint]) %></td>
+                <td class="tj-td-native"><%= number_to_percentage(row[:missing_sprint_percent] * 100, precision: 1) %></td>
+                <td class="tj-td-native"><%= number_to_percentage(row[:no_update_percent] * 100, precision: 1) %></td>
+                <td class="tj-td-native"><span class="tj-release-risk-pill <%= data_quality_status_class(row[:reliability_status]) %>"><%= row[:reliability_status] %></span></td>
+              </tr>
+            <% end %>
+            <tr class="tj-flow-total-row">
+              <td class="tj-td-title tj-total-label">Total</td>
+              <td class="tj-td-native"><%= totals[:total_active] %></td>
+              <td class="tj-td-native"><%= totals[:missing_required] %></td>
+              <td class="tj-td-native"><%= number_to_percentage(totals[:missing_required_percent] * 100, precision: 1) %></td>
+              <td class="tj-td-native"><%= totals[:missing_owner] %></td>
+              <td class="tj-td-native"><%= number_to_percentage(totals[:missing_owner_percent] * 100, precision: 1) %></td>
+              <td class="tj-td-native"><%= totals[:missing_start_date] %></td>
+              <td class="tj-td-native"><%= number_to_percentage(totals[:missing_start_date_percent] * 100, precision: 1) %></td>
+              <td class="tj-td-native"><%= totals[:missing_due_date] %></td>
+              <td class="tj-td-native"><%= number_to_percentage(totals[:missing_due_date_percent] * 100, precision: 1) %></td>
+              <td class="tj-td-native"><%= number_to_percentage(totals[:missing_estimation_percent] * 100, precision: 1) %></td>
+              <td class="tj-td-native"><%= totals[:missing_sprint] %></td>
+              <td class="tj-td-native"><%= number_to_percentage(totals[:missing_sprint_percent] * 100, precision: 1) %></td>
+              <td class="tj-td-native"><%= number_to_percentage(totals[:tickets_without_updates_percent] * 100, precision: 1) %></td>
+              <td class="tj-td-native">-</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tj-detail-grid tj-data-quality-detail-grid">
+      <div class="tj-card">
+        <div class="tj-card-title">Tickets Without Updates</div>
+        <% if @data_quality_report[:stale_rows].empty? %>
+          <div class="tj-flow-empty-note">No open issues are older than the no-update threshold.</div>
+        <% else %>
+          <div class="tj-table-wrap">
+            <table class="tj-table tj-data-quality-detail-table">
+              <thead>
+                <tr>
+                  <th class="tj-th-issue">Issue</th>
+                  <th class="tj-th-title">Subject</th>
+                  <th class="tj-th-native">Project</th>
+                  <th class="tj-th-native">Owner</th>
+                  <th class="tj-th-native">Status</th>
+                  <th class="tj-th-native">Last Update</th>
+                  <th class="tj-th-native">Days</th>
+                  <th class="tj-th-native">Sprint</th>
+                  <th class="tj-th-native">Risk</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% @data_quality_report[:stale_rows].each do |row| %>
+                  <tr class="tj-row">
+                    <td class="tj-td-issue"><%= link_to "##{row[:issue_id]}", issue_path(row[:issue]), class: 'tj-issue-link' %></td>
+                    <td class="tj-td-title"><%= link_to row[:subject], issue_path(row[:issue]), class: 'tj-subject-link', title: row[:subject] %></td>
+                    <td class="tj-td-native"><%= h(row[:project_name]) %></td>
+                    <td class="tj-td-native"><%= h(row[:owner]) %></td>
+                    <td class="tj-td-native"><%= h(row[:status]) %></td>
+                    <td class="tj-td-native"><%= format_date(row[:updated_on]) %></td>
+                    <td class="tj-td-native tj-counter-active"><%= row[:days_since_update] %>d</td>
+                    <td class="tj-td-native"><%= h(row[:sprint]) %></td>
+                    <td class="tj-td-native"><span class="tj-release-risk-pill <%= data_quality_status_class(row[:risk]) %>"><%= row[:risk] %></span></td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        <% end %>
+      </div>
+
+      <div class="tj-card">
+        <div class="tj-card-title">Missing Required Fields Detail</div>
+        <% if @data_quality_report[:missing_rows].empty? %>
+          <div class="tj-flow-empty-note">No required data gaps for the current filters.</div>
+        <% else %>
+          <div class="tj-table-wrap">
+            <table class="tj-table tj-data-quality-missing-table">
+              <thead>
+                <tr>
+                  <th class="tj-th-issue">Issue</th>
+                  <th class="tj-th-title">Subject</th>
+                  <th class="tj-th-native">Project</th>
+                  <th class="tj-th-native">Owner</th>
+                  <th class="tj-th-native">Missing Fields</th>
+                  <th class="tj-th-native">Days Since Update</th>
+                  <th class="tj-th-native">Risk</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% @data_quality_report[:missing_rows].each do |row| %>
+                  <tr class="tj-row">
+                    <td class="tj-td-issue"><%= link_to "##{row[:issue_id]}", issue_path(row[:issue]), class: 'tj-issue-link' %></td>
+                    <td class="tj-td-title"><%= link_to row[:subject], issue_path(row[:issue]), class: 'tj-subject-link', title: row[:subject] %></td>
+                    <td class="tj-td-native"><%= h(row[:project_name]) %></td>
+                    <td class="tj-td-native"><%= h(row[:owner]) %></td>
+                    <td class="tj-td-native tj-data-missing-fields"><%= h(row[:missing_fields].join(', ')) %></td>
+                    <td class="tj-td-native"><%= row[:days_since_update].present? ? "#{row[:days_since_update]}d" : '-' %></td>
+                    <td class="tj-td-native"><span class="tj-release-risk-pill <%= data_quality_status_class(row[:risk]) %>"><%= row[:risk] %></span></td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+</div>

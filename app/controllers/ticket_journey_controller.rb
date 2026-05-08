@@ -35,6 +35,8 @@ class TicketJourneyController < ApplicationController
   ].freeze
   BUG_ANALYSIS_SORTABLE_FIELDS = %w[reason beginning beginning_percent found found_percent closed closed_percent remaining remaining_percent impact_sum impact_average change_percent].freeze
   RELEASE_READINESS_SORTABLE_FIELDS = %w[name project due_date status total open done done_percent stopped overdue no_owner no_due_date priority_open risk].freeze
+  DATA_QUALITY_SORTABLE_FIELDS = %w[project total_active missing_required missing_required_percent no_update_percent missing_owner_percent missing_estimation_percent reliability_rank].freeze
+  DATA_QUALITY_DEFAULT_STALE_DAYS = 7
   PROJECT_HEALTH_ACTIVE_STATUS_ROLES = %i[todo in_progress feedback review ready_merge final_check].freeze
   TRACKER_FAMILY_ORDER = %i[internal customer_support task container].freeze
   TRACKER_FAMILY_DEFINITIONS = {
@@ -87,7 +89,7 @@ class TicketJourneyController < ApplicationController
 
   before_action :find_project
   before_action :authorize
-  before_action :build_query, only: [:index, :owner_returns, :owner_workload, :aging_risk, :priority_risk, :cycle_distribution, :flow_report, :project_health, :release_readiness, :bug_analysis, :export]
+  before_action :build_query, only: [:index, :owner_returns, :owner_workload, :aging_risk, :priority_risk, :cycle_distribution, :flow_report, :project_health, :release_readiness, :bug_analysis, :data_quality, :export]
   before_action :prepare_owner_role_filter, only: [:owner_returns, :owner_workload, :flow_report]
 
   helper :queries
@@ -180,6 +182,14 @@ class TicketJourneyController < ApplicationController
   def bug_analysis
     @bug_start_date, @bug_end_date = bug_analysis_period_dates
     @bug_analysis_rows, @bug_analysis_totals = compute_bug_analysis_report(@bug_start_date, @bug_end_date)
+  end
+
+  # ---------------------------------------------------------------
+  # DATA QUALITY - ticket quality and data discipline snapshot
+  # ---------------------------------------------------------------
+  def data_quality
+    @data_quality_stale_days = data_quality_stale_days_param
+    @data_quality_report = compute_data_quality_report
   end
 
   # ---------------------------------------------------------------
@@ -1283,6 +1293,207 @@ class TicketJourneyController < ApplicationController
     return requested_dir if %w[asc desc].include?(requested_dir)
 
     %w[name project status due_date].include?(sort_key) ? 'asc' : 'desc'
+  end
+
+  def data_quality_stale_days_param
+    days = params[:stale_days].to_i
+    days.positive? ? days : DATA_QUALITY_DEFAULT_STALE_DAYS
+  end
+
+  def compute_data_quality_report
+    return empty_data_quality_report unless @query&.valid?
+
+    today = User.current.today
+    issue_rows = data_quality_issues.map { |issue| data_quality_issue_row(issue, today) }
+    totals = data_quality_totals(issue_rows)
+    project_rows = issue_rows.group_by { |row| row[:project_id] }.map do |_project_id, rows|
+      data_quality_project_row(rows, totals)
+    end
+
+    {
+      report_date: today,
+      stale_days: @data_quality_stale_days,
+      totals: totals,
+      project_rows: sort_data_quality_rows(project_rows),
+      field_rows: data_quality_field_rows(totals),
+      stale_rows: issue_rows.select { |row| row[:without_updates] }.sort_by { |row| [-row[:days_since_update].to_i, row[:project_name].to_s.downcase, row[:issue_id].to_i] }.first(150),
+      missing_rows: issue_rows.select { |row| row[:missing_fields].any? }.sort_by { |row| [-row[:missing_fields].size, -row[:days_since_update].to_i, row[:project_name].to_s.downcase, row[:issue_id].to_i] }.first(150)
+    }
+  end
+
+  def data_quality_issues
+    @query.issues(
+      order: "#{Issue.table_name}.id ASC",
+      include: [:project, :status, :tracker, :priority, :fixed_version, { custom_values: :custom_field }]
+    ).reject { |issue| issue.status&.is_closed? }
+  end
+
+  def data_quality_issue_row(issue, today)
+    owner_value, owner_name = ticket_owner_info(issue)
+    days_since_update = issue.updated_on.present? ? [(today - issue.updated_on.to_date).to_i, 0].max : nil
+    missing_fields = []
+    missing_fields << 'Ticket Owner' if owner_value.blank?
+    missing_fields << 'Start Date' if issue.start_date.blank?
+    missing_fields << 'Due Date' if issue.due_date.blank?
+    missing_fields << 'PM Estimation' if issue.estimated_hours.blank? || issue.estimated_hours.to_f <= 0
+    missing_fields << 'Priority' if issue.priority_id.blank?
+    missing_fields << 'Sprint / Target Version' if issue.fixed_version_id.blank?
+
+    without_updates = days_since_update.present? && days_since_update >= @data_quality_stale_days
+
+    {
+      issue: issue,
+      issue_id: issue.id,
+      project: issue.project,
+      project_id: issue.project_id,
+      project_name: issue.project&.name || '-',
+      subject: issue.subject,
+      owner_value: owner_value,
+      owner: owner_name,
+      status: issue.status&.name || '-',
+      priority: issue.priority&.name || '-',
+      tracker: issue.tracker&.name || '-',
+      sprint: issue.fixed_version&.name || '-',
+      updated_on: issue.updated_on,
+      days_since_update: days_since_update,
+      missing_fields: missing_fields,
+      missing_owner: owner_value.blank?,
+      missing_start_date: issue.start_date.blank?,
+      missing_due_date: issue.due_date.blank?,
+      missing_estimation: issue.estimated_hours.blank? || issue.estimated_hours.to_f <= 0,
+      missing_priority: issue.priority_id.blank?,
+      missing_sprint: issue.fixed_version_id.blank?,
+      missing_required: missing_fields.any?,
+      without_updates: without_updates,
+      risk: data_quality_issue_risk(missing_fields.size, without_updates)
+    }
+  end
+
+  def data_quality_issue_risk(missing_count, without_updates)
+    return 'Risk' if missing_count >= 3 || (without_updates && missing_count.positive?)
+    return 'Watch' if missing_count.positive? || without_updates
+
+    'Good'
+  end
+
+  def data_quality_totals(issue_rows)
+    total_active = issue_rows.size
+    totals = {
+      total_active: total_active,
+      missing_required: issue_rows.count { |row| row[:missing_required] },
+      tickets_without_updates: issue_rows.count { |row| row[:without_updates] },
+      missing_owner: issue_rows.count { |row| row[:missing_owner] },
+      missing_start_date: issue_rows.count { |row| row[:missing_start_date] },
+      missing_due_date: issue_rows.count { |row| row[:missing_due_date] },
+      missing_estimation: issue_rows.count { |row| row[:missing_estimation] },
+      missing_priority: issue_rows.count { |row| row[:missing_priority] },
+      missing_sprint: issue_rows.count { |row| row[:missing_sprint] }
+    }
+
+    totals[:missing_required_percent] = ratio(totals[:missing_required], total_active)
+    totals[:tickets_without_updates_percent] = ratio(totals[:tickets_without_updates], total_active)
+    totals[:missing_owner_percent] = ratio(totals[:missing_owner], total_active)
+    totals[:missing_start_date_percent] = ratio(totals[:missing_start_date], total_active)
+    totals[:missing_due_date_percent] = ratio(totals[:missing_due_date], total_active)
+    totals[:missing_estimation_percent] = ratio(totals[:missing_estimation], total_active)
+    totals[:missing_priority_percent] = ratio(totals[:missing_priority], total_active)
+    totals[:missing_sprint_percent] = ratio(totals[:missing_sprint], total_active)
+    totals
+  end
+
+  def data_quality_project_row(rows, totals)
+    total_active = rows.size
+    missing_required = rows.count { |row| row[:missing_required] }
+    tickets_without_updates = rows.count { |row| row[:without_updates] }
+    missing_required_percent = ratio(missing_required, total_active)
+    no_update_percent = ratio(tickets_without_updates, total_active)
+    reliability_status, reliability_rank = data_quality_reliability_status(missing_required_percent, no_update_percent)
+
+    {
+      project: rows.first[:project],
+      project_id: rows.first[:project_id],
+      project_name: rows.first[:project_name],
+      total_active: total_active,
+      total_active_percent: ratio(total_active, totals[:total_active]),
+      missing_required: missing_required,
+      missing_required_percent: missing_required_percent,
+      tickets_without_updates: tickets_without_updates,
+      no_update_percent: no_update_percent,
+      missing_owner: rows.count { |row| row[:missing_owner] },
+      missing_owner_percent: ratio(rows.count { |row| row[:missing_owner] }, total_active),
+      missing_start_date: rows.count { |row| row[:missing_start_date] },
+      missing_start_date_percent: ratio(rows.count { |row| row[:missing_start_date] }, total_active),
+      missing_due_date: rows.count { |row| row[:missing_due_date] },
+      missing_due_date_percent: ratio(rows.count { |row| row[:missing_due_date] }, total_active),
+      missing_estimation: rows.count { |row| row[:missing_estimation] },
+      missing_estimation_percent: ratio(rows.count { |row| row[:missing_estimation] }, total_active),
+      missing_sprint: rows.count { |row| row[:missing_sprint] },
+      missing_sprint_percent: ratio(rows.count { |row| row[:missing_sprint] }, total_active),
+      reliability_status: reliability_status,
+      reliability_rank: reliability_rank
+    }
+  end
+
+  def data_quality_reliability_status(missing_required_percent, no_update_percent)
+    worst_percent = [missing_required_percent, no_update_percent].max
+    return ['Good', 0] if worst_percent <= 0.05
+    return ['Watch', 1] if worst_percent <= 0.15
+
+    ['Risk', 2]
+  end
+
+  def data_quality_field_rows(totals)
+    [
+      { key: :missing_owner, label: 'Missing Owner', scope: :missing_owner },
+      { key: :missing_start_date, label: 'Missing Start Date', scope: :missing_start_date },
+      { key: :missing_due_date, label: 'Missing Due Date', scope: :missing_due_date },
+      { key: :missing_estimation, label: 'Missing PM Estimation', scope: :missing_estimation },
+      { key: :missing_priority, label: 'Missing Priority', scope: :missing_priority },
+      { key: :missing_sprint, label: 'Missing Sprint / Target Version', scope: :missing_sprint },
+      { key: :tickets_without_updates, label: "No Update #{@data_quality_stale_days}d+", scope: :no_update }
+    ].map do |field|
+      field.merge(count: totals[field[:key]].to_i, percent: ratio(totals[field[:key]].to_i, totals[:total_active]))
+    end
+  end
+
+  def sort_data_quality_rows(rows)
+    sort_key = params[:data_sort].to_s
+    return rows.sort_by { |row| [-row[:reliability_rank].to_i, -row[:missing_required_percent].to_f, -row[:no_update_percent].to_f, -row[:total_active].to_i, row[:project_name].to_s.downcase] } unless DATA_QUALITY_SORTABLE_FIELDS.include?(sort_key)
+
+    direction = data_quality_sort_direction(sort_key)
+    if sort_key == 'project'
+      sorted = rows.sort_by { |row| row[:project_name].to_s.downcase }
+      return direction == 'desc' ? sorted.reverse : sorted
+    end
+
+    direction_factor = direction == 'asc' ? 1 : -1
+    rows.sort_by do |row|
+      [
+        direction_factor * row[sort_key.to_sym].to_f,
+        -row[:missing_required_percent].to_f,
+        row[:project_name].to_s.downcase
+      ]
+    end
+  end
+
+  def data_quality_sort_direction(sort_key)
+    requested_dir = params[:data_dir].to_s
+    return requested_dir if %w[asc desc].include?(requested_dir)
+
+    sort_key == 'project' ? 'asc' : 'desc'
+  end
+
+  def empty_data_quality_report
+    totals = data_quality_totals([])
+    {
+      report_date: User.current.today,
+      stale_days: @data_quality_stale_days || DATA_QUALITY_DEFAULT_STALE_DAYS,
+      totals: totals,
+      project_rows: [],
+      field_rows: data_quality_field_rows(totals),
+      stale_rows: [],
+      missing_rows: []
+    }
   end
 
   def bug_analysis_period_dates
