@@ -305,6 +305,11 @@
 .tj-sc-orange { color: var(--tj-orange); }
 .tj-sc-red    { color: var(--tj-red); }
 .tj-sc-dim    { color: var(--tj-text-muted); }
+.tj-sc-value .tj-drilldown-link,
+.tj-health-total .tj-drilldown-link,
+.tj-health-count .tj-drilldown-link {
+  color: inherit;
+}
 
 /* ── Main Table ── */
 .tj-table-wrap {

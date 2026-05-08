@@ -951,6 +951,7 @@ class TicketJourneyController < ApplicationController
       report_date: User.current.today,
       project_count: project_and_subproject_ids.size,
       total_open: open_issues.size,
+      issue_ids: open_issues.map(&:id),
       technical: technical_health_block(technical_issues),
       planned: planned_health_block(planned_issues),
       tasks: task_health_block(task_issues),
@@ -1530,10 +1531,10 @@ class TicketJourneyController < ApplicationController
       total: issues.size,
       issue_ids: issues.map(&:id),
       rows: [
-        health_metric('Backlog', issues.count { |issue| status_role(issue.status&.name) == :new }, issues.size),
-        health_metric('Under Work', issues.count { |issue| active_work_status?(issue.status&.name) }, issues.size),
-        health_metric('Stopped', issues.count { |issue| paused_status?(issue.status&.name) }, issues.size),
-        health_metric('Ongoing', issues.count { |issue| status_role(issue.status&.name) == :ongoing }, issues.size)
+        health_metric('Backlog', issues.select { |issue| status_role(issue.status&.name) == :new }, issues.size),
+        health_metric('Under Work', issues.select { |issue| active_work_status?(issue.status&.name) }, issues.size),
+        health_metric('Stopped', issues.select { |issue| paused_status?(issue.status&.name) }, issues.size),
+        health_metric('Ongoing', issues.select { |issue| status_role(issue.status&.name) == :ongoing }, issues.size)
       ]
     }
   end
@@ -1545,10 +1546,10 @@ class TicketJourneyController < ApplicationController
       total: issues.size,
       issue_ids: issues.map(&:id),
       rows: [
-        health_metric('Without Owner', issues.count { |issue| ticket_owner_info(issue).first.blank? }, issues.size),
-        health_metric('Without Start Date', issues.count { |issue| issue.start_date.blank? }, issues.size),
-        health_metric('Without Due Date', issues.count { |issue| issue.due_date.blank? }, issues.size),
-        health_metric('Without PM Estimation', issues.count { |issue| issue.estimated_hours.blank? || issue.estimated_hours.to_f <= 0 }, issues.size)
+        health_metric('Without Owner', issues.select { |issue| ticket_owner_info(issue).first.blank? }, issues.size),
+        health_metric('Without Start Date', issues.select { |issue| issue.start_date.blank? }, issues.size),
+        health_metric('Without Due Date', issues.select { |issue| issue.due_date.blank? }, issues.size),
+        health_metric('Without PM Estimation', issues.select { |issue| issue.estimated_hours.blank? || issue.estimated_hours.to_f <= 0 }, issues.size)
       ]
     }
   end
@@ -1560,10 +1561,10 @@ class TicketJourneyController < ApplicationController
       total: issues.size,
       issue_ids: issues.map(&:id),
       rows: [
-        health_metric('To Do Tasks', issues.count { |issue| %i[new todo].include?(status_role(issue.status&.name)) }, issues.size),
-        health_metric('Under Work Tasks', issues.count { |issue| active_work_status?(issue.status&.name) }, issues.size),
-        health_metric('Stopped Tasks', issues.count { |issue| paused_status?(issue.status&.name) }, issues.size),
-        health_metric('Ongoing Tasks', issues.count { |issue| status_role(issue.status&.name) == :ongoing }, issues.size)
+        health_metric('To Do Tasks', issues.select { |issue| %i[new todo].include?(status_role(issue.status&.name)) }, issues.size),
+        health_metric('Under Work Tasks', issues.select { |issue| active_work_status?(issue.status&.name) }, issues.size),
+        health_metric('Stopped Tasks', issues.select { |issue| paused_status?(issue.status&.name) }, issues.size),
+        health_metric('Ongoing Tasks', issues.select { |issue| status_role(issue.status&.name) == :ongoing }, issues.size)
       ]
     }
   end
@@ -1575,18 +1576,22 @@ class TicketJourneyController < ApplicationController
       total: issues.size,
       issue_ids: issues.map(&:id),
       rows: [
-        health_metric('To-Do Milestones', issues.count { |issue| %i[new todo].include?(status_role(issue.status&.name)) }, issues.size),
-        health_metric('In-Progress Milestones', issues.count { |issue| active_work_status?(issue.status&.name) }, issues.size),
-        health_metric('Stopped Milestones', issues.count { |issue| paused_status?(issue.status&.name) }, issues.size)
+        health_metric('To-Do Milestones', issues.select { |issue| %i[new todo].include?(status_role(issue.status&.name)) }, issues.size),
+        health_metric('In-Progress Milestones', issues.select { |issue| active_work_status?(issue.status&.name) }, issues.size),
+        health_metric('Stopped Milestones', issues.select { |issue| paused_status?(issue.status&.name) }, issues.size)
       ]
     }
   end
 
-  def health_metric(label, count, total)
+  def health_metric(label, issues, total)
+    issue_ids = Array(issues).map(&:id)
+    count = issue_ids.size
+
     {
       label: label,
       count: count,
-      percent: total.to_i.positive? ? (count.to_f / total.to_f) : 0.0
+      percent: total.to_i.positive? ? (count.to_f / total.to_f) : 0.0,
+      issue_ids: issue_ids
     }
   end
 
