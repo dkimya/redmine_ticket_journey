@@ -68,6 +68,10 @@ module TicketJourneyHelper
     query_params
   end
 
+  def planning_estimation_params(query)
+    sprint_delivery_params(query)
+  end
+
   def sprint_delivery_issue_filter_params(scope = :committed, owner_value = :all)
     query_params = @query.as_params.deep_dup.deep_stringify_keys
     filters = Array(query_params['f'] || query_params[:f]).map(&:to_s)

@@ -1,0 +1,252 @@
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'ticket_journey', plugin: 'redmine_ticket_journey' %>
+<% end %>
+
+<div id="tj-wrap">
+  <div class="tj-page-header">
+    <div class="tj-page-header-left">
+      <div>
+        <h2>Planning &amp; Estimation</h2>
+        <p class="tj-page-sub">Sprint planning accuracy, commitment reliability, and planning gaps &mdash; <%= @project.name %></p>
+      </div>
+    </div>
+  </div>
+
+  <%= render partial: 'report_tabs', locals: { active_tab: :planning_estimation } %>
+
+  <%= form_tag(ticket_journey_planning_estimation_path(@project), method: :get, id: 'query_form') do %>
+    <%= render partial: 'queries/query_form' %>
+
+    <div class="tj-filter-bar tj-owner-filter-bar">
+      <div class="tj-filter-form">
+        <div class="tj-filter-group">
+          <label for="sprint_id">Sprint</label>
+          <%= select_tag :sprint_id,
+                options_for_select(@sprint_options.map { |sprint| ["##{sprint.id} - #{sprint.subject}", sprint.id] }, @selected_sprint&.id),
+                class: 'tj-input' %>
+        </div>
+        <div class="tj-filter-group tj-flow-filter-note">
+          <span>Uses related issues of the selected Sprint. Redmine filters above can narrow tracker, owner, status, priority, and other fields.</span>
+        </div>
+        <div class="tj-filter-group tj-filter-actions">
+          <%= submit_tag 'Apply', class: 'tj-btn tj-btn-primary' %>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <% if !@query.valid? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">Report</div>
+      <h3>Invalid filters</h3>
+      <p>Please review the Redmine query filters above.</p>
+    </div>
+  <% elsif @selected_sprint.nil? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">Sprint</div>
+      <h3>No Sprint tracker issue found</h3>
+      <p>Create or select a Sprint tracker issue in this project or its subprojects.</p>
+    </div>
+  <% elsif @planning_estimation_report[:issues].empty? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">Sprint</div>
+      <h3>No planned sprint tickets found</h3>
+      <p>The selected Sprint has no related issues after applying the current filters.</p>
+    </div>
+  <% else %>
+    <% report = @planning_estimation_report %>
+    <% totals = report[:totals] %>
+    <% drilldowns = report[:drilldowns] %>
+    <% deviation_class = totals[:deviation_hours].to_f > 0 ? 'tj-sc-orange' : 'tj-sc-green' %>
+
+    <div class="tj-summary-strip">
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Planned Tickets</div>
+        <div class="tj-sc-value tj-sc-blue"><%= duration_report_drilldown_link(@query, drilldowns[:committed], totals[:committed]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Estimated Time</div>
+        <div class="tj-sc-value tj-sc-blue"><%= number_with_precision(totals[:estimated_hours], precision: 1, strip_insignificant_zeros: true) %>h</div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Spent Time</div>
+        <div class="tj-sc-value tj-sc-accent"><%= number_with_precision(totals[:spent_hours], precision: 1, strip_insignificant_zeros: true) %>h</div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Deviation</div>
+        <div class="tj-sc-value <%= deviation_class %>"><%= totals[:deviation_hours].to_f.positive? ? '+' : '' %><%= number_with_precision(totals[:deviation_hours], precision: 1, strip_insignificant_zeros: true) %>h</div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Estimation Accuracy</div>
+        <div class="tj-sc-value <%= totals[:estimation_accuracy] >= 0.8 ? 'tj-sc-green' : 'tj-sc-orange' %>"><%= number_to_percentage(totals[:estimation_accuracy] * 100, precision: 1) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Commitment Reliability</div>
+        <div class="tj-sc-value <%= totals[:completion_rate] >= 0.8 ? 'tj-sc-green' : 'tj-sc-orange' %>"><%= number_to_percentage(totals[:completion_rate] * 100, precision: 1) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Not Started</div>
+        <div class="tj-sc-value <%= totals[:not_started].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, drilldowns[:not_started], totals[:not_started]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Missing PM Estimation</div>
+        <div class="tj-sc-value <%= totals[:missing_estimation].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, drilldowns[:missing_estimation], totals[:missing_estimation]) %></div>
+      </div>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Selected Sprint</div>
+      <div class="tj-flow-empty-note">
+        <strong><%= link_to "##{@selected_sprint.id}", issue_path(@selected_sprint), class: 'tj-drilldown-link' %> &mdash; <%= h(@selected_sprint.subject) %></strong>
+        &nbsp; Status: <strong><%= h(@selected_sprint.status&.name || '-') %></strong>
+        &nbsp; Start: <strong><%= format_date(@selected_sprint.start_date) %></strong>
+        &nbsp; Due: <strong><%= format_date(@selected_sprint.due_date) %></strong>
+        &nbsp; Target version: <strong><%= h(@selected_sprint.fixed_version&.name || '-') %></strong>
+      </div>
+    </div>
+
+    <div class="tj-detail-grid">
+      <div class="tj-card">
+        <div class="tj-card-title">Planning vs Actual Time Analysis</div>
+        <table class="tj-health-table">
+          <tbody>
+            <% report[:planning_vs_actual_rows].each do |row| %>
+              <tr>
+                <td class="tj-health-label"><%= h(row[:item]) %></td>
+                <td class="tj-health-count">
+                  <% if row[:hours] %>
+                    <%= row[:signed] && row[:value].to_f.positive? ? '+' : '' %><%= number_with_precision(row[:value], precision: 1, strip_insignificant_zeros: true) %>h
+                  <% elsif row[:percentage_value] %>
+                    <%= number_to_percentage(row[:value] * 100, precision: 1) %>
+                  <% else %>
+                    <%= row[:value] %>
+                  <% end %>
+                </td>
+                <td class="tj-health-percent"><%= row[:percent].nil? ? '-' : number_to_percentage(row[:percent] * 100, precision: 1) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="tj-card">
+        <div class="tj-card-title">Original Sprint Composition</div>
+        <table class="tj-health-table">
+          <tbody>
+            <% report[:composition_rows].each do |row| %>
+              <tr>
+                <td class="tj-health-label"><%= h(row[:item]) %></td>
+                <td class="tj-health-count"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:count]) %></td>
+                <td class="tj-health-percent"><%= number_to_percentage(row[:percent] * 100, precision: 1) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Planned Tickets Field Health</div>
+      <div class="tj-table-wrap">
+        <table class="tj-table">
+          <thead>
+            <tr>
+              <th class="tj-th-title">Planning Field</th>
+              <th class="tj-th-native">Count</th>
+              <th class="tj-th-native">%</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% report[:planned_health_rows].each do |row| %>
+              <tr class="tj-row">
+                <td class="tj-td-title"><%= h(row[:label]) %></td>
+                <td class="tj-td-native"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:count]) %></td>
+                <td class="tj-td-native"><%= number_to_percentage(row[:percent] * 100, precision: 1) %></td>
+              </tr>
+            <% end %>
+            <tr class="tj-total-row">
+              <td class="tj-td-title tj-total-label">Total Planned Tickets</td>
+              <td class="tj-td-native"><%= duration_report_drilldown_link(@query, drilldowns[:committed], totals[:committed]) %></td>
+              <td class="tj-td-native">100%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Not Started Tickets</div>
+      <% if report[:not_started_rows].empty? %>
+        <div class="tj-flow-empty-note">No committed tickets are still in New or To-Do.</div>
+      <% else %>
+        <div class="tj-table-wrap">
+          <table class="tj-table">
+            <thead>
+              <tr>
+                <th class="tj-th-issue">Issue</th>
+                <th class="tj-th-title">Subject</th>
+                <th class="tj-th-native">Ticket Owner</th>
+                <th class="tj-th-native">Priority</th>
+                <th class="tj-th-native">Original Sprint</th>
+                <th class="tj-th-native">Start Date</th>
+                <th class="tj-th-native">Due Date</th>
+                <th class="tj-th-native">Status</th>
+                <th class="tj-th-native">Estimate</th>
+                <th class="tj-th-native">Risk</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% report[:not_started_rows].each do |row| %>
+                <% issue = row[:issue] %>
+                <tr class="tj-row">
+                  <td class="tj-td-issue"><%= link_to "##{issue.id}", issue_path(issue), class: 'tj-drilldown-link' %></td>
+                  <td class="tj-td-title" title="<%= h(issue.subject) %>"><%= h(issue.subject) %></td>
+                  <td class="tj-td-native"><%= h(row[:owner]) %></td>
+                  <td class="tj-td-native"><%= h(row[:priority]) %></td>
+                  <td class="tj-td-native"><%= h(row[:original_sprint]) %></td>
+                  <td class="tj-td-native"><%= format_date(issue.start_date) %></td>
+                  <td class="tj-td-native"><%= format_date(issue.due_date) %></td>
+                  <td class="tj-td-native"><span class="tj-status-badge"><%= h(issue.status&.name || '-') %></span></td>
+                  <td class="tj-td-native"><%= issue.estimated_hours.present? ? "#{number_with_precision(issue.estimated_hours, precision: 1, strip_insignificant_zeros: true)}h" : '-' %></td>
+                  <td class="tj-td-native"><span class="tj-release-risk-pill <%= data_quality_status_class(row[:risk] == 'Watch' ? 'watch' : 'risk') %>"><%= h(row[:risk]) %></span></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% end %>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Commitment Reliability Summary</div>
+      <div class="tj-table-wrap">
+        <table class="tj-table">
+          <thead>
+            <tr>
+              <th class="tj-th-title">Sprint / Period</th>
+              <th class="tj-th-native">Planned Tickets</th>
+              <th class="tj-th-native">Committed Tickets</th>
+              <th class="tj-th-native">Done Committed Tickets</th>
+              <th class="tj-th-native">Commitment Reliability</th>
+              <th class="tj-th-native">Carry-over</th>
+              <th class="tj-th-native">Not Started</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% report[:reliability_rows].each do |row| %>
+              <tr class="tj-row">
+                <td class="tj-td-title"><%= h(row[:sprint]&.subject || '-') %></td>
+                <td class="tj-td-native"><%= duration_report_drilldown_link(@query, drilldowns[:committed], row[:planned]) %></td>
+                <td class="tj-td-native"><%= duration_report_drilldown_link(@query, drilldowns[:committed], row[:committed]) %></td>
+                <td class="tj-td-native"><%= duration_report_drilldown_link(@query, drilldowns[:completed], row[:done_committed]) %></td>
+                <td class="tj-td-native"><%= number_to_percentage(row[:reliability] * 100, precision: 1) %></td>
+                <td class="tj-td-native"><%= number_to_percentage(row[:carry_over] * 100, precision: 1) %></td>
+                <td class="tj-td-native"><%= number_to_percentage(row[:not_started] * 100, precision: 1) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% end %>
+</div>

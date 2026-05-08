@@ -90,7 +90,7 @@ class TicketJourneyController < ApplicationController
 
   before_action :find_project
   before_action :authorize
-  before_action :build_query, only: [:index, :pmo_control, :sprint_delivery, :owner_returns, :qa_returns, :owner_workload, :aging_risk, :priority_risk, :cycle_distribution, :flow_report, :project_health, :release_readiness, :bug_analysis, :data_quality, :export]
+  before_action :build_query, only: [:index, :pmo_control, :sprint_delivery, :planning_estimation, :owner_returns, :qa_returns, :owner_workload, :aging_risk, :priority_risk, :cycle_distribution, :flow_report, :project_health, :release_readiness, :bug_analysis, :data_quality, :export]
   before_action :prepare_owner_role_filter, only: [:owner_returns, :owner_workload, :flow_report]
 
   helper :queries
@@ -121,6 +121,16 @@ class TicketJourneyController < ApplicationController
     @sprint_options = sprint_delivery_sprints
     @selected_sprint = selected_sprint(@sprint_options)
     @sprint_delivery_report = compute_sprint_delivery_report(@selected_sprint)
+  end
+
+  # ---------------------------------------------------------------
+  # PLANNING & ESTIMATION - sprint planning accuracy and commitment health
+  # ---------------------------------------------------------------
+  def planning_estimation
+    build_query_from(sprint_delivery_query_params)
+    @sprint_options = sprint_delivery_sprints
+    @selected_sprint = selected_sprint(@sprint_options)
+    @planning_estimation_report = compute_planning_estimation_report(@selected_sprint)
   end
 
   # ---------------------------------------------------------------
@@ -306,6 +316,183 @@ class TicketJourneyController < ApplicationController
       owner_rows: owner_rows,
       health: sprint_delivery_health(totals)
     )
+  end
+
+  def compute_planning_estimation_report(sprint)
+    empty_report = empty_planning_estimation_report(sprint)
+    return empty_report if sprint.nil? || !@query&.valid?
+
+    delivery_report = compute_sprint_delivery_report(sprint)
+    issues = delivery_report[:issues]
+    totals = delivery_report[:totals]
+    issue_ids = issues.map(&:id)
+    estimated_hours = issues.sum { |issue| issue.estimated_hours.to_f }
+    spent_hours = planning_time_entry_hours(issue_ids, sprint.start_date, sprint.due_date)
+    deviation_hours = spent_hours - estimated_hours
+    deviation_rate = estimated_hours.positive? ? deviation_hours / estimated_hours : 0.0
+    estimation_accuracy = estimated_hours.positive? ? [1.0 - (deviation_hours.abs / estimated_hours), 0.0].max : 0.0
+    current_scope = issues.reject { |issue| carry_over_sprint_issue?(sprint, issue) }
+    carry_over = issues.select { |issue| carry_over_sprint_issue?(sprint, issue) }
+    not_started = issues.select { |issue| not_started_sprint_status?(issue.status&.name) }
+    missing_estimation = issues.select { |issue| issue.estimated_hours.blank? || issue.estimated_hours.to_f <= 0 }
+
+    empty_report.merge(
+      issues: issues,
+      totals: totals.merge(
+        estimated_hours: estimated_hours,
+        spent_hours: spent_hours,
+        deviation_hours: deviation_hours,
+        deviation_rate: deviation_rate,
+        estimation_accuracy: estimation_accuracy,
+        missing_estimation: missing_estimation.size
+      ),
+      planning_vs_actual_rows: planning_vs_actual_rows(issues, estimated_hours, spent_hours, deviation_hours, deviation_rate),
+      composition_rows: planning_composition_rows(sprint, issues, current_scope, carry_over),
+      planned_health_rows: planning_field_health_rows(issues),
+      not_started_rows: planning_not_started_rows(sprint, not_started),
+      reliability_rows: planning_reliability_rows(sprint, totals),
+      drilldowns: {
+        committed: issue_ids,
+        completed: issues.select { |issue| completed_sprint_status?(issue.status&.name) }.map(&:id),
+        not_delivered: issues.reject { |issue| completed_sprint_status?(issue.status&.name) }.map(&:id),
+        carry_over: carry_over.map(&:id),
+        current_scope: current_scope.map(&:id),
+        not_started: not_started.map(&:id),
+        missing_estimation: missing_estimation.map(&:id),
+        technical_debt: issues.select { |issue| carry_over_sprint_issue?(sprint, issue) && !completed_sprint_status?(issue.status&.name) }.map(&:id)
+      }
+    )
+  end
+
+  def empty_planning_estimation_report(sprint)
+    {
+      sprint: sprint,
+      issues: [],
+      totals: empty_sprint_delivery_report(sprint)[:totals].merge(
+        estimated_hours: 0.0,
+        spent_hours: 0.0,
+        deviation_hours: 0.0,
+        deviation_rate: 0.0,
+        estimation_accuracy: 0.0,
+        missing_estimation: 0
+      ),
+      planning_vs_actual_rows: [],
+      composition_rows: [],
+      planned_health_rows: [],
+      not_started_rows: [],
+      reliability_rows: [],
+      drilldowns: {
+        committed: [],
+        completed: [],
+        not_delivered: [],
+        carry_over: [],
+        current_scope: [],
+        not_started: [],
+        missing_estimation: [],
+        technical_debt: []
+      }
+    }
+  end
+
+  def planning_time_entry_hours(issue_ids, start_date, end_date)
+    return 0.0 if issue_ids.empty?
+
+    scope = TimeEntry.where(issue_id: issue_ids)
+    scope = scope.where("#{TimeEntry.table_name}.spent_on >= ?", start_date) if start_date.present?
+    scope = scope.where("#{TimeEntry.table_name}.spent_on <= ?", end_date) if end_date.present?
+    scope.sum(:hours).to_f
+  end
+
+  def planning_vs_actual_rows(issues, estimated_hours, spent_hours, deviation_hours, deviation_rate)
+    [
+      { item: 'Sprint Tickets #', value: issues.size, percent: 1.0, note: 'Total committed sprint tickets' },
+      { item: 'Total Estimated Time (h)', value: estimated_hours, percent: nil, note: 'Sum of estimated time on committed tickets', hours: true },
+      { item: 'Total Spent Time During Sprint Period (h)', value: spent_hours, percent: nil, note: 'Time entries during sprint start/due period', hours: true },
+      { item: 'Deviation (h)', value: deviation_hours, percent: nil, note: 'Spent time minus estimated time', hours: true, signed: true },
+      { item: 'Deviation (%)', value: deviation_rate, percent: deviation_rate, note: 'Deviation divided by estimated time', percentage_value: true }
+    ]
+  end
+
+  def planning_composition_rows(sprint, issues, current_scope, carry_over)
+    total = issues.size
+    [
+      {
+        item: 'Original Sprint Current',
+        count: current_scope.size,
+        percent: ratio(current_scope.size, total),
+        issue_ids: current_scope.map(&:id),
+        note: 'Tickets originally planned for this sprint'
+      },
+      {
+        item: 'Original Sprint Carried Over',
+        count: carry_over.size,
+        percent: ratio(carry_over.size, total),
+        issue_ids: carry_over.map(&:id),
+        note: 'Tickets related to this sprint but originally from another sprint'
+      },
+      {
+        item: 'Total Sprint Planned Tickets',
+        count: total,
+        percent: 1.0,
+        issue_ids: issues.map(&:id),
+        note: 'Total committed sprint tickets'
+      }
+    ]
+  end
+
+  def planning_field_health_rows(issues)
+    total = issues.size
+    checks = [
+      ['Without Owner', issues.select { |issue| ticket_owner_info(issue).first.blank? }],
+      ['Without Start Date', issues.select { |issue| issue.start_date.blank? }],
+      ['Without Due Date', issues.select { |issue| issue.due_date.blank? }],
+      ['Without PM Estimation', issues.select { |issue| issue.estimated_hours.blank? || issue.estimated_hours.to_f <= 0 }]
+    ]
+
+    checks.map do |label, matching_issues|
+      {
+        label: label,
+        count: matching_issues.size,
+        percent: ratio(matching_issues.size, total),
+        issue_ids: matching_issues.map(&:id)
+      }
+    end
+  end
+
+  def planning_not_started_rows(sprint, issues)
+    issues.sort_by { |issue| [issue.due_date || Date.new(9999, 12, 31), issue.id] }.map do |issue|
+      owner_value, owner_name = ticket_owner_info(issue)
+      {
+        issue: issue,
+        owner_value: owner_value,
+        owner: owner_name.presence || 'No Ticket Owner',
+        priority: issue.priority&.name.presence || '-',
+        original_sprint: issue.custom_value_for(TICKET_ORIGINAL_SPRINT_CF_ID)&.value.presence || '-',
+        risk: planning_not_started_risk(sprint, issue)
+      }
+    end
+  end
+
+  def planning_not_started_risk(sprint, issue)
+    return 'Overdue' if sprint_delivery_overdue?(issue)
+    return 'Carry-over' if carry_over_sprint_issue?(sprint, issue)
+    return 'Missing Due Date' if issue.due_date.blank?
+
+    'Watch'
+  end
+
+  def planning_reliability_rows(sprint, totals)
+    [
+      {
+        sprint: sprint,
+        planned: totals[:committed],
+        committed: totals[:committed],
+        done_committed: totals[:completed],
+        reliability: totals[:completion_rate],
+        carry_over: totals[:carry_over_rate],
+        not_started: ratio(totals[:not_started], totals[:committed])
+      }
+    ]
   end
 
   def empty_sprint_delivery_report(sprint)

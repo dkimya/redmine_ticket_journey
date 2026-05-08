@@ -1,6 +1,7 @@
 <%
   pmo_params = pmo_control_params(@query)
   sprint_params = sprint_delivery_params(@query)
+  planning_params = planning_estimation_params(@query)
   duration_params = duration_report_params(@query)
   owner_params = owner_returns_params(@query)
   qa_params = qa_returns_params(@query)
@@ -28,6 +29,9 @@
   <%= link_to 'Sprint Delivery',
         ticket_journey_sprint_delivery_path(@project, sprint_params),
         class: "tj-report-tab #{active_tab == :sprint_delivery ? 'is-active' : ''}" %>
+  <%= link_to 'Planning & Estimation',
+        ticket_journey_planning_estimation_path(@project, planning_params),
+        class: "tj-report-tab #{active_tab == :planning_estimation ? 'is-active' : ''}" %>
   <%= link_to 'Duration Report',
         ticket_journey_path(@project, duration_params),
         class: "tj-report-tab #{active_tab == :duration ? 'is-active' : ''}" %>
