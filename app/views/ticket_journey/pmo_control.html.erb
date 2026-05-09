@@ -99,6 +99,78 @@
       </div>
     </div>
 
+    <% unless report[:open_technical_snapshot].empty? %>
+      <div class="tj-card tj-card-full">
+        <div class="tj-card-title">Open Technical Tickets Snapshot</div>
+        <div class="tj-table-wrap">
+          <table class="tj-table">
+            <thead>
+              <tr>
+                <th class="tj-th-title">Project</th>
+                <th class="tj-th-native">Total Open</th>
+                <th class="tj-th-native">Backlog</th>
+                <th class="tj-th-native">Backlog %</th>
+                <th class="tj-th-native">Under Work</th>
+                <th class="tj-th-native">Under Work %</th>
+                <th class="tj-th-native">Ongoing</th>
+                <th class="tj-th-native">Ongoing %</th>
+                <th class="tj-th-native">Stopped</th>
+                <th class="tj-th-native">Stopped %</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% report[:open_technical_snapshot].each do |row| %>
+                <tr class="tj-row">
+                  <td class="tj-td-title"><%= h(row[:project_name]) %></td>
+                  <td class="tj-td-native"><strong><%= row[:total_open] %></strong></td>
+                  <td class="tj-td-native"><%= row[:backlog] %></td>
+                  <td class="tj-td-native"><%= number_to_percentage(row[:backlog_percent] * 100, precision: 1) %></td>
+                  <td class="tj-td-native"><%= row[:under_work] %></td>
+                  <td class="tj-td-native"><%= number_to_percentage(row[:under_work_percent] * 100, precision: 1) %></td>
+                  <td class="tj-td-native"><%= row[:ongoing] %></td>
+                  <td class="tj-td-native"><%= number_to_percentage(row[:ongoing_percent] * 100, precision: 1) %></td>
+                  <td class="tj-td-native <%= row[:stopped].positive? ? 'tj-counter-active' : '' %>"><%= row[:stopped] %></td>
+                  <td class="tj-td-native"><%= number_to_percentage(row[:stopped_percent] * 100, precision: 1) %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    <% end %>
+
+    <% unless report[:cross_project_risk_rows].empty? %>
+      <div class="tj-card tj-card-full">
+        <div class="tj-card-title">Cross-Project Risk Summary</div>
+        <div class="tj-table-wrap">
+          <table class="tj-table">
+            <thead>
+              <tr>
+                <th class="tj-th-title">Project</th>
+                <th class="tj-th-native">Sprint Status</th>
+                <th class="tj-th-native">Blocked Tickets</th>
+                <th class="tj-th-native">Missing Fields %</th>
+                <th class="tj-th-native">No Update %</th>
+                <th class="tj-th-native">Overall Risk</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% report[:cross_project_risk_rows].each do |row| %>
+                <tr class="tj-row">
+                  <td class="tj-td-title"><%= h(row[:project_name]) %></td>
+                  <td class="tj-td-native"><%= h(row[:sprint_status]) %></td>
+                  <td class="tj-td-native <%= row[:blocked_tickets].positive? ? 'tj-counter-active' : '' %>"><%= row[:blocked_tickets] %></td>
+                  <td class="tj-td-native"><%= number_to_percentage(row[:missing_fields_percent] * 100, precision: 1) %></td>
+                  <td class="tj-td-native"><%= number_to_percentage(row[:no_update_percent] * 100, precision: 1) %></td>
+                  <td class="tj-td-native"><span class="tj-release-risk-pill <%= data_quality_status_class(row[:overall_risk].downcase) %>"><%= h(row[:overall_risk]) %></span></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    <% end %>
+
     <div class="tj-card tj-card-full">
       <div class="tj-card-title">Data Discipline Attention</div>
       <% if report[:data_quality_field_rows].empty? %>

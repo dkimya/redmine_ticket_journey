@@ -92,6 +92,10 @@
         <div class="tj-sc-label">Missing PM Estimation</div>
         <div class="tj-sc-value <%= totals[:missing_estimation].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, drilldowns[:missing_estimation], totals[:missing_estimation]) %></div>
       </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Technical Debt</div>
+        <div class="tj-sc-value <%= totals[:technical_debt].to_i.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>" title="Carry-over tickets not yet completed"><%= duration_report_drilldown_link(@query, drilldowns[:technical_debt], totals[:technical_debt].to_i) %></div>
+      </div>
     </div>
 
     <div class="tj-card tj-card-full">

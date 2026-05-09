@@ -4,6 +4,7 @@ class TicketJourneyController < ApplicationController
   BUG_SOURCE_CF_ID = 63
   BUG_IMPACT_RATING_CF_ID = 65
   RETURN_REASON_CF_ID = 66
+  BUG_RELATED_PAGE_CF_ID = nil
   OWNER_RETURN_SORTABLE_FIELDS = %w[owner total_tickets ticket_share done_tickets completion_rate avg_done_cycle_time avg_priority_done_cycle_time open_tickets owner_debt tickets_without_updates avg_idle_days returned_tickets return_rate c1 c2 c3 c4 total_returns].freeze
   OWNER_WORKLOAD_SORTABLE_FIELDS = %w[owner total_open technical_open task_open stopped overdue priority_open no_due_date avg_age oldest_age].freeze
   AGING_RISK_SORTABLE_FIELDS = %w[group total_open bucket_0_7 bucket_8_14 bucket_15_30 bucket_31_60 bucket_60_plus stopped overdue priority_open no_due_date avg_age oldest_age].freeze
@@ -140,6 +141,8 @@ class TicketJourneyController < ApplicationController
     @owner_performance_stale_days = data_quality_stale_days_param
     @issues_data = compute_all_durations
     @owner_return_rows = compute_owner_returns_summary(@issues_data, role_id: @selected_owner_role&.id, stale_days: @owner_performance_stale_days)
+    @owner_avg_time_per_status_rows = owner_avg_time_per_status_rows(@issues_data)
+    @owner_idle_detail_rows = owner_idle_detail_rows(@owner_return_rows)
   end
 
   # ---------------------------------------------------------------
@@ -219,7 +222,7 @@ class TicketJourneyController < ApplicationController
   # ---------------------------------------------------------------
   def bug_analysis
     @bug_start_date, @bug_end_date = bug_analysis_period_dates
-    @bug_analysis_rows, @bug_analysis_totals = compute_bug_analysis_report(@bug_start_date, @bug_end_date)
+    @bug_analysis_rows, @bug_analysis_totals, @bug_impact_summary_rows, @bug_related_page_rows, @bug_critical_open_rows = compute_bug_analysis_report(@bug_start_date, @bug_end_date)
   end
 
   # ---------------------------------------------------------------
@@ -311,6 +314,8 @@ class TicketJourneyController < ApplicationController
     owner_rows = sprint_delivery_owner_rows(sprint, issues)
     issue_rows = sprint_delivery_issue_rows(sprint, issues)
 
+    trend_data = sprint_delivery_trend_data(sprint, issues)
+
     empty_report.merge(
       issues: issues,
       issue_rows: issue_rows,
@@ -320,7 +325,11 @@ class TicketJourneyController < ApplicationController
       time_efficiency_rows: sprint_delivery_time_efficiency_rows(duration_items.values),
       priority_delivery_rows: sprint_delivery_priority_delivery_rows(issues, duration_items),
       owner_rows: owner_rows,
-      health: sprint_delivery_health(totals)
+      health: sprint_delivery_health(totals),
+      trend_status_rows: trend_data[:status_rows],
+      trend_tracker_rows: trend_data[:tracker_rows],
+      trend_dates: trend_data[:dates],
+      trend_summary: trend_data[:summary]
     )
   end
 
@@ -514,6 +523,9 @@ class TicketJourneyController < ApplicationController
         carry_over_rate: 0.0,
         current_scope: 0,
         stopped: 0,
+        blocked: 0,
+        blocked_duration_days: 0,
+        throughput: 0.0,
         not_started: 0,
         returned: 0,
         overdue: 0,
@@ -525,7 +537,11 @@ class TicketJourneyController < ApplicationController
       time_efficiency_rows: [],
       priority_delivery_rows: [],
       owner_rows: [],
-      health: { label: 'No Sprint', tone: :dim, note: 'No Sprint tracker issue was found for this project.' }
+      health: { label: 'No Sprint', tone: :dim, note: 'No Sprint tracker issue was found for this project.' },
+      trend_status_rows: [],
+      trend_tracker_rows: [],
+      trend_dates: [],
+      trend_summary: {}
     }
   end
 
@@ -562,11 +578,17 @@ class TicketJourneyController < ApplicationController
     committed = issues.size
     completed = issues.count { |issue| completed_sprint_status?(issue.status&.name) }
     stopped = issues.count { |issue| paused_status?(issue.status&.name) }
+    blocked = stopped
     not_started = issues.count { |issue| not_started_sprint_status?(issue.status&.name) }
     returned = issues.count { |issue| status_role(issue.status&.name) == :returned }
     overdue = issues.count { |issue| sprint_delivery_overdue?(issue) }
     carry_over = issues.count { |issue| carry_over_sprint_issue?(sprint, issue) }
     technical_debt = issues.count { |issue| carry_over_sprint_issue?(sprint, issue) && !completed_sprint_status?(issue.status&.name) }
+
+    sprint_duration_weeks = sprint_duration_in_weeks(sprint)
+    throughput = sprint_duration_weeks.positive? ? (completed.to_f / sprint_duration_weeks).round(1) : completed.to_f
+
+    blocked_duration_days = sprint_blocked_duration_days(issues, sprint)
 
     {
       committed: committed,
@@ -577,6 +599,9 @@ class TicketJourneyController < ApplicationController
       carry_over_rate: ratio(carry_over, committed),
       current_scope: committed - carry_over,
       stopped: stopped,
+      blocked: blocked,
+      blocked_duration_days: blocked_duration_days,
+      throughput: throughput,
       not_started: not_started,
       returned: returned,
       overdue: overdue,
@@ -869,6 +894,45 @@ class TicketJourneyController < ApplicationController
     end
   end
 
+  def sprint_delivery_trend_data(sprint, issues)
+    return { status_rows: [], tracker_rows: [], dates: [], summary: {} } if issues.empty? || sprint.nil?
+
+    start_date = sprint.start_date || (sprint.created_on&.to_date || User.current.today) - 14.days
+    end_date = [sprint.due_date || User.current.today, User.current.today].min
+
+    dates = flow_snapshot_dates(start_date, end_date)
+    return { status_rows: [], tracker_rows: [], dates: [], summary: {} } if dates.empty?
+
+    status_rows, tracker_rows, summary = compute_flow_trends(issues, dates)
+    { status_rows: status_rows, tracker_rows: tracker_rows, dates: dates, summary: summary }
+  end
+
+  def sprint_duration_in_weeks(sprint)
+    return 0.0 if sprint.nil? || sprint.start_date.blank? || sprint.due_date.blank?
+
+    days = (sprint.due_date - sprint.start_date).to_i
+    (days / 7.0).round(2)
+  end
+
+  def sprint_blocked_duration_days(issues, sprint)
+    return 0 if issues.empty? || sprint.nil?
+
+    issue_ids = issues.map(&:id)
+    status_changes = load_attribute_changes(issue_ids, 'status_id')
+    status_names_by_id = IssueStatus.pluck(:id, :name).to_h.transform_keys(&:to_s)
+
+    total_hours = issues.sum do |issue|
+      changes = status_changes[issue.id] || []
+      transitions = changes.map { |c| { changed_at: c.changed_at, to_status: status_names_by_id[c.value.to_s] } }
+      periods = build_periods(transitions)
+      periods.select { |p| paused_status?(p[:status]) }.sum { |p| period_hours(p) }
+    end
+
+    (total_hours / 24.0).round(1)
+  rescue StandardError
+    0
+  end
+
   def sprint_delivery_status_group(status_name)
     case status_role(status_name)
     when :pending, :on_hold
@@ -961,7 +1025,18 @@ class TicketJourneyController < ApplicationController
     release_report = compute_release_readiness_report
     data_quality_report = compute_data_quality_report
     bug_start_date, bug_end_date = bug_analysis_period_dates
-    _bug_rows, bug_totals = compute_bug_analysis_report(bug_start_date, bug_end_date)
+    bug_rows, bug_totals, = compute_bug_analysis_report(bug_start_date, bug_end_date)
+
+    sprint = pmo_current_sprint
+    sprint_report = sprint ? compute_sprint_delivery_report(sprint) : nil
+    sprint_totals = sprint_report ? sprint_report[:totals] : {}
+
+    open_issues = @query&.valid? ? @query.issues(include: [:status, :tracker, :priority, { custom_values: :custom_field }]).to_a : []
+    return_rate = pmo_return_rate_from_issues(open_issues)
+    critical_bugs_open = pmo_critical_bugs_open(bug_start_date, bug_end_date)
+    high_priority_delivery_rate = pmo_high_priority_delivery_rate(sprint_report)
+    open_technical_snapshot = pmo_open_technical_snapshot
+    cross_project_risk_rows = pmo_cross_project_risk_rows(data_quality_report[:project_rows] || [])
 
     {
       report_date: User.current.today,
@@ -977,8 +1052,16 @@ class TicketJourneyController < ApplicationController
       data_quality_field_rows: data_quality_report[:field_rows].select { |row| row[:count].to_i.positive? }.first(8),
       bug_period: [bug_start_date, bug_end_date],
       bug: bug_totals,
+      bug_rows: bug_rows,
+      sprint: sprint,
+      sprint_totals: sprint_totals,
+      return_rate: return_rate,
+      critical_bugs_open: critical_bugs_open,
+      high_priority_delivery_rate: high_priority_delivery_rate,
+      open_technical_snapshot: open_technical_snapshot,
+      cross_project_risk_rows: cross_project_risk_rows,
       overall_status: pmo_control_status(aging_totals, priority_totals, release_report, data_quality_report),
-      kpis: pmo_control_kpis(health_report, aging_totals, priority_totals, release_report, data_quality_report, bug_totals),
+      kpis: pmo_control_kpis(health_report, sprint_totals, aging_totals, priority_totals, release_report, data_quality_report, bug_totals, return_rate, critical_bugs_open, high_priority_delivery_rate),
       attention_items: pmo_control_attention_items(aging_totals, priority_totals, release_report, data_quality_report, bug_totals)
     }
   end
@@ -1005,18 +1088,35 @@ class TicketJourneyController < ApplicationController
     { label: 'Good', tone: :green, note: 'No major PMO risk signals for the current filters' }
   end
 
-  def pmo_control_kpis(health_report, aging_totals, priority_totals, release_report, data_quality_report, bug_totals)
+  def pmo_control_kpis(health_report, sprint_totals, aging_totals, priority_totals, release_report, data_quality_report, bug_totals, return_rate, critical_bugs_open, high_priority_delivery_rate)
     data_totals = data_quality_report[:totals]
+    blocked = aging_totals[:stopped].to_i
+    technical_debt = sprint_totals[:technical_debt].to_i
+    sprint_completion_rate = sprint_totals[:completion_rate]
+    carry_over_rate = sprint_totals[:carry_over_rate]
+
+    sprint_status_value = if sprint_totals.empty?
+                            'No Sprint'
+                          elsif sprint_completion_rate.to_f >= 0.8
+                            'On Track'
+                          elsif sprint_completion_rate.to_f >= 0.5
+                            'At Risk'
+                          else
+                            'Behind'
+                          end
+    sprint_status_tone = sprint_totals.empty? ? :dim : (sprint_completion_rate.to_f >= 0.8 ? :green : (sprint_completion_rate.to_f >= 0.5 ? :orange : :red))
+
     [
-      { label: 'Total Open', value: health_report[:total_open], tone: :blue, help: 'All currently open tickets in the selected project scope.', path: :issues, scope: :total_open },
-      { label: 'Priority / SLA Risk', value: priority_totals[:total_open], tone: priority_totals[:total_open].to_i.positive? ? :red : :dim, help: 'Open Urgent or Immediate tickets.', path: :priority_risk },
-      { label: 'Overdue', value: aging_totals[:overdue], tone: aging_totals[:overdue].to_i.positive? ? :red : :dim, help: 'Open tickets with due date before today.', path: :issues, scope: :overdue },
-      { label: 'Stopped', value: aging_totals[:stopped], tone: aging_totals[:stopped].to_i.positive? ? :red : :dim, help: 'Open tickets currently Pending or On-Hold.', path: :issues, scope: :stopped },
-      { label: '60d+ Open', value: aging_totals[:bucket_60_plus], tone: aging_totals[:bucket_60_plus].to_i.positive? ? :orange : :dim, help: 'Open tickets created more than 60 days ago.', path: :issues, scope: :bucket_60_plus },
-      { label: 'Missing Required', value: pmo_percent_value(data_totals[:missing_required_percent]), tone: data_totals[:missing_required].to_i.positive? ? :red : :dim, help: 'Percent of open tickets missing at least one required planning field.', path: :data_quality },
-      { label: 'No Update', value: pmo_percent_value(data_totals[:tickets_without_updates_percent]), tone: data_totals[:tickets_without_updates].to_i.positive? ? :orange : :dim, help: 'Percent of open tickets not updated within the selected threshold.', path: :issues, scope: :no_update },
-      { label: 'Release Risk', value: release_report[:at_risk_versions], tone: release_report[:at_risk_versions].to_i.positive? ? :red : :dim, help: 'Target versions marked red by release readiness rules.', path: :release_readiness },
-      { label: 'Remaining Bugs', value: bug_totals[:remaining], tone: bug_totals[:remaining].to_i.positive? ? :orange : :dim, help: 'Bug tracker tickets still open at the end of the selected bug period.', path: :bug_analysis }
+      { label: 'Sprint Status', value: sprint_status_value, tone: sprint_status_tone, help: 'Current sprint health based on completion rate.', path: :sprint_delivery },
+      { label: 'Sprint Completion Rate', value: sprint_totals.empty? ? '-' : pmo_percent_value(sprint_completion_rate.to_f), tone: sprint_completion_rate.to_f >= 0.8 ? :green : (sprint_completion_rate.to_f >= 0.5 ? :orange : :red), help: 'Committed tickets completed in the current sprint.', path: :sprint_delivery },
+      { label: 'Carry-over (%)', value: sprint_totals.empty? ? '-' : pmo_percent_value(carry_over_rate.to_f), tone: carry_over_rate.to_f.positive? ? :orange : :dim, help: 'Percent of committed sprint tickets carried over from prior sprints.', path: :sprint_delivery },
+      { label: 'Technical Debt', value: technical_debt, tone: technical_debt.positive? ? :orange : :dim, help: 'Open tickets that are carry-overs not yet completed.', path: :issues, scope: :total_open },
+      { label: 'Blocked Tickets', value: blocked, tone: blocked.positive? ? :red : :dim, help: 'Tickets currently in Pending or On-Hold (stopped flow).', path: :issues, scope: :stopped },
+      { label: 'Critical Bugs Open', value: critical_bugs_open, tone: critical_bugs_open.positive? ? :red : :dim, help: 'Open bugs with high impact rating or Urgent/Immediate priority.', path: :bug_analysis },
+      { label: 'Return Rate (%)', value: pmo_percent_value(return_rate), tone: return_rate.to_f >= 0.2 ? :red : (return_rate.to_f.positive? ? :orange : :dim), help: 'Percent of completed tickets that were returned at least once.', path: :qa_returns },
+      { label: 'High-Priority Delivery', value: pmo_percent_value(high_priority_delivery_rate), tone: high_priority_delivery_rate.to_f >= 0.8 ? :green : (high_priority_delivery_rate.to_f >= 0.5 ? :orange : :red), help: 'Percent of Urgent/Immediate tickets completed in the current sprint.', path: :sprint_delivery },
+      { label: 'Missing Required Fields', value: pmo_percent_value(data_totals[:missing_required_percent]), tone: data_totals[:missing_required].to_i.positive? ? :red : :dim, help: 'Percent of open tickets missing at least one required planning field.', path: :data_quality },
+      { label: 'No Update (%)', value: pmo_percent_value(data_totals[:tickets_without_updates_percent]), tone: data_totals[:tickets_without_updates].to_i.positive? ? :orange : :dim, help: 'Percent of open tickets not updated within the selected threshold.', path: :data_quality }
     ]
   end
 
@@ -1047,6 +1147,157 @@ class TicketJourneyController < ApplicationController
 
   def pmo_percent_value(value)
     "#{(value.to_f * 100).round(1)}%"
+  end
+
+  def pmo_current_sprint
+    Issue.includes(:status, :tracker, :fixed_version, { custom_values: :custom_field })
+         .where(project_id: project_and_subproject_ids)
+         .joins(:tracker)
+         .where(trackers: { name: 'Sprint' })
+         .reject { |issue| issue.status&.is_closed? }
+         .max_by { |issue| [issue.start_date || Date.new(0, 1, 1), issue.id] }
+  rescue StandardError
+    nil
+  end
+
+  def pmo_return_rate_from_issues(issues)
+    return 0.0 if issues.empty?
+
+    done_issues = issues.select { |issue| %i[done archived].include?(status_role(issue.status&.name)) }
+    return 0.0 if done_issues.empty?
+
+    issue_ids = done_issues.map(&:id)
+    returned_status_names = STATUS_NAMES.fetch(:feedback, []) + STATUS_NAMES.fetch(:review, []) + STATUS_NAMES.fetch(:ready_merge, []) + STATUS_NAMES.fetch(:final_check, [])
+    returned_status_ids = IssueStatus.where(name: returned_status_names).pluck(:id).map(&:to_s)
+    return 0.0 if returned_status_ids.empty?
+
+    returned_ids = JournalDetail.joins(:journal)
+                                .where(journals: { journalized_type: 'Issue', journalized_id: issue_ids },
+                                       property: 'attr', prop_key: 'status_id',
+                                       old_value: returned_status_ids)
+                                .pluck('journals.journalized_id')
+                                .map(&:to_i)
+                                .uniq
+    ratio(returned_ids.size, done_issues.size)
+  rescue StandardError
+    0.0
+  end
+
+  def pmo_critical_bugs_open(bug_start_date, bug_end_date)
+    bugs = Issue.includes(:status, :priority, { custom_values: :custom_field })
+                .where(project_id: project_and_subproject_ids)
+                .joins(:tracker)
+                .where(trackers: { name: 'Bug' })
+                .reject { |issue| issue.status&.is_closed? }
+
+    period_end = bug_end_date.end_of_day
+    bugs.count do |issue|
+      next false if issue.created_on > period_end
+
+      impact = issue.custom_value_for(BUG_IMPACT_RATING_CF_ID)&.value.to_i
+      priority_name = issue.priority&.name.to_s
+      impact >= 3 || %w[Urgent Immediate].include?(priority_name)
+    end
+  rescue StandardError
+    0
+  end
+
+  def pmo_high_priority_delivery_rate(sprint_report)
+    return 0.0 if sprint_report.nil?
+
+    issues = sprint_report[:issues] || []
+    priority_issues = issues.select { |issue| priority_performance_ticket?(issue) }
+    return 0.0 if priority_issues.empty?
+
+    done = priority_issues.count { |issue| completed_sprint_status?(issue.status&.name) }
+    ratio(done, priority_issues.size)
+  end
+
+  def pmo_open_technical_snapshot
+    projects = Project.where(id: project_and_subproject_ids).to_a
+    technical_tracker_names = TRACKER_FAMILY_DEFINITIONS[:internal][:tracker_names]
+
+    projects.map do |project|
+      issues = Issue.includes(:status)
+                    .joins(:tracker)
+                    .where(project_id: project.id)
+                    .where(trackers: { name: technical_tracker_names })
+                    .reject { |issue| issue.status&.is_closed? }
+
+      total_open = issues.size
+      next nil if total_open.zero?
+
+      backlog = issues.count { |i| %i[new todo].include?(status_role(i.status&.name)) }
+      under_work = issues.count { |i| %i[in_progress returned].include?(status_role(i.status&.name)) }
+      ongoing = issues.count { |i| %i[feedback review ready_merge final_check].include?(status_role(i.status&.name)) }
+      stopped = issues.count { |i| paused_status?(i.status&.name) }
+
+      {
+        project_id: project.id,
+        project_name: project.name,
+        total_open: total_open,
+        backlog: backlog,
+        backlog_percent: ratio(backlog, total_open),
+        under_work: under_work,
+        under_work_percent: ratio(under_work, total_open),
+        ongoing: ongoing,
+        ongoing_percent: ratio(ongoing, total_open),
+        stopped: stopped,
+        stopped_percent: ratio(stopped, total_open)
+      }
+    end.compact.sort_by { |row| [-row[:total_open], row[:project_name].to_s.downcase] }
+  rescue StandardError
+    []
+  end
+
+  def pmo_cross_project_risk_rows(data_quality_project_rows)
+    return [] if data_quality_project_rows.empty?
+
+    sprint_completion_by_project = {}
+    carry_over_by_project = {}
+
+    data_quality_project_rows.map do |dq_row|
+      sprint = begin
+        Issue.joins(:tracker)
+             .where(project_id: dq_row[:project_id])
+             .where(trackers: { name: 'Sprint' })
+             .reject { |i| i.status&.is_closed? }
+             .max_by { |i| [i.start_date || Date.new(0, 1, 1), i.id] }
+      rescue StandardError
+        nil
+      end
+
+      sprint_status = sprint ? 'Active' : 'No Sprint'
+      completion_pct = sprint_completion_by_project[dq_row[:project_id]] || 0.0
+      carry_over_pct = carry_over_by_project[dq_row[:project_id]] || 0.0
+
+      paused_names = STATUS_NAMES.fetch(:pending, []) + STATUS_NAMES.fetch(:on_hold, [])
+      paused_status_ids = IssueStatus.where(name: paused_names).pluck(:id)
+      blocked = paused_status_ids.any? ? Issue.where(project_id: dq_row[:project_id], status_id: paused_status_ids).count : 0
+      blocked = blocked rescue 0
+
+      overall_risk = if dq_row[:missing_required_percent].to_f >= 0.3 || blocked.positive?
+                       'Risk'
+                     elsif dq_row[:no_update_percent].to_f >= 0.2
+                       'Watch'
+                     else
+                       'Good'
+                     end
+
+      {
+        project_name: dq_row[:project_name],
+        sprint_status: sprint_status,
+        completion_percent: completion_pct,
+        carry_over_percent: carry_over_pct,
+        blocked_tickets: blocked,
+        missing_fields_percent: dq_row[:missing_required_percent].to_f,
+        no_update_percent: dq_row[:no_update_percent].to_f,
+        overall_risk: overall_risk,
+        risk_tone: overall_risk == 'Risk' ? :red : (overall_risk == 'Watch' ? :orange : :green)
+      }
+    end.sort_by { |row| [row[:overall_risk] == 'Risk' ? 0 : (row[:overall_risk] == 'Watch' ? 1 : 2), row[:project_name].to_s.downcase] }
+  rescue StandardError
+    []
   end
 
   # ---------------------------------------------------------------
@@ -2378,13 +2629,13 @@ class TicketJourneyController < ApplicationController
   end
 
   def compute_bug_analysis_report(start_date, end_date)
-    bugs = Issue.includes(:status, :tracker, { custom_values: :custom_field })
+    bugs = Issue.includes(:status, :tracker, :priority, { custom_values: :custom_field })
                 .where(project_id: project_and_subproject_ids)
                 .joins(:tracker)
                 .where(trackers: { name: 'Bug' })
 
     bug_list = bugs.to_a
-    return [[], empty_bug_analysis_totals] if bug_list.empty?
+    return [[], empty_bug_analysis_totals, [], [], []] if bug_list.empty?
 
     issue_ids = bug_list.map(&:id)
     status_changes = load_attribute_changes(issue_ids, 'status_id')
@@ -2432,6 +2683,13 @@ class TicketJourneyController < ApplicationController
     }
     totals[:change_percent] = bug_start_end_change(totals[:beginning], totals[:remaining])
     totals[:impact_average] = totals[:impact_count].positive? ? totals[:impact_sum].to_f / totals[:impact_count] : 0.0
+    totals[:critical_open] = bug_list.count do |issue|
+      impact = issue.custom_value_for(BUG_IMPACT_RATING_CF_ID)&.value.to_i
+      priority_name = issue.priority&.name.to_s
+      remaining = issue.created_on <= period_end && !historically_closed?(issue, status_changes[issue.id], period_end, closed_status_ids)
+      remaining && (impact >= 3 || %w[Urgent Immediate].include?(priority_name))
+    end
+    totals[:leakage_percent] = totals[:found].positive? ? ratio(totals[:remaining], totals[:found]) : 0.0
 
     report_rows = rows.values.map do |row|
       row.merge(
@@ -2444,7 +2702,11 @@ class TicketJourneyController < ApplicationController
       )
     end
 
-    [sort_bug_analysis_rows(report_rows), totals]
+    impact_summary_rows = bug_impact_summary_rows(bug_list, status_changes, period_start, period_end, closed_status_ids, closed_issue_ids)
+    related_page_rows = bug_related_page_rows(bug_list, period_end, status_changes, closed_status_ids)
+    critical_open_rows = bug_critical_open_rows(bug_list, period_end, status_changes, closed_status_ids)
+
+    [sort_bug_analysis_rows(report_rows), totals, impact_summary_rows, related_page_rows, critical_open_rows]
   end
 
   def sort_bug_analysis_rows(rows)
@@ -2486,8 +2748,123 @@ class TicketJourneyController < ApplicationController
       change_percent: nil,
       impact_sum: 0,
       impact_count: 0,
-      impact_average: 0.0
+      impact_average: 0.0,
+      critical_open: 0,
+      leakage_percent: 0.0
     }
+  end
+
+  def bug_impact_summary_rows(bug_list, status_changes, period_start, period_end, closed_status_ids, closed_issue_ids)
+    metrics = { beginning: {sum: 0, count: 0}, found: {sum: 0, count: 0}, closed: {sum: 0, count: 0}, remaining: {sum: 0, count: 0} }
+
+    bug_list.each do |issue|
+      impact = issue.custom_value_for(BUG_IMPACT_RATING_CF_ID)&.value.to_i
+      next unless impact.positive?
+
+      if issue.created_on <= period_start && !historically_closed?(issue, status_changes[issue.id], period_start, closed_status_ids)
+        metrics[:beginning][:sum] += impact
+        metrics[:beginning][:count] += 1
+      end
+      if issue.created_on >= period_start && issue.created_on <= period_end
+        metrics[:found][:sum] += impact
+        metrics[:found][:count] += 1
+      end
+      if closed_issue_ids.include?(issue.id)
+        metrics[:closed][:sum] += impact
+        metrics[:closed][:count] += 1
+      end
+      if issue.created_on <= period_end && !historically_closed?(issue, status_changes[issue.id], period_end, closed_status_ids)
+        metrics[:remaining][:sum] += impact
+        metrics[:remaining][:count] += 1
+      end
+    end
+
+    [
+      {
+        item: 'Sum of Bug Impact Rating',
+        beginning: metrics[:beginning][:sum],
+        found: metrics[:found][:sum],
+        closed: metrics[:closed][:sum],
+        remaining: metrics[:remaining][:sum]
+      },
+      {
+        item: 'Average Bug Impact Rating',
+        beginning: metrics[:beginning][:count].positive? ? (metrics[:beginning][:sum].to_f / metrics[:beginning][:count]).round(1) : '-',
+        found: metrics[:found][:count].positive? ? (metrics[:found][:sum].to_f / metrics[:found][:count]).round(1) : '-',
+        closed: metrics[:closed][:count].positive? ? (metrics[:closed][:sum].to_f / metrics[:closed][:count]).round(1) : '-',
+        remaining: metrics[:remaining][:count].positive? ? (metrics[:remaining][:sum].to_f / metrics[:remaining][:count]).round(1) : '-'
+      }
+    ]
+  end
+
+  def bug_related_page_rows(bug_list, period_end, status_changes, closed_status_ids)
+    return [] if BUG_RELATED_PAGE_CF_ID.nil?
+
+    remaining_bugs = bug_list.select do |issue|
+      issue.created_on <= period_end && !historically_closed?(issue, status_changes[issue.id], period_end, closed_status_ids)
+    end
+    total_remaining = remaining_bugs.size
+    return [] if total_remaining.zero?
+
+    page_groups = remaining_bugs.group_by do |issue|
+      issue.custom_value_for(BUG_RELATED_PAGE_CF_ID)&.value.presence || 'Not Specified'
+    end
+
+    page_groups.map do |page, page_bugs|
+      impact_values = page_bugs.map { |b| b.custom_value_for(BUG_IMPACT_RATING_CF_ID)&.value.to_i }.select(&:positive?)
+      avg_impact = impact_values.any? ? (impact_values.sum.to_f / impact_values.size).round(1) : 0.0
+      count = page_bugs.size
+      risk = count >= 5 || avg_impact >= 3 ? 'High' : (count >= 2 || avg_impact >= 2 ? 'Medium' : 'Low')
+      {
+        page: page,
+        count: count,
+        percent: ratio(count, total_remaining),
+        impact_average: avg_impact,
+        risk: risk,
+        issue_ids: page_bugs.map(&:id)
+      }
+    end.sort_by { |row| [-row[:count], row[:page].to_s.downcase] }
+  end
+
+  def bug_critical_open_rows(bug_list, period_end, status_changes, closed_status_ids)
+    today = User.current.today
+
+    remaining_critical = bug_list.select do |issue|
+      next false if issue.created_on > period_end
+      next false if historically_closed?(issue, status_changes[issue.id], period_end, closed_status_ids)
+
+      impact = issue.custom_value_for(BUG_IMPACT_RATING_CF_ID)&.value.to_i
+      priority_name = issue.priority&.name.to_s
+      impact >= 3 || %w[Urgent Immediate].include?(priority_name)
+    end
+
+    remaining_critical.map do |issue|
+      impact = issue.custom_value_for(BUG_IMPACT_RATING_CF_ID)&.value.to_i
+      page = BUG_RELATED_PAGE_CF_ID ? (issue.custom_value_for(BUG_RELATED_PAGE_CF_ID)&.value.presence || '-') : '-'
+      last_update_days = issue.updated_on.present? ? [(today - issue.updated_on.to_date).to_i, 0].max : nil
+
+      risk = if (today - issue.created_on.to_date).to_i > 14 || impact >= 4
+               'High'
+             elsif (today - issue.created_on.to_date).to_i > 7 || impact >= 3
+               'Medium'
+             else
+               'Low'
+             end
+
+      {
+        issue_id: issue.id,
+        issue: issue,
+        subject: issue.subject,
+        page_module: page,
+        bug_source: issue.custom_value_for(BUG_SOURCE_CF_ID)&.value.presence || '-',
+        priority: issue.priority&.name || '-',
+        impact_rating: impact.positive? ? impact : '-',
+        owner: ticket_owner_info(issue).last,
+        status: issue.status&.name || '-',
+        last_update_days: last_update_days,
+        risk: risk
+      }
+    end.sort_by { |row| [row[:risk] == 'High' ? 0 : (row[:risk] == 'Medium' ? 1 : 2), -(row[:impact_rating].is_a?(Integer) ? row[:impact_rating] : 0)] }
   end
 
   def bug_terminal_status_ids
@@ -2919,6 +3296,55 @@ class TicketJourneyController < ApplicationController
     end
 
     sort_owner_return_rows(owner_rows)
+  end
+
+  def owner_avg_time_per_status_rows(issues_data)
+    issue_ids = issues_data.map { |item| item[:issue].id }
+    return [] if issue_ids.empty?
+
+    status_changes = load_attribute_changes(issue_ids, 'status_id')
+    status_names_by_id = IssueStatus.pluck(:id, :name).to_h.transform_keys(&:to_s)
+    hours_by_status = Hash.new { |h, k| h[k] = [] }
+
+    issues_data.each do |item|
+      issue = item[:issue]
+      changes = status_changes[issue.id] || []
+      transitions = changes.map { |c| { changed_at: c.changed_at, to_status: status_names_by_id[c.value.to_s] } }
+      periods = build_periods(transitions)
+      periods.each do |period|
+        h = period_hours(period)
+        hours_by_status[period[:status]] << h if h.positive?
+      end
+    end
+
+    target_statuses = ['To-Do', 'In Progress', 'Feedback', 'Review', 'Ready to Merge', 'Final Check', 'Returned', 'On-Hold', 'Pending']
+    target_statuses.map do |status_name|
+      hours = hours_by_status[status_name]
+      {
+        status: status_name,
+        avg_hours: hours.any? ? (hours.sum / hours.size).round(2) : nil,
+        ticket_count: hours.size
+      }
+    end.select { |row| row[:ticket_count].positive? }
+  end
+
+  def owner_idle_detail_rows(owner_rows)
+    today = User.current.today
+    owner_rows.map do |row|
+      next nil if row[:open_tickets].zero?
+
+      {
+        owner: row[:owner],
+        owner_value: row[:owner_value],
+        active_tickets: row[:open_tickets],
+        tickets_without_updates: row[:tickets_without_updates],
+        without_updates_percent: ratio(row[:tickets_without_updates], row[:open_tickets]),
+        avg_idle_days: row[:avg_idle_days].round(1),
+        highest_idle_days: row[:highest_idle_days],
+        no_update_issue_ids: row[:no_update_issue_ids],
+        open_issue_ids: row[:open_issue_ids]
+      }
+    end.compact.sort_by { |row| [-row[:highest_idle_days], -row[:tickets_without_updates]] }
   end
 
   def compute_qa_returns_report(issues_data)
