@@ -207,7 +207,7 @@
           <tbody>
             <% @bug_related_page_rows.each do |row| %>
               <tr class="tj-row">
-                <td class="tj-td-title"><%= link_to h(row[:page]), project_issues_path(@project, { f: ['issue_id'], op: { 'issue_id' => '=' }, v: { 'issue_id' => [row[:issue_ids].join(',')] } }), class: 'tj-drilldown-link' %></td>
+                <td class="tj-td-title"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:page].to_s, title: 'Open bugs for this page/module in Duration Report') %></td>
                 <td class="tj-td-native"><%= row[:count] %></td>
                 <td class="tj-td-native"><%= number_to_percentage(row[:percent] * 100, precision: 1) %></td>
                 <td class="tj-td-native"><%= row[:impact_average].positive? ? row[:impact_average] : '-' %></td>

@@ -4,7 +4,7 @@ class TicketJourneyController < ApplicationController
   BUG_SOURCE_CF_ID = 63
   BUG_IMPACT_RATING_CF_ID = 65
   RETURN_REASON_CF_ID = 66
-  BUG_RELATED_PAGE_CF_ID = nil
+  BUG_RELATED_PAGE_CF_NAMES = ['Related Page / Module', 'Related Page', 'Page / Module', 'Module'].freeze
   OWNER_RETURN_SORTABLE_FIELDS = %w[owner total_tickets ticket_share done_tickets completion_rate avg_done_cycle_time avg_priority_done_cycle_time open_tickets owner_debt tickets_without_updates avg_idle_days returned_tickets return_rate c1 c2 c3 c4 total_returns].freeze
   OWNER_WORKLOAD_SORTABLE_FIELDS = %w[owner total_open technical_open task_open stopped overdue priority_open no_due_date avg_age oldest_age].freeze
   AGING_RISK_SORTABLE_FIELDS = %w[group total_open bucket_0_7 bucket_8_14 bucket_15_30 bucket_31_60 bucket_60_plus stopped overdue priority_open no_due_date avg_age oldest_age].freeze
@@ -910,12 +910,16 @@ class TicketJourneyController < ApplicationController
   def sprint_duration_in_weeks(sprint)
     return 0.0 if sprint.nil? || sprint.start_date.blank? || sprint.due_date.blank?
 
-    days = (sprint.due_date - sprint.start_date).to_i
+    days = (sprint.due_date - sprint.start_date).to_i + 1
     (days / 7.0).round(2)
   end
 
   def sprint_blocked_duration_days(issues, sprint)
     return 0 if issues.empty? || sprint.nil?
+
+    sprint_start = sprint.start_date&.beginning_of_day
+    sprint_end = (sprint.due_date || User.current.today)&.end_of_day
+    return 0 if sprint_start.blank? || sprint_end.blank? || sprint_end <= sprint_start
 
     issue_ids = issues.map(&:id)
     status_changes = load_attribute_changes(issue_ids, 'status_id')
@@ -925,7 +929,11 @@ class TicketJourneyController < ApplicationController
       changes = status_changes[issue.id] || []
       transitions = changes.map { |c| { changed_at: c.changed_at, to_status: status_names_by_id[c.value.to_s] } }
       periods = build_periods(transitions)
-      periods.select { |p| paused_status?(p[:status]) }.sum { |p| period_hours(p) }
+      periods.select { |p| paused_status?(p[:status]) }.sum do |period|
+        clipped_enter = [period[:enter], sprint_start].max
+        clipped_exit = [period[:exit], sprint_end].min
+        clipped_exit > clipped_enter ? ((clipped_exit - clipped_enter) / 3600.0) : 0
+      end
     end
 
     (total_hours / 24.0).round(1)
@@ -1195,8 +1203,7 @@ class TicketJourneyController < ApplicationController
       next false if issue.created_on > period_end
 
       impact = issue.custom_value_for(BUG_IMPACT_RATING_CF_ID)&.value.to_i
-      priority_name = issue.priority&.name.to_s
-      impact >= 3 || %w[Urgent Immediate].include?(priority_name)
+      impact >= 3 || priority_performance_ticket?(issue)
     end
   rescue StandardError
     0
@@ -2685,9 +2692,8 @@ class TicketJourneyController < ApplicationController
     totals[:impact_average] = totals[:impact_count].positive? ? totals[:impact_sum].to_f / totals[:impact_count] : 0.0
     totals[:critical_open] = bug_list.count do |issue|
       impact = issue.custom_value_for(BUG_IMPACT_RATING_CF_ID)&.value.to_i
-      priority_name = issue.priority&.name.to_s
       remaining = issue.created_on <= period_end && !historically_closed?(issue, status_changes[issue.id], period_end, closed_status_ids)
-      remaining && (impact >= 3 || %w[Urgent Immediate].include?(priority_name))
+      remaining && (impact >= 3 || priority_performance_ticket?(issue))
     end
     totals[:leakage_percent] = totals[:found].positive? ? ratio(totals[:remaining], totals[:found]) : 0.0
 
@@ -2798,7 +2804,8 @@ class TicketJourneyController < ApplicationController
   end
 
   def bug_related_page_rows(bug_list, period_end, status_changes, closed_status_ids)
-    return [] if BUG_RELATED_PAGE_CF_ID.nil?
+    related_page_cf_id = bug_related_page_cf_id
+    return [] if related_page_cf_id.blank?
 
     remaining_bugs = bug_list.select do |issue|
       issue.created_on <= period_end && !historically_closed?(issue, status_changes[issue.id], period_end, closed_status_ids)
@@ -2807,7 +2814,7 @@ class TicketJourneyController < ApplicationController
     return [] if total_remaining.zero?
 
     page_groups = remaining_bugs.group_by do |issue|
-      issue.custom_value_for(BUG_RELATED_PAGE_CF_ID)&.value.presence || 'Not Specified'
+      issue.custom_value_for(related_page_cf_id)&.value.presence || 'Not Specified'
     end
 
     page_groups.map do |page, page_bugs|
@@ -2834,13 +2841,13 @@ class TicketJourneyController < ApplicationController
       next false if historically_closed?(issue, status_changes[issue.id], period_end, closed_status_ids)
 
       impact = issue.custom_value_for(BUG_IMPACT_RATING_CF_ID)&.value.to_i
-      priority_name = issue.priority&.name.to_s
-      impact >= 3 || %w[Urgent Immediate].include?(priority_name)
+      impact >= 3 || priority_performance_ticket?(issue)
     end
 
     remaining_critical.map do |issue|
       impact = issue.custom_value_for(BUG_IMPACT_RATING_CF_ID)&.value.to_i
-      page = BUG_RELATED_PAGE_CF_ID ? (issue.custom_value_for(BUG_RELATED_PAGE_CF_ID)&.value.presence || '-') : '-'
+      related_page_cf_id = bug_related_page_cf_id
+      page = related_page_cf_id ? (issue.custom_value_for(related_page_cf_id)&.value.presence || '-') : '-'
       last_update_days = issue.updated_on.present? ? [(today - issue.updated_on.to_date).to_i, 0].max : nil
 
       risk = if (today - issue.created_on.to_date).to_i > 14 || impact >= 4
@@ -2865,6 +2872,12 @@ class TicketJourneyController < ApplicationController
         risk: risk
       }
     end.sort_by { |row| [row[:risk] == 'High' ? 0 : (row[:risk] == 'Medium' ? 1 : 2), -(row[:impact_rating].is_a?(Integer) ? row[:impact_rating] : 0)] }
+  end
+
+  def bug_related_page_cf_id
+    return @bug_related_page_cf_id if defined?(@bug_related_page_cf_id)
+
+    @bug_related_page_cf_id = CustomField.where(type: 'IssueCustomField', name: BUG_RELATED_PAGE_CF_NAMES).order(:id).pick(:id)
   end
 
   def bug_terminal_status_ids
