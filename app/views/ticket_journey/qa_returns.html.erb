@@ -31,9 +31,11 @@
       counter_rows = @qa_returns_report[:counter_rows]
       rework_rows = @qa_returns_report[:rework_rows]
       reason_rows = @qa_returns_report[:reason_rows]
+      owner_rows = @qa_returns_report[:owner_rows]
       returned_ticket_rows = @qa_returns_report[:returned_ticket_rows]
       max_rework = [rework_rows.map { |row| row[:hours].to_f }.max.to_f, 1.0].max
       max_reason = [reason_rows.map { |row| row[:count].to_i }.max.to_i, 1].max
+      max_ticket_returns = [returned_ticket_rows.map { |row| row[:total_returns].to_i }.max.to_i, 1].max
     %>
 
     <div class="tj-summary-strip">
@@ -168,6 +170,70 @@
                   <div class="tj-bug-bar-fill" style="width:<%= width %>%"></div>
                 </div>
                 <div class="tj-bug-bar-count"><%= row[:count] %> <span><%= number_to_percentage(row[:percent] * 100, precision: 0) %></span></div>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+
+      <div class="tj-card tj-card-full">
+        <div class="tj-card-title">QA Returns by Ticket Owner</div>
+        <% if owner_rows.empty? %>
+          <div class="tj-flow-empty-note">No returned tickets found by ticket owner in the current filtered result.</div>
+        <% else %>
+          <div class="tj-table-wrap">
+            <table class="tj-table">
+              <thead>
+                <tr>
+                  <th class="tj-th-title">Ticket Owner</th>
+                  <th class="tj-th-native">Done Tickets</th>
+                  <th class="tj-th-native">Returned Tickets</th>
+                  <th class="tj-th-native">Return Rate</th>
+                  <th class="tj-th-counter">R1</th>
+                  <th class="tj-th-counter">R2</th>
+                  <th class="tj-th-counter">R3</th>
+                  <th class="tj-th-counter">R4</th>
+                  <th class="tj-th-total">Total Returns</th>
+                  <th class="tj-th-native">Rework Time</th>
+                  <th class="tj-th-title">Top Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% owner_rows.each do |row| %>
+                  <tr class="tj-row">
+                    <td class="tj-td-title"><%= duration_report_drilldown_link(@query, row[:issue_ids], h(row[:owner]), title: "Open returned tickets for #{row[:owner]}") %></td>
+                    <td class="tj-td-native"><%= row[:done_tickets].positive? ? row[:done_tickets] : '-' %></td>
+                    <td class="tj-td-native"><%= row[:returned_tickets].positive? ? duration_report_drilldown_link(@query, row[:issue_ids], row[:returned_tickets], title: "Open returned tickets for #{row[:owner]}") : '-' %></td>
+                    <td class="tj-td-native"><%= number_to_percentage(row[:return_rate] * 100, precision: 1) %></td>
+                    <td class="<%= counter_css_class(row[:c1]) %>"><%= row[:c1].positive? ? row[:c1] : '-' %></td>
+                    <td class="<%= counter_css_class(row[:c2]) %>"><%= row[:c2].positive? ? row[:c2] : '-' %></td>
+                    <td class="<%= counter_css_class(row[:c3]) %>"><%= row[:c3].positive? ? row[:c3] : '-' %></td>
+                    <td class="<%= counter_css_class(row[:c4]) %>"><%= row[:c4].positive? ? row[:c4] : '-' %></td>
+                    <td class="tj-td-total"><%= row[:return_events] %></td>
+                    <td class="tj-td-native"><%= format_hours(row[:rework_hours]) %></td>
+                    <td class="tj-td-title"><%= h(row[:top_reason]) %><% if row[:top_reason_count].positive? %> (<%= row[:top_reason_count] %>)<% end %></td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        <% end %>
+      </div>
+
+      <div class="tj-card tj-card-full">
+        <div class="tj-card-title">Top Returned Tickets</div>
+        <% if returned_ticket_rows.empty? %>
+          <div class="tj-flow-empty-note">No returned tickets found in the current filtered result.</div>
+        <% else %>
+          <div class="tj-bug-bars">
+            <% returned_ticket_rows.first(10).each do |row| %>
+              <% width = (row[:total_returns].to_f / max_ticket_returns * 100).round(1) %>
+              <div class="tj-bug-bar-row">
+                <div class="tj-bug-bar-label"><%= link_to "##{row[:issue_id]} - #{row[:subject]}", ticket_journey_path(@project, issue_detail_params(@query, row[:issue])), class: 'tj-drilldown-link', title: 'Open issue detail' %></div>
+                <div class="tj-bug-bar-track">
+                  <div class="tj-bug-bar-fill" style="width:<%= width %>%"></div>
+                </div>
+                <div class="tj-bug-bar-count"><%= row[:total_returns] %> <span><%= format_hours(row[:rework_hours]) %></span></div>
               </div>
             <% end %>
           </div>

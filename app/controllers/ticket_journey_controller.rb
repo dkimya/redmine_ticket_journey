@@ -2956,6 +2956,7 @@ class TicketJourneyController < ApplicationController
       counter_rows: counter_rows,
       rework_rows: rework_rows,
       reason_rows: qa_return_reason_rows(returned_items),
+      owner_rows: qa_return_owner_rows(issues_data),
       returned_ticket_rows: qa_returned_ticket_rows(returned_items)
     }
   end
@@ -3053,6 +3054,40 @@ class TicketJourneyController < ApplicationController
                                 .map { |item| item[:issue].id }
       }
     end.sort_by { |row| [-row[:count], row[:reason].to_s.downcase] }
+  end
+
+  def qa_return_owner_rows(issues_data)
+    issues_data.group_by { |item| ticket_owner_info(item[:issue]) }
+               .map do |(owner_value, owner_name), owner_items|
+      completed_items = owner_items.select { |item| %i[done archived].include?(status_role(item[:issue].status&.name)) }
+      returned_items = owner_items.select { |item| item_total_returns(item).positive? }
+      completed_returned_items = completed_items.select { |item| item_total_returns(item).positive? }
+      reason_counts = returned_items.each_with_object(Hash.new(0)) do |item, counts|
+        reason = item[:issue].custom_value_for(RETURN_REASON_CF_ID)&.value.presence || 'No Return Reason'
+        counts[reason] += 1
+      end
+      top_reason, top_reason_count = reason_counts.max_by { |reason, count| [count, reason.to_s] }
+
+      {
+        owner_value: owner_value,
+        owner: owner_name.presence || 'No Ticket Owner',
+        done_tickets: completed_items.size,
+        returned_tickets: returned_items.size,
+        returned_done_tickets: completed_returned_items.size,
+        return_rate: ratio(completed_returned_items.size, completed_items.size),
+        return_events: returned_items.sum { |item| item_total_returns(item) },
+        c1: returned_items.sum { |item| item[:durations][:C1].to_i },
+        c2: returned_items.sum { |item| item[:durations][:C2].to_i },
+        c3: returned_items.sum { |item| item[:durations][:C3].to_i },
+        c4: returned_items.sum { |item| item[:durations][:C4].to_i },
+        rework_hours: returned_items.sum { |item| qa_rework_hours_for_item(item) },
+        top_reason: top_reason || '-',
+        top_reason_count: top_reason_count.to_i,
+        issue_ids: returned_items.map { |item| item[:issue].id }
+      }
+    end
+               .select { |row| row[:returned_tickets].positive? || row[:return_events].positive? }
+               .sort_by { |row| [-row[:return_events], -row[:returned_tickets], -row[:rework_hours], row[:owner].to_s.downcase] }
   end
 
   def qa_returned_ticket_rows(returned_items)
