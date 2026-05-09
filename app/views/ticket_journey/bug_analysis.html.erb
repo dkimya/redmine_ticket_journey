@@ -51,6 +51,15 @@
       <div class="tj-sc-value tj-sc-red"><%= @bug_analysis_totals[:remaining] %></div>
     </div>
     <div class="tj-summary-card">
+      <div class="tj-sc-label">Critical Bugs Open</div>
+      <div class="tj-sc-value <%= @bug_analysis_totals[:critical_open].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= @bug_analysis_totals[:critical_open] %></div>
+    </div>
+    <div class="tj-summary-card">
+      <div class="tj-sc-label">Bug Leakage (%)</div>
+      <div class="tj-sc-value <%= @bug_analysis_totals[:leakage_percent].to_f >= 0.3 ? 'tj-sc-red' : (@bug_analysis_totals[:leakage_percent].to_f.positive? ? 'tj-sc-orange' : 'tj-sc-dim') %>"
+           title="Remaining bugs divided by bugs found in the period"><%= number_to_percentage(@bug_analysis_totals[:leakage_percent] * 100, precision: 1) %></div>
+    </div>
+    <div class="tj-summary-card">
       <div class="tj-sc-label">Remaining Impact</div>
       <div class="tj-sc-value tj-sc-orange"><%= @bug_analysis_totals[:impact_sum] %></div>
     </div>
@@ -145,6 +154,108 @@
                 <%= @bug_analysis_totals[:change_percent].nil? ? '-' : number_to_percentage(@bug_analysis_totals[:change_percent] * 100, precision: 1) %>
               </td>
             </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% end %>
+
+  <% if @bug_impact_summary_rows.present? %>
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Bug Impact Summary</div>
+      <div class="tj-table-wrap">
+        <table class="tj-table">
+          <thead>
+            <tr>
+              <th class="tj-th-title">Item</th>
+              <th class="tj-th-native">Beginning</th>
+              <th class="tj-th-native">Found</th>
+              <th class="tj-th-native">Closed</th>
+              <th class="tj-th-native">Remaining</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @bug_impact_summary_rows.each do |row| %>
+              <tr class="tj-row">
+                <td class="tj-td-title"><%= h(row[:item]) %></td>
+                <td class="tj-td-native"><%= row[:beginning] %></td>
+                <td class="tj-td-native"><%= row[:found] %></td>
+                <td class="tj-td-native"><%= row[:closed] %></td>
+                <td class="tj-td-native"><%= row[:remaining] %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% end %>
+
+  <% if @bug_related_page_rows.present? %>
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Related Page / Module Histogram</div>
+      <div class="tj-table-wrap">
+        <table class="tj-table">
+          <thead>
+            <tr>
+              <th class="tj-th-title">Page / Module</th>
+              <th class="tj-th-native">Bug Count</th>
+              <th class="tj-th-native">%</th>
+              <th class="tj-th-native">Avg Impact Rating</th>
+              <th class="tj-th-native">Risk</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @bug_related_page_rows.each do |row| %>
+              <tr class="tj-row">
+                <td class="tj-td-title"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:page].to_s, title: 'Open bugs for this page/module in Duration Report') %></td>
+                <td class="tj-td-native"><%= row[:count] %></td>
+                <td class="tj-td-native"><%= number_to_percentage(row[:percent] * 100, precision: 1) %></td>
+                <td class="tj-td-native"><%= row[:impact_average].positive? ? row[:impact_average] : '-' %></td>
+                <% bug_risk_class = row[:risk] == 'High' ? 'tj-release-risk-pill-red' : (row[:risk] == 'Medium' ? 'tj-release-risk-pill-amber' : 'tj-release-risk-pill-green') %>
+                <td class="tj-td-native"><span class="tj-release-risk-pill <%= bug_risk_class %>"><%= h(row[:risk]) %></span></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% end %>
+
+  <% if @bug_critical_open_rows.present? %>
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Critical Bugs Open Detail</div>
+      <div class="tj-table-wrap">
+        <table class="tj-table">
+          <thead>
+            <tr>
+              <th class="tj-th-issue">Bug ID</th>
+              <th class="tj-th-title">Subject</th>
+              <th class="tj-th-native">Page / Module</th>
+              <th class="tj-th-native">Bug Source</th>
+              <th class="tj-th-native">Priority</th>
+              <th class="tj-th-native">Impact Rating</th>
+              <th class="tj-th-native">Owner</th>
+              <th class="tj-th-native">Status</th>
+              <th class="tj-th-native">Last Update</th>
+              <th class="tj-th-native">Risk</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @bug_critical_open_rows.each do |row| %>
+              <tr class="tj-row">
+                <td class="tj-td-issue"><%= link_to "##{row[:issue_id]}", issue_path(row[:issue]), class: 'tj-drilldown-link' %></td>
+                <td class="tj-td-title" title="<%= h(row[:subject]) %>"><%= h(row[:subject]) %></td>
+                <td class="tj-td-native"><%= h(row[:page_module]) %></td>
+                <td class="tj-td-native"><%= h(row[:bug_source]) %></td>
+                <td class="tj-td-native"><%= h(row[:priority]) %></td>
+                <td class="tj-td-native"><%= row[:impact_rating] %></td>
+                <td class="tj-td-native"><%= h(row[:owner]) %></td>
+                <td class="tj-td-native"><span class="tj-status-badge"><%= h(row[:status]) %></span></td>
+                <td class="tj-td-native"><%= row[:last_update_days].present? ? "#{row[:last_update_days]}d ago" : '-' %></td>
+                <% critical_risk_class = row[:risk] == 'High' ? 'tj-release-risk-pill-red' : (row[:risk] == 'Medium' ? 'tj-release-risk-pill-amber' : 'tj-release-risk-pill-green') %>
+                <td class="tj-td-native"><span class="tj-release-risk-pill <%= critical_risk_class %>"><%= h(row[:risk]) %></span></td>
+              </tr>
+            <% end %>
           </tbody>
         </table>
       </div>

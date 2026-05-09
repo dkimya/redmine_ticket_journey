@@ -62,6 +62,11 @@
       counter_totals = { C1: c1_total, C2: c2_total, C3: c3_total, C4: c4_total }
     %>
 
+    <%
+      throughput_total = @owner_return_rows.sum { |row| row[:total_tickets].to_f }
+      total_open_all = @owner_return_rows.sum { |row| row[:open_tickets] }
+    %>
+
     <div class="tj-summary-strip">
       <div class="tj-summary-card">
         <div class="tj-sc-label">Ticket Owners</div>
@@ -78,6 +83,10 @@
       <div class="tj-summary-card">
         <div class="tj-sc-label">Completion Rate</div>
         <div class="tj-sc-value <%= done_tickets.positive? ? 'tj-sc-green' : 'tj-sc-dim' %>"><%= format_percentage(done_tickets, total_tickets) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Owner Throughput</div>
+        <div class="tj-sc-value tj-sc-blue" title="Total tickets across all owners in current scope"><%= number_with_precision(throughput_total, precision: 0) %> total</div>
       </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label">Owner Debt</div>
@@ -154,6 +163,65 @@
         </tbody>
       </table>
     </div>
+    <% if @owner_avg_time_per_status_rows.present? %>
+      <div class="tj-card tj-card-full">
+        <div class="tj-card-title">Average Time for Each Status</div>
+        <div class="tj-table-wrap">
+          <table class="tj-table">
+            <thead>
+              <tr>
+                <th class="tj-th-title">Status</th>
+                <th class="tj-th-native">Average Duration in Status</th>
+                <th class="tj-th-native">Ticket Count (Visits)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% @owner_avg_time_per_status_rows.each do |row| %>
+                <tr class="tj-row">
+                  <td class="tj-td-title"><%= h(row[:status]) %></td>
+                  <td class="tj-td-native"><%= row[:avg_hours].present? ? format_hours(row[:avg_hours]) : '-' %></td>
+                  <td class="tj-td-native"><%= row[:ticket_count] %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    <% end %>
+
+    <% if @owner_idle_detail_rows.present? %>
+      <div class="tj-card tj-card-full">
+        <div class="tj-card-title">Owner Ticket Idle / No Update Detail</div>
+        <div class="tj-table-wrap">
+          <table class="tj-table">
+            <thead>
+              <tr>
+                <th class="tj-th-title">Owner</th>
+                <th class="tj-th-native">Active Tickets</th>
+                <th class="tj-th-native">Without Updates</th>
+                <th class="tj-th-native">Without Updates %</th>
+                <th class="tj-th-native">Average Idle Time</th>
+                <th class="tj-th-native">Highest Idle (Days)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% @owner_idle_detail_rows.each do |row| %>
+                <tr class="tj-row">
+                  <td class="tj-td-title">
+                    <%= link_to row[:owner], ticket_journey_path(@project, ticket_owner_filter_params(@query, row[:owner_value])), class: 'tj-subject-link' %>
+                  </td>
+                  <td class="tj-td-native"><%= duration_report_drilldown_link(@query, row[:open_issue_ids], row[:active_tickets]) %></td>
+                  <td class="tj-td-native <%= row[:tickets_without_updates].positive? ? 'tj-counter-active' : '' %>"><%= duration_report_drilldown_link(@query, row[:no_update_issue_ids], row[:tickets_without_updates]) %></td>
+                  <td class="tj-td-native"><%= number_to_percentage(row[:without_updates_percent] * 100, precision: 1) %></td>
+                  <td class="tj-td-native"><%= "#{row[:avg_idle_days]}d" %></td>
+                  <td class="tj-td-native <%= row[:highest_idle_days] >= @owner_performance_stale_days ? 'tj-counter-active' : '' %>"><%= "#{row[:highest_idle_days]}d" %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    <% end %>
   <% end %>
 
 </div>

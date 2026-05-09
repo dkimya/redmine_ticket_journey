@@ -73,6 +73,18 @@
         <div class="tj-sc-value <%= totals[:carry_over].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= sprint_delivery_count_link(:carry_over, totals[:carry_over]) %></div>
       </div>
       <div class="tj-summary-card">
+        <div class="tj-sc-label">Throughput</div>
+        <div class="tj-sc-value tj-sc-blue" title="Completed tickets per week based on sprint duration"><%= totals[:throughput] %>/wk</div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Blocked Tickets</div>
+        <div class="tj-sc-value <%= totals[:blocked].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= sprint_delivery_count_link(:stopped, totals[:blocked]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Blocked Duration</div>
+        <div class="tj-sc-value <%= totals[:blocked_duration_days].to_f.positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>" title="Total days tickets spent in Pending or On-Hold status"><%= totals[:blocked_duration_days] %>d</div>
+      </div>
+      <div class="tj-summary-card">
         <div class="tj-sc-label">Stopped</div>
         <div class="tj-sc-value <%= totals[:stopped].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= sprint_delivery_count_link(:stopped, totals[:stopped]) %></div>
       </div>
@@ -370,6 +382,74 @@
           </table>
         </div>
       </div>
+
+      <% trend_dates = @sprint_delivery_report[:trend_dates] %>
+      <% trend_status_rows = @sprint_delivery_report[:trend_status_rows] %>
+      <% trend_tracker_rows = @sprint_delivery_report[:trend_tracker_rows] %>
+
+      <% if trend_dates.present? && trend_status_rows.present? %>
+        <div class="tj-card tj-card-full">
+          <div class="tj-card-title">Ticket Status Change Trend</div>
+          <div class="tj-table-wrap">
+            <table class="tj-table tj-flow-table">
+              <thead>
+                <tr>
+                  <th class="tj-th-title">Status</th>
+                  <% trend_dates.each do |date| %>
+                    <th class="tj-th-native"><%= format_date(date) %></th>
+                  <% end %>
+                  <th class="tj-th-native">Change</th>
+                  <th class="tj-th-native">Rate/wk</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% trend_status_rows.each do |row| %>
+                  <tr class="tj-row <%= row[:separator_before] ? 'tj-flow-group-start' : '' %>">
+                    <td class="tj-td-title"><%= h(row[:label]) %></td>
+                    <% row[:counts].each do |count| %>
+                      <td class="tj-td-native"><%= count.zero? ? '-' : count %></td>
+                    <% end %>
+                    <td class="tj-td-native <%= row[:change].positive? ? 'tj-flow-negative' : (row[:change].negative? ? 'tj-flow-positive' : '') %>"><%= row[:change].positive? ? "+#{row[:change]}" : row[:change] %></td>
+                    <td class="tj-td-native"><%= row[:rate].present? ? (row[:rate].positive? ? "+#{number_with_precision(row[:rate], precision: 1)}" : number_with_precision(row[:rate], precision: 1)) : '-' %></td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      <% end %>
+
+      <% if trend_dates.present? && trend_tracker_rows.present? %>
+        <div class="tj-card tj-card-full">
+          <div class="tj-card-title">Tracker Change Trend</div>
+          <div class="tj-table-wrap">
+            <table class="tj-table tj-flow-table">
+              <thead>
+                <tr>
+                  <th class="tj-th-title">Tracker</th>
+                  <% trend_dates.each do |date| %>
+                    <th class="tj-th-native"><%= format_date(date) %></th>
+                  <% end %>
+                  <th class="tj-th-native">Change</th>
+                  <th class="tj-th-native">Rate/wk</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% trend_tracker_rows.each do |row| %>
+                  <tr class="tj-row">
+                    <td class="tj-td-title"><%= h(row[:label]) %></td>
+                    <% row[:counts].each do |count| %>
+                      <td class="tj-td-native"><%= count.zero? ? '-' : count %></td>
+                    <% end %>
+                    <td class="tj-td-native <%= row[:change].positive? ? 'tj-flow-negative' : (row[:change].negative? ? 'tj-flow-positive' : '') %>"><%= row[:change].positive? ? "+#{row[:change]}" : row[:change] %></td>
+                    <td class="tj-td-native"><%= row[:rate].present? ? (row[:rate].positive? ? "+#{number_with_precision(row[:rate], precision: 1)}" : number_with_precision(row[:rate], precision: 1)) : '-' %></td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      <% end %>
     <% end %>
   <% end %>
 </div>

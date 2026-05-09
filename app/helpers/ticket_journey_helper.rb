@@ -179,6 +179,10 @@ module TicketJourneyHelper
       ticket_journey_bug_analysis_path(@project, bug_analysis_params(@query))
     when :data_quality
       ticket_journey_data_quality_path(@project, data_quality_params(@query))
+    when :sprint_delivery
+      ticket_journey_sprint_delivery_path(@project)
+    when :qa_returns
+      ticket_journey_qa_returns_path(@project, duration_report_params(@query))
     else
       ticket_journey_path(@project, duration_report_params(@query))
     end
