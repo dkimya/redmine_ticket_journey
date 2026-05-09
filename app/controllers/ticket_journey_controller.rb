@@ -897,8 +897,11 @@ class TicketJourneyController < ApplicationController
   def sprint_delivery_trend_data(sprint, issues)
     return { status_rows: [], tracker_rows: [], dates: [], summary: {} } if issues.empty? || sprint.nil?
 
-    start_date = sprint.start_date || (sprint.created_on&.to_date || User.current.today) - 14.days
-    end_date = [sprint.due_date || User.current.today, User.current.today].min
+    today = User.current.today || Date.today
+    anchor_date = sprint.created_on&.to_date || sprint.due_date || today
+    start_date = sprint.start_date || (anchor_date - 13.days)
+    end_date = [sprint.due_date || today, today].compact.min
+    end_date = start_date if end_date.blank? || end_date < start_date
 
     dates = flow_snapshot_dates(start_date, end_date)
     return { status_rows: [], tracker_rows: [], dates: [], summary: {} } if dates.empty?
@@ -1036,7 +1039,14 @@ class TicketJourneyController < ApplicationController
     bug_rows, bug_totals, = compute_bug_analysis_report(bug_start_date, bug_end_date)
 
     sprint = pmo_current_sprint
-    sprint_report = sprint ? compute_sprint_delivery_report(sprint) : nil
+    sprint_report = if sprint
+                      begin
+                        compute_sprint_delivery_report(sprint)
+                      rescue StandardError => e
+                        Rails.logger.warn("[TicketJourney] PMO Control sprint summary skipped: #{e.class} - #{e.message}")
+                        empty_sprint_delivery_report(sprint)
+                      end
+                    end
     sprint_totals = sprint_report ? sprint_report[:totals] : {}
 
     open_issues = @query&.valid? ? @query.issues(include: [:status, :tracker, :priority, { custom_values: :custom_field }]).to_a : []
