@@ -215,6 +215,55 @@
         </div>
       </div>
 
+      <div class="tj-health-grid">
+        <div class="tj-card tj-health-card">
+          <div class="tj-card-title">Done Tickets Time Efficiency</div>
+          <table class="tj-health-table">
+            <tbody>
+              <% @sprint_delivery_report[:time_efficiency_rows].each do |row| %>
+                <tr>
+                  <td class="tj-health-label" title="<%= h(row[:note]) %>"><%= h(row[:metric]) %></td>
+                  <td class="tj-health-count"><%= row[:value_hours].present? ? format_hours(row[:value_hours]) : '-' %></td>
+                  <td class="tj-health-percent">
+                    <%= row[:count].positive? ? duration_report_drilldown_link(@query, row[:issue_ids], "#{row[:count]} tickets", title: row[:note]) : '-' %>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="tj-card tj-health-card">
+          <div class="tj-card-title">High-Priority Delivery View</div>
+          <table class="tj-health-table">
+            <tbody>
+              <% @sprint_delivery_report[:priority_delivery_rows].each do |row| %>
+                <tr>
+                  <td class="tj-health-label">Priority Tickets</td>
+                  <td class="tj-health-count"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:total], title: 'Open Urgent / Immediate sprint tickets') %></td>
+                  <td class="tj-health-percent"><%= h(row[:priority_group]) %></td>
+                </tr>
+                <tr>
+                  <td class="tj-health-label">Completed On Time</td>
+                  <td class="tj-health-count"><%= row[:completed_on_time].positive? ? duration_report_drilldown_link(@query, row[:completed_on_time_issue_ids], row[:completed_on_time], title: 'Open completed on-time high-priority sprint tickets') : '-' %></td>
+                  <td class="tj-health-percent"><%= number_to_percentage(row[:delivery_rate] * 100, precision: 1) %></td>
+                </tr>
+                <tr>
+                  <td class="tj-health-label">Avg Priority Cycle Time</td>
+                  <td class="tj-health-count"><%= row[:avg_cycle_hours].present? ? format_hours(row[:avg_cycle_hours]) : '-' %></td>
+                  <td class="tj-health-percent"><%= row[:avg_cycle_issue_ids].any? ? duration_report_drilldown_link(@query, row[:avg_cycle_issue_ids], "#{row[:avg_cycle_issue_ids].size} done", title: 'Open completed high-priority tickets used for average cycle time') : '-' %></td>
+                </tr>
+                <tr>
+                  <td class="tj-health-label">Delayed High-Priority</td>
+                  <td class="tj-health-count"><%= row[:delayed].positive? ? duration_report_drilldown_link(@query, row[:delayed_issue_ids], row[:delayed], title: 'Open delayed or unfinished high-priority sprint tickets') : '-' %></td>
+                  <td class="tj-health-percent"><%= number_to_percentage((1.0 - row[:delivery_rate]) * 100, precision: 1) %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div class="tj-card tj-card-full">
         <div class="tj-card-title">Owner Delivery Summary</div>
         <div class="tj-table-wrap">

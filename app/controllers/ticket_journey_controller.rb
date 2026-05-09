@@ -307,6 +307,7 @@ class TicketJourneyController < ApplicationController
     totals = sprint_delivery_totals(sprint, issues)
     status_rows = sprint_delivery_status_rows(issues)
     status_owner_matrix = sprint_delivery_status_owner_matrix(issues)
+    duration_items = sprint_delivery_duration_items(issues)
     owner_rows = sprint_delivery_owner_rows(sprint, issues)
     issue_rows = sprint_delivery_issue_rows(sprint, issues)
 
@@ -316,6 +317,8 @@ class TicketJourneyController < ApplicationController
       totals: totals,
       status_rows: status_rows,
       status_owner_matrix: status_owner_matrix,
+      time_efficiency_rows: sprint_delivery_time_efficiency_rows(duration_items.values),
+      priority_delivery_rows: sprint_delivery_priority_delivery_rows(issues, duration_items),
       owner_rows: owner_rows,
       health: sprint_delivery_health(totals)
     )
@@ -519,6 +522,8 @@ class TicketJourneyController < ApplicationController
       issue_rows: [],
       status_rows: [],
       status_owner_matrix: { owners: [], rows: [], group_rows: [], total: 0 },
+      time_efficiency_rows: [],
+      priority_delivery_rows: [],
       owner_rows: [],
       health: { label: 'No Sprint', tone: :dim, note: 'No Sprint tracker issue was found for this project.' }
     }
@@ -715,6 +720,98 @@ class TicketJourneyController < ApplicationController
 
   def sprint_delivery_owner_key(owner_value)
     owner_value.present? ? owner_value.to_s : '__no_ticket_owner__'
+  end
+
+  def sprint_delivery_duration_items(issues)
+    return {} if issues.empty?
+
+    transitions_by_issue = load_transitions(issues)
+    issues.each_with_object({}) do |issue, items|
+      family_key = tracker_family_for_issue(issue)
+      transitions = transitions_by_issue[issue.id] || []
+      items[issue.id] = {
+        issue: issue,
+        family_key: family_key,
+        durations: calculate_durations_for_family(family_key, transitions)
+      }
+    end
+  end
+
+  def sprint_delivery_time_efficiency_rows(items)
+    completed_items = items.select { |item| completed_sprint_status?(item[:issue].status&.name) }
+    cycle_items = completed_items.filter_map do |item|
+      hours = completed_cycle_time_hours(item)
+      next if hours.blank?
+
+      { issue_id: item[:issue].id, hours: hours }
+    end
+    lead_items = completed_items.filter_map do |item|
+      issue = item[:issue]
+      terminal_time = terminal_time_for_periods(item[:durations][:periods] || [])
+      next if terminal_time.blank? || issue.created_on.blank? || terminal_time <= issue.created_on
+
+      { issue_id: issue.id, hours: (terminal_time - issue.created_on) / 3600.0 }
+    end
+
+    [
+      {
+        metric: 'Average Cycle Time',
+        value_hours: average_sprint_delivery_hours(cycle_items),
+        count: cycle_items.size,
+        issue_ids: cycle_items.map { |entry| entry[:issue_id] },
+        note: 'Close/archive time minus first In Progress time, excluding paused time.'
+      },
+      {
+        metric: 'Average Lead Time',
+        value_hours: average_sprint_delivery_hours(lead_items),
+        count: lead_items.size,
+        issue_ids: lead_items.map { |entry| entry[:issue_id] },
+        note: 'Close/archive time minus ticket creation time.'
+      }
+    ]
+  end
+
+  def sprint_delivery_priority_delivery_rows(issues, duration_items)
+    priority_issues = issues.select { |issue| priority_performance_ticket?(issue) }
+    completed_on_time = priority_issues.select { |issue| sprint_delivery_completed_on_time?(issue, duration_items[issue.id]) }
+    completed_priority_items = priority_issues.filter_map do |issue|
+      item = duration_items[issue.id]
+      hours = completed_cycle_time_hours(item) if item
+      next if hours.blank?
+
+      { issue_id: issue.id, hours: hours }
+    end
+    delayed_issues = priority_issues - completed_on_time
+
+    [
+      {
+        priority_group: 'Urgent / Immediate',
+        total: priority_issues.size,
+        issue_ids: priority_issues.map(&:id),
+        completed_on_time: completed_on_time.size,
+        completed_on_time_issue_ids: completed_on_time.map(&:id),
+        delivery_rate: ratio(completed_on_time.size, priority_issues.size),
+        avg_cycle_hours: average_sprint_delivery_hours(completed_priority_items),
+        avg_cycle_issue_ids: completed_priority_items.map { |entry| entry[:issue_id] },
+        delayed: delayed_issues.size,
+        delayed_issue_ids: delayed_issues.map(&:id)
+      }
+    ]
+  end
+
+  def sprint_delivery_completed_on_time?(issue, item)
+    return false if item.blank? || issue.due_date.blank?
+    return false unless completed_sprint_status?(issue.status&.name)
+
+    terminal_time = terminal_time_for_periods(item[:durations][:periods] || [])
+    terminal_time.present? && terminal_time <= issue.due_date.end_of_day
+  end
+
+  def average_sprint_delivery_hours(entries)
+    hours = entries.map { |entry| entry[:hours].to_f }.select(&:positive?)
+    return if hours.empty?
+
+    hours.sum / hours.size
   end
 
   def sprint_delivery_owner_rows(sprint, issues)
