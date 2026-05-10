@@ -217,15 +217,19 @@
   </div>
 </div>
 
-<div class="tj-card tj-card-full tj-history-detail-heading">
-  <h3 class="tj-section-title">History Detail</h3>
-  <div class="tj-group-summary">
-    <span>Status changes: <strong><%= @status_change_count %></strong></span>
-    <span>Assignment changes: <strong><%= [@assignment_periods.size - 1, 0].max %></strong></span>
+<div class="tj-card tj-card-full tj-history-detail-card">
+  <div class="tj-section-header">
+    <div>
+      <h3 class="tj-section-title">History Detail</h3>
+      <div class="tj-group-summary">
+        <span>Status changes: <strong><%= @status_change_count %></strong></span>
+        <span>Assignment changes: <strong><%= [@assignment_periods.size - 1, 0].max %></strong></span>
+      </div>
+    </div>
   </div>
-</div>
 
-<div class="tj-card tj-card-full tj-section-card tj-status-detail-card is-collapsed" data-tj-section>
+  <div class="tj-history-detail-sections">
+    <div class="tj-card tj-card-full tj-section-card tj-status-detail-card is-collapsed" data-tj-section>
   <div class="tj-section-header">
     <div>
       <h3 class="tj-section-title">Status Time Detail</h3>
@@ -278,7 +282,7 @@
   </div>
 </div>
 
-<div class="tj-card tj-card-full tj-section-card tj-assignment-timeline-card is-collapsed" data-tj-section>
+    <div class="tj-card tj-card-full tj-section-card tj-assignment-timeline-card is-collapsed" data-tj-section>
   <div class="tj-section-header">
     <div>
       <h3 class="tj-section-title">Assignment Time Detail</h3>
@@ -317,6 +321,8 @@
         <% end %>
       </tbody>
     </table>
+  </div>
+</div>
   </div>
 </div>
 

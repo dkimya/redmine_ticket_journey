@@ -1247,14 +1247,20 @@
   margin-bottom: 16px;
 }
 
-.tj-history-detail-heading {
-  margin-bottom: 10px;
+.tj-history-detail-card {
+  margin-bottom: 16px;
   background: #fbfcfe;
+}
+
+.tj-history-detail-sections {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
 }
 
 .tj-status-detail-card,
 .tj-assignment-timeline-card {
-  margin-bottom: 12px;
+  margin-bottom: 0;
 }
 
 .tj-history-summary-grid {
