@@ -313,7 +313,7 @@
 
 /* ── Main Table ── */
 .tj-table-wrap {
-  max-height: 72vh;
+  max-height: max(360px, calc(100vh - 260px));
   overflow: auto;
   border: 1px solid var(--tj-border);
   border-radius: var(--tj-radius);
