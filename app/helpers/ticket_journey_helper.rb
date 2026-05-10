@@ -1233,9 +1233,7 @@ module TicketJourneyHelper
     is_precycle = field[:counted_in_total] == false
 
     if is_precycle
-      next_field = fields[index + 1]
       classes << 'tj-precycle-col'
-      classes << 'tj-precycle-end' unless next_field && next_field[:counted_in_total] == false
     end
 
     classes.join(' ')
