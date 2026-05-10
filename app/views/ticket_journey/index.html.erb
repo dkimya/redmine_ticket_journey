@@ -146,7 +146,7 @@
       <% table_duration_totals = summed_fields.each_with_object({}) { |field, totals| totals[field[:key]] = items.sum { |item| item[:durations][field[:key]].to_f } } %>
       <% table_counter_totals = counters.each_with_object({}) { |counter, totals| totals[counter[:key]] = items.sum { |item| item[:durations][counter[:key]].to_i } } %>
 
-      <div class="tj-card tj-card-full tj-section-card" data-tj-section>
+      <div class="tj-card tj-card-full tj-section-card" data-tj-section data-tj-family-key="<%= family_key %>">
         <div class="tj-section-header">
           <div>
             <h3 class="tj-section-title"><%= section[:label] %></h3>
@@ -163,10 +163,16 @@
               <span>Calendar Sum: <strong><%= format_hours(table_duration_totals[:CALENDAR_TOTAL]) %></strong></span>
             </div>
           </div>
-          <button type="button" class="tj-section-toggle" data-tj-section-toggle aria-expanded="true">
-            <span class="tj-section-toggle-icon" aria-hidden="true">-</span>
-            <span data-tj-section-toggle-label>Collapse</span>
-          </button>
+          <div class="tj-section-actions">
+            <button type="button" class="tj-section-toggle tj-duration-detail-toggle" data-tj-duration-detail-toggle aria-pressed="false" title="Hide individual duration columns and keep summary columns visible">
+              <span class="tj-section-toggle-icon" aria-hidden="true">-</span>
+              <span data-tj-duration-detail-toggle-label>Hide details</span>
+            </button>
+            <button type="button" class="tj-section-toggle" data-tj-section-toggle aria-expanded="true">
+              <span class="tj-section-toggle-icon" aria-hidden="true">-</span>
+              <span data-tj-section-toggle-label>Collapse</span>
+            </button>
+          </div>
         </div>
 
         <% if counters.any? %>
@@ -195,7 +201,7 @@
                   <th class="tj-th-native"><%= query_sort_link(@query, column) %></th>
                 <% end %>
                 <% duration_fields.each_with_index do |field, index| %>
-                  <th class="<%= [duration_header_css_class(field), duration_group_css_class(field, duration_fields, index)].reject(&:blank?).join(' ') %>"><%= report_sort_link(@query, family_key, field[:key], field[:label], title: field[:desc]) %></th>
+                  <th class="<%= ['tj-duration-detail-col', duration_header_css_class(field), duration_group_css_class(field, duration_fields, index)].reject(&:blank?).join(' ') %>"><%= report_sort_link(@query, family_key, field[:key], field[:label], title: field[:desc]) %></th>
                 <% end %>
                 <th class="tj-th-peak"><%= report_sort_link(@query, family_key, :peak, 'Peak', title: 'Sort by the highest duration in this tracker family') %></th>
                 <th class="tj-th-total tj-cycle-total-end"><%= report_sort_link(@query, family_key, :TOTAL, 'Cycle Total', title: cycle_total_tooltip(family_key)) %></th>
@@ -236,7 +242,7 @@
                     <% end %>
                     <% duration_fields.each_with_index do |field, index| %>
                       <% value = durations[field[:key]].to_f %>
-                      <td class="<%= [duration_css_class(value, aug: field[:aug]), duration_group_css_class(field, duration_fields, index)].reject(&:blank?).join(' ') %>"><%= format_hours(value) %></td>
+                      <td class="<%= ['tj-duration-detail-col', duration_css_class(value, aug: field[:aug]), duration_group_css_class(field, duration_fields, index)].reject(&:blank?).join(' ') %>"><%= format_hours(value) %></td>
                     <% end %>
                     <td class="tj-td-peak"><%= peak_duration_label(durations, family_key) %></td>
                     <td class="tj-td-total tj-cycle-total-end"><%= format_hours(durations[:TOTAL]) %></td>
@@ -260,7 +266,7 @@
                 <% end %>
                 <% duration_fields.each_with_index do |field, index| %>
                   <% value = table_duration_totals[field[:key]].to_f %>
-                  <td class="<%= [duration_css_class(value, aug: field[:aug]), duration_group_css_class(field, duration_fields, index)].reject(&:blank?).join(' ') %>"><%= format_hours(value) %></td>
+                  <td class="<%= ['tj-duration-detail-col', duration_css_class(value, aug: field[:aug]), duration_group_css_class(field, duration_fields, index)].reject(&:blank?).join(' ') %>"><%= format_hours(value) %></td>
                 <% end %>
                 <td class="tj-td-peak">-</td>
                 <td class="tj-td-total tj-cycle-total-end"><%= format_hours(table_duration_totals[:TOTAL]) %></td>
@@ -299,6 +305,34 @@
         section.classList.toggle('is-collapsed', !nextExpanded);
         if (label) label.textContent = nextExpanded ? 'Collapse' : 'Expand';
         if (icon) icon.textContent = nextExpanded ? '-' : '+';
+      });
+    });
+
+    document.querySelectorAll('[data-tj-duration-detail-toggle]').forEach(function (button) {
+      if (button.dataset.tjDurationToggleBound === 'true') return;
+      button.dataset.tjDurationToggleBound = 'true';
+
+      var section = button.closest('[data-tj-section]');
+      var familyKey = section && section.dataset.tjFamilyKey ? section.dataset.tjFamilyKey : 'default';
+      var storageKey = 'ticketJourney.durationDetailsHidden.' + familyKey;
+      var label = button.querySelector('[data-tj-duration-detail-toggle-label]');
+      var icon = button.querySelector('.tj-section-toggle-icon');
+
+      function applyDurationDetailState(hidden) {
+        if (!section) return;
+        section.classList.toggle('is-duration-details-hidden', hidden);
+        button.setAttribute('aria-pressed', String(hidden));
+        button.setAttribute('title', hidden ? 'Show individual duration columns' : 'Hide individual duration columns and keep summary columns visible');
+        if (label) label.textContent = hidden ? 'Show details' : 'Hide details';
+        if (icon) icon.textContent = hidden ? '+' : '-';
+      }
+
+      applyDurationDetailState(localStorage.getItem(storageKey) === 'true');
+
+      button.addEventListener('click', function () {
+        var hidden = !section.classList.contains('is-duration-details-hidden');
+        localStorage.setItem(storageKey, String(hidden));
+        applyDurationDetailState(hidden);
       });
     });
   });

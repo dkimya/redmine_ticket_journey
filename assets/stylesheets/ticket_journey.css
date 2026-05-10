@@ -810,6 +810,12 @@
   gap: 16px;
   align-items: flex-start;
 }
+.tj-section-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
 .tj-section-toggle {
   display: inline-flex;
   align-items: center;
@@ -842,6 +848,12 @@
 }
 .tj-section-card.is-collapsed [data-tj-section-body] {
   display: none;
+}
+.tj-section-card.is-duration-details-hidden .tj-duration-detail-col {
+  display: none;
+}
+.tj-section-card.is-duration-details-hidden .tj-table {
+  min-width: 980px;
 }
 .tj-total-row td {
   background: #f3f6fa;
