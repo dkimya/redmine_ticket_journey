@@ -3012,8 +3012,9 @@ class TicketJourneyController < ApplicationController
       end
     end
 
-    status_rows = build_status_flow_rows(status_counts)
-    tracker_rows = build_flow_rows(tracker_counts)
+    period_days = flow_trend_period_days(snapshot_dates)
+    status_rows = build_status_flow_rows(status_counts, period_days)
+    tracker_rows = build_flow_rows(tracker_counts, period_days)
     summary = {
       issues: issues.size,
       snapshots: snapshot_dates.size,
@@ -3059,23 +3060,25 @@ class TicketJourneyController < ApplicationController
     value
   end
 
-  def build_flow_rows(counts_by_label)
+  def build_flow_rows(counts_by_label, period_days = nil)
     counts_by_label.map do |label, counts|
+      change = counts.last.to_i - counts.first.to_i
       {
         label: label,
         counts: counts,
-        change: counts.last.to_i - counts.first.to_i,
-        rate: flow_weekly_rate(counts.last.to_i - counts.first.to_i)
+        change: change,
+        rate: flow_weekly_rate(change, period_days)
       }
     end.sort_by { |row| [-row[:counts].last.to_i, row[:label].to_s.downcase] }
   end
 
-  def build_status_flow_rows(counts_by_label)
+  def build_status_flow_rows(counts_by_label, period_days = nil)
     rows_by_label = counts_by_label.transform_values do |counts|
+      change = counts.last.to_i - counts.first.to_i
       {
         counts: counts,
-        change: counts.last.to_i - counts.first.to_i,
-        rate: flow_weekly_rate(counts.last.to_i - counts.first.to_i)
+        change: change,
+        rate: flow_weekly_rate(change, period_days)
       }
     end
 
@@ -3137,8 +3140,20 @@ class TicketJourneyController < ApplicationController
     end.sort_by { |row| [-row[:count], row[:reason].to_s.downcase] }
   end
 
-  def flow_weekly_rate(change)
-    days = (@flow_end_date - @flow_start_date).to_f
+  def flow_trend_period_days(snapshot_dates)
+    return 0.0 if snapshot_dates.blank? || snapshot_dates.size < 2
+
+    (snapshot_dates.last - snapshot_dates.first).to_f
+  end
+
+  def flow_weekly_rate(change, period_days = nil)
+    days = if period_days.nil?
+             return 0.0 if @flow_start_date.blank? || @flow_end_date.blank?
+
+             (@flow_end_date - @flow_start_date).to_f
+           else
+             period_days.to_f
+           end
     return 0.0 if days <= 0
 
     change.to_f / (days / 7.0)
