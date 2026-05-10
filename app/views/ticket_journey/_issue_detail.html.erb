@@ -3,6 +3,7 @@
   supplemental_fields = supplemental_duration_fields_for_family(@tracker_family_key)
   calendar_total = calendar_total_field(@tracker_family_key)
   counters = counter_definitions(@tracker_family_key)
+  issue_total_returns = total_returns(@duration_data)
   max_val = (duration_fields + supplemental_fields + [calendar_total]).map { |field| @duration_data[field[:key]].to_f }.max
   max_val = 1 if max_val.to_f <= 0
   bar_colors = {
@@ -45,6 +46,10 @@
   <div class="tj-summary-card">
     <div class="tj-sc-label">Status Changes</div>
     <div class="tj-sc-value tj-sc-blue"><%= @status_change_count %></div>
+  </div>
+  <div class="tj-summary-card">
+    <div class="tj-sc-label">Total Returns</div>
+    <div class="tj-sc-value <%= issue_total_returns.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= issue_total_returns %></div>
   </div>
 </div>
 
