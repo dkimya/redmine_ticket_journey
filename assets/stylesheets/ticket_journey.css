@@ -1277,10 +1277,17 @@
 }
 
 .tj-history-panel-title {
-  margin-bottom: 12px;
+  margin-bottom: 4px;
   font-size: 12px;
   font-weight: 700;
   color: var(--tj-text);
+}
+
+.tj-history-panel-meta {
+  margin-bottom: 12px;
+  font-size: 11px;
+  color: var(--tj-text-dim);
+  font-family: 'Courier New', monospace;
 }
 
 .tj-history-chart-list {

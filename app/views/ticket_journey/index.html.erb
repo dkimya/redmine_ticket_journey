@@ -198,7 +198,7 @@
                   <th class="<%= [duration_header_css_class(field), duration_group_css_class(field, duration_fields, index)].reject(&:blank?).join(' ') %>"><%= report_sort_link(@query, family_key, field[:key], field[:label], title: field[:desc]) %></th>
                 <% end %>
                 <th class="tj-th-peak"><%= report_sort_link(@query, family_key, :peak, 'Peak', title: 'Sort by the highest duration in this tracker family') %></th>
-                <th class="tj-th-total tj-cycle-total-end"><%= report_sort_link(@query, family_key, :TOTAL, 'Cycle Total', title: 'Sort by cycle total') %></th>
+                <th class="tj-th-total tj-cycle-total-end"><%= report_sort_link(@query, family_key, :TOTAL, 'Cycle Total', title: cycle_total_tooltip(family_key)) %></th>
                 <% supplemental_fields.each do |field| %>
                   <th class="<%= duration_header_css_class(field) %> tj-supplemental-col"><%= report_sort_link(@query, family_key, field[:key], field[:label], title: field[:desc]) %></th>
                 <% end %>

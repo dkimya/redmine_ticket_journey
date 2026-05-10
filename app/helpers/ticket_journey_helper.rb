@@ -1136,6 +1136,21 @@ module TicketJourneyHelper
     { key: :PENDING, label: 'Pending', aug: false, desc: 'Paused Time (Pending)', css_class: 'tj-th-hold' }
   end
 
+  def cycle_total_tooltip(family_key = nil)
+    case family_key.to_sym
+    when :internal
+      'Active workflow total. Excludes D0, D0-aug, On-Hold, and Pending. Calendar Total includes them.'
+    when :task
+      'Active workflow total. Excludes DT0, On-Hold, and Pending. Calendar Total includes them.'
+    when :container
+      'Active workflow total. Excludes DP0, On-Hold, and Pending. Calendar Total includes them.'
+    when :customer_support
+      'Active workflow total. Excludes DC0, DC1, and On-Hold. Calendar Total includes them.'
+    else
+      'Active workflow total. Excludes planning/waiting and paused time. Calendar Total includes them.'
+    end
+  end
+
   def calendar_total_field(family_key = nil)
     desc =
       case family_key.to_sym

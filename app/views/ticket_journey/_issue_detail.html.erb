@@ -4,6 +4,7 @@
   calendar_total = calendar_total_field(@tracker_family_key)
   counters = counter_definitions(@tracker_family_key)
   issue_total_returns = total_returns(@duration_data)
+  assignment_change_count = [@assignment_periods.size - 1, 0].max
   max_val = (duration_fields + supplemental_fields + [calendar_total]).map { |field| @duration_data[field[:key]].to_f }.max
   max_val = 1 if max_val.to_f <= 0
   bar_colors = {
@@ -168,6 +169,7 @@
   <div class="tj-history-summary-grid" data-tj-section-body>
     <div class="tj-history-panel">
       <div class="tj-history-panel-title">Status Time Summary</div>
+      <div class="tj-history-panel-meta">Status changes: <strong><%= @status_change_count %></strong></div>
       <% if @status_time_summary.any? %>
         <div class="tj-history-chart-list">
           <% @status_time_summary.each_with_index do |row, index| %>
@@ -195,6 +197,7 @@
 
     <div class="tj-history-panel">
       <div class="tj-history-panel-title">Assignment Time Summary</div>
+      <div class="tj-history-panel-meta">Assignment changes: <strong><%= assignment_change_count %></strong></div>
       <% if @assignment_time_summary.any? %>
         <div class="tj-history-chart-list">
           <% @assignment_time_summary.each_with_index do |row, index| %>
@@ -226,10 +229,6 @@
   <div class="tj-section-header">
     <div>
       <h3 class="tj-section-title">History Detail</h3>
-      <div class="tj-group-summary">
-        <span>Status changes: <strong><%= @status_change_count %></strong></span>
-        <span>Assignment changes: <strong><%= [@assignment_periods.size - 1, 0].max %></strong></span>
-      </div>
     </div>
   </div>
 
@@ -292,7 +291,7 @@
     <div>
       <h3 class="tj-section-title">Assignment Time Detail</h3>
       <div class="tj-group-summary">
-        <span>Changes: <strong><%= [@assignment_periods.size - 1, 0].max %></strong></span>
+        <span>Changes: <strong><%= assignment_change_count %></strong></span>
         <span>Current: <strong><%= h(@issue.assigned_to&.name || 'Unassigned') %></strong></span>
       </div>
     </div>
