@@ -740,18 +740,19 @@
   position: sticky;
   top: 0;
   z-index: 3;
-  background: #f0f2f7;
   padding: 10px 10px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: .6px;
   white-space: nowrap;
   border-right: 1px solid var(--tj-border);
+  box-shadow: inset 0 -2px 0 var(--tj-border);
   text-align: center;
 }
-.tj-th-issue  { text-align: left; min-width: 70px; }
-.tj-th-title  { text-align: left; min-width: 180px; }
-.tj-th-status { min-width: 90px; }
+.tj-th-issue  { text-align: left; min-width: 70px; background: #f0f2f7; }
+.tj-th-title  { text-align: left; min-width: 180px; background: #f0f2f7; }
+.tj-th-status { min-width: 90px; background: #f0f2f7; }
+.tj-th-native { background: #f0f2f7; }
 .tj-th-peak   { color: var(--tj-accent); background: #fff8eb; min-width: 110px; }
 .tj-th-d      { color: var(--tj-blue); background: #f5f8fd; }
 .tj-th-aug    { color: var(--tj-orange); background: #fdf7f0; }
