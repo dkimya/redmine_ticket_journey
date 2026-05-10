@@ -313,7 +313,8 @@
 
 /* ── Main Table ── */
 .tj-table-wrap {
-  overflow-x: auto;
+  max-height: 72vh;
+  overflow: auto;
   border: 1px solid var(--tj-border);
   border-radius: var(--tj-radius);
   box-shadow: var(--tj-shadow);
