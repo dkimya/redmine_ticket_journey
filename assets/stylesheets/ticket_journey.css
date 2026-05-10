@@ -755,18 +755,19 @@
 .tj-th-counter { color: var(--tj-red); background: #fdf0f0; min-width: 42px; }
 .tj-summary-col {
   min-width: 92px;
-  border-left: 2px solid #b8c3d2 !important;
+  border-left: 1px solid #cfd8e6 !important;
+  font-weight: 700;
 }
 .tj-planning-summary-col {
-  background: #eaf2fb;
+  background: #dbeafe;
   color: var(--tj-blue);
 }
 .tj-paused-summary-col {
-  background: #eef2f7;
+  background: #e5eaf1;
   color: #4b5563;
 }
 .tj-return-summary-col {
-  background: #fde7e7;
+  background: #fbdada;
   color: var(--tj-red);
 }
 .tj-th-split {
@@ -797,7 +798,7 @@
   background: #f7f8fb;
 }
 .tj-cycle-total-end {
-  border-right: 2px solid #b8c3d2 !important;
+  border-right: 1px solid #cfd8e6 !important;
 }
 
 .tj-table td {
@@ -812,6 +813,9 @@
 .tj-row:hover td { background: #f7f9ff; }
 .tj-row:hover td.tj-precycle-col { background: #eaf2fb; }
 .tj-row:hover td.tj-supplemental-col { background: #eef2f7; }
+.tj-row:hover td.tj-planning-summary-col { background: #dbeafe; }
+.tj-row:hover td.tj-paused-summary-col { background: #e5eaf1; }
+.tj-row:hover td.tj-return-summary-col { background: #fbdada; }
 .tj-row:hover td.tj-td-total { background: #dff0e6; }
 .tj-group-row td {
   padding: 10px 12px;
