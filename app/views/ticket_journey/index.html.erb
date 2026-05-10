@@ -209,7 +209,7 @@
                   <% index = duration_fields.index(field) %>
                   <th class="<%= ['tj-planning-detail-col', duration_header_css_class(field), duration_group_css_class(field, duration_fields, index)].reject(&:blank?).join(' ') %>"><%= report_sort_link(@query, family_key, field[:key], field[:label], title: field[:desc]) %></th>
                 <% end %>
-                <th class="tj-th-total tj-summary-col tj-planning-summary-col">
+                <th class="tj-th-total tj-summary-col tj-planning-summary-col tj-group-boundary-right">
                   <button type="button" class="tj-column-group-toggle" data-tj-column-group-toggle="planning" aria-expanded="true" title="Show or hide planning detail columns">
                     Planning Total
                   </button>
@@ -233,12 +233,12 @@
                     Paused Total
                   </button>
                 </th>
-                <th class="<%= duration_header_css_class(calendar_total) %>"><%= report_sort_link(@query, family_key, :CALENDAR_TOTAL, calendar_total[:label], title: calendar_total[:desc]) %></th>
+                <th class="<%= duration_header_css_class(calendar_total) %> tj-group-boundary-right"><%= report_sort_link(@query, family_key, :CALENDAR_TOTAL, calendar_total[:label], title: calendar_total[:desc]) %></th>
                 <% if counters.any? %>
                   <% counters.each do |counter| %>
                     <th class="tj-th-counter tj-return-detail-col"><%= report_sort_link(@query, family_key, counter[:key], counter[:code], title: counter[:title]) %></th>
                   <% end %>
-                  <th class="tj-th-counter tj-summary-col tj-return-summary-col">
+                  <th class="tj-th-counter tj-summary-col tj-return-summary-col tj-group-boundary-right">
                     <button type="button" class="tj-column-group-toggle" data-tj-column-group-toggle="returns" aria-expanded="true" title="Show or hide return counter columns">
                       Total R
                     </button>
@@ -280,7 +280,7 @@
                       <% value = durations[field[:key]].to_f %>
                       <td class="<%= ['tj-planning-detail-col', duration_css_class(value, aug: field[:aug]), duration_group_css_class(field, duration_fields, index)].reject(&:blank?).join(' ') %>"><%= format_hours(value) %></td>
                     <% end %>
-                    <td class="tj-td-total tj-summary-col tj-planning-summary-col"><%= format_hours(row_planning_total) %></td>
+                    <td class="tj-td-total tj-summary-col tj-planning-summary-col tj-group-boundary-right"><%= format_hours(row_planning_total) %></td>
                     <% cycle_fields.each do |field| %>
                       <% index = duration_fields.index(field) %>
                       <% value = durations[field[:key]].to_f %>
@@ -293,13 +293,13 @@
                       <td class="<%= duration_css_class(value, aug: field[:aug]) %> tj-supplemental-col tj-paused-detail-col"><%= format_hours(value) %></td>
                     <% end %>
                     <td class="tj-td-total tj-summary-col tj-paused-summary-col"><%= format_hours(row_paused_total) %></td>
-                    <td class="tj-td-total"><%= format_hours(durations[:CALENDAR_TOTAL]) %></td>
+                    <td class="tj-td-total tj-group-boundary-right"><%= format_hours(durations[:CALENDAR_TOTAL]) %></td>
                     <% if counters.any? %>
                       <% counters.each do |counter| %>
                         <% count = durations[counter[:key]].to_i %>
                         <td class="<%= counter_css_class(count) %> tj-return-detail-col"><%= count > 0 ? count : '-' %></td>
                       <% end %>
-                      <td class="<%= counter_css_class(row_return_total) %> tj-summary-col tj-return-summary-col"><%= row_return_total.positive? ? row_return_total : '-' %></td>
+                      <td class="<%= counter_css_class(row_return_total) %> tj-summary-col tj-return-summary-col tj-group-boundary-right"><%= row_return_total.positive? ? row_return_total : '-' %></td>
                     <% end %>
                   </tr>
                 <% end %>
@@ -315,7 +315,7 @@
                   <% value = table_duration_totals[field[:key]].to_f %>
                   <td class="<%= ['tj-planning-detail-col', duration_css_class(value, aug: field[:aug]), duration_group_css_class(field, duration_fields, index)].reject(&:blank?).join(' ') %>"><%= format_hours(value) %></td>
                 <% end %>
-                <td class="tj-td-total tj-summary-col tj-planning-summary-col"><%= format_hours(table_planning_total) %></td>
+                <td class="tj-td-total tj-summary-col tj-planning-summary-col tj-group-boundary-right"><%= format_hours(table_planning_total) %></td>
                 <% cycle_fields.each do |field| %>
                   <% index = duration_fields.index(field) %>
                   <% value = table_duration_totals[field[:key]].to_f %>
@@ -328,13 +328,13 @@
                   <td class="<%= duration_css_class(value, aug: field[:aug]) %> tj-supplemental-col tj-paused-detail-col"><%= format_hours(value) %></td>
                 <% end %>
                 <td class="tj-td-total tj-summary-col tj-paused-summary-col"><%= format_hours(table_paused_total) %></td>
-                <td class="tj-td-total"><%= format_hours(table_duration_totals[:CALENDAR_TOTAL]) %></td>
+                <td class="tj-td-total tj-group-boundary-right"><%= format_hours(table_duration_totals[:CALENDAR_TOTAL]) %></td>
                 <% if counters.any? %>
                   <% counters.each do |counter| %>
                     <% count = table_counter_totals[counter[:key]].to_i %>
                     <td class="<%= counter_css_class(count) %> tj-return-detail-col"><%= count > 0 ? count : '-' %></td>
                   <% end %>
-                  <td class="<%= counter_css_class(table_return_total) %> tj-summary-col tj-return-summary-col"><%= table_return_total.positive? ? table_return_total : '-' %></td>
+                  <td class="<%= counter_css_class(table_return_total) %> tj-summary-col tj-return-summary-col tj-group-boundary-right"><%= table_return_total.positive? ? table_return_total : '-' %></td>
                 <% end %>
               </tr>
             </tbody>
