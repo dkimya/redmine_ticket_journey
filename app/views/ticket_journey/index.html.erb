@@ -138,6 +138,7 @@
       <% family_key = section[:family_key] %>
       <% items = section[:items] %>
       <% duration_fields = duration_fields_for_family(family_key) %>
+      <% planning_fields = duration_fields.select { |field| field[:counted_in_total] == false } %>
       <% supplemental_fields = supplemental_duration_fields_for_family(family_key) %>
       <% calendar_total = calendar_total_field(family_key) %>
       <% counters = counter_definitions(family_key) %>
@@ -145,6 +146,9 @@
       <% summed_fields = duration_fields + supplemental_fields + [calendar_total] + [{ key: :TOTAL }] %>
       <% table_duration_totals = summed_fields.each_with_object({}) { |field, totals| totals[field[:key]] = items.sum { |item| item[:durations][field[:key]].to_f } } %>
       <% table_counter_totals = counters.each_with_object({}) { |counter, totals| totals[counter[:key]] = items.sum { |item| item[:durations][counter[:key]].to_i } } %>
+      <% table_planning_total = planning_fields.sum { |field| table_duration_totals[field[:key]].to_f } %>
+      <% table_paused_total = supplemental_fields.sum { |field| table_duration_totals[field[:key]].to_f } %>
+      <% table_return_total = table_counter_totals.values.sum(&:to_i) %>
 
       <div class="tj-card tj-card-full tj-section-card" data-tj-section data-tj-family-key="<%= family_key %>">
         <div class="tj-section-header">
@@ -164,9 +168,9 @@
             </div>
           </div>
           <div class="tj-section-actions">
-            <button type="button" class="tj-section-toggle tj-duration-detail-toggle" data-tj-duration-detail-toggle aria-pressed="false" title="Hide individual duration columns and keep summary columns visible">
+            <button type="button" class="tj-section-toggle tj-duration-detail-toggle" data-tj-duration-detail-toggle aria-pressed="false" title="Hide grouped detail columns and keep summary columns visible">
               <span class="tj-section-toggle-icon" aria-hidden="true">-</span>
-              <span data-tj-duration-detail-toggle-label>Hide details</span>
+              <span data-tj-duration-detail-toggle-label>Compact view</span>
             </button>
             <button type="button" class="tj-section-toggle" data-tj-section-toggle aria-expanded="true">
               <span class="tj-section-toggle-icon" aria-hidden="true">-</span>
@@ -200,17 +204,40 @@
                 <% native_columns.each do |column| %>
                   <th class="tj-th-native"><%= query_sort_link(@query, column) %></th>
                 <% end %>
+                <th class="tj-th-total tj-summary-col tj-planning-summary-col">
+                  <button type="button" class="tj-column-group-toggle" data-tj-column-group-toggle="planning" aria-expanded="true" title="Show or hide planning detail columns">
+                    Planning Total
+                  </button>
+                </th>
                 <% duration_fields.each_with_index do |field, index| %>
-                  <th class="<%= ['tj-duration-detail-col', duration_header_css_class(field), duration_group_css_class(field, duration_fields, index)].reject(&:blank?).join(' ') %>"><%= report_sort_link(@query, family_key, field[:key], field[:label], title: field[:desc]) %></th>
+                  <% column_group_class = field[:counted_in_total] == false ? 'tj-planning-detail-col' : 'tj-cycle-detail-col' %>
+                  <th class="<%= [column_group_class, duration_header_css_class(field), duration_group_css_class(field, duration_fields, index)].reject(&:blank?).join(' ') %>"><%= report_sort_link(@query, family_key, field[:key], field[:label], title: field[:desc]) %></th>
                 <% end %>
                 <th class="tj-th-peak"><%= report_sort_link(@query, family_key, :peak, 'Peak', title: 'Sort by the highest duration in this tracker family') %></th>
-                <th class="tj-th-total tj-cycle-total-end"><%= report_sort_link(@query, family_key, :TOTAL, 'Cycle Total', title: cycle_total_tooltip(family_key)) %></th>
+                <th class="tj-th-total tj-cycle-total-end">
+                  <div class="tj-th-split">
+                    <%= report_sort_link(@query, family_key, :TOTAL, 'Cycle Total', title: cycle_total_tooltip(family_key)) %>
+                    <button type="button" class="tj-column-group-toggle" data-tj-column-group-toggle="cycle" aria-expanded="true" title="Show or hide cycle detail columns">Details</button>
+                  </div>
+                </th>
+                <th class="tj-th-hold tj-summary-col tj-paused-summary-col">
+                  <button type="button" class="tj-column-group-toggle" data-tj-column-group-toggle="paused" aria-expanded="true" title="Show or hide paused time columns">
+                    Paused Total
+                  </button>
+                </th>
                 <% supplemental_fields.each do |field| %>
-                  <th class="<%= duration_header_css_class(field) %> tj-supplemental-col"><%= report_sort_link(@query, family_key, field[:key], field[:label], title: field[:desc]) %></th>
+                  <th class="<%= duration_header_css_class(field) %> tj-supplemental-col tj-paused-detail-col"><%= report_sort_link(@query, family_key, field[:key], field[:label], title: field[:desc]) %></th>
                 <% end %>
                 <th class="<%= duration_header_css_class(calendar_total) %>"><%= report_sort_link(@query, family_key, :CALENDAR_TOTAL, calendar_total[:label], title: calendar_total[:desc]) %></th>
-                <% counters.each do |counter| %>
-                  <th class="tj-th-counter"><%= report_sort_link(@query, family_key, counter[:key], counter[:code], title: counter[:title]) %></th>
+                <% if counters.any? %>
+                  <th class="tj-th-counter tj-summary-col tj-return-summary-col">
+                    <button type="button" class="tj-column-group-toggle" data-tj-column-group-toggle="returns" aria-expanded="true" title="Show or hide return counter columns">
+                      Total R
+                    </button>
+                  </th>
+                  <% counters.each do |counter| %>
+                    <th class="tj-th-counter tj-return-detail-col"><%= report_sort_link(@query, family_key, counter[:key], counter[:code], title: counter[:title]) %></th>
+                  <% end %>
                 <% end %>
               </tr>
             </thead>
@@ -234,26 +261,35 @@
                 <% grouped_items.each do |item| %>
                   <% issue = item[:issue] %>
                   <% durations = item[:durations] %>
+                  <% row_planning_total = planning_fields.sum { |field| durations[field[:key]].to_f } %>
+                  <% row_paused_total = supplemental_fields.sum { |field| durations[field[:key]].to_f } %>
+                  <% row_return_total = total_returns(durations) %>
                   <tr class="tj-row">
                     <td class="tj-td-issue"><%= link_to "##{issue.id}", issue_path(issue), class: 'tj-issue-link' %></td>
                     <td class="tj-td-title" title="<%= h(issue.subject) %>"><%= link_to h(issue.subject), ticket_journey_path(@project, issue_detail_params(@query, issue)), class: 'tj-subject-link' %></td>
                     <% native_columns.each do |column| %>
                       <td class="tj-td-native"><%= column_content(column, issue) %></td>
                     <% end %>
+                    <td class="tj-td-total tj-summary-col tj-planning-summary-col"><%= format_hours(row_planning_total) %></td>
                     <% duration_fields.each_with_index do |field, index| %>
                       <% value = durations[field[:key]].to_f %>
-                      <td class="<%= ['tj-duration-detail-col', duration_css_class(value, aug: field[:aug]), duration_group_css_class(field, duration_fields, index)].reject(&:blank?).join(' ') %>"><%= format_hours(value) %></td>
+                      <% column_group_class = field[:counted_in_total] == false ? 'tj-planning-detail-col' : 'tj-cycle-detail-col' %>
+                      <td class="<%= [column_group_class, duration_css_class(value, aug: field[:aug]), duration_group_css_class(field, duration_fields, index)].reject(&:blank?).join(' ') %>"><%= format_hours(value) %></td>
                     <% end %>
                     <td class="tj-td-peak"><%= peak_duration_label(durations, family_key) %></td>
                     <td class="tj-td-total tj-cycle-total-end"><%= format_hours(durations[:TOTAL]) %></td>
+                    <td class="tj-td-total tj-summary-col tj-paused-summary-col"><%= format_hours(row_paused_total) %></td>
                     <% supplemental_fields.each do |field| %>
                       <% value = durations[field[:key]].to_f %>
-                      <td class="<%= duration_css_class(value, aug: field[:aug]) %> tj-supplemental-col"><%= format_hours(value) %></td>
+                      <td class="<%= duration_css_class(value, aug: field[:aug]) %> tj-supplemental-col tj-paused-detail-col"><%= format_hours(value) %></td>
                     <% end %>
                     <td class="tj-td-total"><%= format_hours(durations[:CALENDAR_TOTAL]) %></td>
-                    <% counters.each do |counter| %>
-                      <% count = durations[counter[:key]].to_i %>
-                      <td class="<%= counter_css_class(count) %>"><%= count > 0 ? count : '-' %></td>
+                    <% if counters.any? %>
+                      <td class="<%= counter_css_class(row_return_total) %> tj-summary-col tj-return-summary-col"><%= row_return_total.positive? ? row_return_total : '-' %></td>
+                      <% counters.each do |counter| %>
+                        <% count = durations[counter[:key]].to_i %>
+                        <td class="<%= counter_css_class(count) %> tj-return-detail-col"><%= count > 0 ? count : '-' %></td>
+                      <% end %>
                     <% end %>
                   </tr>
                 <% end %>
@@ -264,20 +300,26 @@
                 <% native_columns.each do |_column| %>
                   <td class="tj-td-native">-</td>
                 <% end %>
+                <td class="tj-td-total tj-summary-col tj-planning-summary-col"><%= format_hours(table_planning_total) %></td>
                 <% duration_fields.each_with_index do |field, index| %>
                   <% value = table_duration_totals[field[:key]].to_f %>
-                  <td class="<%= ['tj-duration-detail-col', duration_css_class(value, aug: field[:aug]), duration_group_css_class(field, duration_fields, index)].reject(&:blank?).join(' ') %>"><%= format_hours(value) %></td>
+                  <% column_group_class = field[:counted_in_total] == false ? 'tj-planning-detail-col' : 'tj-cycle-detail-col' %>
+                  <td class="<%= [column_group_class, duration_css_class(value, aug: field[:aug]), duration_group_css_class(field, duration_fields, index)].reject(&:blank?).join(' ') %>"><%= format_hours(value) %></td>
                 <% end %>
                 <td class="tj-td-peak">-</td>
                 <td class="tj-td-total tj-cycle-total-end"><%= format_hours(table_duration_totals[:TOTAL]) %></td>
+                <td class="tj-td-total tj-summary-col tj-paused-summary-col"><%= format_hours(table_paused_total) %></td>
                 <% supplemental_fields.each do |field| %>
                   <% value = table_duration_totals[field[:key]].to_f %>
-                  <td class="<%= duration_css_class(value, aug: field[:aug]) %> tj-supplemental-col"><%= format_hours(value) %></td>
+                  <td class="<%= duration_css_class(value, aug: field[:aug]) %> tj-supplemental-col tj-paused-detail-col"><%= format_hours(value) %></td>
                 <% end %>
                 <td class="tj-td-total"><%= format_hours(table_duration_totals[:CALENDAR_TOTAL]) %></td>
-                <% counters.each do |counter| %>
-                  <% count = table_counter_totals[counter[:key]].to_i %>
-                  <td class="<%= counter_css_class(count) %>"><%= count > 0 ? count : '-' %></td>
+                <% if counters.any? %>
+                  <td class="<%= counter_css_class(table_return_total) %> tj-summary-col tj-return-summary-col"><%= table_return_total.positive? ? table_return_total : '-' %></td>
+                  <% counters.each do |counter| %>
+                    <% count = table_counter_totals[counter[:key]].to_i %>
+                    <td class="<%= counter_css_class(count) %> tj-return-detail-col"><%= count > 0 ? count : '-' %></td>
+                  <% end %>
                 <% end %>
               </tr>
             </tbody>
@@ -314,25 +356,67 @@
 
       var section = button.closest('[data-tj-section]');
       var familyKey = section && section.dataset.tjFamilyKey ? section.dataset.tjFamilyKey : 'default';
-      var storageKey = 'ticketJourney.durationDetailsHidden.' + familyKey;
+      var groupButtons = section ? Array.prototype.slice.call(section.querySelectorAll('[data-tj-column-group-toggle]')) : [];
+      var groups = groupButtons.map(function (groupButton) { return groupButton.dataset.tjColumnGroupToggle; });
       var label = button.querySelector('[data-tj-duration-detail-toggle-label]');
       var icon = button.querySelector('.tj-section-toggle-icon');
 
-      function applyDurationDetailState(hidden) {
-        if (!section) return;
-        section.classList.toggle('is-duration-details-hidden', hidden);
-        button.setAttribute('aria-pressed', String(hidden));
-        button.setAttribute('title', hidden ? 'Show individual duration columns' : 'Hide individual duration columns and keep summary columns visible');
-        if (label) label.textContent = hidden ? 'Show details' : 'Hide details';
-        if (icon) icon.textContent = hidden ? '+' : '-';
+      function groupHiddenClass(group) {
+        return 'is-' + group + '-details-hidden';
       }
 
-      applyDurationDetailState(localStorage.getItem(storageKey) === 'true');
+      function groupStorageKey(group) {
+        return 'ticketJourney.durationGroupHidden.' + familyKey + '.' + group;
+      }
+
+      function isGroupHidden(group) {
+        return section.classList.contains(groupHiddenClass(group));
+      }
+
+      function setGroupHidden(group, hidden) {
+        if (!section) return;
+        section.classList.toggle(groupHiddenClass(group), hidden);
+        localStorage.setItem(groupStorageKey(group), String(hidden));
+
+        groupButtons.filter(function (groupButton) {
+          return groupButton.dataset.tjColumnGroupToggle === group;
+        }).forEach(function (groupButton) {
+          groupButton.setAttribute('aria-expanded', String(!hidden));
+          groupButton.classList.toggle('is-collapsed', hidden);
+        });
+      }
+
+      function updateCompactButton() {
+        var allHidden = groups.length > 0 && groups.every(isGroupHidden);
+        if (section) section.classList.toggle('is-compact-duration-view', allHidden);
+        button.setAttribute('aria-pressed', String(allHidden));
+        button.setAttribute('title', allHidden ? 'Show all grouped detail columns' : 'Hide grouped detail columns and keep summary columns visible');
+        if (label) label.textContent = allHidden ? 'Show all details' : 'Compact view';
+        if (icon) icon.textContent = allHidden ? '+' : '-';
+      }
+
+      groups.forEach(function (group) {
+        setGroupHidden(group, localStorage.getItem(groupStorageKey(group)) === 'true');
+      });
+      updateCompactButton();
+
+      groupButtons.forEach(function (groupButton) {
+        if (groupButton.dataset.tjColumnToggleBound === 'true') return;
+        groupButton.dataset.tjColumnToggleBound = 'true';
+
+        groupButton.addEventListener('click', function () {
+          var group = groupButton.dataset.tjColumnGroupToggle;
+          setGroupHidden(group, !isGroupHidden(group));
+          updateCompactButton();
+        });
+      });
 
       button.addEventListener('click', function () {
-        var hidden = !section.classList.contains('is-duration-details-hidden');
-        localStorage.setItem(storageKey, String(hidden));
-        applyDurationDetailState(hidden);
+        var allHidden = groups.length > 0 && groups.every(isGroupHidden);
+        groups.forEach(function (group) {
+          setGroupHidden(group, !allHidden);
+        });
+        updateCompactButton();
       });
     });
   });

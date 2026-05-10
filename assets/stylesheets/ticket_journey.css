@@ -753,6 +753,43 @@
 .tj-th-hold   { color: #4b5563; background: #eef2f7; min-width: 84px; }
 .tj-th-total  { color: var(--tj-green); background: #f0faf3; }
 .tj-th-counter { color: var(--tj-red); background: #fdf0f0; min-width: 42px; }
+.tj-summary-col {
+  min-width: 92px;
+  border-left: 2px solid #b8c3d2 !important;
+}
+.tj-planning-summary-col {
+  background: #eaf2fb;
+  color: var(--tj-blue);
+}
+.tj-paused-summary-col {
+  background: #eef2f7;
+  color: #4b5563;
+}
+.tj-return-summary-col {
+  background: #fde7e7;
+  color: var(--tj-red);
+}
+.tj-th-split {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.tj-column-group-toggle {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 0;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+.tj-column-group-toggle:hover,
+.tj-column-group-toggle.is-collapsed {
+  color: var(--tj-orange);
+}
 .tj-precycle-col {
   background: #f1f6fb;
 }
@@ -849,10 +886,13 @@
 .tj-section-card.is-collapsed [data-tj-section-body] {
   display: none;
 }
-.tj-section-card.is-duration-details-hidden .tj-duration-detail-col {
+.tj-section-card.is-planning-details-hidden .tj-planning-detail-col,
+.tj-section-card.is-cycle-details-hidden .tj-cycle-detail-col,
+.tj-section-card.is-paused-details-hidden .tj-paused-detail-col,
+.tj-section-card.is-returns-details-hidden .tj-return-detail-col {
   display: none;
 }
-.tj-section-card.is-duration-details-hidden .tj-table {
+.tj-section-card.is-compact-duration-view .tj-table {
   min-width: 980px;
 }
 .tj-total-row td {

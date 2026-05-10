@@ -1216,7 +1216,10 @@ module TicketJourneyHelper
   end
 
   def section_table_column_count(query, family_key)
-    5 + visible_native_query_columns(query).size + duration_fields_for_family(family_key).size + supplemental_duration_fields_for_family(family_key).size + counter_definitions(family_key).size
+    summary_column_count = 2
+    summary_column_count += 1 if counter_definitions(family_key).any?
+
+    5 + summary_column_count + visible_native_query_columns(query).size + duration_fields_for_family(family_key).size + supplemental_duration_fields_for_family(family_key).size + counter_definitions(family_key).size
   end
 
   def duration_header_css_class(field)
