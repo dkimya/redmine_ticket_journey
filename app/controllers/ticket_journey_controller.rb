@@ -121,7 +121,7 @@ class TicketJourneyController < ApplicationController
     build_query_from(sprint_delivery_query_params)
     @sprint_options = sprint_delivery_sprints
     @selected_sprint = selected_sprint(@sprint_options)
-    @sprint_delivery_report = compute_sprint_delivery_report(@selected_sprint)
+    @sprint_delivery_report = safe_compute_sprint_delivery_report(@selected_sprint, context: 'Sprint Delivery')
   end
 
   # ---------------------------------------------------------------
@@ -331,6 +331,13 @@ class TicketJourneyController < ApplicationController
       trend_dates: trend_data[:dates],
       trend_summary: trend_data[:summary]
     )
+  end
+
+  def safe_compute_sprint_delivery_report(sprint, context: 'Sprint Delivery')
+    compute_sprint_delivery_report(sprint)
+  rescue StandardError => e
+    Rails.logger.warn("[TicketJourney] #{context} sprint summary skipped: #{e.class} - #{e.message}")
+    empty_sprint_delivery_report(sprint)
   end
 
   def compute_planning_estimation_report(sprint)
@@ -1039,14 +1046,7 @@ class TicketJourneyController < ApplicationController
     bug_rows, bug_totals, = compute_bug_analysis_report(bug_start_date, bug_end_date)
 
     sprint = pmo_current_sprint
-    sprint_report = if sprint
-                      begin
-                        compute_sprint_delivery_report(sprint)
-                      rescue StandardError => e
-                        Rails.logger.warn("[TicketJourney] PMO Control sprint summary skipped: #{e.class} - #{e.message}")
-                        empty_sprint_delivery_report(sprint)
-                      end
-                    end
+    sprint_report = sprint ? safe_compute_sprint_delivery_report(sprint, context: 'PMO Control') : nil
     sprint_totals = sprint_report ? sprint_report[:totals] : {}
 
     open_issues = @query&.valid? ? @query.issues(include: [:status, :tracker, :priority, { custom_values: :custom_field }]).to_a : []
