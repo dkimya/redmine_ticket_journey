@@ -4,6 +4,7 @@
   calendar_total = calendar_total_field(@tracker_family_key)
   counters = counter_definitions(@tracker_family_key)
   issue_total_returns = total_returns(@duration_data)
+  issue_total_augmented_time = total_augmented_time(@duration_data, @tracker_family_key)
   assignment_change_count = [@assignment_periods.size - 1, 0].max
   max_val = (duration_fields + supplemental_fields + [calendar_total]).map { |field| @duration_data[field[:key]].to_f }.max
   max_val = 1 if max_val.to_f <= 0
@@ -51,6 +52,10 @@
   <div class="tj-summary-card">
     <div class="tj-sc-label">Total Returns</div>
     <div class="tj-sc-value <%= issue_total_returns.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= issue_total_returns %></div>
+  </div>
+  <div class="tj-summary-card">
+    <div class="tj-sc-label">Total Augmented Time</div>
+    <div class="tj-sc-value <%= issue_total_augmented_time.positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= format_hours(issue_total_augmented_time) %></div>
   </div>
 </div>
 

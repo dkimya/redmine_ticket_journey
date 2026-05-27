@@ -1124,6 +1124,10 @@ module TicketJourneyHelper
     %i[C1 C2 C3 C4].sum { |key| durations[key].to_i }
   end
 
+  def total_augmented_time(durations, family_key)
+    duration_fields_for_family(family_key).select { |field| field[:aug] }.sum { |field| durations[field[:key]].to_f }
+  end
+
   def counter_definitions(family_key = :internal)
     case family_key.to_sym
     when :task
