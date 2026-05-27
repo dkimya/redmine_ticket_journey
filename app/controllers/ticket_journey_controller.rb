@@ -57,7 +57,7 @@ class TicketJourneyController < ApplicationController
     },
     container: {
       label: 'Container Trackers',
-      tracker_names: ['Phase', 'Milestone', 'Milestones', 'Epic', 'Sprint']
+      tracker_names: ['Phase', 'Milestone', 'Milestones', 'Epic', 'EPIC / SDLC', 'Sprint', 'User Story']
     }
   }.freeze
   FAMILY_DURATION_KEYS = {
