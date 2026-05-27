@@ -53,31 +53,31 @@
   support_sections = {
     pmo_control: {
       label: 'PMO Control',
-      keys: [:project_health, :release_readiness, :aging_risk, :priority_risk, :issue_detail]
+      keys: [:pmo_control, :project_health, :release_readiness, :aging_risk, :priority_risk, :issue_detail]
     },
     sprint_delivery: {
       label: 'Sprint Delivery',
-      keys: [:duration, :cycle_distribution, :flow_report, :priority_risk, :issue_detail]
+      keys: [:sprint_delivery, :duration, :cycle_distribution, :flow_report, :priority_risk, :issue_detail]
     },
     owner_returns: {
       label: 'Team / Ticket Owner Performance',
-      keys: [:owner_workload, :duration, :issue_detail]
+      keys: [:owner_returns, :owner_workload, :duration, :issue_detail]
     },
     qa_returns: {
       label: 'QA & Returns',
-      keys: [:flow_report, :issue_detail]
+      keys: [:qa_returns, :flow_report, :issue_detail]
     },
     bug_analysis: {
       label: 'Bug Control',
-      keys: [:aging_risk, :priority_risk, :release_readiness, :issue_detail]
+      keys: [:bug_analysis, :aging_risk, :priority_risk, :release_readiness, :issue_detail]
     },
     planning_estimation: {
       label: 'Planning & Estimation',
-      keys: [:duration, :owner_workload, :issue_detail]
+      keys: [:planning_estimation, :duration, :owner_workload, :issue_detail]
     },
     data_quality: {
       label: 'Ticket Quality & Data Discipline',
-      keys: [:issue_detail]
+      keys: [:data_quality, :issue_detail]
     }
   }
 
@@ -120,7 +120,7 @@
     </div>
   </div>
   <div class="tj-report-tab-group">
-    <div class="tj-report-tab-group-title">Related Supporting Views - <%= active_support_section[:label] %></div>
+    <div class="tj-report-tab-group-title"><%= active_support_section[:label] %> Views</div>
     <div class="tj-report-tab-row">
       <% active_support_section[:keys].each do |tab_key| %>
         <% label, path = tabs_by_key.fetch(tab_key) %>
