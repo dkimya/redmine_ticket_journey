@@ -66,13 +66,14 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  margin: -2px 0 10px;
+  margin: 0 0 6px;
   color: var(--tj-text-muted);
-  font-size: 12px;
-  font-weight: 650;
+  font-size: 11px;
+  font-weight: 600;
 }
 .tj-dashboard-breadcrumb strong {
   color: var(--tj-text);
+  font-weight: 700;
 }
 .tj-dashboard-breadcrumb-separator {
   color: var(--tj-text-dim);
