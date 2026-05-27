@@ -97,7 +97,7 @@
         <% max_field_count = @data_quality_report[:field_rows].map { |row| row[:count].to_i }.max.to_i %>
         <% @data_quality_report[:field_rows].each do |row| %>
           <% width = max_field_count.positive? ? ((row[:count].to_f / max_field_count) * 100).round : 0 %>
-          <%= link_to project_issues_path(@project, data_quality_issue_filter_params(nil, row[:scope])),
+          <%= link_to project_issues_path(@project, data_quality_issue_filter_params(row, row[:scope])),
                 class: 'tj-workload-bar-row tj-data-quality-bar-row',
                 title: "Open issues: #{row[:label]}" do %>
             <span class="tj-workload-bar-label"><%= h(row[:label]) %></span>

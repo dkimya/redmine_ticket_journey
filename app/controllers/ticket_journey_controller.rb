@@ -2460,7 +2460,7 @@ class TicketJourneyController < ApplicationController
       stale_days: @data_quality_stale_days,
       totals: totals,
       project_rows: sort_data_quality_rows(project_rows),
-      field_rows: data_quality_field_rows(totals),
+      field_rows: data_quality_field_rows(totals, issue_rows),
       stale_rows: issue_rows.select { |row| row[:without_updates] }.sort_by { |row| [-row[:days_since_update].to_i, row[:project_name].to_s.downcase, row[:issue_id].to_i] }.first(150),
       missing_rows: issue_rows.select { |row| row[:missing_fields].any? }.sort_by { |row| [-row[:missing_fields].size, -row[:days_since_update].to_i, row[:project_name].to_s.downcase, row[:issue_id].to_i] }.first(150)
     }
@@ -2587,6 +2587,7 @@ class TicketJourneyController < ApplicationController
       missing_estimation_percent: ratio(rows.count { |row| row[:missing_estimation] }, total_active),
       missing_sprint: rows.count { |row| row[:missing_sprint] },
       missing_sprint_percent: ratio(rows.count { |row| row[:missing_sprint] }, total_active),
+      missing_sprint_issue_ids: data_quality_issue_ids(rows, :missing_sprint),
       time_logging_complete: time_logging_complete,
       time_logging_completeness_percent: ratio(time_logging_complete, total_active),
       reliability_status: reliability_status,
@@ -2602,7 +2603,7 @@ class TicketJourneyController < ApplicationController
     ['Risk', 2]
   end
 
-  def data_quality_field_rows(totals)
+  def data_quality_field_rows(totals, issue_rows = [])
     [
       { key: :missing_owner, label: 'Missing Owner', scope: :missing_owner },
       { key: :missing_start_date, label: 'Missing Start Date', scope: :missing_start_date },
@@ -2612,7 +2613,36 @@ class TicketJourneyController < ApplicationController
       { key: :missing_sprint, label: 'Missing Original Sprint', scope: :missing_sprint },
       { key: :tickets_without_updates, label: "No Update #{@data_quality_stale_days}d+", scope: :no_update }
     ].map do |field|
-      field.merge(count: totals[field[:key]].to_i, percent: ratio(totals[field[:key]].to_i, totals[:total_active]))
+      field.merge(
+        count: totals[field[:key]].to_i,
+        percent: ratio(totals[field[:key]].to_i, totals[:total_active]),
+        issue_ids: data_quality_issue_ids(issue_rows, field[:scope])
+      )
+    end
+  end
+
+  def data_quality_issue_ids(rows, scope)
+    rows.select { |row| data_quality_row_matches_scope?(row, scope) }.map { |row| row[:issue_id].to_i }.reject(&:zero?)
+  end
+
+  def data_quality_row_matches_scope?(row, scope)
+    case scope.to_sym
+    when :missing_owner
+      row[:missing_owner]
+    when :missing_start_date
+      row[:missing_start_date]
+    when :missing_due_date
+      row[:missing_due_date]
+    when :missing_estimation
+      row[:missing_estimation]
+    when :missing_priority
+      row[:missing_priority]
+    when :missing_sprint
+      row[:missing_sprint]
+    when :no_update
+      row[:without_updates]
+    else
+      false
     end
   end
 
