@@ -656,29 +656,23 @@ module TicketJourneyHelper
     filters = Array(query_params['f'] || query_params[:f]).map(&:to_s)
     operators = (query_params['op'] || query_params[:op] || {}).deep_dup.deep_stringify_keys
     values = (query_params['v'] || query_params[:v] || {}).deep_dup.deep_stringify_keys
-    issue_ids = Array(row && row[:issue_ids].presence || row && row["#{scope}_issue_ids".to_sym]).map(&:to_i).reject(&:zero?)
 
-    if scope.to_sym == :missing_sprint && issue_ids.any?
-      replace_filter(filters, operators, values, 'issue_id')
-      add_exact_filter(filters, operators, values, 'issue_id', issue_ids)
-    else
-      case scope.to_sym
-      when :missing_owner
-        add_missing_data_filter(filters, operators, values, "cf_#{TicketJourneyController::TICKET_OWNER_CF_ID}")
-      when :missing_start_date
-        add_missing_data_filter(filters, operators, values, 'start_date')
-      when :missing_due_date
-        add_missing_data_filter(filters, operators, values, 'due_date')
-      when :missing_estimation
-        add_missing_data_filter(filters, operators, values, 'estimated_hours')
-      when :missing_priority
-        add_missing_data_filter(filters, operators, values, 'priority_id')
-      when :missing_sprint
-        add_missing_data_filter(filters, operators, values, "cf_#{TicketJourneyController::TICKET_ORIGINAL_SPRINT_CF_ID}")
-      when :no_update
-        replace_filter(filters, operators, values, 'updated_on')
-        add_date_filter(filters, operators, values, 'updated_on', '<=', [User.current.today - (@data_quality_stale_days || TicketJourneyController::DATA_QUALITY_DEFAULT_STALE_DAYS)])
-      end
+    case scope.to_sym
+    when :missing_owner
+      add_missing_data_filter(filters, operators, values, "cf_#{TicketJourneyController::TICKET_OWNER_CF_ID}")
+    when :missing_start_date
+      add_missing_data_filter(filters, operators, values, 'start_date')
+    when :missing_due_date
+      add_missing_data_filter(filters, operators, values, 'due_date')
+    when :missing_estimation
+      add_missing_data_filter(filters, operators, values, 'estimated_hours')
+    when :missing_priority
+      add_missing_data_filter(filters, operators, values, 'priority_id')
+    when :missing_sprint
+      add_missing_data_filter(filters, operators, values, "cf_#{TicketJourneyController::TICKET_ORIGINAL_SPRINT_CF_ID}")
+    when :no_update
+      replace_filter(filters, operators, values, 'updated_on')
+      add_date_filter(filters, operators, values, 'updated_on', '<=', [User.current.today - (@data_quality_stale_days || TicketJourneyController::DATA_QUALITY_DEFAULT_STALE_DAYS)])
     end
 
     query_params['set_filter'] = '1'
@@ -689,12 +683,27 @@ module TicketJourneyHelper
     query_params
   end
 
+  def data_quality_drilldown_path(row, scope)
+    issue_ids = data_quality_drilldown_issue_ids(row, scope)
+    project = (row && row[:project]) || @project
+
+    if scope.to_sym == :missing_sprint && issue_ids.any?
+      ticket_journey_path(project, duration_report_drilldown_params(@query, issue_ids).merge('support_section' => 'data_quality'))
+    else
+      project_issues_path(project, data_quality_issue_filter_params(row, scope))
+    end
+  end
+
+  def data_quality_drilldown_issue_ids(row, scope)
+    Array(row && (row[:issue_ids].presence || row["#{scope}_issue_ids".to_sym])).map(&:to_i).reject(&:zero?).uniq
+  end
+
   def data_quality_count_link(row, scope, value)
     return '-' if value.to_i.zero?
 
     link_to(
       value,
-      project_issues_path((row && row[:project]) || @project, data_quality_issue_filter_params(row, scope)),
+      data_quality_drilldown_path(row, scope),
       class: 'tj-drilldown-link',
       title: 'Open matching issues'
     )
