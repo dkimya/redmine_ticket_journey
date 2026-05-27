@@ -4,6 +4,23 @@ module TicketJourneyHelper
     support_section.present? ? { 'support_section' => support_section } : {}
   end
 
+  def ticket_journey_header_context_tag(default_section_key)
+    section_key = params[:support_section].to_s.presence || default_section_key
+    label = {
+      'pmo_control' => 'PMO Control',
+      'sprint_delivery' => 'Sprint Delivery',
+      'owner_returns' => 'Team / Ticket Owner Performance',
+      'qa_returns' => 'QA & Returns',
+      'bug_analysis' => 'Bug Control',
+      'planning_estimation' => 'Planning & Estimation',
+      'data_quality' => 'Ticket Quality & Data Discipline'
+    }[section_key.to_s]
+
+    return ''.html_safe if label.blank?
+
+    content_tag(:span, "#{label} / ", class: 'tj-page-title-context')
+  end
+
   def duration_report_params(query)
     query_params = query.as_params.deep_dup.deep_stringify_keys
 
