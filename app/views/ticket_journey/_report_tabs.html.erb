@@ -108,7 +108,13 @@
 
   active_support_section = support_sections.fetch(active_section_key)
   support_section_query = "support_section=#{active_section_key}"
+  active_view_label = tabs_by_key.fetch(active_tab, tabs_by_key.fetch(active_section_key)).first
 %>
+<div class="tj-dashboard-breadcrumb">
+  <span><%= active_support_section[:label] %></span>
+  <span class="tj-dashboard-breadcrumb-separator">/</span>
+  <strong><%= active_view_label %></strong>
+</div>
 <div class="tj-report-tabs">
   <div class="tj-report-tab-group">
     <div class="tj-report-tab-group-title">Main Dashboards</div>
