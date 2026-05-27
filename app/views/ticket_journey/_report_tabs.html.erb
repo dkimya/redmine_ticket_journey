@@ -21,41 +21,111 @@
     else
       issue_detail_tab_params(@query)
     end
-  main_dashboard_tabs = [
-    ['PMO Control', ticket_journey_pmo_control_path(@project, pmo_params), :pmo_control],
-    ['Sprint Delivery', ticket_journey_sprint_delivery_path(@project, sprint_params), :sprint_delivery],
-    ['Team / Ticket Owner Performance', ticket_journey_owner_returns_path(@project, owner_params), :owner_returns],
-    ['QA & Returns', ticket_journey_qa_returns_path(@project, qa_params), :qa_returns],
-    ['Bug Control', ticket_journey_bug_analysis_path(@project, bug_params), :bug_analysis],
-    ['Planning & Estimation', ticket_journey_planning_estimation_path(@project, planning_params), :planning_estimation],
-    ['Ticket Quality & Data Discipline', ticket_journey_data_quality_path(@project, data_quality_tab_params), :data_quality]
+  tabs_by_key = {
+    pmo_control: ['PMO Control', ticket_journey_pmo_control_path(@project, pmo_params)],
+    sprint_delivery: ['Sprint Delivery', ticket_journey_sprint_delivery_path(@project, sprint_params)],
+    owner_returns: ['Team / Ticket Owner Performance', ticket_journey_owner_returns_path(@project, owner_params)],
+    qa_returns: ['QA & Returns', ticket_journey_qa_returns_path(@project, qa_params)],
+    bug_analysis: ['Bug Control', ticket_journey_bug_analysis_path(@project, bug_params)],
+    planning_estimation: ['Planning & Estimation', ticket_journey_planning_estimation_path(@project, planning_params)],
+    data_quality: ['Ticket Quality & Data Discipline', ticket_journey_data_quality_path(@project, data_quality_tab_params)],
+    duration: ['Duration Report', ticket_journey_path(@project, duration_params)],
+    issue_detail: ['Issue Detail', ticket_journey_path(@project, detail_params)],
+    owner_workload: ['Owner Workload / Time Support', ticket_journey_owner_workload_path(@project, workload_params)],
+    aging_risk: ['Aging / SLA Risk', ticket_journey_aging_risk_path(@project, aging_params)],
+    priority_risk: ['Priority / SLA Risk', ticket_journey_priority_risk_path(@project, priority_params)],
+    cycle_distribution: ['Cycle Distribution', ticket_journey_cycle_distribution_path(@project, cycle_params)],
+    flow_report: ['Flow Report', ticket_journey_flow_report_path(@project, flow_params)],
+    project_health: ['Project Health', ticket_journey_project_health_path(@project, health_params)],
+    release_readiness: ['Release Readiness', ticket_journey_release_readiness_path(@project, release_params)]
+  }
+
+  main_dashboard_keys = [
+    :pmo_control,
+    :sprint_delivery,
+    :owner_returns,
+    :qa_returns,
+    :bug_analysis,
+    :planning_estimation,
+    :data_quality
   ]
-  supporting_tabs = [
-    ['Duration Report', ticket_journey_path(@project, duration_params), :duration],
-    ['Issue Detail', ticket_journey_path(@project, detail_params), :issue_detail],
-    ['Owner Workload / Time Support', ticket_journey_owner_workload_path(@project, workload_params), :owner_workload],
-    ['Aging / SLA Risk', ticket_journey_aging_risk_path(@project, aging_params), :aging_risk],
-    ['Priority / SLA Risk', ticket_journey_priority_risk_path(@project, priority_params), :priority_risk],
-    ['Cycle Distribution', ticket_journey_cycle_distribution_path(@project, cycle_params), :cycle_distribution],
-    ['Flow Report', ticket_journey_flow_report_path(@project, flow_params), :flow_report],
-    ['Project Health', ticket_journey_project_health_path(@project, health_params), :project_health],
-    ['Release Readiness', ticket_journey_release_readiness_path(@project, release_params), :release_readiness]
-  ]
+
+  support_sections = {
+    pmo_control: {
+      label: 'PMO Control',
+      keys: [:project_health, :release_readiness, :aging_risk, :priority_risk, :issue_detail]
+    },
+    sprint_delivery: {
+      label: 'Sprint Delivery',
+      keys: [:duration, :cycle_distribution, :flow_report, :priority_risk, :issue_detail]
+    },
+    owner_returns: {
+      label: 'Team / Ticket Owner Performance',
+      keys: [:owner_workload, :duration, :issue_detail]
+    },
+    qa_returns: {
+      label: 'QA & Returns',
+      keys: [:flow_report, :issue_detail]
+    },
+    bug_analysis: {
+      label: 'Bug Control',
+      keys: [:aging_risk, :priority_risk, :release_readiness, :issue_detail]
+    },
+    planning_estimation: {
+      label: 'Planning & Estimation',
+      keys: [:duration, :owner_workload, :issue_detail]
+    },
+    data_quality: {
+      label: 'Ticket Quality & Data Discipline',
+      keys: [:issue_detail]
+    }
+  }
+
+  requested_support_section = params[:support_section].to_s.presence&.to_sym
+  active_section_key =
+    if requested_support_section && support_sections.key?(requested_support_section)
+      requested_support_section
+    else
+      case active_tab
+      when :pmo_control, :project_health, :release_readiness, :aging_risk
+        :pmo_control
+      when :sprint_delivery, :duration, :cycle_distribution, :flow_report, :priority_risk
+        :sprint_delivery
+      when :owner_returns, :owner_workload
+        :owner_returns
+      when :qa_returns
+        :qa_returns
+      when :bug_analysis
+        :bug_analysis
+      when :planning_estimation
+        :planning_estimation
+      when :data_quality
+        :data_quality
+      else
+        :pmo_control
+      end
+    end
+
+  active_support_section = support_sections.fetch(active_section_key)
+  support_section_query = "support_section=#{active_section_key}"
 %>
 <div class="tj-report-tabs">
   <div class="tj-report-tab-group">
     <div class="tj-report-tab-group-title">Main Dashboards</div>
     <div class="tj-report-tab-row">
-      <% main_dashboard_tabs.each do |label, path, tab_key| %>
+      <% main_dashboard_keys.each do |tab_key| %>
+        <% label, path = tabs_by_key.fetch(tab_key) %>
         <%= link_to label, path, class: "tj-report-tab #{active_tab == tab_key ? 'is-active' : ''}" %>
       <% end %>
     </div>
   </div>
   <div class="tj-report-tab-group">
-    <div class="tj-report-tab-group-title">Supporting Views</div>
+    <div class="tj-report-tab-group-title">Related Supporting Views - <%= active_support_section[:label] %></div>
     <div class="tj-report-tab-row">
-      <% supporting_tabs.each do |label, path, tab_key| %>
-        <%= link_to label, path, class: "tj-report-tab tj-report-tab-support #{active_tab == tab_key ? 'is-active' : ''}" %>
+      <% active_support_section[:keys].each do |tab_key| %>
+        <% label, path = tabs_by_key.fetch(tab_key) %>
+        <% contextual_path = path.to_s.include?('?') ? "#{path}&#{support_section_query}" : "#{path}?#{support_section_query}" %>
+        <%= link_to label, contextual_path, class: "tj-report-tab tj-report-tab-support #{active_tab == tab_key ? 'is-active' : ''}" %>
       <% end %>
     </div>
   </div>
