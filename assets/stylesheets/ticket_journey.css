@@ -554,7 +554,7 @@
 .tj-data-quality-bars .tj-workload-bar-fill {
   background: linear-gradient(90deg, #f59e0b, #dc2626);
 }
-.tj-data-quality-detail-grid {
+.tj-detail-grid.tj-data-quality-detail-grid {
   grid-template-columns: minmax(0, 1fr);
 }
 .tj-data-quality-detail-table {

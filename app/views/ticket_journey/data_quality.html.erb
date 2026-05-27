@@ -208,7 +208,7 @@
                 <% @data_quality_report[:stale_rows].each do |row| %>
                   <tr class="tj-row">
                     <td class="tj-td-issue"><%= link_to "##{row[:issue_id]}", issue_path(row[:issue]), class: 'tj-issue-link' %></td>
-                    <td class="tj-td-title"><%= link_to row[:subject], issue_path(row[:issue]), class: 'tj-subject-link', title: row[:subject] %></td>
+                    <td class="tj-td-title"><%= link_to row[:subject], ticket_journey_path(@project, issue_detail_params(@query, row[:issue])), class: 'tj-subject-link', title: row[:subject] %></td>
                     <td class="tj-td-native"><%= h(row[:project_name]) %></td>
                     <td class="tj-td-native"><%= h(row[:owner]) %></td>
                     <td class="tj-td-native"><%= h(row[:status]) %></td>
@@ -246,7 +246,7 @@
                 <% @data_quality_report[:missing_rows].each do |row| %>
                   <tr class="tj-row">
                     <td class="tj-td-issue"><%= link_to "##{row[:issue_id]}", issue_path(row[:issue]), class: 'tj-issue-link' %></td>
-                    <td class="tj-td-title"><%= link_to row[:subject], issue_path(row[:issue]), class: 'tj-subject-link', title: row[:subject] %></td>
+                    <td class="tj-td-title"><%= link_to row[:subject], ticket_journey_path(@project, issue_detail_params(@query, row[:issue])), class: 'tj-subject-link', title: row[:subject] %></td>
                     <td class="tj-td-native"><%= h(row[:project_name]) %></td>
                     <td class="tj-td-native"><%= h(row[:owner]) %></td>
                     <td class="tj-td-native tj-data-missing-fields"><%= h(row[:missing_fields].join(', ')) %></td>
