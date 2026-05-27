@@ -261,17 +261,13 @@
         <div class="tj-tl-dot <%= dot_class %>"></div>
         <div class="tj-tl-content">
           <div class="tj-tl-header">
-            <% if transition[:from_status] %>
-              <span class="tj-tl-from"><%= h(transition[:from_status]) %></span>
-              <span class="tj-tl-arrow">-&gt;</span>
-            <% end %>
             <span class="tj-tl-to <%= is_return ? 'tj-tl-to-return' : '' %>"><%= h(transition[:to_status]) %></span>
             <span class="tj-tl-time"><%= format_time(transition[:changed_at]) %></span>
           </div>
           <div class="tj-tl-meta">
             by <strong><%= h(transition[:changed_by_name].presence || transition[:changed_by]) %></strong>
             <% if period_h %>
-              &nbsp;|&nbsp; spent: <span class="tj-tl-spent"><%= format_hours(period_h) %></span>
+              &nbsp;|&nbsp; Time in status: <span class="tj-tl-spent"><%= format_hours(period_h) %></span>
             <% end %>
           </div>
           <% if transition[:notes].present? %>
