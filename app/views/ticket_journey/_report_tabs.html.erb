@@ -115,7 +115,7 @@
     <div class="tj-report-tab-row">
       <% main_dashboard_keys.each do |tab_key| %>
         <% label, path = tabs_by_key.fetch(tab_key) %>
-        <%= link_to label, path, class: "tj-report-tab #{active_tab == tab_key ? 'is-active' : ''}" %>
+        <%= link_to label, path, class: "tj-report-tab #{active_section_key == tab_key ? 'is-active' : ''}" %>
       <% end %>
     </div>
   </div>

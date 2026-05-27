@@ -15,6 +15,7 @@
   <%= render partial: 'report_tabs', locals: { active_tab: :cycle_distribution } %>
 
   <%= form_tag(ticket_journey_cycle_distribution_path(@project), method: :get, id: 'query_form') do %>
+    <%= hidden_field_tag :support_section, params[:support_section] if params[:support_section].present? %>
     <%= render partial: 'queries/query_form' %>
 
     <div class="tj-filter-bar tj-owner-filter-bar">

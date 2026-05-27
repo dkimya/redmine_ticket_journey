@@ -29,6 +29,7 @@
       </div>
     <% end %>
     <%= form_tag(ticket_journey_path(@project), method: :get, id: 'query_form') do %>
+      <%= hidden_field_tag :support_section, params[:support_section] if params[:support_section].present? %>
       <% if params[:sprint_id].present? %>
         <%= hidden_field_tag :sprint_id, params[:sprint_id] %>
       <% end %>
@@ -83,6 +84,7 @@
     <div class="tj-card tj-card-full">
       <div class="tj-card-title">Issue Detail Search</div>
       <%= form_tag(ticket_journey_path(@project), method: :get, class: 'tj-detail-search-form') do %>
+        <%= hidden_field_tag :support_section, params[:support_section] if params[:support_section].present? %>
         <% duration_report_params(@query).except('issue_id', 'view').each do |key, value| %>
           <% if value.is_a?(Array) %>
             <% value.each do |item| %>

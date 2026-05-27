@@ -1,4 +1,9 @@
 module TicketJourneyHelper
+  def support_section_params
+    support_section = params[:support_section].to_s
+    support_section.present? ? { 'support_section' => support_section } : {}
+  end
+
   def duration_report_params(query)
     query_params = query.as_params.deep_dup.deep_stringify_keys
 
@@ -8,6 +13,7 @@ module TicketJourneyHelper
       query_params[key] = value if value.present?
     end
 
+    query_params.merge!(support_section_params)
     query_params
   end
 
@@ -170,11 +176,11 @@ module TicketJourneyHelper
     when :issues
       project_issues_path(@project, pmo_control_issue_filter_params(item[:scope]))
     when :aging_risk
-      ticket_journey_aging_risk_path(@project, aging_risk_params(@query))
+      ticket_journey_aging_risk_path(@project, aging_risk_params(@query).merge('support_section' => 'pmo_control'))
     when :priority_risk
-      ticket_journey_priority_risk_path(@project, priority_risk_params(@query))
+      ticket_journey_priority_risk_path(@project, priority_risk_params(@query).merge('support_section' => 'pmo_control'))
     when :release_readiness
-      ticket_journey_release_readiness_path(@project, release_readiness_params(@query))
+      ticket_journey_release_readiness_path(@project, release_readiness_params(@query).merge('support_section' => 'pmo_control'))
     when :bug_analysis
       ticket_journey_bug_analysis_path(@project, bug_analysis_params(@query))
     when :data_quality
@@ -184,7 +190,7 @@ module TicketJourneyHelper
     when :qa_returns
       ticket_journey_qa_returns_path(@project, duration_report_params(@query))
     else
-      ticket_journey_path(@project, duration_report_params(@query))
+      ticket_journey_path(@project, duration_report_params(@query).merge('support_section' => 'pmo_control'))
     end
   end
 
@@ -247,6 +253,7 @@ module TicketJourneyHelper
     query_params['f'] = filters
     query_params['op'] = operators
     query_params['v'] = values
+    query_params.merge!(support_section_params)
     query_params
   end
 
@@ -306,7 +313,7 @@ module TicketJourneyHelper
 
     link_to(
       "#{caption}#{indicator}",
-      ticket_journey_aging_risk_path(@project, aging_risk_params(query).merge('aging_sort' => sort_key.to_s, 'aging_dir' => next_dir)),
+      ticket_journey_aging_risk_path(@project, aging_risk_params(query).merge('aging_sort' => sort_key.to_s, 'aging_dir' => next_dir).merge(support_section_params)),
       title: title
     )
   end
@@ -340,7 +347,7 @@ module TicketJourneyHelper
 
     link_to(
       "#{caption}#{indicator}",
-      ticket_journey_priority_risk_path(@project, priority_risk_params(query).merge('priority_sort' => sort_key.to_s, 'priority_dir' => next_dir)),
+      ticket_journey_priority_risk_path(@project, priority_risk_params(query).merge('priority_sort' => sort_key.to_s, 'priority_dir' => next_dir).merge(support_section_params)),
       title: title
     )
   end
@@ -384,7 +391,7 @@ module TicketJourneyHelper
 
     link_to(
       "#{caption}#{indicator}",
-      ticket_journey_cycle_distribution_path(@project, cycle_distribution_params(query).merge('cycle_sort' => sort_key.to_s, 'cycle_dir' => next_dir)),
+      ticket_journey_cycle_distribution_path(@project, cycle_distribution_params(query).merge('cycle_sort' => sort_key.to_s, 'cycle_dir' => next_dir).merge(support_section_params)),
       title: title
     )
   end
@@ -433,7 +440,7 @@ module TicketJourneyHelper
 
     link_to(
       "#{caption}#{indicator}",
-      ticket_journey_release_readiness_path(@project, release_readiness_params(query).merge('release_sort' => sort_key.to_s, 'release_dir' => next_dir)),
+      ticket_journey_release_readiness_path(@project, release_readiness_params(query).merge('release_sort' => sort_key.to_s, 'release_dir' => next_dir).merge(support_section_params)),
       title: title
     )
   end
@@ -466,7 +473,7 @@ module TicketJourneyHelper
 
     link_to(
       "#{caption}#{indicator}",
-      ticket_journey_bug_analysis_path(@project, bug_analysis_params(query).merge('bug_sort' => sort_key.to_s, 'bug_dir' => next_dir)),
+      ticket_journey_bug_analysis_path(@project, bug_analysis_params(query).merge('bug_sort' => sort_key.to_s, 'bug_dir' => next_dir).merge(support_section_params)),
       title: title
     )
   end
@@ -499,7 +506,7 @@ module TicketJourneyHelper
 
     link_to(
       "#{caption}#{indicator}",
-      ticket_journey_data_quality_path(@project, data_quality_params(query).merge('data_sort' => sort_key.to_s, 'data_dir' => next_dir)),
+      ticket_journey_data_quality_path(@project, data_quality_params(query).merge('data_sort' => sort_key.to_s, 'data_dir' => next_dir).merge(support_section_params)),
       title: title
     )
   end
@@ -966,7 +973,7 @@ module TicketJourneyHelper
 
     link_to(
       "#{column_caption}#{indicator}",
-      ticket_journey_path(@project, sort_params.merge('sort' => "#{column_name}:#{next_order}"))
+      ticket_journey_path(@project, sort_params.merge('sort' => "#{column_name}:#{next_order}").merge(support_section_params))
     )
   end
 
@@ -987,7 +994,7 @@ module TicketJourneyHelper
 
     link_to(
       "#{caption}#{indicator}",
-      ticket_journey_path(@project, duration_report_params(query).merge('report_family' => family_key.to_s, 'report_sort' => sort_key.to_s, 'report_dir' => next_dir)),
+      ticket_journey_path(@project, duration_report_params(query).merge('report_family' => family_key.to_s, 'report_sort' => sort_key.to_s, 'report_dir' => next_dir).merge(support_section_params)),
       title: title
     )
   end
@@ -1008,7 +1015,7 @@ module TicketJourneyHelper
 
     link_to(
       "#{caption}#{indicator}",
-      ticket_journey_owner_returns_path(@project, owner_returns_params(query).merge('owner_sort' => sort_key.to_s, 'owner_dir' => next_dir)),
+      ticket_journey_owner_returns_path(@project, owner_returns_params(query).merge('owner_sort' => sort_key.to_s, 'owner_dir' => next_dir).merge(support_section_params)),
       title: title
     )
   end
@@ -1029,7 +1036,7 @@ module TicketJourneyHelper
 
     link_to(
       "#{caption}#{indicator}",
-      ticket_journey_owner_workload_path(@project, owner_workload_params(query).merge('workload_sort' => sort_key.to_s, 'workload_dir' => next_dir)),
+      ticket_journey_owner_workload_path(@project, owner_workload_params(query).merge('workload_sort' => sort_key.to_s, 'workload_dir' => next_dir).merge(support_section_params)),
       title: title
     )
   end
