@@ -4,7 +4,8 @@ class TicketJourneyController < ApplicationController
   BUG_SOURCE_CF_ID = 63
   BUG_IMPACT_RATING_CF_ID = 65
   RETURN_REASON_CF_ID = 66
-  BUG_RELATED_PAGE_CF_NAMES = ['Related Page / Module', 'Related Page', 'Page / Module'].freeze
+  BUG_RELATED_PAGE_CF_NAMES = ['Bug Related Page / Module', 'Related Page / Module', 'Bug Related Page', 'Related Page', 'Related Module', 'Page / Module', 'Module / Page'].freeze
+  BUG_LEAKAGE_SOURCE_KEYWORDS = ['test escape', 'coverage gap', 'requirement gap'].freeze
   OWNER_RETURN_SORTABLE_FIELDS = %w[owner total_tickets ticket_share done_tickets completion_rate avg_done_cycle_time avg_priority_done_cycle_time open_tickets owner_debt tickets_without_updates avg_idle_days returned_tickets return_rate c1 c2 c3 c4 total_returns].freeze
   OWNER_WORKLOAD_SORTABLE_FIELDS = %w[owner total_open technical_open task_open stopped overdue priority_open no_due_date avg_age oldest_age].freeze
   AGING_RISK_SORTABLE_FIELDS = %w[group total_open bucket_0_7 bucket_8_14 bucket_15_30 bucket_31_60 bucket_60_plus stopped overdue priority_open no_due_date avg_age oldest_age].freeze
@@ -37,7 +38,7 @@ class TicketJourneyController < ApplicationController
   ].freeze
   BUG_ANALYSIS_SORTABLE_FIELDS = %w[reason beginning beginning_percent found found_percent closed closed_percent remaining remaining_percent impact_sum impact_average change_percent].freeze
   RELEASE_READINESS_SORTABLE_FIELDS = %w[name project due_date status total open done done_percent stopped overdue no_owner no_due_date priority_open risk].freeze
-  DATA_QUALITY_SORTABLE_FIELDS = %w[project total_active missing_required missing_required_percent no_update_percent missing_owner_percent missing_estimation_percent reliability_rank].freeze
+  DATA_QUALITY_SORTABLE_FIELDS = %w[project total_active missing_required missing_required_percent no_update_percent missing_owner_percent missing_estimation_percent time_logging_completeness_percent reliability_rank].freeze
   DATA_QUALITY_DEFAULT_STALE_DAYS = 7
   PROJECT_HEALTH_ACTIVE_STATUS_ROLES = %i[todo in_progress feedback review ready_merge final_check].freeze
   TRACKER_FAMILY_ORDER = %i[internal customer_support task container].freeze
@@ -222,7 +223,7 @@ class TicketJourneyController < ApplicationController
   # ---------------------------------------------------------------
   def bug_analysis
     @bug_start_date, @bug_end_date = bug_analysis_period_dates
-    @bug_analysis_rows, @bug_analysis_totals, @bug_impact_summary_rows, @bug_related_page_rows, @bug_critical_open_rows = compute_bug_analysis_report(@bug_start_date, @bug_end_date)
+    @bug_analysis_rows, @bug_analysis_totals, @bug_impact_summary_rows, @bug_related_page_rows, @bug_critical_open_rows, @bug_closed_analysis_report = compute_bug_analysis_report(@bug_start_date, @bug_end_date)
   end
 
   # ---------------------------------------------------------------
@@ -2445,6 +2446,10 @@ class TicketJourneyController < ApplicationController
 
     today = User.current.today
     issue_rows = data_quality_issues.map { |issue| data_quality_issue_row(issue, today) }
+    logged_issue_ids = data_quality_logged_issue_ids(issue_rows.map { |row| row[:issue_id] })
+    issue_rows.each do |row|
+      row[:has_time_log] = logged_issue_ids.include?(row[:issue_id])
+    end
     totals = data_quality_totals(issue_rows)
     project_rows = issue_rows.group_by { |row| row[:project_id] }.map do |_project_id, rows|
       data_quality_project_row(rows, totals)
@@ -2465,7 +2470,13 @@ class TicketJourneyController < ApplicationController
     @query.issues(
       order: "#{Issue.table_name}.id ASC",
       include: [:project, :status, :tracker, :priority, :fixed_version, { custom_values: :custom_field }]
-    ).reject { |issue| issue.status&.is_closed? }
+    )
+  end
+
+  def data_quality_logged_issue_ids(issue_ids)
+    return [] if issue_ids.empty?
+
+    TimeEntry.where(issue_id: issue_ids).distinct.pluck(:issue_id).map(&:to_i)
   end
 
   def data_quality_issue_row(issue, today)
@@ -2506,6 +2517,7 @@ class TicketJourneyController < ApplicationController
       missing_sprint: original_sprint.blank?,
       missing_required: missing_fields.any?,
       without_updates: without_updates,
+      has_time_log: false,
       risk: data_quality_issue_risk(missing_fields.size, without_updates)
     }
   end
@@ -2528,7 +2540,9 @@ class TicketJourneyController < ApplicationController
       missing_due_date: issue_rows.count { |row| row[:missing_due_date] },
       missing_estimation: issue_rows.count { |row| row[:missing_estimation] },
       missing_priority: issue_rows.count { |row| row[:missing_priority] },
-      missing_sprint: issue_rows.count { |row| row[:missing_sprint] }
+      missing_sprint: issue_rows.count { |row| row[:missing_sprint] },
+      time_logging_complete: issue_rows.count { |row| row[:has_time_log] },
+      new_status: issue_rows.count { |row| row[:status].to_s.casecmp('New').zero? }
     }
 
     totals[:missing_required_percent] = ratio(totals[:missing_required], total_active)
@@ -2539,6 +2553,8 @@ class TicketJourneyController < ApplicationController
     totals[:missing_estimation_percent] = ratio(totals[:missing_estimation], total_active)
     totals[:missing_priority_percent] = ratio(totals[:missing_priority], total_active)
     totals[:missing_sprint_percent] = ratio(totals[:missing_sprint], total_active)
+    totals[:time_logging_completeness_percent] = ratio(totals[:time_logging_complete], total_active)
+    totals[:new_status_percent] = ratio(totals[:new_status], total_active)
     totals
   end
 
@@ -2548,6 +2564,7 @@ class TicketJourneyController < ApplicationController
     tickets_without_updates = rows.count { |row| row[:without_updates] }
     missing_required_percent = ratio(missing_required, total_active)
     no_update_percent = ratio(tickets_without_updates, total_active)
+    time_logging_complete = rows.count { |row| row[:has_time_log] }
     reliability_status, reliability_rank = data_quality_reliability_status(missing_required_percent, no_update_percent)
 
     {
@@ -2570,6 +2587,8 @@ class TicketJourneyController < ApplicationController
       missing_estimation_percent: ratio(rows.count { |row| row[:missing_estimation] }, total_active),
       missing_sprint: rows.count { |row| row[:missing_sprint] },
       missing_sprint_percent: ratio(rows.count { |row| row[:missing_sprint] }, total_active),
+      time_logging_complete: time_logging_complete,
+      time_logging_completeness_percent: ratio(time_logging_complete, total_active),
       reliability_status: reliability_status,
       reliability_rank: reliability_rank
     }
@@ -2652,14 +2671,16 @@ class TicketJourneyController < ApplicationController
                 .where(trackers: { name: 'Bug' })
 
     bug_list = bugs.to_a
-    return [[], empty_bug_analysis_totals, [], [], []] if bug_list.empty?
+    return [[], empty_bug_analysis_totals, [], [], [], empty_bug_closed_analysis_report] if bug_list.empty?
 
     issue_ids = bug_list.map(&:id)
     status_changes = load_attribute_changes(issue_ids, 'status_id')
     closed_status_ids = bug_terminal_status_ids
     period_start = start_date.beginning_of_day
     period_end = end_date.end_of_day
-    closed_issue_ids = bug_closed_issue_ids(issue_ids, closed_status_ids, period_start, period_end)
+    require 'set'
+    closed_at_by_issue = bug_closed_at_by_issue(issue_ids, closed_status_ids, period_start, period_end)
+    closed_issue_ids = Set.new(closed_at_by_issue.keys)
 
     rows = Hash.new do |hash, reason|
       hash[reason] = {
@@ -2705,7 +2726,8 @@ class TicketJourneyController < ApplicationController
       remaining = issue.created_on <= period_end && !historically_closed?(issue, status_changes[issue.id], period_end, closed_status_ids)
       remaining && (impact >= 3 || priority_performance_ticket?(issue))
     end
-    totals[:leakage_percent] = totals[:found].positive? ? ratio(totals[:remaining], totals[:found]) : 0.0
+    totals[:escaped] = bug_list.count { |issue| issue.created_on >= period_start && issue.created_on <= period_end && bug_leakage_source?(issue) }
+    totals[:leakage_percent] = ratio(totals[:escaped], totals[:found])
 
     report_rows = rows.values.map do |row|
       row.merge(
@@ -2721,8 +2743,9 @@ class TicketJourneyController < ApplicationController
     impact_summary_rows = bug_impact_summary_rows(bug_list, status_changes, period_start, period_end, closed_status_ids, closed_issue_ids)
     related_page_rows = bug_related_page_rows(bug_list, period_end, status_changes, closed_status_ids)
     critical_open_rows = bug_critical_open_rows(bug_list, period_end, status_changes, closed_status_ids)
+    closed_analysis_report = bug_closed_analysis_report(bug_list, closed_at_by_issue, period_end)
 
-    [sort_bug_analysis_rows(report_rows), totals, impact_summary_rows, related_page_rows, critical_open_rows]
+    [sort_bug_analysis_rows(report_rows), totals, impact_summary_rows, related_page_rows, critical_open_rows, closed_analysis_report]
   end
 
   def sort_bug_analysis_rows(rows)
@@ -2766,8 +2789,97 @@ class TicketJourneyController < ApplicationController
       impact_count: 0,
       impact_average: 0.0,
       critical_open: 0,
+      escaped: 0,
       leakage_percent: 0.0
     }
+  end
+
+  def bug_leakage_source?(issue)
+    source = issue.custom_value_for(BUG_SOURCE_CF_ID)&.value.to_s.downcase
+    BUG_LEAKAGE_SOURCE_KEYWORDS.any? { |keyword| source.include?(keyword) }
+  end
+
+  def bug_closed_analysis_report(bug_list, closed_at_by_issue, period_end)
+    closed_bugs = bug_list.select { |issue| closed_at_by_issue.key?(issue.id) }
+    return empty_bug_closed_analysis_report if closed_bugs.empty?
+
+    transitions_by_issue = load_transitions(closed_bugs)
+    cycle_entries = closed_bugs.filter_map do |issue|
+      hours = bug_closed_cycle_hours(issue, transitions_by_issue[issue.id] || [], closed_at_by_issue[issue.id])
+      next if hours.blank?
+
+      { issue_id: issue.id, hours: hours }
+    end
+
+    total_closed = closed_bugs.size
+    {
+      total_closed: total_closed,
+      avg_cycle_hours: cycle_entries.any? ? cycle_entries.sum { |entry| entry[:hours] } / cycle_entries.size : nil,
+      avg_cycle_issue_ids: cycle_entries.map { |entry| entry[:issue_id] },
+      source_rows: bug_source_distribution_rows(closed_bugs, total_closed),
+      related_page_rows: bug_related_page_distribution_rows(closed_bugs, total_closed)
+    }
+  end
+
+  def empty_bug_closed_analysis_report
+    {
+      total_closed: 0,
+      avg_cycle_hours: nil,
+      avg_cycle_issue_ids: [],
+      source_rows: [],
+      related_page_rows: []
+    }
+  end
+
+  def bug_closed_cycle_hours(issue, transitions, closed_at)
+    periods = build_periods(transitions)
+    start_time = periods.find { |period| status_role(period[:status]) == :in_progress }&.dig(:enter) || issue.created_on
+    return unless start_time && closed_at && start_time < closed_at
+
+    cycle_periods = periods.filter_map do |period|
+      next if period[:enter].blank? || period[:exit].blank?
+      next if period[:exit] <= start_time || period[:enter] >= closed_at
+
+      clipped = period.dup
+      clipped[:enter] = [period[:enter], start_time].max
+      clipped[:exit] = [period[:exit], closed_at].min
+      next if clipped[:exit] <= clipped[:enter]
+
+      clipped
+    end
+
+    active_periods = remove_pause_time_from_periods(
+      cycle_periods,
+      pause_periods_for_summary(cycle_periods, tracker_family_for_issue(issue))
+    )
+    active_periods.sum { |period| period_hours(period) }
+  end
+
+  def bug_source_distribution_rows(issues, total)
+    issues.group_by { |issue| issue.custom_value_for(BUG_SOURCE_CF_ID)&.value.presence || 'No Bug Source' }
+          .map do |source, source_issues|
+      {
+        source: source,
+        count: source_issues.size,
+        percent: ratio(source_issues.size, total),
+        issue_ids: source_issues.map(&:id)
+      }
+    end.sort_by { |row| [-row[:count], row[:source].to_s.downcase] }
+  end
+
+  def bug_related_page_distribution_rows(issues, total)
+    related_page_cf_id = bug_related_page_cf_id
+    return [] if related_page_cf_id.blank?
+
+    issues.group_by { |issue| issue.custom_value_for(related_page_cf_id)&.value.presence || 'Not Specified' }
+          .map do |page, page_issues|
+      {
+        page: page,
+        count: page_issues.size,
+        percent: ratio(page_issues.size, total),
+        issue_ids: page_issues.map(&:id)
+      }
+    end.sort_by { |row| [-row[:count], row[:page].to_s.downcase] }
   end
 
   def bug_impact_summary_rows(bug_list, status_changes, period_start, period_end, closed_status_ids, closed_issue_ids)
@@ -2916,6 +3028,32 @@ class TicketJourneyController < ApplicationController
                    .pluck('journals.journalized_id')
                    .map(&:to_i)
     )
+  end
+
+  def bug_closed_at_by_issue(issue_ids, closed_status_ids, period_start, period_end)
+    return {} if issue_ids.empty? || closed_status_ids.empty?
+
+    rows = JournalDetail.joins(:journal)
+                        .where(
+                          journals: {
+                            journalized_type: 'Issue',
+                            journalized_id: issue_ids,
+                            created_on: period_start..period_end
+                          },
+                          property: 'attr',
+                          prop_key: 'status_id',
+                          value: closed_status_ids
+                        )
+                        .select(
+                          'journals.journalized_id AS issue_id',
+                          'journals.created_on AS closed_at'
+                        )
+                        .order('journals.journalized_id ASC, journals.created_on ASC')
+
+    rows.each_with_object({}) do |row, hash|
+      issue_id = row.issue_id.to_i
+      hash[issue_id] ||= row.closed_at
+    end
   end
 
   def historically_closed?(issue, changes, snapshot_time, closed_status_ids)

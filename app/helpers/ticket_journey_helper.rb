@@ -633,9 +633,6 @@ module TicketJourneyHelper
     operators = (query_params['op'] || query_params[:op] || {}).deep_dup.deep_stringify_keys
     values = (query_params['v'] || query_params[:v] || {}).deep_dup.deep_stringify_keys
 
-    replace_filter(filters, operators, values, 'status_id')
-    add_status_filter(filters, operators, values, 'o')
-
     case scope.to_sym
     when :missing_owner
       add_missing_data_filter(filters, operators, values, "cf_#{TicketJourneyController::TICKET_OWNER_CF_ID}")
@@ -658,6 +655,7 @@ module TicketJourneyHelper
     query_params['f'] = filters
     query_params['op'] = operators
     query_params['v'] = values
+    query_params['group_by'] = 'status'
     query_params
   end
 

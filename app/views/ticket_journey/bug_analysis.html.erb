@@ -57,7 +57,11 @@
     <div class="tj-summary-card">
       <div class="tj-sc-label">Bug Leakage (%)</div>
       <div class="tj-sc-value <%= @bug_analysis_totals[:leakage_percent].to_f >= 0.3 ? 'tj-sc-red' : (@bug_analysis_totals[:leakage_percent].to_f.positive? ? 'tj-sc-orange' : 'tj-sc-dim') %>"
-           title="Remaining bugs divided by bugs found in the period"><%= number_to_percentage(@bug_analysis_totals[:leakage_percent] * 100, precision: 1) %></div>
+           title="Escaped bugs divided by bugs found in the period. Escaped bugs use Bug Source values: Test Escape, Coverage Gap, or Requirement Gap."><%= number_to_percentage(@bug_analysis_totals[:leakage_percent] * 100, precision: 1) %></div>
+    </div>
+    <div class="tj-summary-card">
+      <div class="tj-sc-label">Escaped Bugs</div>
+      <div class="tj-sc-value <%= @bug_analysis_totals[:escaped].to_i.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= @bug_analysis_totals[:escaped] %></div>
     </div>
     <div class="tj-summary-card">
       <div class="tj-sc-label">Remaining Impact</div>
@@ -190,9 +194,91 @@
     </div>
   <% end %>
 
-  <% if @bug_related_page_rows.present? %>
-    <div class="tj-card tj-card-full">
-      <div class="tj-card-title">Related Page / Module Histogram</div>
+  <% closed_report = @bug_closed_analysis_report || {} %>
+  <div class="tj-card tj-card-full">
+    <div class="tj-card-title">Closed Bugs (Solved Bugs) Analysis</div>
+    <% if closed_report[:total_closed].to_i.zero? %>
+      <div class="tj-flow-empty-note">No bugs were closed in the selected period.</div>
+    <% else %>
+      <div class="tj-summary-strip tj-compact-summary-strip">
+        <div class="tj-summary-card">
+          <div class="tj-sc-label">Closed Bugs</div>
+          <div class="tj-sc-value tj-sc-green"><%= closed_report[:total_closed] %></div>
+        </div>
+        <div class="tj-summary-card">
+          <div class="tj-sc-label">Avg Cycle Time</div>
+          <div class="tj-sc-value tj-sc-blue">
+            <% if closed_report[:avg_cycle_hours].present? %>
+              <%= duration_report_drilldown_link(@query, closed_report[:avg_cycle_issue_ids], format_hours(closed_report[:avg_cycle_hours]), title: 'Open closed bugs used for average cycle time') %>
+            <% else %>
+              -
+            <% end %>
+          </div>
+        </div>
+      </div>
+
+      <div class="tj-detail-grid">
+        <div class="tj-subpanel">
+          <div class="tj-card-title">Pie Chart of Bug Sources</div>
+          <% source_rows = closed_report[:source_rows] || [] %>
+          <% if source_rows.empty? %>
+            <div class="tj-flow-empty-note">No bug source values found for closed bugs.</div>
+          <% else %>
+            <%
+              pie_colors = ['#2563eb', '#dc2626', '#16a34a', '#f59e0b', '#7c3aed', '#0891b2', '#be123c', '#4b5563']
+              cursor = 0.0
+              segments = source_rows.each_with_index.map do |row, index|
+                start_at = cursor
+                cursor += row[:percent].to_f * 100
+                "#{pie_colors[index % pie_colors.size]} #{start_at.round(2)}% #{cursor.round(2)}%"
+              end
+            %>
+            <div class="tj-bug-source-pie-wrap">
+              <div class="tj-bug-source-pie" style="background: conic-gradient(<%= segments.join(', ') %>);"></div>
+              <div class="tj-bug-source-legend">
+                <% source_rows.each_with_index do |row, index| %>
+                  <div class="tj-bug-source-legend-row">
+                    <span class="tj-bug-source-swatch" style="background:<%= pie_colors[index % pie_colors.size] %>"></span>
+                    <span><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:source].to_s, title: 'Open closed bugs for this source in Duration Report') %></span>
+                    <strong><%= row[:count] %></strong>
+                    <span><%= number_to_percentage(row[:percent] * 100, precision: 1) %></span>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+        </div>
+
+        <div class="tj-subpanel">
+          <div class="tj-card-title">Histogram of Bug Related Pages</div>
+          <% closed_page_rows = closed_report[:related_page_rows] || [] %>
+          <% if closed_page_rows.empty? %>
+            <div class="tj-flow-empty-note">No Related Page / Module values found for closed bugs.</div>
+          <% else %>
+            <div class="tj-bug-bars">
+              <% max_closed_page_count = closed_page_rows.map { |row| row[:count].to_i }.max.to_i %>
+              <% closed_page_rows.each do |row| %>
+                <% width = max_closed_page_count.positive? ? ((row[:count].to_f / max_closed_page_count) * 100).round : 0 %>
+                <div class="tj-bug-bar-row">
+                  <span class="tj-bug-bar-label"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:page].to_s, title: 'Open closed bugs for this page/module in Duration Report') %></span>
+                  <span class="tj-bug-bar-track">
+                    <span class="tj-bug-bar-fill" style="width:<%= width %>%"></span>
+                  </span>
+                  <span class="tj-bug-bar-count"><%= row[:count] %></span>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+
+  <div class="tj-card tj-card-full">
+    <div class="tj-card-title">Related Page / Module Histogram</div>
+    <% if @bug_related_page_rows.blank? %>
+      <div class="tj-flow-empty-note">No Related Page / Module values were found for remaining bugs in this period.</div>
+    <% else %>
       <div class="tj-table-wrap">
         <table class="tj-table">
           <thead>
@@ -218,8 +304,8 @@
           </tbody>
         </table>
       </div>
-    </div>
-  <% end %>
+    <% end %>
+  </div>
 
   <% if @bug_critical_open_rows.present? %>
     <div class="tj-card tj-card-full">

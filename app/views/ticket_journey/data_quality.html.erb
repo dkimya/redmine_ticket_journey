@@ -7,7 +7,7 @@
     <div class="tj-page-header-left">
       <div>
         <h2>Ticket Quality &amp; Data Discipline</h2>
-        <p class="tj-page-sub">Open ticket data reliability snapshot &mdash; <%= @project.name %></p>
+        <p class="tj-page-sub">Ticket data reliability based on the applied filter &mdash; <%= @project.name %></p>
       </div>
     </div>
   </div>
@@ -24,7 +24,7 @@
           <%= number_field_tag :stale_days, @data_quality_stale_days, min: 1, class: 'tj-input tj-small-number-input', onchange: 'this.form.submit();' %>
         </div>
         <div class="tj-filter-group tj-flow-filter-note">
-          <span>Uses the Redmine filters above, keeps open issues, then checks owner, dates, estimation, priority, original sprint, and stale updates.</span>
+          <span>Uses the Redmine filters above, then checks owner, dates, estimation, priority, original sprint, time logging, and stale updates.</span>
         </div>
       </div>
     </div>
@@ -39,14 +39,14 @@
   <% elsif @data_quality_report[:totals][:total_active].zero? %>
     <div class="tj-empty">
       <div class="tj-empty-icon">Report</div>
-      <h3>No open ticket data found</h3>
+      <h3>No ticket data found</h3>
       <p>Try adjusting the Redmine query filters above.</p>
     </div>
   <% else %>
     <% totals = @data_quality_report[:totals] %>
     <div class="tj-summary-strip">
       <div class="tj-summary-card">
-        <div class="tj-sc-label">Active Tickets</div>
+        <div class="tj-sc-label">Filtered Tickets</div>
         <div class="tj-sc-value tj-sc-blue"><%= totals[:total_active] %></div>
       </div>
       <div class="tj-summary-card">
@@ -81,6 +81,14 @@
         <div class="tj-sc-label">Missing Original Sprint</div>
         <div class="tj-sc-value <%= totals[:missing_sprint].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= totals[:missing_sprint] %></div>
       </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Time Logging Complete</div>
+        <div class="tj-sc-value <%= totals[:time_logging_completeness_percent].to_f >= 0.8 ? 'tj-sc-green' : 'tj-sc-orange' %>"><%= number_to_percentage(totals[:time_logging_completeness_percent] * 100, precision: 1) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">New Status</div>
+        <div class="tj-sc-value <%= totals[:new_status].to_i.positive? ? 'tj-sc-blue' : 'tj-sc-dim' %>"><%= totals[:new_status].to_i.positive? ? 'Included' : 'Excluded' %></div>
+      </div>
     </div>
 
     <div class="tj-card tj-card-full">
@@ -108,13 +116,13 @@
     </div>
 
     <div class="tj-card tj-card-full">
-      <div class="tj-card-title">Open Planned Tickets Health</div>
+      <div class="tj-card-title">Ticket Health based on Applied Filter</div>
       <div class="tj-table-wrap">
         <table class="tj-table tj-data-quality-table">
           <thead>
             <tr>
               <th class="tj-th-title"><%= data_quality_sort_link(@query, :project, 'Project') %></th>
-              <th class="tj-th-native"><%= data_quality_sort_link(@query, :total_active, 'Total Active') %></th>
+              <th class="tj-th-native"><%= data_quality_sort_link(@query, :total_active, 'Filtered Tickets') %></th>
               <th class="tj-th-native"><%= data_quality_sort_link(@query, :missing_required, 'Missing Required') %></th>
               <th class="tj-th-native"><%= data_quality_sort_link(@query, :missing_required_percent, 'Missing %') %></th>
               <th class="tj-th-native">Without Owner</th>
@@ -126,6 +134,7 @@
               <th class="tj-th-native"><%= data_quality_sort_link(@query, :missing_estimation_percent, 'PM Est. %') %></th>
               <th class="tj-th-native">Without Original Sprint</th>
               <th class="tj-th-native">Original Sprint %</th>
+              <th class="tj-th-native"><%= data_quality_sort_link(@query, :time_logging_completeness_percent, 'Time Logging %') %></th>
               <th class="tj-th-native"><%= data_quality_sort_link(@query, :no_update_percent, 'No Update %') %></th>
               <th class="tj-th-native"><%= data_quality_sort_link(@query, :reliability_rank, 'Reliability') %></th>
             </tr>
@@ -146,6 +155,7 @@
                 <td class="tj-td-native"><%= number_to_percentage(row[:missing_estimation_percent] * 100, precision: 1) %></td>
                 <td class="tj-td-native"><%= data_quality_count_link(row, :missing_sprint, row[:missing_sprint]) %></td>
                 <td class="tj-td-native"><%= number_to_percentage(row[:missing_sprint_percent] * 100, precision: 1) %></td>
+                <td class="tj-td-native"><%= number_to_percentage(row[:time_logging_completeness_percent] * 100, precision: 1) %></td>
                 <td class="tj-td-native"><%= number_to_percentage(row[:no_update_percent] * 100, precision: 1) %></td>
                 <td class="tj-td-native"><span class="tj-release-risk-pill <%= data_quality_status_class(row[:reliability_status]) %>"><%= row[:reliability_status] %></span></td>
               </tr>
@@ -164,6 +174,7 @@
               <td class="tj-td-native"><%= number_to_percentage(totals[:missing_estimation_percent] * 100, precision: 1) %></td>
               <td class="tj-td-native"><%= totals[:missing_sprint] %></td>
               <td class="tj-td-native"><%= number_to_percentage(totals[:missing_sprint_percent] * 100, precision: 1) %></td>
+              <td class="tj-td-native"><%= number_to_percentage(totals[:time_logging_completeness_percent] * 100, precision: 1) %></td>
               <td class="tj-td-native"><%= number_to_percentage(totals[:tickets_without_updates_percent] * 100, precision: 1) %></td>
               <td class="tj-td-native">-</td>
             </tr>
