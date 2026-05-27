@@ -21,54 +21,42 @@
     else
       issue_detail_tab_params(@query)
     end
+  main_dashboard_tabs = [
+    ['PMO Control', ticket_journey_pmo_control_path(@project, pmo_params), :pmo_control],
+    ['Sprint Delivery', ticket_journey_sprint_delivery_path(@project, sprint_params), :sprint_delivery],
+    ['Team / Ticket Owner Performance', ticket_journey_owner_returns_path(@project, owner_params), :owner_returns],
+    ['QA & Returns', ticket_journey_qa_returns_path(@project, qa_params), :qa_returns],
+    ['Bug Control', ticket_journey_bug_analysis_path(@project, bug_params), :bug_analysis],
+    ['Planning & Estimation', ticket_journey_planning_estimation_path(@project, planning_params), :planning_estimation],
+    ['Ticket Quality & Data Discipline', ticket_journey_data_quality_path(@project, data_quality_tab_params), :data_quality]
+  ]
+  supporting_tabs = [
+    ['Duration Report', ticket_journey_path(@project, duration_params), :duration],
+    ['Issue Detail', ticket_journey_path(@project, detail_params), :issue_detail],
+    ['Owner Workload / Time Support', ticket_journey_owner_workload_path(@project, workload_params), :owner_workload],
+    ['Aging / SLA Risk', ticket_journey_aging_risk_path(@project, aging_params), :aging_risk],
+    ['Priority / SLA Risk', ticket_journey_priority_risk_path(@project, priority_params), :priority_risk],
+    ['Cycle Distribution', ticket_journey_cycle_distribution_path(@project, cycle_params), :cycle_distribution],
+    ['Flow Report', ticket_journey_flow_report_path(@project, flow_params), :flow_report],
+    ['Project Health', ticket_journey_project_health_path(@project, health_params), :project_health],
+    ['Release Readiness', ticket_journey_release_readiness_path(@project, release_params), :release_readiness]
+  ]
 %>
 <div class="tj-report-tabs">
-  <%= link_to 'PMO Control',
-        ticket_journey_pmo_control_path(@project, pmo_params),
-        class: "tj-report-tab #{active_tab == :pmo_control ? 'is-active' : ''}" %>
-  <%= link_to 'Sprint Delivery',
-        ticket_journey_sprint_delivery_path(@project, sprint_params),
-        class: "tj-report-tab #{active_tab == :sprint_delivery ? 'is-active' : ''}" %>
-  <%= link_to 'Planning & Estimation',
-        ticket_journey_planning_estimation_path(@project, planning_params),
-        class: "tj-report-tab #{active_tab == :planning_estimation ? 'is-active' : ''}" %>
-  <%= link_to 'Duration Report',
-        ticket_journey_path(@project, duration_params),
-        class: "tj-report-tab #{active_tab == :duration ? 'is-active' : ''}" %>
-  <%= link_to 'Issue Detail',
-        ticket_journey_path(@project, detail_params),
-        class: "tj-report-tab #{active_tab == :issue_detail ? 'is-active' : ''}" %>
-  <%= link_to 'Ticket Owner Performance',
-        ticket_journey_owner_returns_path(@project, owner_params),
-        class: "tj-report-tab #{active_tab == :owner_returns ? 'is-active' : ''}" %>
-  <%= link_to 'QA & Returns',
-        ticket_journey_qa_returns_path(@project, qa_params),
-        class: "tj-report-tab #{active_tab == :qa_returns ? 'is-active' : ''}" %>
-  <%= link_to 'Owner Workload',
-        ticket_journey_owner_workload_path(@project, workload_params),
-        class: "tj-report-tab #{active_tab == :owner_workload ? 'is-active' : ''}" %>
-  <%= link_to 'Aging / SLA Risk',
-        ticket_journey_aging_risk_path(@project, aging_params),
-        class: "tj-report-tab #{active_tab == :aging_risk ? 'is-active' : ''}" %>
-  <%= link_to 'Priority / SLA Risk',
-        ticket_journey_priority_risk_path(@project, priority_params),
-        class: "tj-report-tab #{active_tab == :priority_risk ? 'is-active' : ''}" %>
-  <%= link_to 'Cycle Distribution',
-        ticket_journey_cycle_distribution_path(@project, cycle_params),
-        class: "tj-report-tab #{active_tab == :cycle_distribution ? 'is-active' : ''}" %>
-  <%= link_to 'Flow Report',
-        ticket_journey_flow_report_path(@project, flow_params),
-        class: "tj-report-tab #{active_tab == :flow_report ? 'is-active' : ''}" %>
-  <%= link_to 'Project Health',
-        ticket_journey_project_health_path(@project, health_params),
-        class: "tj-report-tab #{active_tab == :project_health ? 'is-active' : ''}" %>
-  <%= link_to 'Release Readiness',
-        ticket_journey_release_readiness_path(@project, release_params),
-        class: "tj-report-tab #{active_tab == :release_readiness ? 'is-active' : ''}" %>
-  <%= link_to 'Bugs Analysis',
-        ticket_journey_bug_analysis_path(@project, bug_params),
-        class: "tj-report-tab #{active_tab == :bug_analysis ? 'is-active' : ''}" %>
-  <%= link_to 'Data Quality',
-        ticket_journey_data_quality_path(@project, data_quality_tab_params),
-        class: "tj-report-tab #{active_tab == :data_quality ? 'is-active' : ''}" %>
+  <div class="tj-report-tab-group">
+    <div class="tj-report-tab-group-title">Main Dashboards</div>
+    <div class="tj-report-tab-row">
+      <% main_dashboard_tabs.each do |label, path, tab_key| %>
+        <%= link_to label, path, class: "tj-report-tab #{active_tab == tab_key ? 'is-active' : ''}" %>
+      <% end %>
+    </div>
+  </div>
+  <div class="tj-report-tab-group">
+    <div class="tj-report-tab-group-title">Supporting Views</div>
+    <div class="tj-report-tab-row">
+      <% supporting_tabs.each do |label, path, tab_key| %>
+        <%= link_to label, path, class: "tj-report-tab tj-report-tab-support #{active_tab == tab_key ? 'is-active' : ''}" %>
+      <% end %>
+    </div>
+  </div>
 </div>
