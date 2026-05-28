@@ -3904,16 +3904,40 @@ class TicketJourneyController < ApplicationController
 
     stage_periods = build_stage_periods(periods, family_key)
 
-    case family_key
-    when :customer_support
-      calculate_customer_support_durations(periods, stage_periods)
-    when :task
-      calculate_task_durations(periods, stage_periods)
-    when :container
-      calculate_container_durations(periods, stage_periods)
-    else
-      calculate_internal_durations(periods, stage_periods)
+    durations =
+      case family_key
+      when :customer_support
+        calculate_customer_support_durations(periods, stage_periods)
+      when :task
+        calculate_task_durations(periods, stage_periods)
+      when :container
+        calculate_container_durations(periods, stage_periods)
+      else
+        calculate_internal_durations(periods, stage_periods)
+      end
+
+    apply_return_counters(durations, family_key, transitions)
+  end
+
+  def apply_return_counters(durations, family_key, transitions)
+    FAMILY_COUNTER_KEYS.fetch(family_key.to_sym, []).each { |key| durations[key] = 0 }
+
+    transitions.each do |transition|
+      next unless status_role(transition[:to_status]) == :returned
+
+      case status_role(transition[:from_status])
+      when :feedback
+        durations[:C1] += 1 if durations.key?(:C1)
+      when :review
+        durations[:C2] += 1 if durations.key?(:C2)
+      when :ready_merge
+        durations[:C3] += 1 if durations.key?(:C3)
+      when :final_check
+        durations[:C4] += 1 if durations.key?(:C4)
+      end
     end
+
+    durations
   end
 
   def calculate_internal_durations(periods, stage_periods)
