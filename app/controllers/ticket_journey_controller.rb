@@ -92,7 +92,7 @@ class TicketJourneyController < ApplicationController
 
   before_action :find_project
   before_action :authorize
-  before_action :build_query, only: [:index, :pmo_control, :sprint_delivery, :planning_estimation, :owner_returns, :qa_returns, :owner_workload, :aging_risk, :priority_risk, :cycle_distribution, :flow_report, :project_health, :release_readiness, :bug_analysis, :data_quality, :export]
+  before_action :build_query, only: [:index, :pmo_control, :sprint_delivery, :planning_estimation, :owner_returns, :qa_returns, :owner_workload, :aging_risk, :priority_risk, :cycle_distribution, :flow_report, :project_health, :release_readiness, :bug_analysis, :data_quality, :original_sprint, :export]
   before_action :prepare_owner_role_filter, only: [:owner_returns, :owner_workload, :flow_report]
 
   helper :queries
@@ -232,6 +232,10 @@ class TicketJourneyController < ApplicationController
   def data_quality
     @data_quality_stale_days = data_quality_stale_days_param
     @data_quality_report = compute_data_quality_report
+  end
+
+  def original_sprint
+    @original_sprint_report = compute_original_sprint_report
   end
 
   # ---------------------------------------------------------------
@@ -2482,6 +2486,7 @@ class TicketJourneyController < ApplicationController
   def data_quality_issue_row(issue, today)
     owner_value, owner_name = ticket_owner_info(issue)
     original_sprint = issue.custom_value_for(TICKET_ORIGINAL_SPRINT_CF_ID)&.value.presence
+    technical_ticket = technical_tracker?(issue.tracker&.name)
     days_since_update = issue.updated_on.present? ? [(today - issue.updated_on.to_date).to_i, 0].max : nil
     missing_fields = []
     missing_fields << 'Ticket Owner' if owner_value.blank?
@@ -2489,7 +2494,7 @@ class TicketJourneyController < ApplicationController
     missing_fields << 'Due Date' if issue.due_date.blank?
     missing_fields << 'PM Estimation' if issue.estimated_hours.blank? || issue.estimated_hours.to_f <= 0
     missing_fields << 'Priority' if issue.priority_id.blank?
-    missing_fields << 'Ticket Original Sprint' if original_sprint.blank?
+    missing_fields << 'Original Sprint (Technical Ticket)' if technical_ticket && original_sprint.blank?
 
     without_updates = days_since_update.present? && days_since_update >= @data_quality_stale_days
 
@@ -2505,6 +2510,7 @@ class TicketJourneyController < ApplicationController
       status: issue.status&.name || '-',
       priority: issue.priority&.name || '-',
       tracker: issue.tracker&.name || '-',
+      technical_ticket: technical_ticket,
       sprint: original_sprint || issue.fixed_version&.name || '-',
       updated_on: issue.updated_on,
       days_since_update: days_since_update,
@@ -2514,7 +2520,7 @@ class TicketJourneyController < ApplicationController
       missing_due_date: issue.due_date.blank?,
       missing_estimation: issue.estimated_hours.blank? || issue.estimated_hours.to_f <= 0,
       missing_priority: issue.priority_id.blank?,
-      missing_sprint: original_sprint.blank?,
+      missing_sprint: technical_ticket && original_sprint.blank?,
       missing_required: missing_fields.any?,
       without_updates: without_updates,
       has_time_log: false,
@@ -2544,6 +2550,22 @@ class TicketJourneyController < ApplicationController
       time_logging_complete: issue_rows.count { |row| row[:has_time_log] },
       new_status: issue_rows.count { |row| row[:status].to_s.casecmp('New').zero? }
     }
+
+    %i[
+      total_active
+      missing_required
+      tickets_without_updates
+      missing_owner
+      missing_start_date
+      missing_due_date
+      missing_estimation
+      missing_priority
+      missing_sprint
+      time_logging_complete
+      new_status
+    ].each do |scope|
+      totals["#{scope}_issue_ids".to_sym] = data_quality_issue_ids(issue_rows, scope)
+    end
 
     totals[:missing_required_percent] = ratio(totals[:missing_required], total_active)
     totals[:tickets_without_updates_percent] = ratio(totals[:tickets_without_updates], total_active)
@@ -2587,7 +2609,15 @@ class TicketJourneyController < ApplicationController
       missing_estimation_percent: ratio(rows.count { |row| row[:missing_estimation] }, total_active),
       missing_sprint: rows.count { |row| row[:missing_sprint] },
       missing_sprint_percent: ratio(rows.count { |row| row[:missing_sprint] }, total_active),
+      total_active_issue_ids: data_quality_issue_ids(rows, :total_active),
+      missing_required_issue_ids: data_quality_issue_ids(rows, :missing_required),
+      tickets_without_updates_issue_ids: data_quality_issue_ids(rows, :tickets_without_updates),
+      missing_owner_issue_ids: data_quality_issue_ids(rows, :missing_owner),
+      missing_start_date_issue_ids: data_quality_issue_ids(rows, :missing_start_date),
+      missing_due_date_issue_ids: data_quality_issue_ids(rows, :missing_due_date),
+      missing_estimation_issue_ids: data_quality_issue_ids(rows, :missing_estimation),
       missing_sprint_issue_ids: data_quality_issue_ids(rows, :missing_sprint),
+      time_logging_complete_issue_ids: data_quality_issue_ids(rows, :time_logging_complete),
       time_logging_complete: time_logging_complete,
       time_logging_completeness_percent: ratio(time_logging_complete, total_active),
       reliability_status: reliability_status,
@@ -2610,7 +2640,7 @@ class TicketJourneyController < ApplicationController
       { key: :missing_due_date, label: 'Missing Due Date', scope: :missing_due_date },
       { key: :missing_estimation, label: 'Missing PM Estimation', scope: :missing_estimation },
       { key: :missing_priority, label: 'Missing Priority', scope: :missing_priority },
-      { key: :missing_sprint, label: 'Missing Original Sprint', scope: :missing_sprint },
+      { key: :missing_sprint, label: 'Missing Original Sprint (Technical Tickets)', scope: :missing_sprint },
       { key: :tickets_without_updates, label: "No Update #{@data_quality_stale_days}d+", scope: :no_update }
     ].map do |field|
       field.merge(
@@ -2627,6 +2657,12 @@ class TicketJourneyController < ApplicationController
 
   def data_quality_row_matches_scope?(row, scope)
     case scope.to_sym
+    when :total_active
+      true
+    when :missing_required
+      row[:missing_required]
+    when :tickets_without_updates
+      row[:without_updates]
     when :missing_owner
       row[:missing_owner]
     when :missing_start_date
@@ -2639,6 +2675,10 @@ class TicketJourneyController < ApplicationController
       row[:missing_priority]
     when :missing_sprint
       row[:missing_sprint]
+    when :time_logging_complete
+      row[:has_time_log]
+    when :new_status
+      row[:status].to_s.casecmp('New').zero?
     when :no_update
       row[:without_updates]
     else
@@ -2682,6 +2722,72 @@ class TicketJourneyController < ApplicationController
       project_rows: [],
       field_rows: data_quality_field_rows(totals),
       stale_rows: [],
+      missing_rows: []
+    }
+  end
+
+  def compute_original_sprint_report
+    return empty_original_sprint_report unless @query&.valid?
+
+    issues = data_quality_issues.select { |issue| technical_tracker?(issue.tracker&.name) }
+    rows = issues.map do |issue|
+      owner_value, owner_name = ticket_owner_info(issue)
+      original_sprint = issue.custom_value_for(TICKET_ORIGINAL_SPRINT_CF_ID)&.value.presence
+
+      {
+        issue: issue,
+        issue_id: issue.id,
+        subject: issue.subject,
+        project: issue.project,
+        project_name: issue.project&.name || '-',
+        tracker: issue.tracker&.name || '-',
+        status: issue.status&.name || '-',
+        owner_value: owner_value,
+        owner: owner_name,
+        original_sprint: original_sprint,
+        missing_sprint: original_sprint.blank?
+      }
+    end
+
+    total = rows.size
+    missing_rows = rows.select { |row| row[:missing_sprint] }
+    with_rows = rows.reject { |row| row[:missing_sprint] }
+    group_rows =
+      rows.group_by { |row| row[:original_sprint].presence || 'Missing Original Sprint' }
+          .map do |sprint, sprint_rows|
+            {
+              original_sprint: sprint,
+              count: sprint_rows.size,
+              percent: ratio(sprint_rows.size, total),
+              issue_ids: sprint_rows.map { |row| row[:issue_id] },
+              missing: sprint == 'Missing Original Sprint'
+            }
+          end
+          .sort_by { |row| [row[:missing] ? 0 : 1, -row[:count], row[:original_sprint].to_s.downcase] }
+
+    {
+      total_technical: total,
+      with_original_sprint: with_rows.size,
+      missing_original_sprint: missing_rows.size,
+      completion_percent: ratio(with_rows.size, total),
+      missing_issue_ids: missing_rows.map { |row| row[:issue_id] },
+      with_issue_ids: with_rows.map { |row| row[:issue_id] },
+      all_issue_ids: rows.map { |row| row[:issue_id] },
+      group_rows: group_rows,
+      missing_rows: missing_rows.sort_by { |row| [row[:project_name].to_s.downcase, row[:issue_id].to_i] }
+    }
+  end
+
+  def empty_original_sprint_report
+    {
+      total_technical: 0,
+      with_original_sprint: 0,
+      missing_original_sprint: 0,
+      completion_percent: 0.0,
+      missing_issue_ids: [],
+      with_issue_ids: [],
+      all_issue_ids: [],
+      group_rows: [],
       missing_rows: []
     }
   end

@@ -551,6 +551,12 @@
   text-align: left;
   min-width: 220px;
 }
+.tj-original-sprint-table {
+  min-width: 640px;
+}
+.tj-original-sprint-table .tj-td-title {
+  text-align: left;
+}
 .tj-data-quality-bars .tj-workload-bar-fill {
   background: linear-gradient(90deg, #f59e0b, #dc2626);
 }

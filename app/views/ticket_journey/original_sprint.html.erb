@@ -1,0 +1,115 @@
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'ticket_journey', plugin: 'redmine_ticket_journey' %>
+<% end %>
+
+<div id="tj-wrap">
+  <div class="tj-page-header">
+    <div class="tj-page-header-left">
+      <div>
+        <h2><%= ticket_journey_header_context_tag(:data_quality) %>Ticket Original Sprint</h2>
+        <p class="tj-page-sub">Technical ticket original sprint completeness based on the applied filter &mdash; <%= @project.name %></p>
+      </div>
+    </div>
+  </div>
+
+  <%= render partial: 'report_tabs', locals: { active_tab: :original_sprint } %>
+
+  <%= form_tag(ticket_journey_original_sprint_path(@project), method: :get, id: 'query_form') do %>
+    <%= hidden_field_tag :support_section, params[:support_section] if params[:support_section].present? %>
+    <%= render partial: 'queries/query_form' %>
+  <% end %>
+
+  <% if !@query.valid? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">Report</div>
+      <h3>Invalid filters</h3>
+      <p>Please review the Redmine query filters above.</p>
+    </div>
+  <% elsif @original_sprint_report[:total_technical].zero? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">Report</div>
+      <h3>No technical tickets found</h3>
+      <p>No Bug, Feature, or Change Request tickets match the current filters.</p>
+    </div>
+  <% else %>
+    <% report = @original_sprint_report %>
+    <div class="tj-summary-strip">
+      <%= duration_report_drilldown_block(@query, report[:all_issue_ids], class: 'tj-summary-card tj-summary-link', title: 'Open all technical tickets in Duration Report') do %>
+        <div class="tj-sc-label">Technical Tickets</div>
+        <div class="tj-sc-value tj-sc-blue"><%= report[:total_technical] %></div>
+      <% end %>
+      <%= duration_report_drilldown_block(@query, report[:with_issue_ids], class: 'tj-summary-card tj-summary-link', title: 'Open technical tickets with Original Sprint') do %>
+        <div class="tj-sc-label">With Original Sprint</div>
+        <div class="tj-sc-value tj-sc-green"><%= report[:with_original_sprint] %></div>
+      <% end %>
+      <%= duration_report_drilldown_block(@query, report[:missing_issue_ids], class: 'tj-summary-card tj-summary-link', title: 'Open technical tickets missing Original Sprint') do %>
+        <div class="tj-sc-label">Missing Original Sprint</div>
+        <div class="tj-sc-value <%= report[:missing_original_sprint].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= report[:missing_original_sprint] %></div>
+      <% end %>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Completion</div>
+        <div class="tj-sc-value <%= report[:completion_percent].to_f >= 0.9 ? 'tj-sc-green' : 'tj-sc-orange' %>"><%= number_to_percentage(report[:completion_percent] * 100, precision: 1) %></div>
+      </div>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Original Sprint Coverage</div>
+      <div class="tj-table-wrap">
+        <table class="tj-table tj-original-sprint-table">
+          <thead>
+            <tr>
+              <th class="tj-th-title">Original Sprint</th>
+              <th class="tj-th-native">Technical Tickets</th>
+              <th class="tj-th-native">Share</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% report[:group_rows].each do |row| %>
+              <tr class="tj-row">
+                <td class="tj-td-title"><%= h(row[:original_sprint]) %></td>
+                <td class="tj-td-native <%= row[:missing] ? 'tj-counter-active' : '' %>">
+                  <%= duration_report_drilldown_link(@query, row[:issue_ids], row[:count], title: "Open #{row[:original_sprint]} tickets") %>
+                </td>
+                <td class="tj-td-native"><%= number_to_percentage(row[:percent] * 100, precision: 1) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Missing Original Sprint Detail</div>
+      <% if report[:missing_rows].empty? %>
+        <div class="tj-flow-empty-note">No technical tickets are missing Original Sprint for the current filters.</div>
+      <% else %>
+        <div class="tj-table-wrap">
+          <table class="tj-table tj-data-quality-detail-table">
+            <thead>
+              <tr>
+                <th class="tj-th-issue">Issue</th>
+                <th class="tj-th-title">Subject</th>
+                <th class="tj-th-native">Project</th>
+                <th class="tj-th-native">Tracker</th>
+                <th class="tj-th-native">Owner</th>
+                <th class="tj-th-native">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% report[:missing_rows].each do |row| %>
+                <tr class="tj-row">
+                  <td class="tj-td-issue"><%= link_to "##{row[:issue_id]}", issue_path(row[:issue]), class: 'tj-issue-link' %></td>
+                  <td class="tj-td-title"><%= link_to row[:subject], ticket_journey_path(@project, issue_detail_params(@query, row[:issue])), class: 'tj-subject-link', title: row[:subject] %></td>
+                  <td class="tj-td-native"><%= h(row[:project_name]) %></td>
+                  <td class="tj-td-native"><%= h(row[:tracker]) %></td>
+                  <td class="tj-td-native"><%= h(row[:owner]) %></td>
+                  <td class="tj-td-native"><%= h(row[:status]) %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+</div>

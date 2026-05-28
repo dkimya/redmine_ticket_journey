@@ -15,6 +15,7 @@ Rails.application.routes.draw do
     get  'ticket_journey/release_readiness', to: 'ticket_journey#release_readiness', as: 'ticket_journey_release_readiness'
     get  'ticket_journey/bug_analysis', to: 'ticket_journey#bug_analysis', as: 'ticket_journey_bug_analysis'
     get  'ticket_journey/data_quality', to: 'ticket_journey#data_quality', as: 'ticket_journey_data_quality'
+    get  'ticket_journey/original_sprint', to: 'ticket_journey#original_sprint', as: 'ticket_journey_original_sprint'
     get  'ticket_journey/issue/:id',    to: 'ticket_journey#show',     as: 'ticket_journey_issue'
     get  'ticket_journey/export',       to: 'ticket_journey#export',   as: 'ticket_journey_export'
   end

@@ -14,6 +14,7 @@
   release_params = release_readiness_params(@query)
   bug_params = bug_analysis_params(@query)
   data_quality_tab_params = data_quality_params(@query)
+  original_sprint_tab_params = original_sprint_params(@query)
   duration_params = duration_params.except('issue_id', 'view')
   detail_params =
     if @issue.present?
@@ -29,6 +30,7 @@
     bug_analysis: ['Bug Control', ticket_journey_bug_analysis_path(@project, bug_params)],
     planning_estimation: ['Planning & Estimation', ticket_journey_planning_estimation_path(@project, planning_params)],
     data_quality: ['Ticket Quality & Data Discipline', ticket_journey_data_quality_path(@project, data_quality_tab_params)],
+    original_sprint: ['Ticket Original Sprint', ticket_journey_original_sprint_path(@project, original_sprint_tab_params)],
     duration: ['Duration Report', ticket_journey_path(@project, duration_params)],
     issue_detail: ['Issue Detail', ticket_journey_path(@project, detail_params)],
     owner_workload: ['Owner Workload / Time Support', ticket_journey_owner_workload_path(@project, workload_params)],
@@ -77,7 +79,7 @@
     },
     data_quality: {
       label: 'Ticket Quality & Data Discipline',
-      keys: [:data_quality, :issue_detail]
+      keys: [:data_quality, :original_sprint, :issue_detail]
     }
   }
 
@@ -99,7 +101,7 @@
         :bug_analysis
       when :planning_estimation
         :planning_estimation
-      when :data_quality
+      when :data_quality, :original_sprint
         :data_quality
       else
         :pmo_control

@@ -507,6 +507,10 @@ module TicketJourneyHelper
     query_params
   end
 
+  def original_sprint_params(query)
+    data_quality_params(query)
+  end
+
   def data_quality_sort_link(query, sort_key, caption, title: nil)
     current_key = params[:data_sort].to_s
     current_dir = params[:data_dir].to_s
@@ -669,6 +673,8 @@ module TicketJourneyHelper
     when :missing_priority
       add_missing_data_filter(filters, operators, values, 'priority_id')
     when :missing_sprint
+      replace_filter(filters, operators, values, 'tracker_id')
+      add_tracker_filter(filters, operators, values, technical_tracker_filter_values)
       add_missing_data_filter(filters, operators, values, "cf_#{TicketJourneyController::TICKET_ORIGINAL_SPRINT_CF_ID}")
     when :no_update
       replace_filter(filters, operators, values, 'updated_on')
@@ -687,7 +693,7 @@ module TicketJourneyHelper
     issue_ids = data_quality_drilldown_issue_ids(row, scope)
     project = (row && row[:project]) || @project
 
-    if scope.to_sym == :missing_sprint && issue_ids.any?
+    if issue_ids.any?
       ticket_journey_path(project, duration_report_drilldown_params(@query, issue_ids).merge('support_section' => 'data_quality'))
     else
       project_issues_path(project, data_quality_issue_filter_params(row, scope))
@@ -696,6 +702,24 @@ module TicketJourneyHelper
 
   def data_quality_drilldown_issue_ids(row, scope)
     Array(row && (row[:issue_ids].presence || row["#{scope}_issue_ids".to_sym])).map(&:to_i).reject(&:zero?).uniq
+  end
+
+  def data_quality_summary_card(row, scope, label, value, css_class, title: nil)
+    issue_ids = data_quality_drilldown_issue_ids(row, scope)
+    content = safe_join([
+      content_tag(:div, label, class: 'tj-sc-label'),
+      content_tag(:div, value, class: "tj-sc-value #{css_class}")
+    ])
+
+    if issue_ids.any?
+      link_to(
+        data_quality_drilldown_path(row, scope),
+        class: 'tj-summary-card tj-summary-link',
+        title: title || 'Open exact ticket list'
+      ) { content }
+    else
+      content_tag(:div, content, class: 'tj-summary-card', title: title)
+    end
   end
 
   def data_quality_count_link(row, scope, value)
