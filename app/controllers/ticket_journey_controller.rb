@@ -3014,10 +3014,9 @@ class TicketJourneyController < ApplicationController
   end
 
   def bug_related_page_distribution_rows(issues, total)
-    related_page_cf_id = bug_related_page_cf_id
-    return [] if related_page_cf_id.blank?
+    return [] if bug_related_page_custom_fields.empty?
 
-    issues.group_by { |issue| issue.custom_value_for(related_page_cf_id)&.value.presence || 'Missing Related Page' }
+    issues.group_by { |issue| bug_related_page_value(issue).presence || 'Missing Related Page' }
           .map do |page, page_issues|
       {
         page: page,
@@ -3072,8 +3071,7 @@ class TicketJourneyController < ApplicationController
   end
 
   def bug_related_page_rows(bug_list, period_end, status_changes, closed_status_ids)
-    related_page_cf_id = bug_related_page_cf_id
-    return [] if related_page_cf_id.blank?
+    return [] if bug_related_page_custom_fields.empty?
 
     remaining_bugs = bug_list.select do |issue|
       issue.created_on <= period_end && !historically_closed?(issue, status_changes[issue.id], period_end, closed_status_ids)
@@ -3082,7 +3080,7 @@ class TicketJourneyController < ApplicationController
     return [] if total_remaining.zero?
 
     page_groups = remaining_bugs.group_by do |issue|
-      issue.custom_value_for(related_page_cf_id)&.value.presence || 'Missing Related Page'
+      bug_related_page_value(issue).presence || 'Missing Related Page'
     end
 
     page_groups.map do |page, page_bugs|
@@ -3114,8 +3112,7 @@ class TicketJourneyController < ApplicationController
 
     remaining_critical.map do |issue|
       impact = issue.custom_value_for(BUG_IMPACT_RATING_CF_ID)&.value.to_i
-      related_page_cf_id = bug_related_page_cf_id
-      page = related_page_cf_id ? (issue.custom_value_for(related_page_cf_id)&.value.presence || '-') : '-'
+      page = bug_related_page_value(issue).presence || '-'
       last_update_days = issue.updated_on.present? ? [(today - issue.updated_on.to_date).to_i, 0].max : nil
 
       risk = if (today - issue.created_on.to_date).to_i > 14 || impact >= 4
@@ -3145,7 +3142,29 @@ class TicketJourneyController < ApplicationController
   def bug_related_page_cf_id
     return @bug_related_page_cf_id if defined?(@bug_related_page_cf_id)
 
-    @bug_related_page_cf_id = CustomField.where(type: 'IssueCustomField', name: BUG_RELATED_PAGE_CF_NAMES).order(:id).pick(:id)
+    @bug_related_page_cf_id = bug_related_page_custom_fields.first&.id
+  end
+
+  def bug_related_page_custom_fields
+    return @bug_related_page_custom_fields if defined?(@bug_related_page_custom_fields)
+
+    fields = CustomField.where(type: 'IssueCustomField', name: BUG_RELATED_PAGE_CF_NAMES).to_a
+    @bug_related_page_custom_fields =
+      fields.sort_by do |field|
+        [
+          BUG_RELATED_PAGE_CF_NAMES.index(field.name).presence || BUG_RELATED_PAGE_CF_NAMES.size,
+          field.id
+        ]
+      end
+  end
+
+  def bug_related_page_value(issue)
+    bug_related_page_custom_fields.each do |field|
+      value = issue.custom_value_for(field.id)&.value.presence
+      return value if value.present?
+    end
+
+    nil
   end
 
   def bug_terminal_status_ids
