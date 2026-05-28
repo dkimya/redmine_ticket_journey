@@ -51,15 +51,14 @@
     <%
       total_tickets = @owner_return_rows.sum { |row| row[:total_tickets] }
       returned_tickets = @owner_return_rows.sum { |row| row[:returned_tickets] }
-      c1_total = @owner_return_rows.sum { |row| row[:c1] }
-      c2_total = @owner_return_rows.sum { |row| row[:c2] }
-      c3_total = @owner_return_rows.sum { |row| row[:c3] }
-      c4_total = @owner_return_rows.sum { |row| row[:c4] }
       total_returns = @owner_return_rows.sum { |row| row[:total_returns] }
       done_tickets = @owner_return_rows.sum { |row| row[:done_tickets] }
       owner_debt = @owner_return_rows.sum { |row| row[:owner_debt] }
       tickets_without_updates = @owner_return_rows.sum { |row| row[:tickets_without_updates] }
-      counter_totals = { C1: c1_total, C2: c2_total, C3: c3_total, C4: c4_total }
+      return_counter_definitions = counter_definitions(:internal)
+      counter_totals = return_counter_definitions.each_with_object({}) do |counter, totals|
+        totals[counter[:key]] = @owner_return_rows.sum { |row| row[counter[:key].to_s.downcase.to_sym].to_i }
+      end
     %>
 
     <%
@@ -100,7 +99,7 @@
         <div class="tj-sc-label">Total Returns</div>
         <div class="tj-sc-value tj-sc-red"><%= total_returns %></div>
       </div>
-      <% counter_definitions.each do |counter| %>
+      <% return_counter_definitions.each do |counter| %>
         <% total = counter_totals[counter[:key]] %>
         <div class="tj-summary-card" title="<%= counter[:title] %>">
           <div class="tj-sc-label"><%= counter[:code] %></div>
@@ -126,10 +125,10 @@
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :avg_idle_days, 'Avg Idle', title: 'Average days since update for open tickets') %></th>
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :returned_tickets, 'No. of Returned Tickets') %></th>
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :return_rate, 'Return Rate') %></th>
-              <th class="tj-th-counter"><%= owner_returns_sort_link(@query, :c1, counter_definitions[0][:code], title: counter_definitions[0][:title]) %></th>
-              <th class="tj-th-counter"><%= owner_returns_sort_link(@query, :c2, counter_definitions[1][:code], title: counter_definitions[1][:title]) %></th>
-              <th class="tj-th-counter"><%= owner_returns_sort_link(@query, :c3, counter_definitions[2][:code], title: counter_definitions[2][:title]) %></th>
-            <th class="tj-th-counter"><%= owner_returns_sort_link(@query, :c4, counter_definitions[3][:code], title: counter_definitions[3][:title]) %></th>
+              <% return_counter_definitions.each do |counter| %>
+                <% sort_key = counter[:key].to_s.downcase.to_sym %>
+                <th class="tj-th-counter"><%= owner_returns_sort_link(@query, sort_key, counter[:code], title: counter[:title]) %></th>
+              <% end %>
             <th class="tj-th-total"><%= owner_returns_sort_link(@query, :total_returns, 'Total Returns') %></th>
           </tr>
         </thead>
@@ -153,10 +152,10 @@
               <td class="tj-td-native"><%= row[:open_tickets].positive? ? "#{number_with_precision(row[:avg_idle_days], precision: 1, strip_insignificant_zeros: true)}d" : '-' %></td>
               <td class="tj-td-native"><%= duration_report_drilldown_link(@query, row[:returned_issue_ids], row[:returned_tickets]) %></td>
               <td class="tj-td-native"><%= format_percentage(row[:returned_tickets], row[:total_tickets]) %></td>
-              <td class="<%= counter_css_class(row[:c1]) %>"><%= row[:c1] > 0 ? row[:c1] : '—' %></td>
-              <td class="<%= counter_css_class(row[:c2]) %>"><%= row[:c2] > 0 ? row[:c2] : '—' %></td>
-              <td class="<%= counter_css_class(row[:c3]) %>"><%= row[:c3] > 0 ? row[:c3] : '—' %></td>
-              <td class="<%= counter_css_class(row[:c4]) %>"><%= row[:c4] > 0 ? row[:c4] : '—' %></td>
+              <% return_counter_definitions.each do |counter| %>
+                <% value = row[counter[:key].to_s.downcase.to_sym].to_i %>
+                <td class="<%= counter_css_class(value) %>"><%= value.positive? ? value : '—' %></td>
+              <% end %>
               <td class="tj-td-total"><%= row[:total_returns] %></td>
             </tr>
           <% end %>

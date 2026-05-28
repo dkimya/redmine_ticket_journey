@@ -6,7 +6,7 @@ class TicketJourneyController < ApplicationController
   RETURN_REASON_CF_ID = 66
   BUG_RELATED_PAGE_CF_NAMES = ['Bug Related Page / Module', 'Related Page / Module', 'Bug Related Page', 'Related Page', 'Related Module', 'Page / Module', 'Module / Page'].freeze
   BUG_LEAKAGE_SOURCE_KEYWORDS = ['test escape', 'coverage gap', 'requirement gap'].freeze
-  OWNER_RETURN_SORTABLE_FIELDS = %w[owner total_tickets ticket_share done_tickets completion_rate avg_done_cycle_time avg_priority_done_cycle_time open_tickets owner_debt tickets_without_updates avg_idle_days returned_tickets return_rate c1 c2 c3 c4 total_returns].freeze
+  OWNER_RETURN_SORTABLE_FIELDS = %w[owner total_tickets ticket_share done_tickets completion_rate avg_done_cycle_time avg_priority_done_cycle_time open_tickets owner_debt tickets_without_updates avg_idle_days returned_tickets return_rate c1 c2 c3 c4 c5 total_returns].freeze
   OWNER_WORKLOAD_SORTABLE_FIELDS = %w[owner total_open technical_open task_open stopped overdue priority_open no_due_date avg_age oldest_age].freeze
   AGING_RISK_SORTABLE_FIELDS = %w[group total_open bucket_0_7 bucket_8_14 bucket_15_30 bucket_31_60 bucket_60_plus stopped overdue priority_open no_due_date avg_age oldest_age].freeze
   PRIORITY_RISK_SORTABLE_FIELDS = %w[issue subject owner priority status tracker due_date age_days overdue stopped no_due_date].freeze
@@ -67,9 +67,9 @@ class TicketJourneyController < ApplicationController
     container: %i[DP0 DP1 DP2 DP3]
   }.freeze
   FAMILY_COUNTER_KEYS = {
-    internal: %i[C1 C2 C3 C4],
+    internal: %i[C1 C2 C3 C4 C5],
     customer_support: [],
-    task: %i[C1 C4],
+    task: %i[C1 C4 C5],
     container: []
   }.freeze
   FLOW_STATUS_ORDER = [
@@ -88,7 +88,7 @@ class TicketJourneyController < ApplicationController
   ].freeze
   FLOW_STATUS_SEPARATOR_BEFORE = ['To-Do', 'Pending', 'Done / Closed'].freeze
   ALL_DURATION_KEYS = (FAMILY_DURATION_KEYS.values.flatten + [:ON_HOLD, :PENDING, :TOTAL, :CALENDAR_TOTAL]).freeze
-  ALL_COUNTER_KEYS = %i[C1 C2 C3 C4].freeze
+  ALL_COUNTER_KEYS = %i[C1 C2 C3 C4 C5].freeze
 
   before_action :find_project
   before_action :authorize
@@ -3434,6 +3434,7 @@ class TicketJourneyController < ApplicationController
         c2: 0,
         c3: 0,
         c4: 0,
+        c5: 0,
         total_returns: 0
       }
     end
@@ -3481,7 +3482,7 @@ class TicketJourneyController < ApplicationController
       end
 
       durations = item[:durations]
-      total_returns = durations[:C1].to_i + durations[:C2].to_i + durations[:C3].to_i + durations[:C4].to_i
+      total_returns = item_total_returns(item)
       next if total_returns.zero?
 
       row[:returned_tickets] += 1
@@ -3490,6 +3491,7 @@ class TicketJourneyController < ApplicationController
       row[:c2] += durations[:C2].to_i
       row[:c3] += durations[:C3].to_i
       row[:c4] += durations[:C4].to_i
+      row[:c5] += durations[:C5].to_i
       row[:total_returns] += total_returns
     end
 
@@ -3612,7 +3614,8 @@ class TicketJourneyController < ApplicationController
       { key: :C1, code: 'R1', title: 'Function-Fail / Granular Error', transition: 'Feedback -> Returned' },
       { key: :C2, code: 'R2', title: 'Code Quality Fail', transition: 'Review -> Returned' },
       { key: :C3, code: 'R3', title: 'Merge Conflict Error', transition: 'Ready to Merge -> Returned' },
-      { key: :C4, code: 'R4', title: 'E2E Fail / Side-Effect Error', transition: 'Final Check -> Returned' }
+      { key: :C4, code: 'R4', title: 'E2E Fail / Side-Effect Error', transition: 'Final Check -> Returned' },
+      { key: :C5, code: 'R5', title: 'Fail QA Pass', transition: 'Done / Closed -> Returned' }
     ]
   end
 
@@ -3712,6 +3715,7 @@ class TicketJourneyController < ApplicationController
         c2: returned_items.sum { |item| item[:durations][:C2].to_i },
         c3: returned_items.sum { |item| item[:durations][:C3].to_i },
         c4: returned_items.sum { |item| item[:durations][:C4].to_i },
+        c5: returned_items.sum { |item| item[:durations][:C5].to_i },
         rework_hours: returned_items.sum { |item| qa_rework_hours_for_item(item) },
         top_reason: top_reason || '-',
         top_reason_count: top_reason_count.to_i,
@@ -3741,6 +3745,7 @@ class TicketJourneyController < ApplicationController
         c2: durations[:C2].to_i,
         c3: durations[:C3].to_i,
         c4: durations[:C4].to_i,
+        c5: durations[:C5].to_i,
         total_returns: item_total_returns(item),
         rework_hours: qa_rework_hours_for_item(item),
         cycle_hours: completed_cycle_time_hours(item) || durations[:TOTAL].to_f
@@ -3934,6 +3939,8 @@ class TicketJourneyController < ApplicationController
         durations[:C3] += 1 if durations.key?(:C3)
       when :final_check
         durations[:C4] += 1 if durations.key?(:C4)
+      when :done
+        durations[:C5] += 1 if durations.key?(:C5)
       end
     end
 
@@ -4319,9 +4326,11 @@ class TicketJourneyController < ApplicationController
   end
 
   def empty_durations(periods: [])
-    ALL_DURATION_KEYS.each_with_object({ periods: periods }) do |key, hash|
+    durations = ALL_DURATION_KEYS.each_with_object({ periods: periods }) do |key, hash|
       hash[key] = 0.0
-    end.merge(C1: 0, C2: 0, C3: 0, C4: 0, periods: periods)
+    end
+    ALL_COUNTER_KEYS.each { |key| durations[key] = 0 }
+    durations
   end
 
   # ---------------------------------------------------------------

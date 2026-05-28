@@ -193,6 +193,7 @@
                   <th class="tj-th-counter">R2</th>
                   <th class="tj-th-counter">R3</th>
                   <th class="tj-th-counter">R4</th>
+                  <th class="tj-th-counter">R5</th>
                   <th class="tj-th-total">Total Returns</th>
                   <th class="tj-th-native">Rework Time</th>
                   <th class="tj-th-title">Top Reason</th>
@@ -209,6 +210,7 @@
                     <td class="<%= counter_css_class(row[:c2]) %>"><%= row[:c2].positive? ? row[:c2] : '-' %></td>
                     <td class="<%= counter_css_class(row[:c3]) %>"><%= row[:c3].positive? ? row[:c3] : '-' %></td>
                     <td class="<%= counter_css_class(row[:c4]) %>"><%= row[:c4].positive? ? row[:c4] : '-' %></td>
+                    <td class="<%= counter_css_class(row[:c5]) %>"><%= row[:c5].positive? ? row[:c5] : '-' %></td>
                     <td class="tj-td-total"><%= row[:return_events] %></td>
                     <td class="tj-td-native"><%= format_hours(row[:rework_hours]) %></td>
                     <td class="tj-td-title"><%= h(row[:top_reason]) %><% if row[:top_reason_count].positive? %> (<%= row[:top_reason_count] %>)<% end %></td>
@@ -259,6 +261,7 @@
                   <th class="tj-th-counter">R2</th>
                   <th class="tj-th-counter">R3</th>
                   <th class="tj-th-counter">R4</th>
+                  <th class="tj-th-counter">R5</th>
                   <th class="tj-th-total">Total Returns</th>
                   <th class="tj-th-native">Rework Time</th>
                   <th class="tj-th-total">Cycle Time</th>
@@ -277,6 +280,7 @@
                     <td class="<%= counter_css_class(row[:c2]) %>"><%= row[:c2].positive? ? row[:c2] : '-' %></td>
                     <td class="<%= counter_css_class(row[:c3]) %>"><%= row[:c3].positive? ? row[:c3] : '-' %></td>
                     <td class="<%= counter_css_class(row[:c4]) %>"><%= row[:c4].positive? ? row[:c4] : '-' %></td>
+                    <td class="<%= counter_css_class(row[:c5]) %>"><%= row[:c5].positive? ? row[:c5] : '-' %></td>
                     <td class="tj-td-total"><%= row[:total_returns] %></td>
                     <td class="tj-td-native"><%= format_hours(row[:rework_hours]) %></td>
                     <td class="tj-td-total"><%= format_hours(row[:cycle_hours]) %></td>

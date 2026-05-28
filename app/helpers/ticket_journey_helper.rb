@@ -1121,7 +1121,7 @@ module TicketJourneyHelper
   end
 
   def total_returns(durations)
-    %i[C1 C2 C3 C4].sum { |key| durations[key].to_i }
+    TicketJourneyController::ALL_COUNTER_KEYS.sum { |key| durations[key].to_i }
   end
 
   def total_augmented_time(durations, family_key)
@@ -1133,14 +1133,16 @@ module TicketJourneyHelper
     when :task
       [
         { key: :C1, code: 'R1', short_label: 'Output Quality Rejection', title: 'Output Quality Rejection', transition: 'Feedback -> Returned' },
-        { key: :C4, code: 'R4', short_label: 'Final Check Rejection', title: 'Final Check Rejection', transition: 'Final Check -> Returned' }
+        { key: :C4, code: 'R4', short_label: 'Final Check Rejection', title: 'Final Check Rejection', transition: 'Final Check -> Returned' },
+        { key: :C5, code: 'R5', short_label: 'Fail QA Pass', title: 'Fail QA Pass', transition: 'Done / Closed -> Returned' }
       ]
     when :internal
       [
         { key: :C1, code: 'R1', short_label: 'Function-Fail / Granular Error', title: 'Function-Fail / Granular Error', transition: 'Feedback -> Returned' },
         { key: :C2, code: 'R2', short_label: 'Code Quality Fail', title: 'Code Quality Fail', transition: 'Review -> Returned' },
         { key: :C3, code: 'R3', short_label: 'Merge Conflict Error', title: 'Merge Conflict Error', transition: 'Ready to Merge -> Returned' },
-        { key: :C4, code: 'R4', short_label: 'E2E Fail / Side-Effect Error', title: 'E2E Fail / Side-Effect Error', transition: 'Final Check -> Returned' }
+        { key: :C4, code: 'R4', short_label: 'E2E Fail / Side-Effect Error', title: 'E2E Fail / Side-Effect Error', transition: 'Final Check -> Returned' },
+        { key: :C5, code: 'R5', short_label: 'Fail QA Pass', title: 'Fail QA Pass', transition: 'Done / Closed -> Returned' }
       ]
     else
       []
