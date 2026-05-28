@@ -2466,6 +2466,7 @@ class TicketJourneyController < ApplicationController
       project_rows: sort_data_quality_rows(project_rows),
       field_rows: data_quality_field_rows(totals, issue_rows),
       stale_rows: issue_rows.select { |row| row[:without_updates] }.sort_by { |row| [-row[:days_since_update].to_i, row[:project_name].to_s.downcase, row[:issue_id].to_i] }.first(150),
+      missing_time_log_rows: issue_rows.reject { |row| row[:has_time_log] }.sort_by { |row| [row[:project_name].to_s.downcase, row[:owner].to_s.downcase, row[:issue_id].to_i] }.first(150),
       missing_rows: issue_rows.select { |row| row[:missing_fields].any? }.sort_by { |row| [-row[:missing_fields].size, -row[:days_since_update].to_i, row[:project_name].to_s.downcase, row[:issue_id].to_i] }.first(150)
     }
   end
@@ -2548,6 +2549,7 @@ class TicketJourneyController < ApplicationController
       missing_priority: issue_rows.count { |row| row[:missing_priority] },
       missing_sprint: issue_rows.count { |row| row[:missing_sprint] },
       time_logging_complete: issue_rows.count { |row| row[:has_time_log] },
+      missing_time_logging: issue_rows.count { |row| !row[:has_time_log] },
       new_status: issue_rows.count { |row| row[:status].to_s.casecmp('New').zero? }
     }
 
@@ -2562,6 +2564,7 @@ class TicketJourneyController < ApplicationController
       missing_priority
       missing_sprint
       time_logging_complete
+      missing_time_logging
       new_status
     ].each do |scope|
       totals["#{scope}_issue_ids".to_sym] = data_quality_issue_ids(issue_rows, scope)
@@ -2576,6 +2579,7 @@ class TicketJourneyController < ApplicationController
     totals[:missing_priority_percent] = ratio(totals[:missing_priority], total_active)
     totals[:missing_sprint_percent] = ratio(totals[:missing_sprint], total_active)
     totals[:time_logging_completeness_percent] = ratio(totals[:time_logging_complete], total_active)
+    totals[:missing_time_logging_percent] = ratio(totals[:missing_time_logging], total_active)
     totals[:new_status_percent] = ratio(totals[:new_status], total_active)
     totals
   end
@@ -2618,8 +2622,11 @@ class TicketJourneyController < ApplicationController
       missing_estimation_issue_ids: data_quality_issue_ids(rows, :missing_estimation),
       missing_sprint_issue_ids: data_quality_issue_ids(rows, :missing_sprint),
       time_logging_complete_issue_ids: data_quality_issue_ids(rows, :time_logging_complete),
+      missing_time_logging_issue_ids: data_quality_issue_ids(rows, :missing_time_logging),
       time_logging_complete: time_logging_complete,
+      missing_time_logging: total_active - time_logging_complete,
       time_logging_completeness_percent: ratio(time_logging_complete, total_active),
+      missing_time_logging_percent: ratio(total_active - time_logging_complete, total_active),
       reliability_status: reliability_status,
       reliability_rank: reliability_rank
     }
@@ -2677,6 +2684,8 @@ class TicketJourneyController < ApplicationController
       row[:missing_sprint]
     when :time_logging_complete
       row[:has_time_log]
+    when :missing_time_logging
+      !row[:has_time_log]
     when :new_status
       row[:status].to_s.casecmp('New').zero?
     when :no_update
@@ -2722,6 +2731,7 @@ class TicketJourneyController < ApplicationController
       project_rows: [],
       field_rows: data_quality_field_rows(totals),
       stale_rows: [],
+      missing_time_log_rows: [],
       missing_rows: []
     }
   end
