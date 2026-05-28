@@ -3017,7 +3017,7 @@ class TicketJourneyController < ApplicationController
     related_page_cf_id = bug_related_page_cf_id
     return [] if related_page_cf_id.blank?
 
-    issues.group_by { |issue| issue.custom_value_for(related_page_cf_id)&.value.presence || 'Not Specified' }
+    issues.group_by { |issue| issue.custom_value_for(related_page_cf_id)&.value.presence || 'Missing Related Page' }
           .map do |page, page_issues|
       {
         page: page,
@@ -3082,7 +3082,7 @@ class TicketJourneyController < ApplicationController
     return [] if total_remaining.zero?
 
     page_groups = remaining_bugs.group_by do |issue|
-      issue.custom_value_for(related_page_cf_id)&.value.presence || 'Not Specified'
+      issue.custom_value_for(related_page_cf_id)&.value.presence || 'Missing Related Page'
     end
 
     page_groups.map do |page, page_bugs|

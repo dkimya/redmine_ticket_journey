@@ -516,6 +516,9 @@
 .tj-bug-page-bar-row {
   grid-template-columns: minmax(180px, 280px) minmax(180px, 1fr) 86px 72px 92px;
 }
+.tj-subpanel .tj-bug-bar-row {
+  grid-template-columns: minmax(120px, 220px) minmax(120px, 1fr) 48px;
+}
 .tj-bug-page-meta {
   display: flex;
   justify-content: flex-end;
