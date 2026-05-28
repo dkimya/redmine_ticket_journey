@@ -279,30 +279,21 @@
     <% if @bug_related_page_rows.blank? %>
       <div class="tj-flow-empty-note">No Related Page / Module values were found for remaining bugs in this period.</div>
     <% else %>
-      <div class="tj-table-wrap">
-        <table class="tj-table">
-          <thead>
-            <tr>
-              <th class="tj-th-title">Page / Module</th>
-              <th class="tj-th-native">Bug Count</th>
-              <th class="tj-th-native">%</th>
-              <th class="tj-th-native">Avg Impact Rating</th>
-              <th class="tj-th-native">Risk</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% @bug_related_page_rows.each do |row| %>
-              <tr class="tj-row">
-                <td class="tj-td-title"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:page].to_s, title: 'Open bugs for this page/module in Duration Report') %></td>
-                <td class="tj-td-native"><%= row[:count] %></td>
-                <td class="tj-td-native"><%= number_to_percentage(row[:percent] * 100, precision: 1) %></td>
-                <td class="tj-td-native"><%= row[:impact_average].positive? ? row[:impact_average] : '-' %></td>
-                <% bug_risk_class = row[:risk] == 'High' ? 'tj-release-risk-pill-red' : (row[:risk] == 'Medium' ? 'tj-release-risk-pill-amber' : 'tj-release-risk-pill-green') %>
-                <td class="tj-td-native"><span class="tj-release-risk-pill <%= bug_risk_class %>"><%= h(row[:risk]) %></span></td>
-              </tr>
-            <% end %>
-          </tbody>
-        </table>
+      <div class="tj-bug-bars">
+        <% max_page_count = @bug_related_page_rows.map { |row| row[:count].to_i }.max.to_i %>
+        <% @bug_related_page_rows.each do |row| %>
+          <% width = max_page_count.positive? ? ((row[:count].to_f / max_page_count) * 100).round : 0 %>
+          <% bug_risk_class = row[:risk] == 'High' ? 'tj-release-risk-pill-red' : (row[:risk] == 'Medium' ? 'tj-release-risk-pill-amber' : 'tj-release-risk-pill-green') %>
+          <div class="tj-bug-bar-row tj-bug-page-bar-row">
+            <span class="tj-bug-bar-label"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:page].to_s, title: 'Open bugs for this page/module in Duration Report') %></span>
+            <span class="tj-bug-bar-track">
+              <span class="tj-bug-bar-fill" style="width:<%= width %>%"></span>
+            </span>
+            <span class="tj-bug-page-meta"><strong><%= row[:count] %></strong><span><%= number_to_percentage(row[:percent] * 100, precision: 1) %></span></span>
+            <span class="tj-bug-page-impact"><%= row[:impact_average].positive? ? row[:impact_average] : '-' %></span>
+            <span><span class="tj-release-risk-pill <%= bug_risk_class %>"><%= h(row[:risk]) %></span></span>
+          </div>
+        <% end %>
       </div>
     <% end %>
   </div>

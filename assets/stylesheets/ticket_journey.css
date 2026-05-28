@@ -513,6 +513,25 @@
   font-weight: 800;
   text-align: right;
 }
+.tj-bug-page-bar-row {
+  grid-template-columns: minmax(180px, 280px) minmax(180px, 1fr) 86px 72px 92px;
+}
+.tj-bug-page-meta {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  color: var(--tj-text-dim);
+  font-family: 'Courier New', monospace;
+}
+.tj-bug-page-meta strong,
+.tj-bug-page-impact {
+  color: var(--tj-blue);
+  font-weight: 800;
+}
+.tj-bug-page-impact {
+  font-family: 'Courier New', monospace;
+  text-align: right;
+}
 .tj-bug-source-pie-wrap {
   display: grid;
   grid-template-columns: 180px minmax(0, 1fr);
