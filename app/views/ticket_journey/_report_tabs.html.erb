@@ -6,6 +6,7 @@
   owner_params = owner_returns_params(@query)
   qa_params = qa_returns_params(@query)
   workload_params = owner_workload_params(@query)
+  snapshot_params = status_snapshot_params(@query)
   aging_params = aging_risk_params(@query)
   priority_params = priority_risk_params(@query)
   cycle_params = cycle_distribution_params(@query)
@@ -34,6 +35,7 @@
     duration: ['Duration Report', ticket_journey_path(@project, duration_params)],
     issue_detail: ['Issue Detail', ticket_journey_path(@project, detail_params)],
     owner_workload: ['Owner Workload / Time Support', ticket_journey_owner_workload_path(@project, workload_params)],
+    status_snapshot: ['Status Snapshot', ticket_journey_status_snapshot_path(@project, snapshot_params)],
     aging_risk: ['Aging / SLA Risk', ticket_journey_aging_risk_path(@project, aging_params)],
     priority_risk: ['Priority / SLA Risk', ticket_journey_priority_risk_path(@project, priority_params)],
     cycle_distribution: ['Cycle Distribution', ticket_journey_cycle_distribution_path(@project, cycle_params)],
@@ -63,7 +65,7 @@
     },
     owner_returns: {
       label: 'Team / Ticket Owner Performance',
-      keys: [:owner_returns, :owner_workload, :duration, :issue_detail]
+      keys: [:owner_returns, :owner_workload, :status_snapshot, :duration, :issue_detail]
     },
     qa_returns: {
       label: 'QA & Returns',
@@ -93,7 +95,7 @@
         :pmo_control
       when :sprint_delivery, :duration, :cycle_distribution, :flow_report, :priority_risk
         :sprint_delivery
-      when :owner_returns, :owner_workload
+      when :owner_returns, :owner_workload, :status_snapshot
         :owner_returns
       when :qa_returns
         :qa_returns

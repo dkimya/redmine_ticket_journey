@@ -1524,3 +1524,193 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Owner status snapshot */
+.tj-snapshot-input {
+  min-width: 190px;
+}
+.tj-snapshot-time {
+  font-size: 14px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.tj-snapshot-status-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tj-snapshot-status-row {
+  display: grid;
+  grid-template-columns: minmax(130px, 210px) minmax(220px, 1fr) minmax(110px, auto);
+  align-items: center;
+  gap: 12px;
+  padding: 5px 8px;
+  border-radius: 4px;
+}
+.tj-snapshot-status-row:nth-child(even) {
+  background: #fafbfe;
+}
+.tj-snapshot-status-name {
+  min-width: 0;
+  color: var(--tj-text);
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tj-snapshot-status-track {
+  height: 16px;
+  overflow: hidden;
+  background: #eef0f5;
+  border-radius: 999px;
+}
+.tj-snapshot-status-fill {
+  display: block;
+  height: 100%;
+  min-width: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--tj-orange), var(--tj-red));
+}
+.tj-snapshot-status-count {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  color: var(--tj-text-muted);
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+}
+.tj-snapshot-status-count strong {
+  color: var(--tj-blue);
+}
+.tj-snapshot-owner-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.tj-snapshot-owner-card {
+  display: grid;
+  grid-template-columns: minmax(160px, 220px) minmax(0, 1fr);
+  gap: 14px;
+  padding: 12px;
+  border: 1px solid var(--tj-border);
+  border-radius: var(--tj-radius);
+  background: #fbfcfe;
+}
+.tj-snapshot-owner-side {
+  padding: 12px;
+  border-radius: var(--tj-radius);
+  background: var(--tj-surface);
+  border: 1px solid var(--tj-border);
+}
+.tj-snapshot-owner-name {
+  color: var(--tj-text);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.tj-snapshot-owner-total {
+  margin-top: 8px;
+  color: var(--tj-blue);
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  font-weight: 700;
+}
+.tj-snapshot-owner-main {
+  min-width: 0;
+}
+.tj-snapshot-status-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.tj-snapshot-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 220px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: var(--tj-blue);
+  font-size: 12px;
+  font-weight: 700;
+}
+.tj-snapshot-status-pill span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tj-snapshot-status-pill strong {
+  font-family: 'Courier New', monospace;
+  color: inherit;
+}
+.tj-snapshot-table-wrap {
+  max-height: 420px;
+}
+.tj-snapshot-table {
+  min-width: 900px;
+}
+.tj-snapshot-table .tj-td-native:first-child {
+  text-align: left;
+  white-space: nowrap;
+}
+.tj-snapshot-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 7px;
+  border-radius: 999px;
+  background: var(--tj-text-muted);
+  vertical-align: middle;
+}
+.tj-status-new { background-color: #e0f2fe; color: #0369a1; }
+.tj-status-todo { background-color: #ede9fe; color: #5b21b6; }
+.tj-status-in_progress,
+.tj-status-ongoing { background-color: #dbeafe; color: #1d4ed8; }
+.tj-status-feedback,
+.tj-status-returned { background-color: #fee2e2; color: #b91c1c; }
+.tj-status-review,
+.tj-status-ready_merge,
+.tj-status-final_check { background-color: #fef3c7; color: #b45309; }
+.tj-status-pending,
+.tj-status-on_hold { background-color: #e5e7eb; color: #4b5563; }
+.tj-status-done,
+.tj-status-archived { background-color: #dcfce7; color: #15803d; }
+.tj-snapshot-status-fill.tj-status-new,
+.tj-snapshot-status-dot.tj-status-new { background: #0ea5e9; }
+.tj-snapshot-status-fill.tj-status-todo,
+.tj-snapshot-status-dot.tj-status-todo { background: #7c3aed; }
+.tj-snapshot-status-fill.tj-status-in_progress,
+.tj-snapshot-status-fill.tj-status-ongoing,
+.tj-snapshot-status-dot.tj-status-in_progress,
+.tj-snapshot-status-dot.tj-status-ongoing { background: #2563eb; }
+.tj-snapshot-status-fill.tj-status-feedback,
+.tj-snapshot-status-fill.tj-status-returned,
+.tj-snapshot-status-dot.tj-status-feedback,
+.tj-snapshot-status-dot.tj-status-returned { background: #dc2626; }
+.tj-snapshot-status-fill.tj-status-review,
+.tj-snapshot-status-fill.tj-status-ready_merge,
+.tj-snapshot-status-fill.tj-status-final_check,
+.tj-snapshot-status-dot.tj-status-review,
+.tj-snapshot-status-dot.tj-status-ready_merge,
+.tj-snapshot-status-dot.tj-status-final_check { background: #d97706; }
+.tj-snapshot-status-fill.tj-status-pending,
+.tj-snapshot-status-fill.tj-status-on_hold,
+.tj-snapshot-status-dot.tj-status-pending,
+.tj-snapshot-status-dot.tj-status-on_hold { background: #6b7280; }
+.tj-snapshot-status-fill.tj-status-done,
+.tj-snapshot-status-fill.tj-status-archived,
+.tj-snapshot-status-dot.tj-status-done,
+.tj-snapshot-status-dot.tj-status-archived { background: #16a34a; }
+@media (max-width: 900px) {
+  .tj-snapshot-status-row,
+  .tj-snapshot-owner-card {
+    grid-template-columns: 1fr;
+  }
+  .tj-snapshot-status-count {
+    justify-content: flex-start;
+  }
+}

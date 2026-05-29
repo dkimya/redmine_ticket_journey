@@ -302,6 +302,19 @@ module TicketJourneyHelper
     query_params
   end
 
+  def status_snapshot_params(query)
+    query_params = query.as_params.deep_dup.deep_stringify_keys
+
+    %w[snapshot_at].each do |key|
+      query_params.delete(key)
+      value = params[key]
+      query_params[key] = value if value.present?
+    end
+
+    query_params.merge!(support_section_params)
+    query_params
+  end
+
   def aging_risk_params(query)
     query_params = query.as_params.deep_dup.deep_stringify_keys
 

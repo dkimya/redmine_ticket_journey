@@ -1,0 +1,143 @@
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'ticket_journey', plugin: 'redmine_ticket_journey' %>
+<% end %>
+
+<div id="tj-wrap">
+  <div class="tj-page-header">
+    <div class="tj-page-header-left">
+      <div>
+        <h2><%= ticket_journey_header_context_tag(:owner_returns) %>Status Snapshot</h2>
+        <p class="tj-page-sub">Owner-focused issue status snapshot &mdash; <%= @project.name %></p>
+      </div>
+    </div>
+  </div>
+
+  <%= render partial: 'report_tabs', locals: { active_tab: :status_snapshot } %>
+
+  <%= form_tag(ticket_journey_status_snapshot_path(@project), method: :get, id: 'query_form') do %>
+    <%= hidden_field_tag :support_section, params[:support_section] if params[:support_section].present? %>
+    <%= render partial: 'queries/query_form' %>
+
+    <div class="tj-filter-bar tj-owner-filter-bar">
+      <div class="tj-filter-form">
+        <div class="tj-filter-group">
+          <label for="snapshot_at">Snapshot Time</label>
+          <%= text_field_tag :snapshot_at, @snapshot_at_input, type: 'datetime-local', class: 'tj-input tj-snapshot-input' %>
+        </div>
+        <div class="tj-filter-group tj-flow-filter-note">
+          <span>Uses the Redmine filters above, then reconstructs Ticket Owner and Status at the selected time.</span>
+        </div>
+        <div class="tj-filter-actions">
+          <%= submit_tag 'Apply', class: 'button' %>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <% if !@query.valid? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">Report</div>
+      <h3>Invalid filters</h3>
+      <p>Please review the Redmine query filters above.</p>
+    </div>
+  <% elsif @status_snapshot_report[:rows].empty? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">Report</div>
+      <h3>No snapshot data found</h3>
+      <p>Try changing the snapshot time or Redmine query filters above.</p>
+    </div>
+  <% else %>
+    <% totals = @status_snapshot_report[:totals] %>
+    <div class="tj-summary-strip">
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Snapshot</div>
+        <div class="tj-sc-value tj-sc-accent tj-snapshot-time"><%= format_time(@snapshot_at) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Issues</div>
+        <div class="tj-sc-value tj-sc-blue"><%= totals[:issues] %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Owners</div>
+        <div class="tj-sc-value tj-sc-green"><%= totals[:owners] %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Statuses</div>
+        <div class="tj-sc-value tj-sc-orange"><%= totals[:statuses] %></div>
+      </div>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Status at Snapshot</div>
+      <div class="tj-snapshot-status-overview">
+        <%
+          max_status_count = @status_snapshot_report[:status_rows].map { |row| row[:count].to_i }.max.to_i
+        %>
+        <% @status_snapshot_report[:status_rows].each do |row| %>
+          <% width = max_status_count.positive? ? ((row[:count].to_f / max_status_count) * 100).round : 0 %>
+          <div class="tj-snapshot-status-row">
+            <div class="tj-snapshot-status-name"><%= h(row[:status]) %></div>
+            <div class="tj-snapshot-status-track">
+              <span class="tj-snapshot-status-fill tj-status-<%= row[:role] %>" style="width:<%= width %>%"></span>
+            </div>
+            <div class="tj-snapshot-status-count">
+              <strong><%= row[:count] %></strong>
+              <span><%= number_to_percentage(row[:percent] * 100, precision: 1) %></span>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Owner Status Snapshot</div>
+      <div class="tj-snapshot-owner-list">
+        <% @status_snapshot_report[:owner_rows].each do |owner_row| %>
+          <div class="tj-snapshot-owner-card">
+            <div class="tj-snapshot-owner-side">
+              <div class="tj-snapshot-owner-name"><%= h(owner_row[:owner]) %></div>
+              <div class="tj-snapshot-owner-total"><%= owner_row[:total] %> issues</div>
+            </div>
+            <div class="tj-snapshot-owner-main">
+              <div class="tj-snapshot-status-pills">
+                <% owner_row[:status_counts].each do |status, count| %>
+                  <% next if count.zero? %>
+                  <span class="tj-snapshot-status-pill tj-status-<%= @status_snapshot_report[:status_rows].find { |row| row[:status] == status }&.dig(:role) || 'other' %>">
+                    <span><%= h(status) %></span>
+                    <strong><%= count %></strong>
+                  </span>
+                <% end %>
+              </div>
+              <div class="tj-table-wrap tj-snapshot-table-wrap">
+                <table class="tj-table tj-snapshot-table">
+                  <thead>
+                    <tr>
+                      <th class="tj-th-native">Snapshot Status</th>
+                      <th class="tj-th-issue">Issue</th>
+                      <th class="tj-th-title">Subject</th>
+                      <th class="tj-th-native">Tracker</th>
+                      <th class="tj-th-native">Current Status</th>
+                      <th class="tj-th-native">Updated</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% owner_row[:rows].each do |row| %>
+                      <tr class="tj-row">
+                        <td class="tj-td-native"><span class="tj-snapshot-status-dot tj-status-<%= row[:status_role] %>"></span><%= h(row[:snapshot_status]) %></td>
+                        <td class="tj-td-issue"><%= link_to "##{row[:issue_id]}", issue_path(row[:issue]), class: 'tj-issue-link' %></td>
+                        <td class="tj-td-title"><%= link_to row[:subject], ticket_journey_path(@project, issue_detail_params(@query, row[:issue]).merge('support_section' => 'owner_returns')), class: 'tj-subject-link', title: row[:subject] %></td>
+                        <td class="tj-td-native"><%= h(row[:tracker]) %></td>
+                        <td class="tj-td-native"><%= h(row[:current_status]) %></td>
+                        <td class="tj-td-native"><%= format_date(row[:updated_on]) %></td>
+                      </tr>
+                    <% end %>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+</div>

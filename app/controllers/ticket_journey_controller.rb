@@ -92,7 +92,7 @@ class TicketJourneyController < ApplicationController
 
   before_action :find_project
   before_action :authorize
-  before_action :build_query, only: [:index, :pmo_control, :sprint_delivery, :planning_estimation, :owner_returns, :qa_returns, :owner_workload, :aging_risk, :priority_risk, :cycle_distribution, :flow_report, :project_health, :release_readiness, :bug_analysis, :data_quality, :original_sprint, :export]
+  before_action :build_query, only: [:index, :pmo_control, :sprint_delivery, :planning_estimation, :owner_returns, :qa_returns, :owner_workload, :status_snapshot, :aging_risk, :priority_risk, :cycle_distribution, :flow_report, :project_health, :release_readiness, :bug_analysis, :data_quality, :original_sprint, :export]
   before_action :prepare_owner_role_filter, only: [:owner_returns, :owner_workload, :flow_report]
 
   helper :queries
@@ -159,6 +159,12 @@ class TicketJourneyController < ApplicationController
   # ---------------------------------------------------------------
   def owner_workload
     @owner_workload_rows, @owner_workload_totals = compute_owner_workload_report(role_id: @selected_owner_role&.id)
+  end
+
+  def status_snapshot
+    @snapshot_at = status_snapshot_time_param
+    @snapshot_at_input = @snapshot_at.strftime('%Y-%m-%dT%H:%M')
+    @status_snapshot_report = compute_status_snapshot_report(@snapshot_at)
   end
 
   # ---------------------------------------------------------------
@@ -2478,6 +2484,124 @@ class TicketJourneyController < ApplicationController
     )
   end
 
+  def status_snapshot_time_param
+    raw_value = params[:snapshot_at].to_s.strip
+    default_time = User.current.today.end_of_day
+    return default_time if raw_value.blank?
+
+    parsed = Time.zone.parse(raw_value)
+    return default_time unless parsed
+
+    raw_value.match?(/\A\d{4}-\d{2}-\d{2}\z/) ? parsed.end_of_day : parsed
+  rescue StandardError
+    default_time
+  end
+
+  def compute_status_snapshot_report(snapshot_time)
+    return empty_status_snapshot_report(snapshot_time) unless @query&.valid?
+
+    issues = status_snapshot_issues(snapshot_time)
+    return empty_status_snapshot_report(snapshot_time) if issues.empty?
+
+    issue_ids = issues.map(&:id)
+    status_changes = load_attribute_changes(issue_ids, 'status_id')
+    owner_changes = load_custom_field_changes(issue_ids, TICKET_OWNER_CF_ID)
+    status_names = IssueStatus.pluck(:id, :name).to_h.transform_keys(&:to_s)
+
+    rows = issues.map do |issue|
+      status_id = historical_attribute_value(issue.status_id, status_changes[issue.id], snapshot_time)
+      status_name = status_names[status_id.to_s] || issue.status&.name || '-'
+      current_owner_value, = ticket_owner_info(issue)
+      owner_value = historical_attribute_value(current_owner_value, owner_changes[issue.id], snapshot_time)
+      owner_name = ticket_owner_display_name(owner_value)
+
+      {
+        issue: issue,
+        issue_id: issue.id,
+        subject: issue.subject,
+        project_name: issue.project&.name || '-',
+        tracker: issue.tracker&.name || '-',
+        priority: issue.priority&.name || '-',
+        current_status: issue.status&.name || '-',
+        snapshot_status: status_name,
+        status_role: status_role(status_name),
+        owner_value: owner_value,
+        owner: owner_name,
+        updated_on: issue.updated_on
+      }
+    end
+
+    status_rows = build_status_snapshot_status_rows(rows)
+    owner_rows = build_status_snapshot_owner_rows(rows, status_rows.map { |row| row[:status] })
+
+    {
+      snapshot_at: snapshot_time,
+      rows: rows,
+      status_rows: status_rows,
+      owner_rows: owner_rows,
+      totals: {
+        issues: rows.size,
+        owners: owner_rows.size,
+        statuses: status_rows.count { |row| row[:count].positive? }
+      }
+    }
+  end
+
+  def empty_status_snapshot_report(snapshot_time)
+    {
+      snapshot_at: snapshot_time,
+      rows: [],
+      status_rows: [],
+      owner_rows: [],
+      totals: {
+        issues: 0,
+        owners: 0,
+        statuses: 0
+      }
+    }
+  end
+
+  def status_snapshot_issues(snapshot_time)
+    @query.issues(
+      order: "#{Issue.table_name}.id ASC",
+      include: [:project, :status, :tracker, :priority, { custom_values: :custom_field }]
+    ).select { |issue| issue.created_on.blank? || issue.created_on <= snapshot_time }
+  end
+
+  def build_status_snapshot_status_rows(rows)
+    total = rows.size.to_f
+    grouped = rows.group_by { |row| row[:snapshot_status] }
+
+    grouped.map do |status, status_rows|
+      {
+        status: status,
+        role: status_role(status),
+        count: status_rows.size,
+        percent: total.positive? ? status_rows.size / total : 0.0
+      }
+    end.sort_by { |row| [status_sort_index(row[:status]), row[:status].to_s.downcase] }
+  end
+
+  def build_status_snapshot_owner_rows(rows, ordered_statuses)
+    rows.group_by { |row| row[:owner] }.map do |owner, owner_rows|
+      status_counts = ordered_statuses.each_with_object({}) do |status, counts|
+        counts[status] = owner_rows.count { |row| row[:snapshot_status] == status }
+      end
+
+      {
+        owner: owner,
+        total: owner_rows.size,
+        status_counts: status_counts,
+        issues_by_status: owner_rows.group_by { |row| row[:snapshot_status] },
+        rows: owner_rows.sort_by { |row| [status_sort_index(row[:snapshot_status]), row[:issue_id].to_i] }
+      }
+    end.sort_by { |row| [-row[:total].to_i, row[:owner].to_s.downcase] }
+  end
+
+  def status_sort_index(status_name)
+    FLOW_STATUS_ORDER.index(status_name.to_s) || FLOW_STATUS_ORDER.size
+  end
+
   def data_quality_logged_issue_ids(issue_ids)
     return [] if issue_ids.empty?
 
@@ -3351,6 +3475,29 @@ class TicketJourneyController < ApplicationController
     rows.group_by { |row| row.issue_id.to_i }
   end
 
+  def load_custom_field_changes(issue_ids, custom_field_id)
+    return {} if issue_ids.empty?
+
+    rows = JournalDetail.joins(:journal)
+                        .where(
+                          journals: {
+                            journalized_type: 'Issue',
+                            journalized_id: issue_ids
+                          },
+                          property: 'cf',
+                          prop_key: custom_field_id.to_s
+                        )
+                        .select(
+                          'journals.journalized_id AS issue_id',
+                          'journals.created_on AS changed_at',
+                          'journal_details.old_value AS old_value',
+                          'journal_details.value AS value'
+                        )
+                        .order('journals.journalized_id ASC, journals.created_on ASC')
+
+    rows.group_by { |row| row.issue_id.to_i }
+  end
+
   def historical_attribute_value(current_value, changes, snapshot_time)
     value = current_value
 
@@ -4010,16 +4157,18 @@ class TicketJourneyController < ApplicationController
   def ticket_owner_info(issue)
     custom_value = issue.custom_value_for(TICKET_OWNER_CF_ID)
     raw_value = custom_value&.value.presence
-    return [nil, 'Unassigned'] if raw_value.blank?
+    [raw_value, ticket_owner_display_name(raw_value, custom_value&.custom_field)]
+  end
 
-    display_value =
-      if custom_value.custom_field.field_format == 'user'
-        ticket_owner_user_name(raw_value)
-      else
-        raw_value
-      end
+  def ticket_owner_display_name(raw_value, custom_field = nil)
+    return 'Unassigned' if raw_value.blank?
 
-    [raw_value, display_value]
+    field = custom_field || ticket_owner_custom_field
+    field&.field_format == 'user' ? ticket_owner_user_name(raw_value) : raw_value
+  end
+
+  def ticket_owner_custom_field
+    @ticket_owner_custom_field ||= CustomField.find_by(id: TICKET_OWNER_CF_ID)
   end
 
   def ticket_owner_user_name(raw_value)
