@@ -22,20 +22,24 @@ module TicketJourneyHelper
   end
 
   def ticket_journey_saved_issue_queries
+    return [] unless @project
+
     IssueQuery.visible
               .where(project_id: [nil, @project.id])
-              .order(Arel.sql('LOWER(name) ASC'))
+              .order(:name)
+              .limit(50)
               .to_a
+  rescue StandardError
+    []
   end
 
   def ticket_journey_report_query_path(saved_query)
-    url_for(
-      {
-        controller: 'ticket_journey',
-        action: controller.action_name,
-        project_id: @project
-      }.merge(ticket_journey_report_query_params(saved_query))
-    )
+    route_name = ticket_journey_report_route_name(params[:action].to_s)
+    return nil if route_name.blank?
+
+    public_send(route_name, @project, ticket_journey_report_query_params(saved_query))
+  rescue StandardError
+    nil
   end
 
   def ticket_journey_report_query_params(saved_query)
@@ -46,7 +50,30 @@ module TicketJourneyHelper
       data_sort data_dir release_sort release_dir snapshot_at
     ]
 
-    params.to_unsafe_h.slice(*keys).merge('query_id' => saved_query.id)
+    raw_params = params.respond_to?(:to_unsafe_h) ? params.to_unsafe_h : params.to_h
+    raw_params.slice(*keys).merge('query_id' => saved_query.id)
+  end
+
+  def ticket_journey_report_route_name(action_name)
+    {
+      'index' => :ticket_journey_path,
+      'pmo_control' => :ticket_journey_pmo_control_path,
+      'sprint_delivery' => :ticket_journey_sprint_delivery_path,
+      'planning_estimation' => :ticket_journey_planning_estimation_path,
+      'owner_returns' => :ticket_journey_owner_returns_path,
+      'qa_returns' => :ticket_journey_qa_returns_path,
+      'owner_workload' => :ticket_journey_owner_workload_path,
+      'status_snapshot' => :ticket_journey_status_snapshot_path,
+      'aging_risk' => :ticket_journey_aging_risk_path,
+      'priority_risk' => :ticket_journey_priority_risk_path,
+      'cycle_distribution' => :ticket_journey_cycle_distribution_path,
+      'flow_report' => :ticket_journey_flow_report_path,
+      'project_health' => :ticket_journey_project_health_path,
+      'release_readiness' => :ticket_journey_release_readiness_path,
+      'bug_analysis' => :ticket_journey_bug_analysis_path,
+      'data_quality' => :ticket_journey_data_quality_path,
+      'original_sprint' => :ticket_journey_original_sprint_path
+    }[action_name]
   end
 
   def duration_report_params(query)
