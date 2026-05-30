@@ -21,6 +21,34 @@ module TicketJourneyHelper
     content_tag(:span, "#{label} / ", class: 'tj-page-title-context')
   end
 
+  def ticket_journey_saved_issue_queries
+    IssueQuery.visible
+              .where(project_id: [nil, @project.id])
+              .order(Arel.sql('LOWER(name) ASC'))
+              .to_a
+  end
+
+  def ticket_journey_report_query_path(saved_query)
+    url_for(
+      {
+        controller: 'ticket_journey',
+        action: controller.action_name,
+        project_id: @project
+      }.merge(ticket_journey_report_query_params(saved_query))
+    )
+  end
+
+  def ticket_journey_report_query_params(saved_query)
+    keys = %w[
+      support_section stale_days ticket_owner_role_id sprint_id
+      bug_start_date bug_end_date flow_start_date flow_end_date
+      aging_group_by priority_sort priority_dir cycle_group_by
+      data_sort data_dir release_sort release_dir snapshot_at
+    ]
+
+    params.to_unsafe_h.slice(*keys).merge('query_id' => saved_query.id)
+  end
+
   def duration_report_params(query)
     query_params = query.as_params.deep_dup.deep_stringify_keys
 

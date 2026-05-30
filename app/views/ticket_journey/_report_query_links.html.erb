@@ -1,0 +1,29 @@
+<% saved_queries = ticket_journey_saved_issue_queries %>
+
+<% if saved_queries.any? %>
+  <div class="tj-report-query-links">
+    <div class="tj-report-query-title">Saved Report Queries</div>
+    <div class="tj-report-query-row">
+      <% saved_queries.each do |saved_query| %>
+        <%= link_to saved_query.name,
+              ticket_journey_report_query_path(saved_query),
+              class: "tj-report-query-link #{@query&.id == saved_query.id ? 'is-active' : ''}" %>
+      <% end %>
+    </div>
+  </div>
+<% end %>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var backUrl = window.location.pathname + window.location.search;
+    document.querySelectorAll('a[href*="/queries/new"]').forEach(function (link) {
+      try {
+        var url = new URL(link.href, window.location.origin);
+        url.searchParams.set('back_url', backUrl);
+        link.href = url.toString();
+      } catch (error) {
+        return;
+      }
+    });
+  });
+</script>

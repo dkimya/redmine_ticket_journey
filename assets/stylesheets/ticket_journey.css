@@ -1714,3 +1714,44 @@
     justify-content: flex-start;
   }
 }
+
+/* Saved report query links */
+.tj-report-query-links {
+  margin: -6px 0 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--tj-border);
+  border-radius: var(--tj-radius);
+  background: #fbfcfe;
+}
+.tj-report-query-title {
+  margin-bottom: 6px;
+  color: var(--tj-text-dim);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+}
+.tj-report-query-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.tj-report-query-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 4px 9px;
+  border: 1px solid var(--tj-border);
+  border-radius: var(--tj-radius);
+  background: #eef3f9;
+  color: #005a9c;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.tj-report-query-link:hover,
+.tj-report-query-link.is-active {
+  background: var(--tj-blue);
+  border-color: var(--tj-blue);
+  color: #fff;
+}
