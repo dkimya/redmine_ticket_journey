@@ -163,7 +163,7 @@ class TicketJourneyController < ApplicationController
 
   def status_snapshot
     @snapshot_at = status_snapshot_time_param
-    @snapshot_at_input = @snapshot_at.strftime('%Y-%m-%dT%H:%M')
+    @snapshot_at_input = status_snapshot_input_value(@snapshot_at)
     @status_snapshot_report = compute_status_snapshot_report(@snapshot_at)
   end
 
@@ -2486,15 +2486,31 @@ class TicketJourneyController < ApplicationController
 
   def status_snapshot_time_param
     raw_value = params[:snapshot_at].to_s.strip
-    default_time = User.current.today.end_of_day
+    default_time = status_snapshot_default_time
     return default_time if raw_value.blank?
 
-    parsed = Time.zone.parse(raw_value)
+    parsed = status_snapshot_user_time_zone.parse(raw_value)
     return default_time unless parsed
 
     raw_value.match?(/\A\d{4}-\d{2}-\d{2}\z/) ? parsed.end_of_day : parsed
   rescue StandardError
     default_time
+  end
+
+  def status_snapshot_default_time
+    today = User.current.today
+    status_snapshot_user_time_zone.local(today.year, today.month, today.day, 23, 59, 59)
+  end
+
+  def status_snapshot_input_value(time)
+    time.in_time_zone(status_snapshot_user_time_zone).strftime('%Y-%m-%dT%H:%M')
+  end
+
+  def status_snapshot_user_time_zone
+    user_zone = User.current.time_zone if User.current.respond_to?(:time_zone)
+    return user_zone if user_zone.respond_to?(:parse)
+
+    ActiveSupport::TimeZone[user_zone.to_s] || Time.zone
   end
 
   def compute_status_snapshot_report(snapshot_time)
