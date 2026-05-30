@@ -1723,18 +1723,35 @@
   border-radius: var(--tj-radius);
   background: #fbfcfe;
 }
-.tj-report-query-title {
-  margin-bottom: 6px;
+.tj-report-query-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
   color: var(--tj-text-dim);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: .8px;
   text-transform: uppercase;
 }
+.tj-report-query-summary strong {
+  color: var(--tj-blue);
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.tj-report-query-summary em {
+  color: var(--tj-text-muted);
+  font-style: normal;
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
+}
 .tj-report-query-row {
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
+  margin-top: 8px;
 }
 .tj-report-query-link {
   display: inline-flex;

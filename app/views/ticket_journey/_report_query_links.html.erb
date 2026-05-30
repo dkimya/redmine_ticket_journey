@@ -1,8 +1,16 @@
 <% saved_queries = ticket_journey_saved_issue_queries %>
+<% active_saved_query = saved_queries.find { |saved_query| @query&.id == saved_query.id } %>
 
 <% if saved_queries.any? %>
-  <div class="tj-report-query-links">
-    <div class="tj-report-query-title">Saved Report Queries</div>
+  <details class="tj-report-query-links">
+    <summary class="tj-report-query-summary">
+      <span>Saved Report Queries</span>
+      <% if active_saved_query %>
+        <strong><%= active_saved_query.name %></strong>
+      <% else %>
+        <em><%= saved_queries.size %> available</em>
+      <% end %>
+    </summary>
     <div class="tj-report-query-row">
       <% saved_queries.each do |saved_query| %>
         <% report_query_path = ticket_journey_report_query_path(saved_query) %>
@@ -12,7 +20,7 @@
               class: "tj-report-query-link #{@query&.id == saved_query.id ? 'is-active' : ''}" %>
       <% end %>
     </div>
-  </div>
+  </details>
 <% end %>
 
 <script>
