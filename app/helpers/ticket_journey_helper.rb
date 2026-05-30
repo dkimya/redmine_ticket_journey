@@ -76,6 +76,7 @@ module TicketJourneyHelper
       query_params[key] = value if value.present?
     end
 
+    query_params.merge!(support_section_params)
     query_params
   end
 
@@ -88,6 +89,7 @@ module TicketJourneyHelper
       query_params[key] = value if value.present?
     end
 
+    query_params.merge!(support_section_params)
     query_params
   end
 
@@ -283,11 +285,12 @@ module TicketJourneyHelper
       query_params[key] = value if value.present?
     end
 
+    query_params.merge!(support_section_params)
     query_params
   end
 
   def qa_returns_params(query)
-    query.as_params.deep_dup.deep_stringify_keys
+    query.as_params.deep_dup.deep_stringify_keys.merge(support_section_params)
   end
 
   def owner_workload_params(query)
@@ -299,6 +302,7 @@ module TicketJourneyHelper
       query_params[key] = value if value.present?
     end
 
+    query_params.merge!(support_section_params)
     query_params
   end
 
@@ -324,6 +328,7 @@ module TicketJourneyHelper
       query_params[key] = value if value.present?
     end
 
+    query_params.merge!(support_section_params)
     query_params
   end
 
@@ -357,6 +362,7 @@ module TicketJourneyHelper
       query_params[key] = value if value.present?
     end
 
+    query_params.merge!(support_section_params)
     query_params
   end
 
@@ -402,6 +408,7 @@ module TicketJourneyHelper
     query_params['f'] = filters
     query_params['op'] = operators
     query_params['v'] = values
+    query_params.merge!(support_section_params)
     query_params
   end
 
@@ -435,11 +442,12 @@ module TicketJourneyHelper
       query_params[key] = value if value.present?
     end
 
+    query_params.merge!(support_section_params)
     query_params
   end
 
   def project_health_params(query)
-    query.as_params.deep_dup.deep_stringify_keys
+    query.as_params.deep_dup.deep_stringify_keys.merge(support_section_params)
   end
 
   def release_readiness_params(query)
@@ -451,6 +459,7 @@ module TicketJourneyHelper
       query_params[key] = value if value.present?
     end
 
+    query_params.merge!(support_section_params)
     query_params
   end
 
@@ -484,6 +493,7 @@ module TicketJourneyHelper
       query_params[key] = value if value.present?
     end
 
+    query_params.merge!(support_section_params)
     query_params
   end
 
@@ -517,6 +527,7 @@ module TicketJourneyHelper
       query_params[key] = value if value.present?
     end
 
+    query_params.merge!(support_section_params)
     query_params
   end
 
@@ -699,6 +710,7 @@ module TicketJourneyHelper
     query_params['op'] = operators
     query_params['v'] = values
     query_params['group_by'] = 'status'
+    query_params.merge!(support_section_params)
     query_params
   end
 
@@ -787,6 +799,7 @@ module TicketJourneyHelper
     query_params['f'] = filters
     query_params['op'] = operators
     query_params['v'] = values
+    query_params.merge!(support_section_params)
     query_params
   end
 

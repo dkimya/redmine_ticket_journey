@@ -221,6 +221,7 @@ class TicketJourneyController < ApplicationController
   # RELEASE READINESS - target version / release readiness snapshot
   # ---------------------------------------------------------------
   def release_readiness
+    build_query_from(all_status_query_params, use_default_query: false)
     @release_readiness_report = compute_release_readiness_report
   end
 
@@ -228,6 +229,7 @@ class TicketJourneyController < ApplicationController
   # BUG ANALYSIS - periodic bug movement by bug source
   # ---------------------------------------------------------------
   def bug_analysis
+    build_query_from(all_status_query_params, use_default_query: false)
     @bug_start_date, @bug_end_date = bug_analysis_period_dates
     @bug_analysis_rows, @bug_analysis_totals, @bug_impact_summary_rows, @bug_related_page_rows, @bug_critical_open_rows, @bug_closed_analysis_report = compute_bug_analysis_report(@bug_start_date, @bug_end_date)
   end
@@ -286,6 +288,14 @@ class TicketJourneyController < ApplicationController
   end
 
   def sprint_delivery_query_params
+    query_params = params.to_unsafe_h.deep_dup.deep_stringify_keys
+    operators = (query_params['op'] || {}).deep_stringify_keys
+
+    remove_query_param_filter(query_params, 'status_id') if operators['status_id'] == 'o'
+    query_params
+  end
+
+  def all_status_query_params
     query_params = params.to_unsafe_h.deep_dup.deep_stringify_keys
     operators = (query_params['op'] || {}).deep_stringify_keys
 
@@ -1054,7 +1064,7 @@ class TicketJourneyController < ApplicationController
     release_report = compute_release_readiness_report
     data_quality_report = compute_data_quality_report
     bug_start_date, bug_end_date = bug_analysis_period_dates
-    bug_rows, bug_totals, = compute_bug_analysis_report(bug_start_date, bug_end_date)
+    bug_rows, bug_totals, = compute_bug_analysis_report(bug_start_date, bug_end_date, use_query: false)
 
     sprint = pmo_current_sprint
     sprint_report = sprint ? safe_compute_sprint_delivery_report(sprint, context: 'PMO Control') : nil
@@ -1341,12 +1351,12 @@ class TicketJourneyController < ApplicationController
     build_query_from(sprint_drilldown_query_params)
   end
 
-  def build_query_from(query_params)
+  def build_query_from(query_params, use_default_query: true)
     base_query =
       if query_params[:query_id].present? || query_params['query_id'].present?
         IssueQuery.visible.where(project_id: [nil, @project.id]).find_by(id: query_params[:query_id] || query_params['query_id'])
       else
-        IssueQuery.default(project: @project, user: User.current)
+        use_default_query ? IssueQuery.default(project: @project, user: User.current) : nil
       end
 
     @query = (base_query || IssueQuery.new(name: '_'))
@@ -1639,9 +1649,12 @@ class TicketJourneyController < ApplicationController
   end
 
   def project_health_issues
-    Issue.includes(:status, :tracker, { custom_values: :custom_field })
-         .where(project_id: project_and_subproject_ids)
-         .references(:status, :tracker)
+    return [] unless @query&.valid?
+
+    @query.issues(
+      order: "#{Issue.table_name}.id ASC",
+      include: [:status, :tracker, { custom_values: :custom_field }]
+    )
   end
 
   def compute_owner_workload_report(role_id: nil)
@@ -2340,8 +2353,12 @@ class TicketJourneyController < ApplicationController
   end
 
   def release_readiness_issues
-    Issue.includes(:status, :fixed_version, :priority, { custom_values: :custom_field })
-         .where(project_id: project_and_subproject_ids)
+    return [] unless @query&.valid?
+
+    @query.issues(
+      order: "#{Issue.table_name}.id ASC",
+      include: [:status, :fixed_version, :priority, { custom_values: :custom_field }]
+    )
   end
 
   def release_readiness_versions
@@ -2950,11 +2967,21 @@ class TicketJourneyController < ApplicationController
     [start_date, end_date]
   end
 
-  def compute_bug_analysis_report(start_date, end_date)
-    bugs = Issue.includes(:status, :tracker, :priority, { custom_values: :custom_field })
-                .where(project_id: project_and_subproject_ids)
-                .joins(:tracker)
-                .where(trackers: { name: 'Bug' })
+  def compute_bug_analysis_report(start_date, end_date, use_query: true)
+    bugs =
+      if use_query && @query&.valid?
+        @query.issues(
+          order: "#{Issue.table_name}.id ASC",
+          include: [:status, :tracker, :priority, { custom_values: :custom_field }]
+        ).select { |issue| issue.tracker&.name == 'Bug' }
+      elsif !use_query
+        Issue.includes(:status, :tracker, :priority, { custom_values: :custom_field })
+             .where(project_id: project_and_subproject_ids)
+             .joins(:tracker)
+             .where(trackers: { name: 'Bug' })
+      else
+        []
+      end
 
     bug_list = bugs.to_a
     return [[], empty_bug_analysis_totals, [], [], [], empty_bug_closed_analysis_report] if bug_list.empty?

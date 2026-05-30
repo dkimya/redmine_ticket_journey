@@ -15,6 +15,7 @@
   <%= render partial: 'report_tabs', locals: { active_tab: :qa_returns } %>
 
   <%= form_tag(ticket_journey_qa_returns_path(@project), method: :get, id: 'query_form') do %>
+    <%= hidden_field_tag :support_section, params[:support_section] if params[:support_section].present? %>
     <%= render partial: 'queries/query_form' %>
   <% end %>
 

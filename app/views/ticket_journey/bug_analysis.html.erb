@@ -14,8 +14,12 @@
 
   <%= render partial: 'report_tabs', locals: { active_tab: :bug_analysis } %>
 
-  <%= form_tag(ticket_journey_bug_analysis_path(@project), method: :get, class: 'tj-filter-bar tj-bug-filter-bar') do %>
-    <div class="tj-filter-form">
+  <%= form_tag(ticket_journey_bug_analysis_path(@project), method: :get, id: 'query_form') do %>
+    <%= hidden_field_tag :support_section, params[:support_section] if params[:support_section].present? %>
+    <%= render partial: 'queries/query_form' %>
+
+    <div class="tj-filter-bar tj-bug-filter-bar">
+      <div class="tj-filter-form">
       <div class="tj-filter-group">
         <label for="bug_start_date">Period Start</label>
         <%= date_field_tag :bug_start_date, @bug_start_date, class: 'tj-input' %>
@@ -25,10 +29,11 @@
         <%= date_field_tag :bug_end_date, @bug_end_date, class: 'tj-input' %>
       </div>
       <div class="tj-filter-group tj-flow-filter-note">
-        <span>Counts Bug tracker issues in the current project and subprojects. Rows are grouped by custom field Bug Source.</span>
+        <span>Uses the Redmine filters above, then counts Bug tracker issues in the current project and subprojects. Rows are grouped by custom field Bug Source.</span>
       </div>
       <div class="tj-filter-group">
         <%= submit_tag 'Apply', class: 'tj-btn tj-btn-primary' %>
+      </div>
       </div>
     </div>
   <% end %>

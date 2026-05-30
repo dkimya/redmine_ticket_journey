@@ -14,6 +14,18 @@
 
   <%= render partial: 'report_tabs', locals: { active_tab: :release_readiness } %>
 
+  <%= form_tag(ticket_journey_release_readiness_path(@project), method: :get, id: 'query_form') do %>
+    <%= hidden_field_tag :support_section, params[:support_section] if params[:support_section].present? %>
+    <%= render partial: 'queries/query_form' %>
+  <% end %>
+
+  <% if !@query.valid? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">Report</div>
+      <h3>Invalid filters</h3>
+      <p>Please review the Redmine query filters above.</p>
+    </div>
+  <% else %>
   <div class="tj-summary-strip">
     <div class="tj-summary-card">
       <div class="tj-sc-label">Report Date</div>
@@ -141,5 +153,6 @@
         </table>
       </div>
     </div>
+  <% end %>
   <% end %>
 </div>
