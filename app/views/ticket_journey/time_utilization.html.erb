@@ -85,8 +85,14 @@
         <div class="tj-sc-value <%= totals[:spent_estimate_ratio].to_f > 1.0 ? 'tj-sc-orange' : 'tj-sc-green' %>"><%= number_to_percentage(totals[:spent_estimate_ratio] * 100, precision: 1) %></div>
       </div>
       <div class="tj-summary-card">
-        <div class="tj-sc-label">Spent vs Calendar</div>
-        <div class="tj-sc-value tj-sc-blue"><%= number_to_percentage(totals[:spent_calendar_ratio] * 100, precision: 1) %></div>
+        <div class="tj-sc-label"
+             title="Logged spent time divided by elapsed calendar duration for tickets with time entries. Calendar duration comes from the ticket journey history and is counted continuously: 1 day = 24 hours, including nights, weekends, and waiting time.">
+          Spent vs Calendar
+        </div>
+        <div class="tj-sc-value tj-sc-blue"
+             title="Formula: total logged time entries in the selected period / total elapsed calendar duration of those tickets. A low percentage usually means tickets spent much more time waiting than being actively worked.">
+          <%= number_to_percentage(totals[:spent_calendar_ratio] * 100, precision: 1) %>
+        </div>
       </div>
     </div>
 
@@ -187,7 +193,8 @@
               <th class="tj-th-native">Original Sprint</th>
               <th class="tj-th-native">Spent</th>
               <th class="tj-th-native">Estimate</th>
-              <th class="tj-th-native">Calendar Duration</th>
+              <th class="tj-th-native"
+                  title="Elapsed calendar duration from the ticket journey history. This is not logged spent time. It is counted continuously with 1 day = 24 hours, including nights, weekends, and waiting time.">Calendar Duration</th>
               <th class="tj-th-native">Activity</th>
             </tr>
           </thead>
