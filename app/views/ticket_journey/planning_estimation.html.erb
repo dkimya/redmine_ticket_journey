@@ -289,7 +289,7 @@
                 </tr>
               <% end %>
               <tr class="tj-total-row">
-                <td class="tj-td-title tj-total-label">Unique Feature / Improvement Tickets</td>
+                <td class="tj-td-title tj-total-label" title="Unique ticket count. Rows above can add up to more because one ticket can have multiple Feature Impact Checklist values.">Unique Feature / Improvement Tickets</td>
                 <td class="tj-td-native"><%= duration_report_drilldown_link(@query, feature_totals[:issue_ids], feature_totals[:tickets]) %></td>
                 <td class="tj-td-native">100%</td>
                 <td class="tj-td-native"><%= number_with_precision(feature_totals[:complexity_weight], precision: 1, strip_insignificant_zeros: true) %></td>
