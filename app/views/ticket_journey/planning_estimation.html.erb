@@ -59,6 +59,8 @@
     <% totals = report[:totals] %>
     <% drilldowns = report[:drilldowns] %>
     <% deviation_class = totals[:deviation_hours].to_f > 0 ? 'tj-sc-orange' : 'tj-sc-green' %>
+    <% owner_deviation_class = totals[:owner_deviation_hours].to_f > 0 ? 'tj-sc-orange' : 'tj-sc-green' %>
+    <% pm_owner_variance_class = totals[:pm_owner_variance_hours].to_f.abs.positive? ? 'tj-sc-orange' : 'tj-sc-green' %>
 
     <div class="tj-summary-strip">
       <div class="tj-summary-card">
@@ -66,20 +68,36 @@
         <div class="tj-sc-value tj-sc-blue"><%= duration_report_drilldown_link(@query, drilldowns[:committed], totals[:committed]) %></div>
       </div>
       <div class="tj-summary-card">
-        <div class="tj-sc-label">Estimated Time</div>
+        <div class="tj-sc-label">PM Estimated Time</div>
         <div class="tj-sc-value tj-sc-blue"><%= number_with_precision(totals[:estimated_hours], precision: 1, strip_insignificant_zeros: true) %>h</div>
+      </div>
+      <div class="tj-summary-card" title="Sum of Ticket Owner Estimation on planned sprint tickets.">
+        <div class="tj-sc-label">Owner Estimated Time</div>
+        <div class="tj-sc-value tj-sc-blue"><%= number_with_precision(totals[:owner_estimated_hours], precision: 1, strip_insignificant_zeros: true) %>h</div>
       </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label">Spent Time</div>
         <div class="tj-sc-value tj-sc-accent"><%= number_with_precision(totals[:spent_hours], precision: 1, strip_insignificant_zeros: true) %>h</div>
       </div>
       <div class="tj-summary-card">
-        <div class="tj-sc-label">Deviation</div>
+        <div class="tj-sc-label">Spent vs PM</div>
         <div class="tj-sc-value <%= deviation_class %>"><%= totals[:deviation_hours].to_f.positive? ? '+' : '' %><%= number_with_precision(totals[:deviation_hours], precision: 1, strip_insignificant_zeros: true) %>h</div>
       </div>
       <div class="tj-summary-card">
-        <div class="tj-sc-label">Estimation Accuracy</div>
+        <div class="tj-sc-label">Spent vs Owner</div>
+        <div class="tj-sc-value <%= owner_deviation_class %>"><%= totals[:owner_deviation_hours].to_f.positive? ? '+' : '' %><%= number_with_precision(totals[:owner_deviation_hours], precision: 1, strip_insignificant_zeros: true) %>h</div>
+      </div>
+      <div class="tj-summary-card" title="Owner estimation minus PM estimation.">
+        <div class="tj-sc-label">PM vs Owner</div>
+        <div class="tj-sc-value <%= pm_owner_variance_class %>"><%= totals[:pm_owner_variance_hours].to_f.positive? ? '+' : '' %><%= number_with_precision(totals[:pm_owner_variance_hours], precision: 1, strip_insignificant_zeros: true) %>h</div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">PM Accuracy</div>
         <div class="tj-sc-value <%= totals[:estimation_accuracy] >= 0.8 ? 'tj-sc-green' : 'tj-sc-orange' %>"><%= number_to_percentage(totals[:estimation_accuracy] * 100, precision: 1) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Owner Accuracy</div>
+        <div class="tj-sc-value <%= totals[:owner_estimation_accuracy] >= 0.8 ? 'tj-sc-green' : 'tj-sc-orange' %>"><%= number_to_percentage(totals[:owner_estimation_accuracy] * 100, precision: 1) %></div>
       </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label">Commitment Reliability</div>
@@ -92,6 +110,10 @@
       <div class="tj-summary-card">
         <div class="tj-sc-label">Missing PM Estimation</div>
         <div class="tj-sc-value <%= totals[:missing_estimation].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, drilldowns[:missing_estimation], totals[:missing_estimation]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Missing Owner Estimation</div>
+        <div class="tj-sc-value <%= totals[:missing_owner_estimation].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, drilldowns[:missing_owner_estimation], totals[:missing_owner_estimation]) %></div>
       </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label">Technical Debt</div>
@@ -196,7 +218,8 @@
                 <th class="tj-th-native">Start Date</th>
                 <th class="tj-th-native">Due Date</th>
                 <th class="tj-th-native">Status</th>
-                <th class="tj-th-native">Estimate</th>
+                <th class="tj-th-native">PM Estimate</th>
+                <th class="tj-th-native">Owner Estimate</th>
                 <th class="tj-th-native">Risk</th>
               </tr>
             </thead>
@@ -213,6 +236,7 @@
                   <td class="tj-td-native"><%= format_date(issue.due_date) %></td>
                   <td class="tj-td-native"><span class="tj-status-badge"><%= h(issue.status&.name || '-') %></span></td>
                   <td class="tj-td-native"><%= issue.estimated_hours.present? ? "#{number_with_precision(issue.estimated_hours, precision: 1, strip_insignificant_zeros: true)}h" : '-' %></td>
+                  <td class="tj-td-native"><%= row[:owner_estimation_hours].to_f.positive? ? "#{number_with_precision(row[:owner_estimation_hours], precision: 1, strip_insignificant_zeros: true)}h" : '-' %></td>
                   <td class="tj-td-native"><span class="tj-release-risk-pill <%= data_quality_status_class(row[:risk] == 'Watch' ? 'watch' : 'risk') %>"><%= h(row[:risk]) %></span></td>
                 </tr>
               <% end %>

@@ -1,4 +1,5 @@
 class TicketJourneyController < ApplicationController
+  TICKET_OWNER_ESTIMATION_CF_ID = 56
   TICKET_OWNER_CF_ID = 57
   TICKET_ORIGINAL_SPRINT_CF_ID = 68
   BUG_SOURCE_CF_ID = 63
@@ -379,26 +380,40 @@ class TicketJourneyController < ApplicationController
     totals = delivery_report[:totals]
     issue_ids = issues.map(&:id)
     estimated_hours = issues.sum { |issue| issue.estimated_hours.to_f }
+    owner_estimated_hours = issues.sum { |issue| ticket_owner_estimation_hours(issue) }
     spent_hours = planning_time_entry_hours(issue_ids, sprint.start_date, sprint.due_date)
     deviation_hours = spent_hours - estimated_hours
     deviation_rate = estimated_hours.positive? ? deviation_hours / estimated_hours : 0.0
     estimation_accuracy = estimated_hours.positive? ? [1.0 - (deviation_hours.abs / estimated_hours), 0.0].max : 0.0
+    owner_deviation_hours = spent_hours - owner_estimated_hours
+    owner_deviation_rate = owner_estimated_hours.positive? ? owner_deviation_hours / owner_estimated_hours : 0.0
+    owner_estimation_accuracy = owner_estimated_hours.positive? ? [1.0 - (owner_deviation_hours.abs / owner_estimated_hours), 0.0].max : 0.0
+    pm_owner_variance_hours = owner_estimated_hours - estimated_hours
+    pm_owner_variance_rate = estimated_hours.positive? ? pm_owner_variance_hours / estimated_hours : 0.0
     current_scope = issues.reject { |issue| carry_over_sprint_issue?(sprint, issue) }
     carry_over = issues.select { |issue| carry_over_sprint_issue?(sprint, issue) }
     not_started = issues.select { |issue| not_started_sprint_status?(issue.status&.name) }
     missing_estimation = issues.select { |issue| issue.estimated_hours.blank? || issue.estimated_hours.to_f <= 0 }
+    missing_owner_estimation = issues.select { |issue| ticket_owner_estimation_hours(issue) <= 0 }
 
     empty_report.merge(
       issues: issues,
       totals: totals.merge(
         estimated_hours: estimated_hours,
+        owner_estimated_hours: owner_estimated_hours,
         spent_hours: spent_hours,
         deviation_hours: deviation_hours,
         deviation_rate: deviation_rate,
         estimation_accuracy: estimation_accuracy,
-        missing_estimation: missing_estimation.size
+        owner_deviation_hours: owner_deviation_hours,
+        owner_deviation_rate: owner_deviation_rate,
+        owner_estimation_accuracy: owner_estimation_accuracy,
+        pm_owner_variance_hours: pm_owner_variance_hours,
+        pm_owner_variance_rate: pm_owner_variance_rate,
+        missing_estimation: missing_estimation.size,
+        missing_owner_estimation: missing_owner_estimation.size
       ),
-      planning_vs_actual_rows: planning_vs_actual_rows(issues, estimated_hours, spent_hours, deviation_hours, deviation_rate),
+      planning_vs_actual_rows: planning_vs_actual_rows(issues, estimated_hours, owner_estimated_hours, spent_hours, deviation_hours, deviation_rate, owner_deviation_hours, owner_deviation_rate, pm_owner_variance_hours, pm_owner_variance_rate),
       composition_rows: planning_composition_rows(sprint, issues, current_scope, carry_over),
       planned_health_rows: planning_field_health_rows(issues),
       not_started_rows: planning_not_started_rows(sprint, not_started),
@@ -411,6 +426,7 @@ class TicketJourneyController < ApplicationController
         current_scope: current_scope.map(&:id),
         not_started: not_started.map(&:id),
         missing_estimation: missing_estimation.map(&:id),
+        missing_owner_estimation: missing_owner_estimation.map(&:id),
         technical_debt: issues.select { |issue| carry_over_sprint_issue?(sprint, issue) && !completed_sprint_status?(issue.status&.name) }.map(&:id)
       }
     )
@@ -422,11 +438,18 @@ class TicketJourneyController < ApplicationController
       issues: [],
       totals: empty_sprint_delivery_report(sprint)[:totals].merge(
         estimated_hours: 0.0,
+        owner_estimated_hours: 0.0,
         spent_hours: 0.0,
         deviation_hours: 0.0,
         deviation_rate: 0.0,
         estimation_accuracy: 0.0,
-        missing_estimation: 0
+        owner_deviation_hours: 0.0,
+        owner_deviation_rate: 0.0,
+        owner_estimation_accuracy: 0.0,
+        pm_owner_variance_hours: 0.0,
+        pm_owner_variance_rate: 0.0,
+        missing_estimation: 0,
+        missing_owner_estimation: 0
       ),
       planning_vs_actual_rows: [],
       composition_rows: [],
@@ -441,6 +464,7 @@ class TicketJourneyController < ApplicationController
         current_scope: [],
         not_started: [],
         missing_estimation: [],
+        missing_owner_estimation: [],
         technical_debt: []
       }
     }
@@ -455,13 +479,18 @@ class TicketJourneyController < ApplicationController
     scope.sum(:hours).to_f
   end
 
-  def planning_vs_actual_rows(issues, estimated_hours, spent_hours, deviation_hours, deviation_rate)
+  def planning_vs_actual_rows(issues, estimated_hours, owner_estimated_hours, spent_hours, deviation_hours, deviation_rate, owner_deviation_hours, owner_deviation_rate, pm_owner_variance_hours, pm_owner_variance_rate)
     [
       { item: 'Sprint Tickets #', value: issues.size, percent: 1.0, note: 'Total committed sprint tickets' },
-      { item: 'Total Estimated Time (h)', value: estimated_hours, percent: nil, note: 'Sum of estimated time on committed tickets', hours: true },
+      { item: 'Total PM Estimation (h)', value: estimated_hours, percent: nil, note: 'Sum of Redmine estimated time on committed tickets', hours: true },
+      { item: 'Total Owner Estimation (h)', value: owner_estimated_hours, percent: nil, note: 'Sum of Ticket Owner Estimation custom field on committed tickets', hours: true },
       { item: 'Total Spent Time During Sprint Period (h)', value: spent_hours, percent: nil, note: 'Time entries during sprint start/due period', hours: true },
-      { item: 'Deviation (h)', value: deviation_hours, percent: nil, note: 'Spent time minus estimated time', hours: true, signed: true },
-      { item: 'Deviation (%)', value: deviation_rate, percent: deviation_rate, note: 'Deviation divided by estimated time', percentage_value: true }
+      { item: 'PM vs Owner Estimation Variance (h)', value: pm_owner_variance_hours, percent: nil, note: 'Owner estimation minus PM estimation', hours: true, signed: true },
+      { item: 'PM vs Owner Estimation Variance (%)', value: pm_owner_variance_rate, percent: pm_owner_variance_rate, note: 'Owner estimation variance divided by PM estimation', percentage_value: true },
+      { item: 'Spent vs PM Estimation Deviation (h)', value: deviation_hours, percent: nil, note: 'Spent time minus PM estimated time', hours: true, signed: true },
+      { item: 'Spent vs PM Estimation Deviation (%)', value: deviation_rate, percent: deviation_rate, note: 'Deviation divided by PM estimated time', percentage_value: true },
+      { item: 'Spent vs Owner Estimation Deviation (h)', value: owner_deviation_hours, percent: nil, note: 'Spent time minus owner estimated time', hours: true, signed: true },
+      { item: 'Spent vs Owner Estimation Deviation (%)', value: owner_deviation_rate, percent: owner_deviation_rate, note: 'Deviation divided by owner estimated time', percentage_value: true }
     ]
   end
 
@@ -498,7 +527,8 @@ class TicketJourneyController < ApplicationController
       ['Without Owner', issues.select { |issue| ticket_owner_info(issue).first.blank? }],
       ['Without Start Date', issues.select { |issue| issue.start_date.blank? }],
       ['Without Due Date', issues.select { |issue| issue.due_date.blank? }],
-      ['Without PM Estimation', issues.select { |issue| issue.estimated_hours.blank? || issue.estimated_hours.to_f <= 0 }]
+      ['Without PM Estimation', issues.select { |issue| issue.estimated_hours.blank? || issue.estimated_hours.to_f <= 0 }],
+      ['Without Owner Estimation', issues.select { |issue| ticket_owner_estimation_hours(issue) <= 0 }]
     ]
 
     checks.map do |label, matching_issues|
@@ -520,6 +550,7 @@ class TicketJourneyController < ApplicationController
         owner: owner_name.presence || 'No Ticket Owner',
         priority: issue.priority&.name.presence || '-',
         original_sprint: issue.custom_value_for(TICKET_ORIGINAL_SPRINT_CF_ID)&.value.presence || '-',
+        owner_estimation_hours: ticket_owner_estimation_hours(issue),
         risk: planning_not_started_risk(sprint, issue)
       }
     end
@@ -4440,6 +4471,13 @@ class TicketJourneyController < ApplicationController
     custom_value = issue.custom_value_for(TICKET_OWNER_CF_ID)
     raw_value = custom_value&.value.presence
     [raw_value, ticket_owner_display_name(raw_value, custom_value&.custom_field)]
+  end
+
+  def ticket_owner_estimation_hours(issue)
+    raw_value = issue.custom_value_for(TICKET_OWNER_ESTIMATION_CF_ID)&.value
+    return 0.0 if raw_value.blank?
+
+    raw_value.to_s.tr(',', '.').to_f
   end
 
   def ticket_owner_display_name(raw_value, custom_field = nil)
