@@ -90,14 +90,20 @@
     </div>
 
     <div class="tj-card tj-card-full">
-      <div class="tj-card-title">Owner Status Snapshot</div>
+      <div class="tj-card-title tj-card-title-with-actions">
+        <span>Owner Status Snapshot</span>
+        <span class="tj-card-actions">
+          <button type="button" class="tj-mini-button" data-tj-snapshot-expand-all>Expand all</button>
+          <button type="button" class="tj-mini-button" data-tj-snapshot-collapse-all>Collapse all</button>
+        </span>
+      </div>
       <div class="tj-snapshot-owner-list">
         <% @status_snapshot_report[:owner_rows].each do |owner_row| %>
-          <div class="tj-snapshot-owner-card">
-            <div class="tj-snapshot-owner-side">
+          <details class="tj-snapshot-owner-card" data-tj-snapshot-owner>
+            <summary class="tj-snapshot-owner-side">
               <div class="tj-snapshot-owner-name"><%= h(owner_row[:owner]) %></div>
               <div class="tj-snapshot-owner-total"><%= owner_row[:total] %> issues</div>
-            </div>
+            </summary>
             <div class="tj-snapshot-owner-main">
               <div class="tj-snapshot-status-pills">
                 <% owner_row[:status_counts].each do |status, count| %>
@@ -135,9 +141,29 @@
                 </table>
               </div>
             </div>
-          </div>
+          </details>
         <% end %>
       </div>
     </div>
   <% end %>
 </div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var owners = Array.prototype.slice.call(document.querySelectorAll('[data-tj-snapshot-owner]'));
+    var expandAll = document.querySelector('[data-tj-snapshot-expand-all]');
+    var collapseAll = document.querySelector('[data-tj-snapshot-collapse-all]');
+
+    if (expandAll) {
+      expandAll.addEventListener('click', function () {
+        owners.forEach(function (owner) { owner.open = true; });
+      });
+    }
+
+    if (collapseAll) {
+      collapseAll.addEventListener('click', function () {
+        owners.forEach(function (owner) { owner.open = false; });
+      });
+    }
+  });
+</script>
