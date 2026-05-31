@@ -68,7 +68,7 @@
         <div class="tj-sc-value tj-sc-blue"><%= duration_report_drilldown_link(@query, drilldowns[:committed], totals[:committed]) %></div>
       </div>
       <div class="tj-summary-card">
-        <div class="tj-sc-label">PM Estimated Time</div>
+        <div class="tj-sc-label" title="Sum of Redmine Estimated time for planned sprint tickets.">PM Estimated Time</div>
         <div class="tj-sc-value tj-sc-blue"><%= number_with_precision(totals[:estimated_hours], precision: 1, strip_insignificant_zeros: true) %>h</div>
       </div>
       <div class="tj-summary-card" title="Sum of Ticket Owner Estimation on planned sprint tickets.">
@@ -76,27 +76,27 @@
         <div class="tj-sc-value tj-sc-blue"><%= number_with_precision(totals[:owner_estimated_hours], precision: 1, strip_insignificant_zeros: true) %>h</div>
       </div>
       <div class="tj-summary-card">
-        <div class="tj-sc-label">Spent Time</div>
+        <div class="tj-sc-label" title="Time entries logged on planned sprint tickets during the selected sprint start/due period.">Spent Time</div>
         <div class="tj-sc-value tj-sc-accent"><%= number_with_precision(totals[:spent_hours], precision: 1, strip_insignificant_zeros: true) %>h</div>
       </div>
       <div class="tj-summary-card">
-        <div class="tj-sc-label">Spent vs PM</div>
+        <div class="tj-sc-label" title="Formula: spent time minus PM estimated time. Negative means spent time is below PM estimate.">Spent vs PM</div>
         <div class="tj-sc-value <%= deviation_class %>"><%= totals[:deviation_hours].to_f.positive? ? '+' : '' %><%= number_with_precision(totals[:deviation_hours], precision: 1, strip_insignificant_zeros: true) %>h</div>
       </div>
       <div class="tj-summary-card">
-        <div class="tj-sc-label">Spent vs Owner</div>
+        <div class="tj-sc-label" title="Formula: spent time minus owner estimated time. Negative means spent time is below owner estimate.">Spent vs Owner</div>
         <div class="tj-sc-value <%= owner_deviation_class %>"><%= totals[:owner_deviation_hours].to_f.positive? ? '+' : '' %><%= number_with_precision(totals[:owner_deviation_hours], precision: 1, strip_insignificant_zeros: true) %>h</div>
       </div>
-      <div class="tj-summary-card" title="Owner estimation minus PM estimation.">
-        <div class="tj-sc-label">PM vs Owner</div>
+      <div class="tj-summary-card" title="Formula: owner estimated time minus PM estimated time. Negative means owner estimate is lower than PM estimate.">
+        <div class="tj-sc-label">Owner vs PM</div>
         <div class="tj-sc-value <%= pm_owner_variance_class %>"><%= totals[:pm_owner_variance_hours].to_f.positive? ? '+' : '' %><%= number_with_precision(totals[:pm_owner_variance_hours], precision: 1, strip_insignificant_zeros: true) %>h</div>
       </div>
       <div class="tj-summary-card">
-        <div class="tj-sc-label">PM Accuracy</div>
+        <div class="tj-sc-label" title="Formula: 1 - absolute(spent time - PM estimate) / PM estimate. Higher is closer to actual spent time.">PM Accuracy</div>
         <div class="tj-sc-value <%= totals[:estimation_accuracy] >= 0.8 ? 'tj-sc-green' : 'tj-sc-orange' %>"><%= number_to_percentage(totals[:estimation_accuracy] * 100, precision: 1) %></div>
       </div>
       <div class="tj-summary-card">
-        <div class="tj-sc-label">Owner Accuracy</div>
+        <div class="tj-sc-label" title="Formula: 1 - absolute(spent time - owner estimate) / owner estimate. Higher is closer to actual spent time.">Owner Accuracy</div>
         <div class="tj-sc-value <%= totals[:owner_estimation_accuracy] >= 0.8 ? 'tj-sc-green' : 'tj-sc-orange' %>"><%= number_to_percentage(totals[:owner_estimation_accuracy] * 100, precision: 1) %></div>
       </div>
       <div class="tj-summary-card">
