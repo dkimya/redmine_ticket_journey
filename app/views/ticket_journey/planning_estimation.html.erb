@@ -258,6 +258,52 @@
     </div>
 
     <div class="tj-card tj-card-full">
+      <div class="tj-card-title" title="Feature and Change Request / Improvement tickets grouped by Feature Impact Checklist. Tickets with multiple checklist values can appear in multiple rows.">Feature / Improvement Impact Visibility</div>
+      <% if report[:feature_impact_rows].empty? %>
+        <div class="tj-flow-empty-note">No Feature or Change Request / Improvement tickets found in the selected sprint scope.</div>
+      <% else %>
+        <% feature_totals = report[:feature_impact_totals] %>
+        <div class="tj-table-wrap">
+          <table class="tj-table">
+            <thead>
+              <tr>
+                <th class="tj-th-title">Feature Impact</th>
+                <th class="tj-th-native">Tickets</th>
+                <th class="tj-th-native" title="Share of Feature and Change Request / Improvement tickets in the selected sprint scope.">Share</th>
+                <th class="tj-th-native">Complexity</th>
+                <th class="tj-th-native">PM Estimate</th>
+                <th class="tj-th-native">Owner Estimate</th>
+                <th class="tj-th-native">Spent Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% report[:feature_impact_rows].each do |row| %>
+                <tr class="tj-row">
+                  <td class="tj-td-title"><%= h(row[:impact]) %></td>
+                  <td class="tj-td-native"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:tickets]) %></td>
+                  <td class="tj-td-native"><%= number_to_percentage(row[:share] * 100, precision: 1) %></td>
+                  <td class="tj-td-native"><%= number_with_precision(row[:complexity_weight], precision: 1, strip_insignificant_zeros: true) %></td>
+                  <td class="tj-td-native"><%= number_with_precision(row[:pm_estimate_hours], precision: 1, strip_insignificant_zeros: true) %>h</td>
+                  <td class="tj-td-native"><%= row[:owner_estimate_hours].to_f.positive? ? "#{number_with_precision(row[:owner_estimate_hours], precision: 1, strip_insignificant_zeros: true)}h" : '-' %></td>
+                  <td class="tj-td-native"><%= number_with_precision(row[:spent_hours], precision: 1, strip_insignificant_zeros: true) %>h</td>
+                </tr>
+              <% end %>
+              <tr class="tj-total-row">
+                <td class="tj-td-title tj-total-label">Unique Feature / Improvement Tickets</td>
+                <td class="tj-td-native"><%= duration_report_drilldown_link(@query, feature_totals[:issue_ids], feature_totals[:tickets]) %></td>
+                <td class="tj-td-native">100%</td>
+                <td class="tj-td-native"><%= number_with_precision(feature_totals[:complexity_weight], precision: 1, strip_insignificant_zeros: true) %></td>
+                <td class="tj-td-native"><%= number_with_precision(feature_totals[:pm_estimate_hours], precision: 1, strip_insignificant_zeros: true) %>h</td>
+                <td class="tj-td-native"><%= number_with_precision(feature_totals[:owner_estimate_hours], precision: 1, strip_insignificant_zeros: true) %>h</td>
+                <td class="tj-td-native"><%= number_with_precision(feature_totals[:spent_hours], precision: 1, strip_insignificant_zeros: true) %>h</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      <% end %>
+    </div>
+
+    <div class="tj-card tj-card-full">
       <div class="tj-card-title">Not Started Tickets</div>
       <% if report[:not_started_rows].empty? %>
         <div class="tj-flow-empty-note">No committed tickets are still in New or To-Do.</div>

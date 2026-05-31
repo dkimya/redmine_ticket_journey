@@ -3,6 +3,7 @@ class TicketJourneyController < ApplicationController
   TICKET_OWNER_CF_ID = 57
   TICKET_ORIGINAL_SPRINT_CF_ID = 68
   COMPLEXITY_WEIGHT_CF_ID = 70
+  FEATURE_IMPACT_CHECKLIST_CF_ID = 73
   BUG_SOURCE_CF_ID = 63
   BUG_IMPACT_RATING_CF_ID = 65
   RETURN_REASON_CF_ID = 66
@@ -400,6 +401,7 @@ class TicketJourneyController < ApplicationController
     missing_estimation = issues.select { |issue| issue.estimated_hours.blank? || issue.estimated_hours.to_f <= 0 }
     missing_owner_estimation = issues.select { |issue| ticket_owner_estimation_hours(issue) <= 0 }
     missing_complexity = issues.select { |issue| complexity_weight(issue) <= 0 }
+    feature_impact_issues = planning_feature_impact_issues(issues)
 
     empty_report.merge(
       issues: issues,
@@ -425,6 +427,8 @@ class TicketJourneyController < ApplicationController
       composition_rows: planning_composition_rows(sprint, issues, current_scope, carry_over),
       planned_health_rows: planning_field_health_rows(issues),
       complexity_rows: planning_complexity_owner_rows(issues, spent_hours_by_issue_id),
+      feature_impact_rows: planning_feature_impact_rows(feature_impact_issues, spent_hours_by_issue_id),
+      feature_impact_totals: planning_feature_impact_totals(feature_impact_issues, spent_hours_by_issue_id),
       not_started_rows: planning_not_started_rows(sprint, not_started),
       reliability_rows: planning_reliability_rows(sprint, totals),
       drilldowns: {
@@ -468,6 +472,15 @@ class TicketJourneyController < ApplicationController
       composition_rows: [],
       planned_health_rows: [],
       complexity_rows: [],
+      feature_impact_rows: [],
+      feature_impact_totals: {
+        issue_ids: [],
+        tickets: 0,
+        complexity_weight: 0.0,
+        pm_estimate_hours: 0.0,
+        owner_estimate_hours: 0.0,
+        spent_hours: 0.0
+      },
       not_started_rows: [],
       reliability_rows: [],
       drilldowns: {
@@ -1923,6 +1936,66 @@ class TicketJourneyController < ApplicationController
       row[:spent_per_complexity] = row[:complexity_weight].positive? ? row[:spent_hours] / row[:complexity_weight] : 0.0
       row
     end.sort_by { |row| [-row[:complexity_weight], row[:owner].to_s] }
+  end
+
+  def planning_feature_impact_issues(issues)
+    issues.select do |issue|
+      tracker_name = issue.tracker&.name.to_s
+      tracker_name == 'Feature' || tracker_name == 'Change Request / Improvement' || tracker_name == 'Change Request'
+    end
+  end
+
+  def planning_feature_impact_totals(issues, spent_hours_by_issue_id)
+    {
+      issue_ids: issues.map(&:id),
+      tickets: issues.size,
+      complexity_weight: issues.sum { |issue| complexity_weight(issue) },
+      pm_estimate_hours: issues.sum { |issue| issue.estimated_hours.to_f },
+      owner_estimate_hours: issues.sum { |issue| ticket_owner_estimation_hours(issue) },
+      spent_hours: issues.sum { |issue| spent_hours_by_issue_id[issue.id].to_f }
+    }
+  end
+
+  def planning_feature_impact_rows(issues, spent_hours_by_issue_id)
+    total_visible = issues.size
+
+    rows = Hash.new do |hash, impact|
+      hash[impact] = {
+        impact: impact,
+        issue_ids: [],
+        tickets: 0,
+        complexity_weight: 0.0,
+        pm_estimate_hours: 0.0,
+        owner_estimate_hours: 0.0,
+        spent_hours: 0.0
+      }
+    end
+
+    issues.each do |issue|
+      feature_impact_values(issue).each do |impact|
+        row = rows[impact]
+        row[:issue_ids] << issue.id
+        row[:tickets] += 1
+        row[:complexity_weight] += complexity_weight(issue)
+        row[:pm_estimate_hours] += issue.estimated_hours.to_f
+        row[:owner_estimate_hours] += ticket_owner_estimation_hours(issue)
+        row[:spent_hours] += spent_hours_by_issue_id[issue.id].to_f
+      end
+    end
+
+    rows.values.map do |row|
+      row[:share] = ratio(row[:tickets], total_visible)
+      row
+    end.sort_by { |row| [row[:impact] == 'Missing Feature Impact' ? 1 : 0, -row[:tickets], row[:impact].to_s] }
+  end
+
+  def feature_impact_values(issue)
+    values = issue.custom_values
+                  .select { |custom_value| custom_value.custom_field_id == FEATURE_IMPACT_CHECKLIST_CF_ID }
+                  .map { |custom_value| custom_value.value.to_s.strip }
+                  .reject(&:blank?)
+                  .uniq
+    values.presence || ['Missing Feature Impact']
   end
 
   def time_utilization_scope_rows(issues, hours_by_issue_id)
