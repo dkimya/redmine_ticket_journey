@@ -92,7 +92,7 @@ class TicketJourneyController < ApplicationController
 
   before_action :find_project
   before_action :authorize
-  before_action :build_query, only: [:index, :pmo_control, :sprint_delivery, :planning_estimation, :owner_returns, :qa_returns, :owner_workload, :status_snapshot, :aging_risk, :priority_risk, :cycle_distribution, :flow_report, :project_health, :release_readiness, :bug_analysis, :data_quality, :original_sprint, :export]
+  before_action :build_query, only: [:index, :pmo_control, :sprint_delivery, :planning_estimation, :owner_returns, :qa_returns, :owner_workload, :status_snapshot, :time_utilization, :aging_risk, :priority_risk, :cycle_distribution, :flow_report, :project_health, :release_readiness, :bug_analysis, :data_quality, :original_sprint, :export]
   before_action :prepare_owner_role_filter, only: [:owner_returns, :owner_workload, :flow_report]
 
   helper :queries
@@ -165,6 +165,15 @@ class TicketJourneyController < ApplicationController
     @snapshot_at = status_snapshot_time_param
     @snapshot_at_input = status_snapshot_input_value(@snapshot_at)
     @status_snapshot_report = compute_status_snapshot_report(@snapshot_at)
+  end
+
+  # ---------------------------------------------------------------
+  # TIME UTILIZATION & SCOPE CONTROL - spent time and scope mix
+  # ---------------------------------------------------------------
+  def time_utilization
+    build_query_from(all_status_query_params, use_default_query: false)
+    @time_start_date, @time_end_date = time_utilization_period_dates
+    @time_utilization_report = compute_time_utilization_report(@time_start_date, @time_end_date)
   end
 
   # ---------------------------------------------------------------
@@ -1726,6 +1735,236 @@ class TicketJourneyController < ApplicationController
       order: "#{Issue.table_name}.id ASC",
       include: [:status, :tracker, :priority, { custom_values: :custom_field }]
     ).reject { |issue| issue.status&.is_closed? }
+  end
+
+  def time_utilization_period_dates
+    start_date = parse_report_date(params[:time_start_date]) || User.current.today.beginning_of_month
+    end_date = parse_report_date(params[:time_end_date]) || User.current.today
+
+    start_date, end_date = end_date, start_date if start_date > end_date
+    [start_date, end_date]
+  end
+
+  def compute_time_utilization_report(start_date, end_date)
+    return empty_time_utilization_report(start_date, end_date) unless @query&.valid?
+
+    issues = @query.issues(
+      order: "#{Issue.table_name}.id ASC",
+      include: [:status, :tracker, :priority, :fixed_version, { custom_values: :custom_field }]
+    )
+    issues = filter_sprint_drilldown_issues(issues)
+    issue_ids = issues.map(&:id)
+    entries = time_utilization_entries(issue_ids, start_date, end_date)
+    entries_by_issue_id = entries.group_by(&:issue_id)
+    hours_by_issue_id = entries_by_issue_id.transform_values { |rows| rows.sum { |entry| entry.hours.to_f } }
+    issues_with_time = issues.select { |issue| hours_by_issue_id[issue.id].to_f.positive? }
+    duration_by_issue_id = time_utilization_duration_by_issue(issues_with_time)
+    total_hours = hours_by_issue_id.values.sum
+    total_calendar_hours = issues_with_time.sum { |issue| duration_by_issue_id.dig(issue.id, :calendar_hours).to_f }
+    estimated_hours = issues_with_time.sum { |issue| issue.estimated_hours.to_f }
+    scope_rows = time_utilization_scope_rows(issues_with_time, hours_by_issue_id)
+    owner_rows = time_utilization_owner_rows(issues_with_time, hours_by_issue_id, entries_by_issue_id)
+    activity_rows = time_utilization_activity_rows(entries, total_hours)
+    ticket_rows = time_utilization_ticket_rows(issues_with_time, hours_by_issue_id, entries_by_issue_id, duration_by_issue_id)
+
+    {
+      start_date: start_date,
+      end_date: end_date,
+      totals: {
+        issue_count: issues.size,
+        issues_with_time: issues_with_time.size,
+        owners: owner_rows.size,
+        entry_count: entries.size,
+        spent_hours: total_hours,
+        estimated_hours: estimated_hours,
+        calendar_hours: total_calendar_hours,
+        avg_spent_per_issue: ratio(total_hours, issues_with_time.size),
+        avg_calendar_hours: ratio(total_calendar_hours, issues_with_time.size),
+        spent_estimate_ratio: ratio(total_hours, estimated_hours),
+        spent_calendar_ratio: ratio(total_hours, total_calendar_hours),
+        sprint_hours: scope_rows.find { |row| row[:key] == :sprint }&.fetch(:hours, 0.0).to_f,
+        general_hours: scope_rows.find { |row| row[:key] == :general }&.fetch(:hours, 0.0).to_f,
+        container_hours: scope_rows.find { |row| row[:key] == :container }&.fetch(:hours, 0.0).to_f
+      },
+      scope_rows: scope_rows,
+      owner_rows: owner_rows,
+      activity_rows: activity_rows,
+      ticket_rows: ticket_rows
+    }
+  end
+
+  def empty_time_utilization_report(start_date, end_date)
+    {
+      start_date: start_date,
+      end_date: end_date,
+      totals: {
+        issue_count: 0,
+        issues_with_time: 0,
+        owners: 0,
+        entry_count: 0,
+        spent_hours: 0.0,
+        estimated_hours: 0.0,
+        calendar_hours: 0.0,
+        avg_spent_per_issue: 0.0,
+        avg_calendar_hours: 0.0,
+        spent_estimate_ratio: 0.0,
+        spent_calendar_ratio: 0.0,
+        sprint_hours: 0.0,
+        general_hours: 0.0,
+        container_hours: 0.0
+      },
+      scope_rows: [],
+      owner_rows: [],
+      activity_rows: [],
+      ticket_rows: []
+    }
+  end
+
+  def time_utilization_entries(issue_ids, start_date, end_date)
+    return [] if issue_ids.empty?
+
+    scope = TimeEntry.includes(:user, :activity).where(issue_id: issue_ids)
+    scope = scope.where("#{TimeEntry.table_name}.spent_on >= ?", start_date) if start_date.present?
+    scope = scope.where("#{TimeEntry.table_name}.spent_on <= ?", end_date) if end_date.present?
+    scope.order("#{TimeEntry.table_name}.spent_on ASC", "#{TimeEntry.table_name}.id ASC").to_a
+  end
+
+  def time_utilization_duration_by_issue(issues)
+    transitions_by_issue = load_transitions(issues)
+
+    issues.each_with_object({}) do |issue, memo|
+      family_key = tracker_family_for_issue(issue)
+      durations = calculate_durations_for_family(family_key, transitions_by_issue[issue.id] || [])
+      memo[issue.id] = {
+        family_key: family_key,
+        calendar_hours: durations[:CALENDAR_TOTAL].to_f,
+        cycle_hours: durations[:TOTAL].to_f
+      }
+    end
+  end
+
+  def time_utilization_scope_rows(issues, hours_by_issue_id)
+    total_hours = hours_by_issue_id.values.sum
+    rows = time_utilization_scope_definitions.transform_values do |definition|
+      definition.merge(issue_ids: [], issue_count: 0, hours: 0.0)
+    end
+
+    issues.each do |issue|
+      key = time_utilization_scope_key(issue)
+      row = rows[key]
+      row[:issue_ids] << issue.id
+      row[:issue_count] += 1
+      row[:hours] += hours_by_issue_id[issue.id].to_f
+    end
+
+    rows.values.map do |row|
+      row[:share] = ratio(row[:hours], total_hours)
+      row
+    end.sort_by { |row| [-row[:hours].to_f, row[:label].to_s.downcase] }
+  end
+
+  def time_utilization_owner_rows(issues, hours_by_issue_id, entries_by_issue_id)
+    total_hours = hours_by_issue_id.values.sum
+    rows = Hash.new do |hash, owner_key|
+      owner_value, owner_name = owner_key
+      hash[owner_key] = {
+        owner_value: owner_value,
+        owner: owner_name,
+        issue_ids: [],
+        issue_count: 0,
+        entry_count: 0,
+        spent_hours: 0.0,
+        sprint_hours: 0.0,
+        general_hours: 0.0,
+        container_hours: 0.0,
+        estimated_hours: 0.0
+      }
+    end
+
+    issues.each do |issue|
+      owner_value, owner_name = ticket_owner_info(issue)
+      row = rows[[owner_value, owner_name]]
+      hours = hours_by_issue_id[issue.id].to_f
+      scope_key = time_utilization_scope_key(issue)
+
+      row[:issue_ids] << issue.id
+      row[:issue_count] += 1
+      row[:entry_count] += Array(entries_by_issue_id[issue.id]).size
+      row[:spent_hours] += hours
+      row[:estimated_hours] += issue.estimated_hours.to_f
+      row[:sprint_hours] += hours if scope_key == :sprint
+      row[:general_hours] += hours if scope_key == :general
+      row[:container_hours] += hours if scope_key == :container
+    end
+
+    rows.values.map do |row|
+      row[:share] = ratio(row[:spent_hours], total_hours)
+      row[:estimate_ratio] = ratio(row[:spent_hours], row[:estimated_hours])
+      row
+    end.sort_by { |row| [-row[:spent_hours].to_f, row[:owner].to_s.downcase] }
+  end
+
+  def time_utilization_activity_rows(entries, total_hours)
+    rows = Hash.new do |hash, activity_name|
+      hash[activity_name] = {
+        activity: activity_name,
+        entry_count: 0,
+        issue_ids: [],
+        hours: 0.0
+      }
+    end
+
+    entries.each do |entry|
+      activity_name = entry.activity&.name.presence || 'No Activity'
+      row = rows[activity_name]
+      row[:entry_count] += 1
+      row[:issue_ids] << entry.issue_id
+      row[:hours] += entry.hours.to_f
+    end
+
+    rows.values.map do |row|
+      row[:issue_ids] = row[:issue_ids].compact.uniq
+      row[:issue_count] = row[:issue_ids].size
+      row[:share] = ratio(row[:hours], total_hours)
+      row
+    end.sort_by { |row| [-row[:hours].to_f, row[:activity].to_s.downcase] }
+  end
+
+  def time_utilization_ticket_rows(issues, hours_by_issue_id, entries_by_issue_id, duration_by_issue_id)
+    issues.map do |issue|
+      owner_value, owner_name = ticket_owner_info(issue)
+      entries = Array(entries_by_issue_id[issue.id])
+      spent_hours = hours_by_issue_id[issue.id].to_f
+      calendar_hours = duration_by_issue_id.dig(issue.id, :calendar_hours).to_f
+
+      {
+        issue: issue,
+        owner_value: owner_value,
+        owner: owner_name,
+        scope_label: time_utilization_scope_definitions[time_utilization_scope_key(issue)][:label],
+        original_sprint: issue.custom_value_for(TICKET_ORIGINAL_SPRINT_CF_ID)&.value.presence || '-',
+        spent_hours: spent_hours,
+        estimated_hours: issue.estimated_hours.to_f,
+        calendar_hours: calendar_hours,
+        spent_calendar_ratio: ratio(spent_hours, calendar_hours),
+        activity_names: entries.map { |entry| entry.activity&.name.presence || 'No Activity' }.uniq
+      }
+    end.sort_by { |row| [-row[:spent_hours].to_f, row[:issue].id] }
+  end
+
+  def time_utilization_scope_definitions
+    {
+      sprint: { key: :sprint, label: 'Sprint Tickets', note: 'Tickets with Ticket Original Sprint' },
+      general: { key: :general, label: 'General / Out-of-Sprint Tickets', note: 'Non-container tickets without Ticket Original Sprint' },
+      container: { key: :container, label: 'Container / Planning Tickets', note: 'Sprint, EPIC / SDLC, User Story, or milestone container work' }
+    }
+  end
+
+  def time_utilization_scope_key(issue)
+    return :container if container_tracker?(issue.tracker&.name) || milestone_tracker?(issue.tracker&.name)
+
+    original_sprint = issue.custom_value_for(TICKET_ORIGINAL_SPRINT_CF_ID)&.value
+    original_sprint.present? ? :sprint : :general
   end
 
   def compute_aging_risk_report(group_by)

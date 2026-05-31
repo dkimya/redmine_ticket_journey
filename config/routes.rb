@@ -8,6 +8,7 @@ Rails.application.routes.draw do
     get  'ticket_journey/qa_returns', to: 'ticket_journey#qa_returns', as: 'ticket_journey_qa_returns'
     get  'ticket_journey/owner_workload', to: 'ticket_journey#owner_workload', as: 'ticket_journey_owner_workload'
     get  'ticket_journey/status_snapshot', to: 'ticket_journey#status_snapshot', as: 'ticket_journey_status_snapshot'
+    get  'ticket_journey/time_utilization', to: 'ticket_journey#time_utilization', as: 'ticket_journey_time_utilization'
     get  'ticket_journey/aging_risk', to: 'ticket_journey#aging_risk', as: 'ticket_journey_aging_risk'
     get  'ticket_journey/priority_risk', to: 'ticket_journey#priority_risk', as: 'ticket_journey_priority_risk'
     get  'ticket_journey/cycle_distribution', to: 'ticket_journey#cycle_distribution', as: 'ticket_journey_cycle_distribution'

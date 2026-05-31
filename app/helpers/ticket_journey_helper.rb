@@ -13,6 +13,7 @@ module TicketJourneyHelper
       'qa_returns' => 'QA & Returns',
       'bug_analysis' => 'Bug Control',
       'planning_estimation' => 'Planning & Estimation',
+      'time_utilization' => 'Time Utilization & Scope Control',
       'data_quality' => 'Ticket Quality & Data Discipline'
     }[section_key.to_s]
 
@@ -46,6 +47,7 @@ module TicketJourneyHelper
     keys = %w[
       support_section stale_days ticket_owner_role_id sprint_id
       bug_start_date bug_end_date flow_start_date flow_end_date
+      time_start_date time_end_date
       aging_group_by priority_sort priority_dir cycle_group_by
       data_sort data_dir release_sort release_dir snapshot_at
     ]
@@ -64,6 +66,7 @@ module TicketJourneyHelper
       'qa_returns' => :ticket_journey_qa_returns_path,
       'owner_workload' => :ticket_journey_owner_workload_path,
       'status_snapshot' => :ticket_journey_status_snapshot_path,
+      'time_utilization' => :ticket_journey_time_utilization_path,
       'aging_risk' => :ticket_journey_aging_risk_path,
       'priority_risk' => :ticket_journey_priority_risk_path,
       'cycle_distribution' => :ticket_journey_cycle_distribution_path,
@@ -365,6 +368,19 @@ module TicketJourneyHelper
     query_params = query.as_params.deep_dup.deep_stringify_keys
 
     %w[snapshot_at].each do |key|
+      query_params.delete(key)
+      value = params[key]
+      query_params[key] = value if value.present?
+    end
+
+    query_params.merge!(support_section_params)
+    query_params
+  end
+
+  def time_utilization_params(query)
+    query_params = query.as_params.deep_dup.deep_stringify_keys
+
+    %w[time_start_date time_end_date].each do |key|
       query_params.delete(key)
       value = params[key]
       query_params[key] = value if value.present?

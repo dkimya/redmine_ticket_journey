@@ -7,6 +7,7 @@
   qa_params = qa_returns_params(@query)
   workload_params = owner_workload_params(@query)
   snapshot_params = status_snapshot_params(@query)
+  time_utilization_tab_params = time_utilization_params(@query)
   aging_params = aging_risk_params(@query)
   priority_params = priority_risk_params(@query)
   cycle_params = cycle_distribution_params(@query)
@@ -36,6 +37,7 @@
     issue_detail: ['Issue Detail', ticket_journey_path(@project, detail_params)],
     owner_workload: ['Owner Workload / Time Support', ticket_journey_owner_workload_path(@project, workload_params)],
     status_snapshot: ['Status Snapshot', ticket_journey_status_snapshot_path(@project, snapshot_params)],
+    time_utilization: ['Time Utilization & Scope Control', ticket_journey_time_utilization_path(@project, time_utilization_tab_params)],
     aging_risk: ['Aging / SLA Risk', ticket_journey_aging_risk_path(@project, aging_params)],
     priority_risk: ['Priority / SLA Risk', ticket_journey_priority_risk_path(@project, priority_params)],
     cycle_distribution: ['Cycle Distribution', ticket_journey_cycle_distribution_path(@project, cycle_params)],
@@ -51,6 +53,7 @@
     :qa_returns,
     :bug_analysis,
     :planning_estimation,
+    :time_utilization,
     :data_quality
   ]
 
@@ -79,6 +82,10 @@
       label: 'Planning & Estimation',
       keys: [:planning_estimation, :duration, :owner_workload, :issue_detail]
     },
+    time_utilization: {
+      label: 'Time Utilization & Scope Control',
+      keys: [:time_utilization, :owner_workload, :duration, :flow_report, :issue_detail]
+    },
     data_quality: {
       label: 'Ticket Quality & Data Discipline',
       keys: [:data_quality, :original_sprint, :issue_detail]
@@ -103,6 +110,8 @@
         :bug_analysis
       when :planning_estimation
         :planning_estimation
+      when :time_utilization
+        :time_utilization
       when :data_quality, :original_sprint
         :data_quality
       else
