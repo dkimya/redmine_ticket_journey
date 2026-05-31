@@ -119,6 +119,14 @@
         <div class="tj-sc-label">Technical Debt</div>
         <div class="tj-sc-value <%= totals[:technical_debt].to_i.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>" title="Carry-over tickets not yet completed"><%= duration_report_drilldown_link(@query, drilldowns[:technical_debt], totals[:technical_debt].to_i) %></div>
       </div>
+      <div class="tj-summary-card" title="Sum of Complexity Weight custom field on planned sprint tickets.">
+        <div class="tj-sc-label">Total Complexity</div>
+        <div class="tj-sc-value tj-sc-blue"><%= number_with_precision(totals[:total_complexity_weight], precision: 1, strip_insignificant_zeros: true) %></div>
+      </div>
+      <div class="tj-summary-card" title="Planned sprint tickets where Complexity Weight is empty or zero.">
+        <div class="tj-sc-label">Missing Complexity</div>
+        <div class="tj-sc-value <%= totals[:missing_complexity].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, drilldowns[:missing_complexity], totals[:missing_complexity]) %></div>
+      </div>
     </div>
 
     <div class="tj-card tj-card-full">
@@ -199,6 +207,54 @@
           </tbody>
         </table>
       </div>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Complexity &amp; Effort by Owner</div>
+      <% if report[:complexity_rows].empty? %>
+        <div class="tj-flow-empty-note">No planned sprint tickets found for complexity analysis.</div>
+      <% else %>
+        <div class="tj-table-wrap">
+          <table class="tj-table">
+            <thead>
+              <tr>
+                <th class="tj-th-title">Ticket Owner</th>
+                <th class="tj-th-native">Tickets</th>
+                <th class="tj-th-native">Complexity</th>
+                <th class="tj-th-native">Avg Complexity</th>
+                <th class="tj-th-native">PM Estimate</th>
+                <th class="tj-th-native">Owner Estimate</th>
+                <th class="tj-th-native">Spent Time</th>
+                <th class="tj-th-native" title="Spent time divided by total Complexity Weight.">Spent / Complexity</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% report[:complexity_rows].each do |row| %>
+                <tr class="tj-row">
+                  <td class="tj-td-title"><%= h(row[:owner]) %></td>
+                  <td class="tj-td-native"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:tickets]) %></td>
+                  <td class="tj-td-native"><%= number_with_precision(row[:complexity_weight], precision: 1, strip_insignificant_zeros: true) %></td>
+                  <td class="tj-td-native"><%= number_with_precision(row[:average_complexity], precision: 1, strip_insignificant_zeros: true) %></td>
+                  <td class="tj-td-native"><%= number_with_precision(row[:pm_estimate_hours], precision: 1, strip_insignificant_zeros: true) %>h</td>
+                  <td class="tj-td-native"><%= row[:owner_estimate_hours].to_f.positive? ? "#{number_with_precision(row[:owner_estimate_hours], precision: 1, strip_insignificant_zeros: true)}h" : '-' %></td>
+                  <td class="tj-td-native"><%= number_with_precision(row[:spent_hours], precision: 1, strip_insignificant_zeros: true) %>h</td>
+                  <td class="tj-td-native"><%= row[:spent_per_complexity].to_f.positive? ? "#{number_with_precision(row[:spent_per_complexity], precision: 1, strip_insignificant_zeros: true)}h" : '-' %></td>
+                </tr>
+              <% end %>
+              <tr class="tj-total-row">
+                <td class="tj-td-title tj-total-label">Total</td>
+                <td class="tj-td-native"><%= duration_report_drilldown_link(@query, drilldowns[:committed], totals[:committed]) %></td>
+                <td class="tj-td-native"><%= number_with_precision(totals[:total_complexity_weight], precision: 1, strip_insignificant_zeros: true) %></td>
+                <td class="tj-td-native"><%= number_with_precision(totals[:average_complexity_weight], precision: 1, strip_insignificant_zeros: true) %></td>
+                <td class="tj-td-native"><%= number_with_precision(totals[:estimated_hours], precision: 1, strip_insignificant_zeros: true) %>h</td>
+                <td class="tj-td-native"><%= number_with_precision(totals[:owner_estimated_hours], precision: 1, strip_insignificant_zeros: true) %>h</td>
+                <td class="tj-td-native"><%= number_with_precision(totals[:spent_hours], precision: 1, strip_insignificant_zeros: true) %>h</td>
+                <td class="tj-td-native"><%= totals[:total_complexity_weight].to_f.positive? ? "#{number_with_precision(totals[:spent_hours].to_f / totals[:total_complexity_weight].to_f, precision: 1, strip_insignificant_zeros: true)}h" : '-' %></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      <% end %>
     </div>
 
     <div class="tj-card tj-card-full">

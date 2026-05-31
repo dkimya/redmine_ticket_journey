@@ -2,6 +2,7 @@ class TicketJourneyController < ApplicationController
   TICKET_OWNER_ESTIMATION_CF_ID = 56
   TICKET_OWNER_CF_ID = 57
   TICKET_ORIGINAL_SPRINT_CF_ID = 68
+  COMPLEXITY_WEIGHT_CF_ID = 70
   BUG_SOURCE_CF_ID = 63
   BUG_IMPACT_RATING_CF_ID = 65
   RETURN_REASON_CF_ID = 66
@@ -381,7 +382,11 @@ class TicketJourneyController < ApplicationController
     issue_ids = issues.map(&:id)
     estimated_hours = issues.sum { |issue| issue.estimated_hours.to_f }
     owner_estimated_hours = issues.sum { |issue| ticket_owner_estimation_hours(issue) }
-    spent_hours = planning_time_entry_hours(issue_ids, sprint.start_date, sprint.due_date)
+    spent_hours_by_issue_id = planning_time_entry_hours_by_issue(issue_ids, sprint.start_date, sprint.due_date)
+    spent_hours = spent_hours_by_issue_id.values.sum
+    total_complexity_weight = issues.sum { |issue| complexity_weight(issue) }
+    complexity_ticket_count = issues.count { |issue| complexity_weight(issue).positive? }
+    average_complexity_weight = complexity_ticket_count.positive? ? total_complexity_weight / complexity_ticket_count : 0.0
     deviation_hours = spent_hours - estimated_hours
     deviation_rate = estimated_hours.positive? ? deviation_hours / estimated_hours : 0.0
     estimation_accuracy = estimated_hours.positive? ? [1.0 - (deviation_hours.abs / estimated_hours), 0.0].max : 0.0
@@ -395,6 +400,7 @@ class TicketJourneyController < ApplicationController
     not_started = issues.select { |issue| not_started_sprint_status?(issue.status&.name) }
     missing_estimation = issues.select { |issue| issue.estimated_hours.blank? || issue.estimated_hours.to_f <= 0 }
     missing_owner_estimation = issues.select { |issue| ticket_owner_estimation_hours(issue) <= 0 }
+    missing_complexity = issues.select { |issue| complexity_weight(issue) <= 0 }
 
     empty_report.merge(
       issues: issues,
@@ -411,11 +417,16 @@ class TicketJourneyController < ApplicationController
         pm_owner_variance_hours: pm_owner_variance_hours,
         pm_owner_variance_rate: pm_owner_variance_rate,
         missing_estimation: missing_estimation.size,
-        missing_owner_estimation: missing_owner_estimation.size
+        missing_owner_estimation: missing_owner_estimation.size,
+        total_complexity_weight: total_complexity_weight,
+        complexity_ticket_count: complexity_ticket_count,
+        average_complexity_weight: average_complexity_weight,
+        missing_complexity: missing_complexity.size
       ),
       planning_vs_actual_rows: planning_vs_actual_rows(issues, estimated_hours, owner_estimated_hours, spent_hours, deviation_hours, deviation_rate, owner_deviation_hours, owner_deviation_rate, pm_owner_variance_hours, pm_owner_variance_rate),
       composition_rows: planning_composition_rows(sprint, issues, current_scope, carry_over),
       planned_health_rows: planning_field_health_rows(issues),
+      complexity_rows: planning_complexity_owner_rows(issues, spent_hours_by_issue_id),
       not_started_rows: planning_not_started_rows(sprint, not_started),
       reliability_rows: planning_reliability_rows(sprint, totals),
       drilldowns: {
@@ -427,6 +438,7 @@ class TicketJourneyController < ApplicationController
         not_started: not_started.map(&:id),
         missing_estimation: missing_estimation.map(&:id),
         missing_owner_estimation: missing_owner_estimation.map(&:id),
+        missing_complexity: missing_complexity.map(&:id),
         technical_debt: issues.select { |issue| carry_over_sprint_issue?(sprint, issue) && !completed_sprint_status?(issue.status&.name) }.map(&:id)
       }
     )
@@ -449,11 +461,16 @@ class TicketJourneyController < ApplicationController
         pm_owner_variance_hours: 0.0,
         pm_owner_variance_rate: 0.0,
         missing_estimation: 0,
-        missing_owner_estimation: 0
+        missing_owner_estimation: 0,
+        total_complexity_weight: 0.0,
+        complexity_ticket_count: 0,
+        average_complexity_weight: 0.0,
+        missing_complexity: 0
       ),
       planning_vs_actual_rows: [],
       composition_rows: [],
       planned_health_rows: [],
+      complexity_rows: [],
       not_started_rows: [],
       reliability_rows: [],
       drilldowns: {
@@ -465,18 +482,23 @@ class TicketJourneyController < ApplicationController
         not_started: [],
         missing_estimation: [],
         missing_owner_estimation: [],
+        missing_complexity: [],
         technical_debt: []
       }
     }
   end
 
   def planning_time_entry_hours(issue_ids, start_date, end_date)
-    return 0.0 if issue_ids.empty?
+    planning_time_entry_hours_by_issue(issue_ids, start_date, end_date).values.sum
+  end
+
+  def planning_time_entry_hours_by_issue(issue_ids, start_date, end_date)
+    return {} if issue_ids.empty?
 
     scope = TimeEntry.where(issue_id: issue_ids)
     scope = scope.where("#{TimeEntry.table_name}.spent_on >= ?", start_date) if start_date.present?
     scope = scope.where("#{TimeEntry.table_name}.spent_on <= ?", end_date) if end_date.present?
-    scope.sum(:hours).to_f
+    scope.group(:issue_id).sum(:hours).transform_values(&:to_f)
   end
 
   def planning_vs_actual_rows(issues, estimated_hours, owner_estimated_hours, spent_hours, deviation_hours, deviation_rate, owner_deviation_hours, owner_deviation_rate, pm_owner_variance_hours, pm_owner_variance_rate)
@@ -528,7 +550,8 @@ class TicketJourneyController < ApplicationController
       ['Without Start Date', issues.select { |issue| issue.start_date.blank? }],
       ['Without Due Date', issues.select { |issue| issue.due_date.blank? }],
       ['Without PM Estimation', issues.select { |issue| issue.estimated_hours.blank? || issue.estimated_hours.to_f <= 0 }],
-      ['Without Owner Estimation', issues.select { |issue| ticket_owner_estimation_hours(issue) <= 0 }]
+      ['Without Owner Estimation', issues.select { |issue| ticket_owner_estimation_hours(issue) <= 0 }],
+      ['Without Complexity Weight', issues.select { |issue| complexity_weight(issue) <= 0 }]
     ]
 
     checks.map do |label, matching_issues|
@@ -1872,6 +1895,37 @@ class TicketJourneyController < ApplicationController
         cycle_hours: durations[:TOTAL].to_f
       }
     end
+  end
+
+  def planning_complexity_owner_rows(issues, spent_hours_by_issue_id)
+    rows = Hash.new do |hash, owner|
+      hash[owner] = {
+        owner: owner,
+        issue_ids: [],
+        tickets: 0,
+        complexity_weight: 0.0,
+        pm_estimate_hours: 0.0,
+        owner_estimate_hours: 0.0,
+        spent_hours: 0.0
+      }
+    end
+
+    issues.each do |issue|
+      owner = ticket_owner_info(issue).last.presence || 'Unassigned'
+      row = rows[owner]
+      row[:issue_ids] << issue.id
+      row[:tickets] += 1
+      row[:complexity_weight] += complexity_weight(issue)
+      row[:pm_estimate_hours] += issue.estimated_hours.to_f
+      row[:owner_estimate_hours] += ticket_owner_estimation_hours(issue)
+      row[:spent_hours] += spent_hours_by_issue_id[issue.id].to_f
+    end
+
+    rows.values.map do |row|
+      row[:average_complexity] = row[:tickets].positive? ? row[:complexity_weight] / row[:tickets] : 0.0
+      row[:spent_per_complexity] = row[:complexity_weight].positive? ? row[:spent_hours] / row[:complexity_weight] : 0.0
+      row
+    end.sort_by { |row| [-row[:complexity_weight], row[:owner].to_s] }
   end
 
   def time_utilization_scope_rows(issues, hours_by_issue_id)
@@ -4475,6 +4529,13 @@ class TicketJourneyController < ApplicationController
 
   def ticket_owner_estimation_hours(issue)
     raw_value = issue.custom_value_for(TICKET_OWNER_ESTIMATION_CF_ID)&.value
+    return 0.0 if raw_value.blank?
+
+    raw_value.to_s.tr(',', '.').to_f
+  end
+
+  def complexity_weight(issue)
+    raw_value = issue.custom_value_for(COMPLEXITY_WEIGHT_CF_ID)&.value
     return 0.0 if raw_value.blank?
 
     raw_value.to_s.tr(',', '.').to_f
