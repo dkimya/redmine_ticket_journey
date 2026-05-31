@@ -385,8 +385,7 @@ class TicketJourneyController < ApplicationController
     spent_hours_by_issue_id = planning_time_entry_hours_by_issue(issue_ids, sprint.start_date, sprint.due_date)
     spent_hours = spent_hours_by_issue_id.values.sum
     total_complexity_weight = issues.sum { |issue| complexity_weight(issue) }
-    complexity_ticket_count = issues.count { |issue| complexity_weight(issue).positive? }
-    average_complexity_weight = complexity_ticket_count.positive? ? total_complexity_weight / complexity_ticket_count : 0.0
+    average_complexity_weight = issues.any? ? total_complexity_weight / issues.size : 0.0
     deviation_hours = spent_hours - estimated_hours
     deviation_rate = estimated_hours.positive? ? deviation_hours / estimated_hours : 0.0
     estimation_accuracy = estimated_hours.positive? ? [1.0 - (deviation_hours.abs / estimated_hours), 0.0].max : 0.0
@@ -419,7 +418,6 @@ class TicketJourneyController < ApplicationController
         missing_estimation: missing_estimation.size,
         missing_owner_estimation: missing_owner_estimation.size,
         total_complexity_weight: total_complexity_weight,
-        complexity_ticket_count: complexity_ticket_count,
         average_complexity_weight: average_complexity_weight,
         missing_complexity: missing_complexity.size
       ),
@@ -463,7 +461,6 @@ class TicketJourneyController < ApplicationController
         missing_estimation: 0,
         missing_owner_estimation: 0,
         total_complexity_weight: 0.0,
-        complexity_ticket_count: 0,
         average_complexity_weight: 0.0,
         missing_complexity: 0
       ),
