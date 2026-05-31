@@ -1,28 +1,30 @@
 <%
-  pmo_params = pmo_control_params(@query)
-  sprint_params = sprint_delivery_params(@query)
-  planning_params = planning_estimation_params(@query)
-  duration_params = duration_report_params(@query)
-  owner_params = owner_returns_params(@query)
-  qa_params = qa_returns_params(@query)
-  workload_params = owner_workload_params(@query)
-  snapshot_params = status_snapshot_params(@query)
-  time_utilization_tab_params = time_utilization_params(@query)
-  aging_params = aging_risk_params(@query)
-  priority_params = priority_risk_params(@query)
-  cycle_params = cycle_distribution_params(@query)
-  flow_params = flow_report_params(@query)
-  health_params = project_health_params(@query)
-  release_params = release_readiness_params(@query)
-  bug_params = bug_analysis_params(@query)
-  data_quality_tab_params = data_quality_params(@query)
-  original_sprint_tab_params = original_sprint_params(@query)
+  clean_tab_params = ->(query_params) { query_params.except('support_section', :support_section) }
+
+  pmo_params = clean_tab_params.call(pmo_control_params(@query))
+  sprint_params = clean_tab_params.call(sprint_delivery_params(@query))
+  planning_params = clean_tab_params.call(planning_estimation_params(@query))
+  duration_params = clean_tab_params.call(duration_report_params(@query))
+  owner_params = clean_tab_params.call(owner_returns_params(@query))
+  qa_params = clean_tab_params.call(qa_returns_params(@query))
+  workload_params = clean_tab_params.call(owner_workload_params(@query))
+  snapshot_params = clean_tab_params.call(status_snapshot_params(@query))
+  time_utilization_tab_params = clean_tab_params.call(time_utilization_params(@query))
+  aging_params = clean_tab_params.call(aging_risk_params(@query))
+  priority_params = clean_tab_params.call(priority_risk_params(@query))
+  cycle_params = clean_tab_params.call(cycle_distribution_params(@query))
+  flow_params = clean_tab_params.call(flow_report_params(@query))
+  health_params = clean_tab_params.call(project_health_params(@query))
+  release_params = clean_tab_params.call(release_readiness_params(@query))
+  bug_params = clean_tab_params.call(bug_analysis_params(@query))
+  data_quality_tab_params = clean_tab_params.call(data_quality_params(@query))
+  original_sprint_tab_params = clean_tab_params.call(original_sprint_params(@query))
   duration_params = duration_params.except('issue_id', 'view')
   detail_params =
     if @issue.present?
-      duration_report_params(@query).merge('issue_id' => @issue.id, 'view' => 'detail')
+      clean_tab_params.call(duration_report_params(@query)).merge('issue_id' => @issue.id, 'view' => 'detail')
     else
-      issue_detail_tab_params(@query)
+      clean_tab_params.call(issue_detail_tab_params(@query))
     end
   tabs_by_key = {
     pmo_control: ['PMO Control', ticket_journey_pmo_control_path(@project, pmo_params)],
