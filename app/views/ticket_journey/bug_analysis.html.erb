@@ -6,7 +6,7 @@
   <div class="tj-page-header">
     <div class="tj-page-header-left">
       <div>
-        <h2>Bug Control Dashboard</h2>
+        <h2>Bug Analysis Dashboard</h2>
         <p class="tj-page-sub">Bug source, leakage, related-page, and solved-bug analysis &mdash; <%= @project.name %></p>
       </div>
     </div>
@@ -38,26 +38,28 @@
     </div>
   <% end %>
 
+  <% closed_report = @bug_closed_analysis_report || {} %>
+
   <div class="tj-summary-strip">
     <div class="tj-summary-card">
       <div class="tj-sc-label">Beginning Bugs</div>
-      <div class="tj-sc-value tj-sc-dim"><%= @bug_analysis_totals[:beginning] %></div>
+      <div class="tj-sc-value tj-sc-dim"><%= duration_report_drilldown_link(@query, @bug_analysis_totals[:beginning_issue_ids], @bug_analysis_totals[:beginning], title: 'Open bugs present at the beginning of the selected period') %></div>
     </div>
     <div class="tj-summary-card">
       <div class="tj-sc-label">Found</div>
-      <div class="tj-sc-value tj-sc-orange"><%= @bug_analysis_totals[:found] %></div>
+      <div class="tj-sc-value tj-sc-orange"><%= duration_report_drilldown_link(@query, @bug_analysis_totals[:found_issue_ids], @bug_analysis_totals[:found], title: 'Open bugs found during the selected period') %></div>
     </div>
     <div class="tj-summary-card">
       <div class="tj-sc-label">Closed</div>
-      <div class="tj-sc-value tj-sc-green"><%= @bug_analysis_totals[:closed] %></div>
+      <div class="tj-sc-value tj-sc-green"><%= duration_report_drilldown_link(@query, @bug_analysis_totals[:closed_issue_ids], @bug_analysis_totals[:closed], title: 'Open bugs closed during the selected period') %></div>
     </div>
     <div class="tj-summary-card">
-      <div class="tj-sc-label">Remaining</div>
-      <div class="tj-sc-value tj-sc-red"><%= @bug_analysis_totals[:remaining] %></div>
+      <div class="tj-sc-label">Ending Bugs</div>
+      <div class="tj-sc-value tj-sc-red"><%= duration_report_drilldown_link(@query, @bug_analysis_totals[:remaining_issue_ids], @bug_analysis_totals[:remaining], title: 'Open bugs remaining at the end of the selected period') %></div>
     </div>
     <div class="tj-summary-card">
       <div class="tj-sc-label">Critical Bugs Open</div>
-      <div class="tj-sc-value <%= @bug_analysis_totals[:critical_open].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= @bug_analysis_totals[:critical_open] %></div>
+      <div class="tj-sc-value <%= @bug_analysis_totals[:critical_open].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, @bug_analysis_totals[:critical_open_issue_ids], @bug_analysis_totals[:critical_open], title: 'Open critical bugs at the end of the selected period') %></div>
     </div>
     <div class="tj-summary-card">
       <div class="tj-sc-label">Bug Leakage (%)</div>
@@ -65,16 +67,31 @@
            title="Escaped bugs divided by bugs found in the period. Escaped bugs use Bug Source values: Test Escape, Coverage Gap, or Requirement Gap."><%= number_to_percentage(@bug_analysis_totals[:leakage_percent] * 100, precision: 1) %></div>
     </div>
     <div class="tj-summary-card">
+      <div class="tj-sc-label">Start-End Bug Change %</div>
+      <div class="tj-sc-value <%= @bug_analysis_totals[:change_percent].to_f.positive? ? 'tj-sc-red' : (@bug_analysis_totals[:change_percent].to_f.negative? ? 'tj-sc-green' : 'tj-sc-dim') %>"
+           title="Ending bugs minus beginning bugs, divided by beginning bugs."><%= @bug_analysis_totals[:change_percent].nil? ? '-' : number_to_percentage(@bug_analysis_totals[:change_percent] * 100, precision: 1) %></div>
+    </div>
+    <div class="tj-summary-card">
       <div class="tj-sc-label">Escaped Bugs</div>
-      <div class="tj-sc-value <%= @bug_analysis_totals[:escaped].to_i.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= @bug_analysis_totals[:escaped] %></div>
+      <div class="tj-sc-value <%= @bug_analysis_totals[:escaped].to_i.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, @bug_analysis_totals[:escaped_issue_ids], @bug_analysis_totals[:escaped], title: 'Open escaped bugs found during the selected period') %></div>
     </div>
     <div class="tj-summary-card">
-      <div class="tj-sc-label">Remaining Impact</div>
-      <div class="tj-sc-value tj-sc-orange"><%= @bug_analysis_totals[:impact_sum] %></div>
+      <div class="tj-sc-label">Ending Impact</div>
+      <div class="tj-sc-value tj-sc-orange"><%= duration_report_drilldown_link(@query, @bug_analysis_totals[:impact_issue_ids], @bug_analysis_totals[:impact_sum], title: 'Open ending bugs with impact rating') %></div>
     </div>
     <div class="tj-summary-card">
-      <div class="tj-sc-label">Avg Remaining Impact</div>
-      <div class="tj-sc-value tj-sc-blue"><%= number_with_precision(@bug_analysis_totals[:impact_average], precision: 1, strip_insignificant_zeros: true) %></div>
+      <div class="tj-sc-label">Avg Ending Impact</div>
+      <div class="tj-sc-value tj-sc-blue"><%= duration_report_drilldown_link(@query, @bug_analysis_totals[:impact_issue_ids], number_with_precision(@bug_analysis_totals[:impact_average], precision: 1, strip_insignificant_zeros: true), title: 'Open ending bugs used for average impact') %></div>
+    </div>
+    <div class="tj-summary-card">
+      <div class="tj-sc-label">Avg Closed Cycle Time</div>
+      <div class="tj-sc-value tj-sc-blue">
+        <% if closed_report[:avg_cycle_hours].present? %>
+          <%= duration_report_drilldown_link(@query, closed_report[:avg_cycle_issue_ids], format_hours(closed_report[:avg_cycle_hours]), title: 'Open closed bugs used for average cycle time') %>
+        <% else %>
+          -
+        <% end %>
+      </div>
     </div>
   </div>
 
@@ -86,18 +103,18 @@
     </div>
   <% else %>
     <div class="tj-card tj-card-full">
-      <div class="tj-card-title">Remaining Bugs by Bug Source</div>
+      <div class="tj-card-title">Ending Bugs by Bug Source</div>
       <div class="tj-bug-bars">
         <% max_remaining = @bug_analysis_rows.map { |row| row[:remaining].to_i }.max.to_i %>
         <% remaining_rows = @bug_analysis_rows.select { |row| row[:remaining].to_i.positive? }.sort_by { |row| [-row[:remaining].to_i, row[:reason].to_s.downcase] } %>
         <% if remaining_rows.empty? %>
-          <div class="tj-flow-empty-note">No remaining bugs in this period.</div>
+          <div class="tj-flow-empty-note">No ending bugs in this period.</div>
         <% end %>
         <% remaining_rows.each do |row| %>
           <% width = max_remaining.positive? ? ((row[:remaining].to_f / max_remaining) * 100).round : 0 %>
           <%= link_to project_issues_path(@project, bug_analysis_issue_filter_params(row, :remaining)),
                 class: 'tj-bug-bar-row',
-                title: "Open remaining Bug issues for #{row[:reason]}" do %>
+                title: "Open ending Bug issues for #{row[:reason]}" do %>
             <span class="tj-bug-bar-label"><%= h(row[:reason]) %></span>
             <span class="tj-bug-bar-track">
               <span class="tj-bug-bar-fill" style="width:<%= width %>%"></span>
@@ -121,10 +138,10 @@
               <th class="tj-th-native"><%= bug_analysis_sort_link(@query, :found_percent, '%') %></th>
               <th class="tj-th-native"><%= bug_analysis_sort_link(@query, :closed, 'Bugs Closed') %></th>
               <th class="tj-th-native"><%= bug_analysis_sort_link(@query, :closed_percent, '%') %></th>
-              <th class="tj-th-native"><%= bug_analysis_sort_link(@query, :remaining, 'Remaining Bugs') %></th>
+              <th class="tj-th-native"><%= bug_analysis_sort_link(@query, :remaining, 'Ending Bugs') %></th>
               <th class="tj-th-native"><%= bug_analysis_sort_link(@query, :remaining_percent, '%') %></th>
-              <th class="tj-th-native"><%= bug_analysis_sort_link(@query, :impact_sum, 'Remaining Impact') %></th>
-              <th class="tj-th-native"><%= bug_analysis_sort_link(@query, :impact_average, 'Avg Remaining Impact') %></th>
+              <th class="tj-th-native"><%= bug_analysis_sort_link(@query, :impact_sum, 'Ending Impact') %></th>
+              <th class="tj-th-native"><%= bug_analysis_sort_link(@query, :impact_average, 'Avg Ending Impact') %></th>
               <th class="tj-th-native"><%= bug_analysis_sort_link(@query, :change_percent, 'Start-End Change') %></th>
             </tr>
           </thead>
@@ -180,7 +197,7 @@
               <th class="tj-th-native">Beginning</th>
               <th class="tj-th-native">Found</th>
               <th class="tj-th-native">Closed</th>
-              <th class="tj-th-native">Remaining</th>
+              <th class="tj-th-native">Ending</th>
             </tr>
           </thead>
           <tbody>
@@ -199,7 +216,6 @@
     </div>
   <% end %>
 
-  <% closed_report = @bug_closed_analysis_report || {} %>
   <div class="tj-card tj-card-full">
     <div class="tj-card-title">Closed Bugs (Solved Bugs) Analysis</div>
     <% if closed_report[:total_closed].to_i.zero? %>
@@ -222,7 +238,7 @@
         </div>
       </div>
 
-      <div class="tj-detail-grid">
+      <div class="tj-detail-grid tj-bug-closed-panels">
         <div class="tj-subpanel">
           <div class="tj-card-title">Pie Chart of Bug Sources</div>
           <% source_rows = closed_report[:source_rows] || [] %>
@@ -282,7 +298,7 @@
   <div class="tj-card tj-card-full">
     <div class="tj-card-title">Related Page / Module Histogram</div>
     <% if @bug_related_page_rows.blank? %>
-      <div class="tj-flow-empty-note">No Related Page / Module values were found for remaining bugs in this period.</div>
+      <div class="tj-flow-empty-note">No Related Page / Module values were found for ending bugs in this period.</div>
     <% else %>
       <div class="tj-bug-bars">
         <% max_page_count = @bug_related_page_rows.map { |row| row[:count].to_i }.max.to_i %>

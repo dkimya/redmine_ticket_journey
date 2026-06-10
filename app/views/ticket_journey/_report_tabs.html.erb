@@ -31,7 +31,7 @@
     sprint_delivery: ['Sprint Delivery', ticket_journey_sprint_delivery_path(@project, sprint_params)],
     owner_returns: ['Team / Ticket Owner Performance', ticket_journey_owner_returns_path(@project, owner_params)],
     qa_returns: ['QA & Returns', ticket_journey_qa_returns_path(@project, qa_params)],
-    bug_analysis: ['Bug Control', ticket_journey_bug_analysis_path(@project, bug_params)],
+    bug_analysis: ['Bug Analysis', ticket_journey_bug_analysis_path(@project, bug_params)],
     planning_estimation: ['Planning & Estimation', ticket_journey_planning_estimation_path(@project, planning_params)],
     data_quality: ['Data Quality', ticket_journey_data_quality_path(@project, data_quality_tab_params)],
     original_sprint: ['Ticket Original Sprint', ticket_journey_original_sprint_path(@project, original_sprint_tab_params)],
@@ -77,7 +77,7 @@
       keys: [:qa_returns, :flow_report, :issue_detail]
     },
     bug_analysis: {
-      label: 'Bug Control',
+      label: 'Bug Analysis',
       keys: [:bug_analysis, :aging_risk, :priority_risk, :release_readiness, :issue_detail]
     },
     planning_estimation: {

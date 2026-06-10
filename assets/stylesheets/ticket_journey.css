@@ -1112,6 +1112,9 @@
   gap: 16px;
   margin-bottom: 16px;
 }
+.tj-detail-grid.tj-bug-closed-panels {
+  grid-template-columns: 1fr;
+}
 @media (max-width: 900px) {
   .tj-detail-grid { grid-template-columns: 1fr; }
 }

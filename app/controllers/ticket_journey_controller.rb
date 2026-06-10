@@ -3400,6 +3400,15 @@ class TicketJourneyController < ApplicationController
         impact_count: 0
       }
     end
+    total_issue_ids = {
+      beginning: [],
+      found: [],
+      closed: [],
+      remaining: [],
+      impact: [],
+      critical_open: [],
+      escaped: []
+    }
 
     bug_list.each do |issue|
       reason = issue.custom_value_for(BUG_SOURCE_CF_ID)&.value.presence || 'No Bug Source'
@@ -3408,13 +3417,26 @@ class TicketJourneyController < ApplicationController
 
       remaining_at_period_end = issue.created_on <= period_end && !historically_closed?(issue, status_changes[issue.id], period_end, closed_status_ids)
 
-      row[:beginning] += 1 if issue.created_on <= period_start && !historically_closed?(issue, status_changes[issue.id], period_start, closed_status_ids)
-      row[:found] += 1 if issue.created_on >= period_start && issue.created_on <= period_end
-      row[:closed] += 1 if closed_issue_ids.include?(issue.id)
-      row[:remaining] += 1 if remaining_at_period_end
+      if issue.created_on <= period_start && !historically_closed?(issue, status_changes[issue.id], period_start, closed_status_ids)
+        row[:beginning] += 1
+        total_issue_ids[:beginning] << issue.id
+      end
+      if issue.created_on >= period_start && issue.created_on <= period_end
+        row[:found] += 1
+        total_issue_ids[:found] << issue.id
+      end
+      if closed_issue_ids.include?(issue.id)
+        row[:closed] += 1
+        total_issue_ids[:closed] << issue.id
+      end
+      if remaining_at_period_end
+        row[:remaining] += 1
+        total_issue_ids[:remaining] << issue.id
+      end
       if remaining_at_period_end && impact_rating.positive?
         row[:impact_sum] += impact_rating
         row[:impact_count] += 1
+        total_issue_ids[:impact] << issue.id
       end
     end
 
@@ -3431,10 +3453,19 @@ class TicketJourneyController < ApplicationController
     totals[:critical_open] = bug_list.count do |issue|
       impact = issue.custom_value_for(BUG_IMPACT_RATING_CF_ID)&.value.to_i
       remaining = issue.created_on <= period_end && !historically_closed?(issue, status_changes[issue.id], period_end, closed_status_ids)
-      remaining && (impact >= 3 || priority_performance_ticket?(issue))
+      critical = remaining && (impact >= 3 || priority_performance_ticket?(issue))
+      total_issue_ids[:critical_open] << issue.id if critical
+      critical
     end
-    totals[:escaped] = bug_list.count { |issue| issue.created_on >= period_start && issue.created_on <= period_end && bug_leakage_source?(issue) }
+    totals[:escaped] = bug_list.count do |issue|
+      escaped = issue.created_on >= period_start && issue.created_on <= period_end && bug_leakage_source?(issue)
+      total_issue_ids[:escaped] << issue.id if escaped
+      escaped
+    end
     totals[:leakage_percent] = ratio(totals[:escaped], totals[:found])
+    total_issue_ids.each do |scope, ids|
+      totals["#{scope}_issue_ids".to_sym] = ids.uniq
+    end
 
     report_rows = rows.values.map do |row|
       row.merge(
@@ -3497,7 +3528,14 @@ class TicketJourneyController < ApplicationController
       impact_average: 0.0,
       critical_open: 0,
       escaped: 0,
-      leakage_percent: 0.0
+      leakage_percent: 0.0,
+      beginning_issue_ids: [],
+      found_issue_ids: [],
+      closed_issue_ids: [],
+      remaining_issue_ids: [],
+      impact_issue_ids: [],
+      critical_open_issue_ids: [],
+      escaped_issue_ids: []
     }
   end
 

@@ -11,7 +11,7 @@ module TicketJourneyHelper
       'sprint_delivery' => 'Sprint Delivery',
       'owner_returns' => 'Team / Ticket Owner Performance',
       'qa_returns' => 'QA & Returns',
-      'bug_analysis' => 'Bug Control',
+      'bug_analysis' => 'Bug Analysis',
       'planning_estimation' => 'Planning & Estimation',
       'time_utilization' => 'Time Utilization & Scope Control',
       'data_quality' => 'Ticket Quality & Data Discipline'
