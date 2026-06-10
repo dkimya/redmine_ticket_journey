@@ -6,7 +6,7 @@
   <div class="tj-page-header">
     <div class="tj-page-header-left">
       <div>
-        <h2>Ticket Quality &amp; Data Discipline Dashboard</h2>
+        <h2>Data Quality Dashboard</h2>
         <p class="tj-page-sub">Ticket data reliability based on the applied filter &mdash; <%= @project.name %></p>
       </div>
     </div>
@@ -55,7 +55,7 @@
       <%= data_quality_summary_card(totals, :missing_estimation, 'Missing PM Estimation', totals[:missing_estimation], totals[:missing_estimation].positive? ? 'tj-sc-orange' : 'tj-sc-dim') %>
       <%= data_quality_summary_card(totals, :missing_priority, 'Missing Priority', totals[:missing_priority], totals[:missing_priority].positive? ? 'tj-sc-orange' : 'tj-sc-dim') %>
       <%= data_quality_summary_card(totals, :missing_sprint, 'Missing Original Sprint (Technical Tickets)', totals[:missing_sprint], totals[:missing_sprint].positive? ? 'tj-sc-orange' : 'tj-sc-dim') %>
-      <%= data_quality_summary_card(totals, :time_logging_complete, 'Time Logging Complete', number_to_percentage(totals[:time_logging_completeness_percent] * 100, precision: 1), totals[:time_logging_completeness_percent].to_f >= 0.8 ? 'tj-sc-green' : 'tj-sc-orange', title: 'Filtered tickets with at least one time entry') %>
+      <%= data_quality_summary_card(totals, :time_logging_complete, 'Time Logging Complete', number_to_percentage(totals[:time_logging_completeness_percent] * 100, precision: 1), totals[:time_logging_completeness_percent].to_f >= 0.8 ? 'tj-sc-green' : 'tj-sc-orange', title: 'Filtered tickets with at least one time entry divided by all filtered tickets. See Tickets Without Time Logging for the missing side.') %>
       <%= data_quality_summary_card(totals, :missing_time_logging, 'Without Time Logging', totals[:missing_time_logging], totals[:missing_time_logging].positive? ? 'tj-sc-orange' : 'tj-sc-dim', title: 'Filtered tickets without any time entry') %>
       <%= data_quality_summary_card(totals, :new_status, 'New Status', totals[:new_status].to_i.positive? ? 'Included' : 'Excluded', totals[:new_status].to_i.positive? ? 'tj-sc-blue' : 'tj-sc-dim') %>
     </div>
