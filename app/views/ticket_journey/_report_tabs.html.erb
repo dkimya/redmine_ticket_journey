@@ -32,7 +32,7 @@
     owner_returns: ['Team / Ticket Owner Performance', ticket_journey_owner_returns_path(@project, owner_params)],
     qa_returns: ['QA & Returns', ticket_journey_qa_returns_path(@project, qa_params)],
     bug_analysis: ['Bug Analysis', ticket_journey_bug_analysis_path(@project, bug_params)],
-    planning_estimation: ['Planning & Estimation', ticket_journey_planning_estimation_path(@project, planning_params)],
+    planning_estimation: ['Planning Quality', ticket_journey_planning_estimation_path(@project, planning_params)],
     data_quality: ['Data Quality', ticket_journey_data_quality_path(@project, data_quality_tab_params)],
     original_sprint: ['Ticket Original Sprint', ticket_journey_original_sprint_path(@project, original_sprint_tab_params)],
     duration: ['Duration Report', ticket_journey_path(@project, duration_params)],
@@ -81,7 +81,7 @@
       keys: [:bug_analysis, :aging_risk, :priority_risk, :release_readiness, :issue_detail]
     },
     planning_estimation: {
-      label: 'Planning & Estimation',
+      label: 'Planning Quality',
       keys: [:planning_estimation, :duration, :owner_workload, :issue_detail]
     },
     time_utilization: {

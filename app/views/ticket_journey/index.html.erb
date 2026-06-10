@@ -199,7 +199,7 @@
         <% end %>
 
         <div class="tj-table-wrap" data-tj-section-body>
-          <table class="tj-table">
+          <table class="tj-table tj-duration-table">
             <thead>
               <tr>
                 <th class="tj-th-issue"><%= query_sort_link(@query, :id, 'Issue') %></th>
@@ -236,14 +236,17 @@
                   </button>
                 </th>
                 <th class="<%= duration_header_css_class(calendar_total) %> tj-group-boundary-right"><%= report_sort_link(@query, family_key, :CALENDAR_TOTAL, calendar_total[:label], title: calendar_total[:desc]) %></th>
+                <th class="tj-th-total"><%= report_sort_link(@query, family_key, :lead_time, 'Lead Time', title: 'Created date to first Done / Closed or Archived status. Open tickets show blank.') %></th>
+                <th class="tj-th-peak"><%= report_sort_link(@query, family_key, :bottleneck_ratio, 'Bottleneck', title: 'Peak Duration divided by Cycle Total. Flagged when the biggest workflow step is 50% or more of Cycle Total.') %></th>
                 <% if counters.any? %>
                   <% counters.each do |counter| %>
                     <th class="tj-th-counter tj-return-detail-col"><%= report_sort_link(@query, family_key, counter[:key], counter[:code], title: counter[:title]) %></th>
                   <% end %>
                   <th class="tj-th-counter tj-summary-col tj-return-summary-col tj-group-boundary-right">
-                    <button type="button" class="tj-column-group-toggle" data-tj-column-group-toggle="returns" aria-expanded="true" title="Show or hide return counter columns">
-                      Total R
-                    </button>
+                    <div class="tj-th-split">
+                      <%= report_sort_link(@query, family_key, :total_returns, 'Total R', title: 'Total return events: R1 + R2 + R3 + R4 + R5') %>
+                      <button type="button" class="tj-column-group-toggle" data-tj-column-group-toggle="returns" aria-expanded="true" title="Show or hide return counter columns">Details</button>
+                    </div>
                   </th>
                 <% end %>
               </tr>
@@ -296,6 +299,8 @@
                     <% end %>
                     <td class="tj-td-total tj-summary-col tj-paused-summary-col"><%= format_hours(row_paused_total) %></td>
                     <td class="tj-td-total tj-group-boundary-right"><%= format_hours(durations[:CALENDAR_TOTAL]) %></td>
+                    <td class="tj-td-total"><%= format_hours(item[:lead_time_hours]) %></td>
+                    <td class="tj-td-peak <%= bottleneck_css_class(durations, family_key) %>" title="Peak Duration / Cycle Total"><%= bottleneck_label(durations, family_key) %></td>
                     <% if counters.any? %>
                       <% counters.each do |counter| %>
                         <% count = durations[counter[:key]].to_i %>
@@ -331,6 +336,8 @@
                 <% end %>
                 <td class="tj-td-total tj-summary-col tj-paused-summary-col"><%= format_hours(table_paused_total) %></td>
                 <td class="tj-td-total tj-group-boundary-right"><%= format_hours(table_duration_totals[:CALENDAR_TOTAL]) %></td>
+                <td class="tj-td-total"><%= format_hours(items.sum { |item| item[:lead_time_hours].to_f }) %></td>
+                <td class="tj-td-peak">-</td>
                 <% if counters.any? %>
                   <% counters.each do |counter| %>
                     <% count = table_counter_totals[counter[:key]].to_i %>

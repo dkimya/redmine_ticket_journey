@@ -845,6 +845,34 @@
 .tj-th-hold   { color: #4b5563; background: #eef2f7; min-width: 84px; }
 .tj-th-total  { color: var(--tj-green); background: #f0faf3; }
 .tj-th-counter { color: var(--tj-red); background: #fdf0f0; min-width: 42px; }
+.tj-duration-table .tj-th-issue,
+.tj-duration-table .tj-td-issue {
+  position: sticky;
+  left: 0;
+  z-index: 4;
+  min-width: 76px;
+  width: 76px;
+  background: #f8fafc;
+}
+.tj-duration-table .tj-th-title,
+.tj-duration-table .tj-td-title {
+  position: sticky;
+  left: 76px;
+  z-index: 4;
+  min-width: 240px;
+  width: 240px;
+  background: #f8fafc;
+  box-shadow: 2px 0 0 var(--tj-border);
+}
+.tj-duration-table .tj-th-issue,
+.tj-duration-table .tj-th-title {
+  z-index: 6;
+  background: #f0f2f7;
+}
+.tj-duration-table .tj-row:hover .tj-td-issue,
+.tj-duration-table .tj-row:hover .tj-td-title {
+  background: #f7f9ff;
+}
 .tj-summary-col {
   min-width: 92px;
   border-left: 1px solid #cfd8e6 !important;
@@ -1052,6 +1080,10 @@
   color: var(--tj-text);
   font-weight: 700;
   white-space: nowrap;
+}
+.tj-bottleneck-watch {
+  color: var(--tj-orange);
+  font-weight: 700;
 }
 .tj-td-total {
   background: var(--tj-green-bg);

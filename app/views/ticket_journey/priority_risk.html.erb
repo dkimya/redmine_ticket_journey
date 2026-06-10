@@ -99,6 +99,42 @@
     </div>
 
     <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Severity Impact &amp; Related Page</div>
+      <% if @priority_impact_page_rows.blank? %>
+        <div class="tj-flow-empty-note">No severity impact or related page data for the current priority tickets.</div>
+      <% else %>
+        <div class="tj-table-wrap">
+          <table class="tj-table">
+            <thead>
+              <tr>
+                <th class="tj-th-native">Impact Rating</th>
+                <th class="tj-th-title">Related Page / Module</th>
+                <th class="tj-th-native">Tickets</th>
+                <th class="tj-th-title">Ticket Owners</th>
+                <th class="tj-th-native">Overdue</th>
+                <th class="tj-th-native">Stopped</th>
+                <th class="tj-th-native">Oldest Age</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% @priority_impact_page_rows.each do |row| %>
+                <tr class="tj-row">
+                  <td class="tj-td-native"><%= row[:impact_rating].presence || '-' %></td>
+                  <td class="tj-td-title"><%= h(row[:related_page]) %></td>
+                  <td class="tj-td-native"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:count]) %></td>
+                  <td class="tj-td-title"><%= h(row[:owners].presence || '-') %></td>
+                  <td class="tj-td-native <%= row[:overdue].to_i.positive? ? 'tj-counter-active' : 'tj-counter-zero' %>"><%= row[:overdue].to_i.positive? ? row[:overdue] : '-' %></td>
+                  <td class="tj-td-native <%= row[:stopped].to_i.positive? ? 'tj-counter-active' : 'tj-counter-zero' %>"><%= row[:stopped].to_i.positive? ? row[:stopped] : '-' %></td>
+                  <td class="tj-td-native"><%= row[:oldest_age] %>d</td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% end %>
+    </div>
+
+    <div class="tj-card tj-card-full">
       <div class="tj-card-title">Priority SLA Risk Detail</div>
       <div class="tj-table-wrap">
         <table class="tj-table tj-priority-risk-table">

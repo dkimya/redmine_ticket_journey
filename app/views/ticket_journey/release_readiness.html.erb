@@ -17,6 +17,13 @@
   <%= form_tag(ticket_journey_release_readiness_path(@project), method: :get, id: 'query_form') do %>
     <%= hidden_field_tag :support_section, params[:support_section] if params[:support_section].present? %>
     <%= render partial: 'queries/query_form' %>
+    <div class="tj-filter-bar tj-owner-filter-bar">
+      <div class="tj-filter-form">
+        <div class="tj-filter-group tj-flow-filter-note">
+          <span>Default scope is Bug, Feature, and Change Request / Improvement tickets. A tracker filter above can narrow or replace that scope.</span>
+        </div>
+      </div>
+    </div>
   <% end %>
 
   <% if !@query.valid? %>

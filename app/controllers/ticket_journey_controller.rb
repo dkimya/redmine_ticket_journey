@@ -132,7 +132,7 @@ class TicketJourneyController < ApplicationController
   # PLANNING & ESTIMATION - sprint planning accuracy and commitment health
   # ---------------------------------------------------------------
   def planning_estimation
-    build_query_from(sprint_delivery_query_params)
+    build_query_from(sprint_delivery_query_params, use_default_query: false)
     @sprint_options = sprint_delivery_sprints
     @selected_sprint = selected_sprint(@sprint_options)
     @planning_estimation_report = compute_planning_estimation_report(@selected_sprint)
@@ -183,6 +183,7 @@ class TicketJourneyController < ApplicationController
   # AGING / SLA RISK - current open issue age buckets and risk flags
   # ---------------------------------------------------------------
   def aging_risk
+    build_query_from(default_tracker_query_params(bug_tracker_ids), use_default_query: false) if params[:support_section].to_s == 'bug_analysis'
     @aging_group_by = aging_group_by_param
     @aging_risk_rows, @aging_risk_totals = compute_aging_risk_report(@aging_group_by)
   end
@@ -192,6 +193,7 @@ class TicketJourneyController < ApplicationController
   # ---------------------------------------------------------------
   def priority_risk
     @priority_risk_rows, @priority_owner_rows, @priority_risk_totals = compute_priority_risk_report
+    @priority_impact_page_rows = priority_impact_page_rows(@priority_risk_rows)
   end
 
   # ---------------------------------------------------------------
@@ -233,7 +235,7 @@ class TicketJourneyController < ApplicationController
   # RELEASE READINESS - target version / release readiness snapshot
   # ---------------------------------------------------------------
   def release_readiness
-    build_query_from(all_status_query_params, use_default_query: false)
+    build_query_from(default_tracker_query_params(technical_tracker_ids, base_params: all_status_query_params), use_default_query: false)
     @release_readiness_report = compute_release_readiness_report
   end
 
@@ -313,6 +315,30 @@ class TicketJourneyController < ApplicationController
 
     remove_query_param_filter(query_params, 'status_id') if operators['status_id'] == 'o'
     query_params
+  end
+
+  def default_tracker_query_params(tracker_ids, base_params: params.to_unsafe_h)
+    query_params = base_params.deep_dup.deep_stringify_keys
+    return query_params if query_params['query_id'].present?
+
+    filters = Array(query_params['f']).map(&:to_s)
+    return query_params if filters.include?('tracker_id')
+
+    query_params['set_filter'] = '1'
+    query_params['f'] = filters + ['tracker_id']
+    query_params['op'] ||= {}
+    query_params['v'] ||= {}
+    query_params['op']['tracker_id'] = '='
+    query_params['v']['tracker_id'] = Array(tracker_ids).map(&:to_s).presence || ['0']
+    query_params
+  end
+
+  def bug_tracker_ids
+    @bug_tracker_ids ||= Tracker.where(name: 'Bug').pluck(:id)
+  end
+
+  def technical_tracker_ids
+    @technical_tracker_ids ||= Tracker.where(name: TRACKER_FAMILY_DEFINITIONS[:internal][:tracker_names]).pluck(:id)
   end
 
   def remove_query_param_filter(query_params, field_name)
@@ -1680,13 +1706,21 @@ class TicketJourneyController < ApplicationController
       family_key = tracker_family_for_issue(issue)
       transitions = all_transitions[issue.id] || []
       durations = calculate_durations_for_family(family_key, transitions)
+      terminal_time = terminal_time_for_periods(durations[:periods] || [])
 
       {
         issue: issue,
         family_key: family_key,
-        durations: durations
+        durations: durations,
+        lead_time_hours: lead_time_hours(issue, terminal_time)
       }
     end
+  end
+
+  def lead_time_hours(issue, terminal_time)
+    return 0.0 if issue.created_on.blank? || terminal_time.blank? || terminal_time <= issue.created_on
+
+    ((terminal_time - issue.created_on) / 3600.0).round(2)
   end
 
   def filter_sprint_drilldown_issues(issues)
@@ -2304,6 +2338,8 @@ class TicketJourneyController < ApplicationController
         status: issue.status&.name.presence || '-',
         tracker_id: issue.tracker_id,
         tracker: issue.tracker&.name.presence || '-',
+        impact_rating: bug_impact_rating(issue),
+        related_page: bug_related_page_value(issue),
         due_date: due_date,
         age_days: age_days,
         overdue: due_date.present? && due_date < today,
@@ -2338,6 +2374,23 @@ class TicketJourneyController < ApplicationController
         oldest_age: owner_issues.map { |row| row[:age_days].to_i }.max.to_i
       }
     end.sort_by { |row| [-row[:overdue].to_i, -row[:stopped].to_i, -row[:total_open].to_i, row[:owner].to_s.downcase] }
+  end
+
+  def priority_impact_page_rows(rows)
+    rows.group_by { |row| [row[:impact_rating].to_i, row[:related_page].presence || 'Missing Related Page'] }
+        .map do |(impact_rating, related_page), grouped_rows|
+          issue_ids = grouped_rows.map { |row| row[:issue_id] }
+          {
+            impact_rating: impact_rating.positive? ? impact_rating : nil,
+            related_page: related_page,
+            count: grouped_rows.size,
+            issue_ids: issue_ids,
+            owners: grouped_rows.map { |row| row[:owner] }.compact.uniq.sort.join(', '),
+            overdue: grouped_rows.count { |row| row[:overdue] },
+            stopped: grouped_rows.count { |row| row[:stopped] },
+            oldest_age: grouped_rows.map { |row| row[:age_days].to_i }.max.to_i
+          }
+        end.sort_by { |row| [-(row[:impact_rating] || 0), -row[:count].to_i, row[:related_page].to_s.downcase] }
   end
 
   def priority_risk_totals(rows, owner_rows)
@@ -3766,6 +3819,10 @@ class TicketJourneyController < ApplicationController
     nil
   end
 
+  def bug_impact_rating(issue)
+    issue.custom_value_for(BUG_IMPACT_RATING_CF_ID)&.value.to_i
+  end
+
   def bug_terminal_status_ids
     IssueStatus.where(is_closed: true)
                .or(IssueStatus.where(name: STATUS_NAMES.fetch(:done) + STATUS_NAMES.fetch(:archived)))
@@ -4123,7 +4180,7 @@ class TicketJourneyController < ApplicationController
   def report_sortable_fields_for_family(family_key)
     extra_fields = %w[TOTAL ON_HOLD]
     extra_fields << 'PENDING' unless family_key.to_sym == :customer_support
-    (FAMILY_DURATION_KEYS.fetch(family_key).map(&:to_s) + extra_fields + %w[CALENDAR_TOTAL peak]).concat(FAMILY_COUNTER_KEYS.fetch(family_key).map(&:to_s))
+    (FAMILY_DURATION_KEYS.fetch(family_key).map(&:to_s) + extra_fields + %w[CALENDAR_TOTAL lead_time peak bottleneck_ratio total_returns]).concat(FAMILY_COUNTER_KEYS.fetch(family_key).map(&:to_s))
   end
 
   def report_sort_numeric_value(item, sort_key, family_key)
@@ -4132,6 +4189,12 @@ class TicketJourneyController < ApplicationController
     case sort_key
     when 'peak'
       report_peak_duration_value(durations, family_key)
+    when 'bottleneck_ratio'
+      report_bottleneck_ratio(durations, family_key)
+    when 'lead_time'
+      item[:lead_time_hours].to_f
+    when 'total_returns'
+      ALL_COUNTER_KEYS.sum { |key| durations[key].to_i }
     when *ALL_COUNTER_KEYS.map(&:to_s)
       durations[sort_key.to_sym].to_i
     else
@@ -4154,6 +4217,13 @@ class TicketJourneyController < ApplicationController
                         .each_with_index
                         .max_by { |(key, index)| [durations[key].to_f, -index] }
                         &.last || 0
+  end
+
+  def report_bottleneck_ratio(durations, family_key)
+    total = durations[:TOTAL].to_f
+    return 0.0 unless total.positive?
+
+    report_peak_duration_value(durations, family_key) / total
   end
 
   def compute_owner_returns_summary(issues_data, role_id: nil, stale_days: DATA_QUALITY_DEFAULT_STALE_DAYS)
@@ -5120,7 +5190,7 @@ class TicketJourneyController < ApplicationController
         extra_fields = [:TOTAL, :ON_HOLD]
         extra_fields << :PENDING unless section[:family_key].to_sym == :customer_support
         value_fields = FAMILY_DURATION_KEYS.fetch(section[:family_key]) + extra_fields + [:CALENDAR_TOTAL] + FAMILY_COUNTER_KEYS.fetch(section[:family_key])
-        csv << ['issue_id', 'subject', 'status', 'assignee', 'tracker', *value_fields.map { |field| csv_header_label_for(field) }, 'Peak']
+        csv << ['issue_id', 'subject', 'status', 'assignee', 'tracker', *value_fields.map { |field| csv_header_label_for(field) }, 'Lead Time', 'Peak', 'Bottleneck']
 
         section[:items].each do |item|
           issue = item[:issue]
@@ -5133,7 +5203,9 @@ class TicketJourneyController < ApplicationController
             issue.assigned_to&.name,
             issue.tracker&.name,
             *value_fields.map { |field| durations[field] || 0 },
-            view_context.peak_duration_label(durations, section[:family_key])
+            view_context.format_hours(item[:lead_time_hours]),
+            view_context.peak_duration_label(durations, section[:family_key]),
+            view_context.bottleneck_label(durations, section[:family_key])
           ]
         end
       end

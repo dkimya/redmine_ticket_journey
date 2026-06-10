@@ -54,23 +54,24 @@
       </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label">Total Open</div>
-        <div class="tj-sc-value tj-sc-blue"><%= @aging_risk_totals[:total_open] %></div>
+        <div class="tj-sc-value tj-sc-blue"><%= aging_risk_total_link(:total_open, @aging_risk_totals[:total_open]) %></div>
       </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label">30d+ Open</div>
-        <div class="tj-sc-value <%= (@aging_risk_totals[:bucket_31_60].to_i + @aging_risk_totals[:bucket_60_plus].to_i).positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= @aging_risk_totals[:bucket_31_60].to_i + @aging_risk_totals[:bucket_60_plus].to_i %></div>
+        <% thirty_plus = @aging_risk_totals[:bucket_31_60].to_i + @aging_risk_totals[:bucket_60_plus].to_i %>
+        <div class="tj-sc-value <%= thirty_plus.positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= aging_risk_total_link(:bucket_30_plus, thirty_plus) %></div>
       </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label">60d+ Open</div>
-        <div class="tj-sc-value <%= @aging_risk_totals[:bucket_60_plus].to_i.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= @aging_risk_totals[:bucket_60_plus] %></div>
+        <div class="tj-sc-value <%= @aging_risk_totals[:bucket_60_plus].to_i.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= aging_risk_total_link(:bucket_60_plus, @aging_risk_totals[:bucket_60_plus]) %></div>
       </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label">Overdue</div>
-        <div class="tj-sc-value <%= @aging_risk_totals[:overdue].to_i.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= @aging_risk_totals[:overdue] %></div>
+        <div class="tj-sc-value <%= @aging_risk_totals[:overdue].to_i.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= aging_risk_total_link(:overdue, @aging_risk_totals[:overdue]) %></div>
       </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label">Stopped</div>
-        <div class="tj-sc-value <%= @aging_risk_totals[:stopped].to_i.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= @aging_risk_totals[:stopped] %></div>
+        <div class="tj-sc-value <%= @aging_risk_totals[:stopped].to_i.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= aging_risk_total_link(:stopped, @aging_risk_totals[:stopped]) %></div>
       </div>
     </div>
 

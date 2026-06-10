@@ -12,7 +12,7 @@ module TicketJourneyHelper
       'owner_returns' => 'Team / Ticket Owner Performance',
       'qa_returns' => 'QA & Returns',
       'bug_analysis' => 'Bug Analysis',
-      'planning_estimation' => 'Planning & Estimation',
+      'planning_estimation' => 'Planning Quality',
       'time_utilization' => 'Time Utilization & Scope Control',
       'data_quality' => 'Ticket Quality & Data Discipline'
     }[section_key.to_s]
@@ -885,6 +885,35 @@ module TicketJourneyHelper
     )
   end
 
+  def aging_risk_total_filter_params(scope)
+    query_params = @query.as_params.deep_dup.deep_stringify_keys
+    filters = Array(query_params['f'] || query_params[:f]).map(&:to_s)
+    operators = (query_params['op'] || query_params[:op] || {}).deep_dup.deep_stringify_keys
+    values = (query_params['v'] || query_params[:v] || {}).deep_dup.deep_stringify_keys
+
+    replace_filter(filters, operators, values, 'status_id')
+    add_status_filter(filters, operators, values, 'o')
+    add_aging_scope_filter(filters, operators, values, { group_by: nil }, scope)
+
+    query_params['set_filter'] = '1'
+    query_params['f'] = filters
+    query_params['op'] = operators
+    query_params['v'] = values
+    query_params.merge!(support_section_params)
+    query_params
+  end
+
+  def aging_risk_total_link(scope, value)
+    return '-' if value.to_i.zero?
+
+    link_to(
+      value,
+      project_issues_path(@project, aging_risk_total_filter_params(scope)),
+      class: 'tj-drilldown-link',
+      title: 'Open matching issues'
+    )
+  end
+
   def priority_risk_issue_filter_params(scope, row = nil)
     query_params = @query.as_params.deep_dup.deep_stringify_keys
     filters = Array(query_params['f'] || query_params[:f]).map(&:to_s)
@@ -956,6 +985,9 @@ module TicketJourneyHelper
     when :bucket_15_30
       replace_filter(filters, operators, values, 'created_on')
       add_date_filter(filters, operators, values, 'created_on', '><', [today - 30, today - 15])
+    when :bucket_30_plus
+      replace_filter(filters, operators, values, 'created_on')
+      add_date_filter(filters, operators, values, 'created_on', '<=', [today - 31])
     when :bucket_31_60
       replace_filter(filters, operators, values, 'created_on')
       add_date_filter(filters, operators, values, 'created_on', '><', [today - 60, today - 31])
@@ -1383,7 +1415,7 @@ module TicketJourneyHelper
     summary_column_count = 2
     summary_column_count += 1 if counter_definitions(family_key).any?
 
-    5 + summary_column_count + visible_native_query_columns(query).size + duration_fields_for_family(family_key).size + supplemental_duration_fields_for_family(family_key).size + counter_definitions(family_key).size
+    7 + summary_column_count + visible_native_query_columns(query).size + duration_fields_for_family(family_key).size + supplemental_duration_fields_for_family(family_key).size + counter_definitions(family_key).size
   end
 
   def duration_header_css_class(field)
@@ -1413,6 +1445,30 @@ module TicketJourneyHelper
     return '-' if field.nil? || value.to_f <= 0
 
     "#{field[:label]} #{format_hours(value)}"
+  end
+
+  def bottleneck_ratio(durations, family_key = :internal)
+    total = durations[:TOTAL].to_f
+    return 0.0 unless total.positive?
+
+    _field, peak = peak_duration_field(durations, family_key)
+    peak.to_f / total
+  end
+
+  def bottleneck_label(durations, family_key = :internal, threshold: 0.5)
+    ratio_value = bottleneck_ratio(durations, family_key)
+    return '-' if ratio_value.zero?
+
+    field, = peak_duration_field(durations, family_key)
+    label = ratio_value >= threshold ? 'Bottleneck' : 'Watch'
+    "#{label}: #{field[:label]} #{number_to_percentage(ratio_value * 100, precision: 1)}"
+  end
+
+  def bottleneck_css_class(durations, family_key = :internal, threshold: 0.5)
+    ratio_value = bottleneck_ratio(durations, family_key)
+    return 'tj-counter-zero' if ratio_value.zero?
+
+    ratio_value >= threshold ? 'tj-counter-active' : 'tj-bottleneck-watch'
   end
 
   def format_hours(hours)
