@@ -27,7 +27,7 @@
                 class: 'tj-input' %>
         </div>
         <div class="tj-filter-group tj-flow-filter-note">
-          <span>Uses related issues of the selected Sprint. Redmine filters above can narrow tracker, owner, status, priority, and other fields.</span>
+          <span>Uses related issues of the selected Sprint. Redmine filters above can narrow tracker, owner, status, priority, and other fields. Current implementation uses current ticket status; historical sprint-end status snapshots are pending final rule confirmation.</span>
         </div>
         <div class="tj-filter-group tj-filter-actions">
           <%= submit_tag 'Apply', class: 'tj-btn tj-btn-primary' %>
@@ -51,6 +51,7 @@
   <% else %>
     <% totals = @sprint_delivery_report[:totals] %>
     <% health = @sprint_delivery_report[:health] %>
+    <% avg_completed_cycle = @sprint_delivery_report[:time_efficiency_rows].find { |row| row[:metric] == 'Average Cycle Time' } %>
 
     <div class="tj-summary-strip">
       <div class="tj-summary-card" title="<%= h(health[:note]) %>">
@@ -73,6 +74,16 @@
         <div class="tj-sc-label">Carry-over</div>
         <div class="tj-sc-value <%= totals[:carry_over].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= sprint_delivery_count_link(:carry_over, totals[:carry_over]) %></div>
       </div>
+      <div class="tj-summary-card" title="Average active cycle time for completed sprint tickets, from first In Progress to Done / Closed.">
+        <div class="tj-sc-label">Avg Completed Cycle</div>
+        <div class="tj-sc-value <%= avg_completed_cycle && avg_completed_cycle[:value_hours].to_f.positive? ? 'tj-sc-blue' : 'tj-sc-dim' %>">
+          <% if avg_completed_cycle && avg_completed_cycle[:issue_ids].present? %>
+            <%= duration_report_drilldown_link(@query, avg_completed_cycle[:issue_ids], format_hours(avg_completed_cycle[:value_hours]), title: 'Open completed sprint tickets used for average cycle time') %>
+          <% else %>
+            <%= avg_completed_cycle ? format_hours(avg_completed_cycle[:value_hours]) : '-' %>
+          <% end %>
+        </div>
+      </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label">Throughput</div>
         <div class="tj-sc-value tj-sc-blue" title="Completed tickets per week based on sprint duration"><%= totals[:throughput] %>/wk</div>
@@ -86,16 +97,8 @@
         <div class="tj-sc-value <%= totals[:blocked_duration_days].to_f.positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>" title="Total days tickets spent in Pending or On-Hold status"><%= totals[:blocked_duration_days] %>d</div>
       </div>
       <div class="tj-summary-card">
-        <div class="tj-sc-label">Stopped</div>
-        <div class="tj-sc-value <%= totals[:stopped].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= sprint_delivery_count_link(:stopped, totals[:stopped]) %></div>
-      </div>
-      <div class="tj-summary-card">
         <div class="tj-sc-label">Not Started</div>
         <div class="tj-sc-value <%= totals[:not_started].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= sprint_delivery_count_link(:not_started, totals[:not_started]) %></div>
-      </div>
-      <div class="tj-summary-card">
-        <div class="tj-sc-label">Technical Debt</div>
-        <div class="tj-sc-value <%= totals[:technical_debt].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= sprint_delivery_count_link(:technical_debt, totals[:technical_debt]) %></div>
       </div>
     </div>
 

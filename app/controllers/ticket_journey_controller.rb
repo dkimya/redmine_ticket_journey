@@ -2528,6 +2528,8 @@ class TicketJourneyController < ApplicationController
 
       row[:completed_count] += 1
       row[bucket_key] += 1 if bucket_key
+      row[:issue_ids] << item[:issue].id
+      row["#{bucket_key}_issue_ids".to_sym] << item[:issue].id if bucket_key
       row[:cycle_hours_sum] += cycle_hours
 
       next unless cycle_hours > row[:max_cycle_hours].to_f
@@ -2584,6 +2586,12 @@ class TicketJourneyController < ApplicationController
       bucket_8_14: 0,
       bucket_15_30: 0,
       bucket_30_plus: 0,
+      issue_ids: [],
+      bucket_0_2_issue_ids: [],
+      bucket_3_7_issue_ids: [],
+      bucket_8_14_issue_ids: [],
+      bucket_15_30_issue_ids: [],
+      bucket_30_plus_issue_ids: [],
       cycle_hours_sum: 0.0,
       avg_cycle_hours: 0.0,
       max_cycle_hours: 0.0,
@@ -2600,6 +2608,12 @@ class TicketJourneyController < ApplicationController
       bucket_8_14: 0,
       bucket_15_30: 0,
       bucket_30_plus: 0,
+      issue_ids: [],
+      bucket_0_2_issue_ids: [],
+      bucket_3_7_issue_ids: [],
+      bucket_8_14_issue_ids: [],
+      bucket_15_30_issue_ids: [],
+      bucket_30_plus_issue_ids: [],
       avg_cycle_hours: 0.0,
       max_cycle_hours: 0.0,
       max_issue: nil
@@ -2612,6 +2626,10 @@ class TicketJourneyController < ApplicationController
 
     %i[completed_count bucket_0_2 bucket_3_7 bucket_8_14 bucket_15_30 bucket_30_plus].each do |key|
       totals[key] = rows.sum { |row| row[key].to_i }
+    end
+
+    %i[issue_ids bucket_0_2_issue_ids bucket_3_7_issue_ids bucket_8_14_issue_ids bucket_15_30_issue_ids bucket_30_plus_issue_ids].each do |key|
+      totals[key] = rows.flat_map { |row| Array(row[key]) }.uniq
     end
 
     cycle_hours_sum = completed_items.sum { |item| item[:cycle_hours].to_f }

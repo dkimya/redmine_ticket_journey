@@ -28,7 +28,7 @@
                 onchange: 'this.form.submit();' %>
         </div>
         <div class="tj-filter-group tj-flow-filter-note">
-          <span>Status is forced to closed/done for this report. Cycle time is measured from first In Progress to terminal Done / Archived, excluding paused time.</span>
+          <span>Status is forced to closed/done for this report, so Ongoing and other open tickets are excluded. Cycle time is measured from first In Progress to terminal Done / Archived, excluding paused time.</span>
         </div>
       </div>
     </div>
@@ -75,7 +75,9 @@
       </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label">30d+ Tickets</div>
-        <div class="tj-sc-value <%= @cycle_distribution_totals[:bucket_30_plus].to_i.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= @cycle_distribution_totals[:bucket_30_plus] %></div>
+        <div class="tj-sc-value <%= @cycle_distribution_totals[:bucket_30_plus].to_i.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>">
+          <%= duration_report_drilldown_link(@query, @cycle_distribution_totals[:bucket_30_plus_issue_ids], @cycle_distribution_totals[:bucket_30_plus], title: 'Open completed tickets with cycle time of 30 days or more') %>
+        </div>
       </div>
     </div>
 
@@ -136,7 +138,8 @@
                   <% end %>
                 </td>
                 <% TicketJourneyController::CYCLE_DISTRIBUTION_BUCKETS.each do |bucket| %>
-                  <td class="tj-td-native <%= bucket[:key] == :bucket_30_plus && row[bucket[:key]].positive? ? 'tj-counter-active' : '' %>"><%= row[bucket[:key]].positive? ? row[bucket[:key]] : '-' %></td>
+                  <% bucket_issue_ids = row["#{bucket[:key]}_issue_ids".to_sym] %>
+                  <td class="tj-td-native <%= bucket[:key] == :bucket_30_plus && row[bucket[:key]].positive? ? 'tj-counter-active' : '' %>"><%= row[bucket[:key]].positive? ? duration_report_drilldown_link(@query, bucket_issue_ids, row[bucket[:key]], title: "Open #{bucket[:label]} completed tickets") : '-' %></td>
                 <% end %>
                 <td class="tj-td-native <%= row[:bucket_30_plus].positive? ? 'tj-counter-active' : 'tj-counter-zero' %>"><%= format_percentage(row[:bucket_30_plus], row[:completed_count]) %></td>
               </tr>
@@ -147,7 +150,7 @@
               <td class="tj-td-native"><%= format_hours(@cycle_distribution_totals[:avg_cycle_hours]) %></td>
               <td class="tj-td-native"><%= format_hours(@cycle_distribution_totals[:max_cycle_hours]) %></td>
               <% TicketJourneyController::CYCLE_DISTRIBUTION_BUCKETS.each do |bucket| %>
-                <td class="tj-td-native"><%= @cycle_distribution_totals[bucket[:key]] %></td>
+                <td class="tj-td-native"><%= duration_report_drilldown_link(@query, @cycle_distribution_totals["#{bucket[:key]}_issue_ids".to_sym], @cycle_distribution_totals[bucket[:key]], title: "Open #{bucket[:label]} completed tickets") %></td>
               <% end %>
               <td class="tj-td-native"><%= format_percentage(@cycle_distribution_totals[:bucket_30_plus], @cycle_distribution_totals[:completed_count]) %></td>
             </tr>
