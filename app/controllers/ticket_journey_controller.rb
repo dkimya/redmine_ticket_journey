@@ -150,6 +150,7 @@ class TicketJourneyController < ApplicationController
   def executive_technical_debt
     build_query_from(all_status_query_params, use_default_query: false)
     @executive_period_key, @executive_start_date, @executive_end_date = executive_period_dates
+    @data_quality_stale_days = data_quality_stale_days_param
     @sprint_options = sprint_delivery_sprints
     @selected_sprint = selected_sprint(@sprint_options)
     @executive_technical_debt_report = compute_executive_technical_debt_report(@selected_sprint, @executive_start_date, @executive_end_date)
