@@ -580,6 +580,7 @@ module TicketJourneyHelper
       query_params[key] = value if value.present?
     end
 
+    force_bug_tracker_filter(query_params)
     query_params.merge!(support_section_params)
     query_params
   end
@@ -683,6 +684,23 @@ module TicketJourneyHelper
 
   def bug_tracker_filter_values
     @bug_tracker_filter_values ||= Tracker.where(name: 'Bug').pluck(:id).map(&:to_s)
+  end
+
+  def force_bug_tracker_filter(query_params)
+    return query_params if query_params['query_id'].present?
+
+    filters = Array(query_params['f']).map(&:to_s).reject(&:blank?)
+    filters = filters.reject { |filter| filter == 'tracker_id' }
+    operators = (query_params['op'] || {}).deep_dup.deep_stringify_keys
+    values = (query_params['v'] || {}).deep_dup.deep_stringify_keys
+    operators.delete('tracker_id')
+    values.delete('tracker_id')
+
+    query_params['set_filter'] = '1'
+    query_params['f'] = filters + ['tracker_id']
+    query_params['op'] = operators.merge('tracker_id' => '=')
+    query_params['v'] = values.merge('tracker_id' => bug_tracker_filter_values.presence || ['0'])
+    query_params
   end
 
   def release_readiness_issue_filter_params(row, scope)

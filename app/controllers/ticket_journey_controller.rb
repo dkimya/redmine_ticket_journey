@@ -222,7 +222,7 @@ class TicketJourneyController < ApplicationController
   # AGING / SLA RISK - current open issue age buckets and risk flags
   # ---------------------------------------------------------------
   def aging_risk
-    build_query_from(default_tracker_query_params(bug_tracker_ids), use_default_query: false) if params[:support_section].to_s == 'bug_analysis'
+    build_query_from(bug_tracker_query_params, use_default_query: false) if params[:support_section].to_s == 'bug_analysis'
     @aging_group_by = aging_group_by_param
     @aging_risk_rows, @aging_risk_totals = compute_aging_risk_report(@aging_group_by)
   end
@@ -231,6 +231,7 @@ class TicketJourneyController < ApplicationController
   # PRIORITY / SLA RISK - urgent/immediate open ticket risk
   # ---------------------------------------------------------------
   def priority_risk
+    build_query_from(bug_tracker_query_params(base_params: all_status_query_params), use_default_query: false) if params[:support_section].to_s == 'bug_analysis'
     @priority_risk_rows, @priority_owner_rows, @priority_risk_totals = compute_priority_risk_report
     @priority_impact_page_rows = priority_impact_page_rows(@priority_risk_rows)
   end
@@ -282,7 +283,7 @@ class TicketJourneyController < ApplicationController
   # BUG ANALYSIS - periodic bug movement by bug source
   # ---------------------------------------------------------------
   def bug_analysis
-    build_query_from(all_status_query_params, use_default_query: false)
+    build_query_from(bug_tracker_query_params(base_params: all_status_query_params), use_default_query: false)
     @bug_start_date, @bug_end_date = bug_analysis_period_dates
     @bug_analysis_rows, @bug_analysis_totals, @bug_impact_summary_rows, @bug_related_page_rows, @bug_critical_open_rows, @bug_closed_analysis_report = compute_bug_analysis_report(@bug_start_date, @bug_end_date)
   end
@@ -832,6 +833,22 @@ class TicketJourneyController < ApplicationController
     query_params['v'] ||= {}
     query_params['op']['tracker_id'] = '='
     query_params['v']['tracker_id'] = Array(tracker_ids).map(&:to_s).presence || ['0']
+    query_params
+  end
+
+  def bug_tracker_query_params(base_params: params.to_unsafe_h)
+    query_params = base_params.deep_dup.deep_stringify_keys
+    return query_params if query_params['query_id'].present?
+
+    remove_query_param_filter(query_params, 'tracker_id')
+    filters = Array(query_params['f']).map(&:to_s).reject(&:blank?)
+
+    query_params['set_filter'] = '1'
+    query_params['f'] = filters + ['tracker_id']
+    query_params['op'] ||= {}
+    query_params['v'] ||= {}
+    query_params['op']['tracker_id'] = '='
+    query_params['v']['tracker_id'] = bug_tracker_ids.map(&:to_s).presence || ['0']
     query_params
   end
 
