@@ -54,6 +54,15 @@
     release_readiness: ['Release Readiness', ticket_journey_release_readiness_path(@project, release_params)]
   }
 
+  support_tab_labels = {
+    pmo_control: 'PMO Control',
+    owner_returns: 'Team/Ticket Owner Performance',
+    qa_returns: 'QA & Returns',
+    bug_analysis: 'Bug Control',
+    planning_estimation: 'Planning & Estimation',
+    data_quality: 'Ticket Quality & Data Discipline'
+  }
+
   main_dashboard_keys = [
     :executive_dashboards,
     :pmo_control,
@@ -152,6 +161,7 @@
     <div class="tj-report-tab-row">
       <% active_support_section[:keys].each do |tab_key| %>
         <% label, path = tabs_by_key.fetch(tab_key) %>
+        <% label = support_tab_labels.fetch(tab_key, label) %>
         <% contextual_path = path.to_s.include?('?') ? "#{path}&#{support_section_query}" : "#{path}?#{support_section_query}" %>
         <%= link_to label, contextual_path, class: "tj-report-tab tj-report-tab-support #{active_tab == tab_key ? 'is-active' : ''}" %>
       <% end %>

@@ -6,7 +6,7 @@
   <div class="tj-page-header">
     <div class="tj-page-header-left">
       <div>
-        <h2>Project Control Dashboard</h2>
+        <h2>PMO Control Dashboard</h2>
         <p class="tj-page-sub">Executive project control snapshot &mdash; <%= @project.name %></p>
       </div>
     </div>
@@ -57,7 +57,7 @@
     </div>
 
     <div class="tj-card tj-card-full">
-      <div class="tj-card-title">Project Control Health Rule</div>
+      <div class="tj-card-title">PMO Control Health Rule</div>
       <div class="tj-flow-empty-note">
         Overall Health becomes <strong>Risk</strong> when priority SLA, overdue, stopped, release risk, or high missing-data signals exist.
         It becomes <strong>Watch</strong> when aging, missing data, or stale-update cleanup is still needed.
@@ -68,7 +68,7 @@
       <div class="tj-card">
         <div class="tj-card-title">Executive Attention</div>
         <% if report[:attention_items].empty? %>
-          <div class="tj-flow-empty-note">No high-priority Project Control attention items for the current filters.</div>
+          <div class="tj-flow-empty-note">No high-priority PMO Control attention items for the current filters.</div>
         <% else %>
           <table class="tj-health-table">
             <tbody>
