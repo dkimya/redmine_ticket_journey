@@ -149,12 +149,10 @@ class TicketJourneyController < ApplicationController
 
   def executive_technical_debt
     build_query_from(all_status_query_params, use_default_query: false)
-    executive_placeholder(
-      active_tab: :executive_technical_debt,
-      title: 'Executive Technical Debt',
-      subtitle: 'Technical debt trend, aging, new debt, and burn-down view.',
-      source_reports: ['Project Control', 'Planning Quality', 'Sprint Delivery', 'Duration Report']
-    )
+    @executive_period_key, @executive_start_date, @executive_end_date = executive_period_dates
+    @sprint_options = sprint_delivery_sprints
+    @selected_sprint = selected_sprint(@sprint_options)
+    @executive_technical_debt_report = compute_executive_technical_debt_report(@selected_sprint, @executive_start_date, @executive_end_date)
   end
 
   # ---------------------------------------------------------------
@@ -642,6 +640,152 @@ class TicketJourneyController < ApplicationController
         issue_ids: rows.map { |row| row[:issue_id] }
       }
     end.sort_by { |row| [-row[:high_risk].to_i, -row[:count].to_i, row[:project].to_s.downcase] }
+  end
+
+  def compute_executive_technical_debt_report(sprint, start_date, end_date)
+    sprint_report = sprint ? safe_compute_sprint_delivery_report(sprint, context: 'Executive Technical Debt') : nil
+    sprint_issues = Array(sprint_report && sprint_report[:issues])
+    debt_issues = sprint_issues.select { |issue| carry_over_sprint_issue?(sprint, issue) && !completed_sprint_status?(issue.status&.name) }
+    stopped_issues = sprint_issues.select { |issue| paused_status?(issue.status&.name) }
+    overdue_issues = sprint_issues.select { |issue| sprint_delivery_overdue?(issue) }
+    not_started_issues = sprint_issues.select { |issue| not_started_sprint_status?(issue.status&.name) }
+    data_quality_report = compute_data_quality_report
+    data_totals = data_quality_report[:totals] || data_quality_totals([])
+    open_rows, _open_totals = compute_owner_workload_report
+    open_issues = executive_debt_open_issues
+    aged_open_issues = open_issues.select { |issue| issue.created_on.present? && issue.created_on.to_date <= User.current.today - 30 }
+    period_completed_debt = executive_completed_debt_items(sprint, start_date, end_date)
+
+    {
+      period_start: start_date,
+      period_end: end_date,
+      sprint: sprint,
+      sprint_report: sprint_report,
+      totals: {
+        technical_debt: debt_issues.size,
+        stopped: stopped_issues.size,
+        overdue: overdue_issues.size,
+        not_started: not_started_issues.size,
+        aged_open: aged_open_issues.size,
+        missing_required: data_totals[:missing_required].to_i,
+        stale_updates: data_totals[:tickets_without_updates].to_i,
+        debt_burn_down: period_completed_debt.size
+      },
+      drilldowns: {
+        technical_debt: debt_issues.map(&:id),
+        stopped: stopped_issues.map(&:id),
+        overdue: overdue_issues.map(&:id),
+        not_started: not_started_issues.map(&:id),
+        aged_open: aged_open_issues.map(&:id),
+        missing_required: data_totals[:missing_required_issue_ids] || [],
+        stale_updates: data_totals[:tickets_without_updates_issue_ids] || [],
+        debt_burn_down: period_completed_debt.map { |item| item[:issue].id }
+      },
+      debt_by_project_rows: executive_debt_project_rows(debt_issues),
+      debt_by_owner_rows: executive_debt_owner_rows(debt_issues),
+      open_risk_owner_rows: executive_debt_open_risk_owner_rows(open_rows),
+      data_quality_rows: data_quality_report[:field_rows] || [],
+      debt_issue_rows: executive_debt_issue_rows(debt_issues),
+      completed_debt_rows: executive_completed_debt_rows(period_completed_debt)
+    }
+  end
+
+  def executive_debt_open_issues
+    return [] unless @query&.valid?
+
+    @query.issues(
+      order: "#{Issue.table_name}.id ASC",
+      include: [:status, :tracker, :priority, { custom_values: :custom_field }]
+    ).reject { |issue| issue.status&.is_closed? }
+  end
+
+  def executive_completed_debt_items(sprint, start_date, end_date)
+    items = compute_all_durations
+    executive_completed_items(items, start_date, end_date).select do |item|
+      issue = item[:issue]
+      issue.custom_value_for(TICKET_ORIGINAL_SPRINT_CF_ID)&.value.present? &&
+        (sprint.blank? || carry_over_sprint_issue?(sprint, issue))
+    end
+  end
+
+  def executive_debt_project_rows(debt_issues)
+    Array(debt_issues).group_by(&:project)
+                      .map do |project, issues|
+      {
+        project: project&.name || '-',
+        count: issues.size,
+        stopped: issues.count { |issue| paused_status?(issue.status&.name) },
+        overdue: issues.count { |issue| sprint_delivery_overdue?(issue) },
+        oldest_age: executive_oldest_issue_age(issues),
+        issue_ids: issues.map(&:id)
+      }
+    end.sort_by { |row| [-row[:count].to_i, -row[:stopped].to_i, -row[:overdue].to_i, row[:project].to_s.downcase] }
+  end
+
+  def executive_debt_owner_rows(debt_issues)
+    Array(debt_issues).group_by { |issue| ticket_owner_info(issue) }
+                      .map do |(_owner_value, owner_name), issues|
+      {
+        owner: owner_name,
+        count: issues.size,
+        stopped: issues.count { |issue| paused_status?(issue.status&.name) },
+        overdue: issues.count { |issue| sprint_delivery_overdue?(issue) },
+        oldest_age: executive_oldest_issue_age(issues),
+        issue_ids: issues.map(&:id)
+      }
+    end.sort_by { |row| [-row[:count].to_i, -row[:stopped].to_i, -row[:overdue].to_i, row[:owner].to_s.downcase] }
+  end
+
+  def executive_debt_open_risk_owner_rows(open_rows)
+    Array(open_rows).map do |row|
+      attention = row[:stopped].to_i + row[:overdue].to_i + row[:priority_open].to_i
+      row.merge(attention: attention)
+    end.select { |row| row[:attention].positive? || row[:oldest_age].to_i >= 30 }
+       .sort_by { |row| [-row[:attention].to_i, -row[:oldest_age].to_i, -row[:total_open].to_i, row[:owner].to_s.downcase] }
+       .first(10)
+  end
+
+  def executive_debt_issue_rows(debt_issues)
+    Array(debt_issues).map do |issue|
+      owner_value, owner_name = ticket_owner_info(issue)
+      {
+        issue: issue,
+        issue_id: issue.id,
+        subject: issue.subject,
+        project: issue.project&.name || '-',
+        owner: owner_name,
+        owner_value: owner_value,
+        tracker: issue.tracker&.name || '-',
+        status: issue.status&.name || '-',
+        priority: issue.priority&.name || '-',
+        original_sprint: issue.custom_value_for(TICKET_ORIGINAL_SPRINT_CF_ID)&.value.presence || '-',
+        age_days: issue.created_on.present? ? [(User.current.today - issue.created_on.to_date).to_i, 0].max : 0,
+        updated_on: issue.updated_on,
+        stopped: paused_status?(issue.status&.name),
+        overdue: sprint_delivery_overdue?(issue)
+      }
+    end.sort_by { |row| [row[:stopped] ? 0 : 1, row[:overdue] ? 0 : 1, -row[:age_days].to_i, row[:issue_id].to_i] }
+  end
+
+  def executive_completed_debt_rows(items)
+    Array(items).map do |item|
+      issue = item[:issue]
+      {
+        issue: issue,
+        issue_id: issue.id,
+        subject: issue.subject,
+        project: issue.project&.name || '-',
+        owner: ticket_owner_info(issue).last,
+        tracker: issue.tracker&.name || '-',
+        status: issue.status&.name || '-',
+        original_sprint: issue.custom_value_for(TICKET_ORIGINAL_SPRINT_CF_ID)&.value.presence || '-',
+        cycle_hours: completed_cycle_time_hours(item) || item[:durations][:TOTAL].to_f
+      }
+    end.sort_by { |row| [-row[:cycle_hours].to_f, row[:project].to_s.downcase, row[:issue_id].to_i] }
+  end
+
+  def executive_oldest_issue_age(issues)
+    Array(issues).filter_map { |issue| issue.created_on.present? ? [(User.current.today - issue.created_on.to_date).to_i, 0].max : nil }.max.to_i
   end
 
   # ---------------------------------------------------------------

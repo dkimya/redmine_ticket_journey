@@ -1,0 +1,306 @@
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'ticket_journey', plugin: 'redmine_ticket_journey' %>
+<% end %>
+
+<div id="tj-wrap">
+  <div class="tj-page-header">
+    <div class="tj-page-header-left">
+      <div>
+        <h2><%= ticket_journey_header_context_tag(:executive_dashboards) %>Technical Debt</h2>
+        <p class="tj-page-sub">Executive debt, blocked work, stale updates, and planning-data risk &mdash; <%= @project.name %></p>
+      </div>
+    </div>
+  </div>
+
+  <%= render partial: 'report_tabs', locals: { active_tab: :executive_technical_debt } %>
+
+  <%= form_tag(ticket_journey_executive_technical_debt_path(@project), method: :get, id: 'query_form') do %>
+    <%= hidden_field_tag :support_section, params[:support_section] if params[:support_section].present? %>
+    <%= render partial: 'queries/query_form' %>
+
+    <div class="tj-filter-bar tj-owner-filter-bar">
+      <div class="tj-filter-form">
+        <div class="tj-filter-group">
+          <label for="exec_period">Executive Period</label>
+          <%= select_tag :exec_period,
+                options_for_select([['Last Month', 'last_month'], ['Last 3 Months', 'last_3_months'], ['Custom Period', 'custom']], @executive_period_key),
+                class: 'tj-input' %>
+        </div>
+        <div class="tj-filter-group">
+          <label for="exec_start_date">Period Start</label>
+          <%= date_field_tag :exec_start_date, @executive_start_date, class: 'tj-input' %>
+        </div>
+        <div class="tj-filter-group">
+          <label for="exec_end_date">Period End</label>
+          <%= date_field_tag :exec_end_date, @executive_end_date, class: 'tj-input' %>
+        </div>
+        <div class="tj-filter-group">
+          <label for="sprint_id">Debt Sprint</label>
+          <%= select_tag :sprint_id,
+                options_for_select(@sprint_options.map { |sprint| ["##{sprint.id} - #{sprint.subject}", sprint.id] }, @selected_sprint&.id),
+                include_blank: @sprint_options.empty? ? 'No sprint found' : nil,
+                class: 'tj-input' %>
+        </div>
+        <div class="tj-filter-group tj-flow-filter-note">
+          <span>Redmine filters choose the open ticket population. Technical debt uses carry-over tickets from the selected sprint that are not completed.</span>
+        </div>
+        <div class="tj-filter-group tj-filter-actions">
+          <%= submit_tag 'Apply', class: 'tj-btn tj-btn-primary' %>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <% if !@query.valid? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">Report</div>
+      <h3>Invalid filters</h3>
+      <p>Please review the Redmine query filters above.</p>
+    </div>
+  <% else %>
+    <% report = @executive_technical_debt_report %>
+    <% totals = report[:totals] %>
+    <% drilldowns = report[:drilldowns] %>
+
+    <div class="tj-summary-strip">
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Executive Period</div>
+        <div class="tj-sc-value tj-sc-accent"><%= format_date(report[:period_start]) %> - <%= format_date(report[:period_end]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label" title="Carry-over tickets in the selected sprint that are not completed.">Open Technical Debt</div>
+        <div class="tj-sc-value <%= totals[:technical_debt].positive? ? 'tj-sc-red' : 'tj-sc-green' %>"><%= duration_report_drilldown_link(@query, drilldowns[:technical_debt], totals[:technical_debt]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label" title="Selected sprint tickets currently Pending or On-Hold.">Stopped / Blocked</div>
+        <div class="tj-sc-value <%= totals[:stopped].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, drilldowns[:stopped], totals[:stopped]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label" title="Selected sprint tickets not completed and past due.">Overdue Sprint Work</div>
+        <div class="tj-sc-value <%= totals[:overdue].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, drilldowns[:overdue], totals[:overdue]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label" title="Selected sprint tickets still in New or To-Do.">Not Started</div>
+        <div class="tj-sc-value <%= totals[:not_started].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, drilldowns[:not_started], totals[:not_started]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label" title="Open filtered tickets older than 30 calendar days.">Aged Open 30d+</div>
+        <div class="tj-sc-value <%= totals[:aged_open].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, drilldowns[:aged_open], totals[:aged_open]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label" title="Open tickets missing at least one required planning/data field.">Missing Required Data</div>
+        <div class="tj-sc-value <%= totals[:missing_required].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, drilldowns[:missing_required], totals[:missing_required]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label" title="Open tickets without recent updates using the Data Quality threshold.">Stale Updates</div>
+        <div class="tj-sc-value <%= totals[:stale_updates].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, drilldowns[:stale_updates], totals[:stale_updates]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label" title="Carry-over tickets closed during the executive period.">Debt Burn-down</div>
+        <div class="tj-sc-value <%= totals[:debt_burn_down].positive? ? 'tj-sc-green' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, drilldowns[:debt_burn_down], totals[:debt_burn_down]) %></div>
+      </div>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Selected Sprint Debt Context</div>
+      <table class="tj-health-table">
+        <tbody>
+          <% if report[:sprint].blank? %>
+            <tr><td class="tj-flow-empty-note">No active sprint was found for this project scope.</td></tr>
+          <% else %>
+            <tr>
+              <td class="tj-health-label"><%= link_to "##{report[:sprint].id} - #{report[:sprint].subject}", issue_path(report[:sprint]), class: 'tj-drilldown-link' %></td>
+              <td class="tj-health-count"><%= h(report[:sprint].status&.name || '-') %></td>
+              <td class="tj-health-percent">Start <%= report[:sprint].start_date ? format_date(report[:sprint].start_date) : '-' %> / Due <%= report[:sprint].due_date ? format_date(report[:sprint].due_date) : '-' %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+      <div class="tj-flow-empty-note">Historical sprint debt trends should be added after confirming whether old sprints must use status snapshots at sprint due date.</div>
+    </div>
+
+    <div class="tj-detail-grid">
+      <div class="tj-card">
+        <div class="tj-card-title">Technical Debt by Project</div>
+        <table class="tj-health-table">
+          <tbody>
+            <% if report[:debt_by_project_rows].empty? %>
+              <tr><td class="tj-flow-empty-note">No open technical debt found for the selected sprint.</td></tr>
+            <% end %>
+            <% report[:debt_by_project_rows].each do |row| %>
+              <tr>
+                <td class="tj-health-label"><%= h(row[:project]) %></td>
+                <td class="tj-health-count"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:count]) %></td>
+                <td class="tj-health-percent">Stopped <%= row[:stopped] %> / Overdue <%= row[:overdue] %> / Oldest <%= row[:oldest_age] %>d</td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="tj-card">
+        <div class="tj-card-title">Technical Debt by Owner</div>
+        <table class="tj-health-table">
+          <tbody>
+            <% if report[:debt_by_owner_rows].empty? %>
+              <tr><td class="tj-flow-empty-note">No owner-level technical debt found for the selected sprint.</td></tr>
+            <% end %>
+            <% report[:debt_by_owner_rows].each do |row| %>
+              <tr>
+                <td class="tj-health-label"><%= h(row[:owner]) %></td>
+                <td class="tj-health-count"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:count]) %></td>
+                <td class="tj-health-percent">Stopped <%= row[:stopped] %> / Overdue <%= row[:overdue] %> / Oldest <%= row[:oldest_age] %>d</td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Open Work Risk by Owner</div>
+      <div class="tj-table-wrap">
+        <table class="tj-table">
+          <thead>
+            <tr>
+              <th class="tj-th-title">Ticket Owner</th>
+              <th class="tj-th-native">Open Work</th>
+              <th class="tj-th-native">Technical</th>
+              <th class="tj-th-native">Container</th>
+              <th class="tj-th-native">Stopped</th>
+              <th class="tj-th-native">Overdue</th>
+              <th class="tj-th-native">Priority Open</th>
+              <th class="tj-th-native">Oldest Age</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if report[:open_risk_owner_rows].empty? %>
+              <tr><td class="tj-flow-empty-note" colspan="8">No owner workload risk found for the current filters.</td></tr>
+            <% end %>
+            <% report[:open_risk_owner_rows].each do |row| %>
+              <tr class="tj-row">
+                <td class="tj-td-title"><%= h(row[:owner]) %></td>
+                <td class="tj-td-native"><%= row[:total_open] %></td>
+                <td class="tj-td-native"><%= row[:technical_open] %></td>
+                <td class="tj-td-native"><%= row[:container_open] %></td>
+                <td class="tj-td-native <%= row[:stopped].positive? ? 'tj-counter-active' : '' %>"><%= row[:stopped].positive? ? row[:stopped] : '-' %></td>
+                <td class="tj-td-native <%= row[:overdue].positive? ? 'tj-counter-active' : '' %>"><%= row[:overdue].positive? ? row[:overdue] : '-' %></td>
+                <td class="tj-td-native <%= row[:priority_open].positive? ? 'tj-counter-active' : '' %>"><%= row[:priority_open].positive? ? row[:priority_open] : '-' %></td>
+                <td class="tj-td-native"><%= row[:oldest_age] %>d</td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Data Quality Debt Signals</div>
+      <div class="tj-table-wrap">
+        <table class="tj-table">
+          <thead>
+            <tr>
+              <th class="tj-th-title">Signal</th>
+              <th class="tj-th-native">Tickets</th>
+              <th class="tj-th-native">Share</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% visible_data_rows = report[:data_quality_rows].select { |row| row[:count].to_i.positive? } %>
+            <% if visible_data_rows.empty? %>
+              <tr><td class="tj-flow-empty-note" colspan="3">No data-quality debt signals found for the current filters.</td></tr>
+            <% end %>
+            <% visible_data_rows.each do |row| %>
+              <tr class="tj-row">
+                <td class="tj-td-title"><%= h(row[:label]) %></td>
+                <td class="tj-td-native"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:count]) %></td>
+                <td class="tj-td-native"><%= number_to_percentage(row[:percent] * 100, precision: 1) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Open Technical Debt Detail</div>
+      <% if report[:debt_issue_rows].empty? %>
+        <div class="tj-flow-empty-note">No open carry-over technical debt found for the selected sprint.</div>
+      <% else %>
+        <div class="tj-table-wrap">
+          <table class="tj-table">
+            <thead>
+              <tr>
+                <th class="tj-th-issue">Issue</th>
+                <th class="tj-th-title">Subject</th>
+                <th class="tj-th-native">Project</th>
+                <th class="tj-th-native">Owner</th>
+                <th class="tj-th-native">Tracker</th>
+                <th class="tj-th-native">Status</th>
+                <th class="tj-th-native">Original Sprint</th>
+                <th class="tj-th-native">Age</th>
+                <th class="tj-th-native">Signals</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% report[:debt_issue_rows].first(25).each do |row| %>
+                <% signals = [] %>
+                <% signals << 'Stopped' if row[:stopped] %>
+                <% signals << 'Overdue' if row[:overdue] %>
+                <tr class="tj-row">
+                  <td class="tj-td-issue"><%= link_to "##{row[:issue_id]}", issue_path(row[:issue]), class: 'tj-drilldown-link' %></td>
+                  <td class="tj-td-title" title="<%= h(row[:subject]) %>"><%= h(row[:subject]) %></td>
+                  <td class="tj-td-native"><%= h(row[:project]) %></td>
+                  <td class="tj-td-native"><%= h(row[:owner]) %></td>
+                  <td class="tj-td-native"><%= h(row[:tracker]) %></td>
+                  <td class="tj-td-native"><span class="tj-status-badge"><%= h(row[:status]) %></span></td>
+                  <td class="tj-td-native"><%= h(row[:original_sprint]) %></td>
+                  <td class="tj-td-native"><%= row[:age_days] %>d</td>
+                  <td class="tj-td-native"><%= signals.any? ? h(signals.join(', ')) : '-' %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% end %>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Debt Burn-down in Executive Period</div>
+      <% if report[:completed_debt_rows].empty? %>
+        <div class="tj-flow-empty-note">No carry-over tickets were completed in the executive period.</div>
+      <% else %>
+        <div class="tj-table-wrap">
+          <table class="tj-table">
+            <thead>
+              <tr>
+                <th class="tj-th-issue">Issue</th>
+                <th class="tj-th-title">Subject</th>
+                <th class="tj-th-native">Project</th>
+                <th class="tj-th-native">Owner</th>
+                <th class="tj-th-native">Tracker</th>
+                <th class="tj-th-native">Status</th>
+                <th class="tj-th-native">Original Sprint</th>
+                <th class="tj-th-native">Cycle</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% report[:completed_debt_rows].first(20).each do |row| %>
+                <tr class="tj-row">
+                  <td class="tj-td-issue"><%= link_to "##{row[:issue_id]}", issue_path(row[:issue]), class: 'tj-drilldown-link' %></td>
+                  <td class="tj-td-title" title="<%= h(row[:subject]) %>"><%= h(row[:subject]) %></td>
+                  <td class="tj-td-native"><%= h(row[:project]) %></td>
+                  <td class="tj-td-native"><%= h(row[:owner]) %></td>
+                  <td class="tj-td-native"><%= h(row[:tracker]) %></td>
+                  <td class="tj-td-native"><span class="tj-status-badge"><%= h(row[:status]) %></span></td>
+                  <td class="tj-td-native"><%= h(row[:original_sprint]) %></td>
+                  <td class="tj-td-native"><%= format_hours(row[:cycle_hours]) %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+</div>
