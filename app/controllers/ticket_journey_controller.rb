@@ -150,9 +150,10 @@ class TicketJourneyController < ApplicationController
   end
 
   # ---------------------------------------------------------------
-  # QA & RETURNS - return behavior, rework effort, and first-pass view
+  # REWORK ANALYSIS - return behavior, rework effort, and first-pass view
   # ---------------------------------------------------------------
   def qa_returns
+    build_query_from(default_closed_status_query_params, use_default_query: false)
     @issues_data = compute_all_durations
     @qa_returns_report = compute_qa_returns_report(@issues_data)
   end
@@ -330,6 +331,22 @@ class TicketJourneyController < ApplicationController
     query_params['v'] ||= {}
     query_params['op']['tracker_id'] = '='
     query_params['v']['tracker_id'] = Array(tracker_ids).map(&:to_s).presence || ['0']
+    query_params
+  end
+
+  def default_closed_status_query_params(base_params: params.to_unsafe_h)
+    query_params = base_params.deep_dup.deep_stringify_keys
+    return query_params if query_params['query_id'].present?
+
+    filters = Array(query_params['f']).map(&:to_s)
+    return query_params if filters.include?('status_id')
+
+    query_params['set_filter'] = '1'
+    query_params['f'] = filters + ['status_id']
+    query_params['op'] ||= {}
+    query_params['v'] ||= {}
+    query_params['op']['status_id'] = 'c'
+    query_params['v']['status_id'] = ['']
     query_params
   end
 
@@ -4558,6 +4575,9 @@ class TicketJourneyController < ApplicationController
       issue = item[:issue]
       owner_value, owner_name = ticket_owner_info(issue)
       durations = item[:durations]
+      rework_hours = qa_rework_hours_for_item(item)
+      total_duration_hours = durations[:TOTAL].to_f
+      work_hours = [total_duration_hours - rework_hours, 0.0].max
 
       {
         issue: issue,
@@ -4574,7 +4594,10 @@ class TicketJourneyController < ApplicationController
         c4: durations[:C4].to_i,
         c5: durations[:C5].to_i,
         total_returns: item_total_returns(item),
-        rework_hours: qa_rework_hours_for_item(item),
+        work_hours: work_hours,
+        rework_hours: rework_hours,
+        total_duration_hours: total_duration_hours,
+        rework_ratio: ratio(rework_hours, total_duration_hours),
         cycle_hours: completed_cycle_time_hours(item) || durations[:TOTAL].to_f
       }
     end.sort_by { |row| [-row[:total_returns], -row[:rework_hours], row[:issue_id]] }

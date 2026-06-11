@@ -10,7 +10,7 @@ module TicketJourneyHelper
       'pmo_control' => 'PMO Control',
       'sprint_delivery' => 'Sprint Delivery',
       'owner_returns' => 'Team / Ticket Owner Performance',
-      'qa_returns' => 'QA & Returns',
+      'qa_returns' => 'Rework Analysis',
       'bug_analysis' => 'Bug Analysis',
       'planning_estimation' => 'Planning Quality',
       'time_utilization' => 'Time Utilization & Scope Control',

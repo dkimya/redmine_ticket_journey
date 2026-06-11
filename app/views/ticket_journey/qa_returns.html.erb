@@ -6,7 +6,7 @@
   <div class="tj-page-header">
     <div class="tj-page-header-left">
       <div>
-        <h2>QA &amp; Returns Dashboard</h2>
+        <h2>Rework Analysis Dashboard</h2>
         <p class="tj-page-sub">Return behavior, rework effort, and first-pass quality &mdash; <%= @project.name %></p>
       </div>
     </div>
@@ -36,8 +36,19 @@
       returned_ticket_rows = @qa_returns_report[:returned_ticket_rows]
       max_rework = [rework_rows.map { |row| row[:hours].to_f }.max.to_f, 1.0].max
       max_reason = [reason_rows.map { |row| row[:count].to_i }.max.to_i, 1].max
-      max_ticket_returns = [returned_ticket_rows.map { |row| row[:total_returns].to_i }.max.to_i, 1].max
+      top_returned_rows = returned_ticket_rows.first(10)
+      top_return_totals = {
+        total_returns: top_returned_rows.sum { |row| row[:total_returns].to_i },
+        work_hours: top_returned_rows.sum { |row| row[:work_hours].to_f },
+        rework_hours: top_returned_rows.sum { |row| row[:rework_hours].to_f },
+        total_duration_hours: top_returned_rows.sum { |row| row[:total_duration_hours].to_f }
+      }
+      top_return_totals[:rework_ratio] = top_return_totals[:total_duration_hours].positive? ? top_return_totals[:rework_hours] / top_return_totals[:total_duration_hours] : 0.0
     %>
+
+    <div class="tj-drilldown-note">
+      Rework Analysis defaults to closed/done tickets when no status filter is selected. If you change the Redmine filters, calculations follow the filtered result. Rework time is calculated from journey/status durations, not logged spent time.
+    </div>
 
     <div class="tj-summary-strip">
       <%= duration_report_drilldown_block(@query, drilldowns[:done_tickets], class: 'tj-summary-card tj-summary-link', title: 'Open done tickets in Duration Report') do %>
@@ -48,16 +59,24 @@
         <div class="tj-sc-label">Tickets With Returns</div>
         <div class="tj-sc-value <%= totals[:done_tickets_with_returns].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= totals[:done_tickets_with_returns] %></div>
       <% end %>
-      <%= duration_report_drilldown_block(@query, drilldowns[:done_tickets_without_returns], class: 'tj-summary-card tj-summary-link', title: 'Open first-pass done tickets in Duration Report') do %>
-        <div class="tj-sc-label">First-Time Pass</div>
-        <div class="tj-sc-value <%= totals[:first_pass_rate] >= 0.8 ? 'tj-sc-green' : 'tj-sc-orange' %>"><%= number_to_percentage(totals[:first_pass_rate] * 100, precision: 1) %></div>
-      <% end %>
       <%= duration_report_drilldown_block(@query, drilldowns[:done_tickets_with_returns], class: 'tj-summary-card tj-summary-link', title: 'Open done tickets with returns in Duration Report') do %>
         <div class="tj-sc-label">Return Rate</div>
         <div class="tj-sc-value <%= totals[:return_rate].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= number_to_percentage(totals[:return_rate] * 100, precision: 1) %></div>
       <% end %>
+      <%= duration_report_drilldown_block(@query, drilldowns[:done_tickets_without_returns], class: 'tj-summary-card tj-summary-link', title: 'Open first-pass done tickets in Duration Report') do %>
+        <div class="tj-sc-label">First Time Pass</div>
+        <div class="tj-sc-value <%= totals[:done_tickets_without_returns].positive? ? 'tj-sc-green' : 'tj-sc-dim' %>"><%= totals[:done_tickets_without_returns] %></div>
+      <% end %>
+      <%= duration_report_drilldown_block(@query, drilldowns[:done_tickets_without_returns], class: 'tj-summary-card tj-summary-link', title: 'Open first-pass done tickets in Duration Report') do %>
+        <div class="tj-sc-label">First Time Pass %</div>
+        <div class="tj-sc-value <%= totals[:first_pass_rate] >= 0.8 ? 'tj-sc-green' : 'tj-sc-orange' %>"><%= number_to_percentage(totals[:first_pass_rate] * 100, precision: 1) %></div>
+      <% end %>
+      <%= duration_report_drilldown_block(@query, drilldowns[:done_tickets_without_returns], class: 'tj-summary-card tj-summary-link', title: 'Open tickets without returns in Duration Report') do %>
+        <div class="tj-sc-label">Tickets Without Returns</div>
+        <div class="tj-sc-value <%= totals[:done_tickets_without_returns].positive? ? 'tj-sc-green' : 'tj-sc-dim' %>"><%= totals[:done_tickets_without_returns] %></div>
+      <% end %>
       <%= duration_report_drilldown_block(@query, drilldowns[:tickets_with_returns], class: 'tj-summary-card tj-summary-link', title: 'Open all tickets with returns in Duration Report') do %>
-        <div class="tj-sc-label">Total Returns</div>
+        <div class="tj-sc-label">Total Return</div>
         <div class="tj-sc-value <%= totals[:return_events].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= totals[:return_events] %></div>
       <% end %>
       <div class="tj-summary-card">
@@ -178,7 +197,7 @@
       </div>
 
       <div class="tj-card tj-card-full">
-        <div class="tj-card-title">QA Returns by Ticket Owner</div>
+        <div class="tj-card-title">Rework by Ticket Owner</div>
         <% if owner_rows.empty? %>
           <div class="tj-flow-empty-note">No returned tickets found by ticket owner in the current filtered result.</div>
         <% else %>
@@ -228,17 +247,43 @@
         <% if returned_ticket_rows.empty? %>
           <div class="tj-flow-empty-note">No returned tickets found in the current filtered result.</div>
         <% else %>
-          <div class="tj-bug-bars">
-            <% returned_ticket_rows.first(10).each do |row| %>
-              <% width = (row[:total_returns].to_f / max_ticket_returns * 100).round(1) %>
-              <div class="tj-bug-bar-row">
-                <div class="tj-bug-bar-label"><%= link_to "##{row[:issue_id]} - #{row[:subject]}", ticket_journey_path(@project, issue_detail_params(@query, row[:issue])), class: 'tj-drilldown-link', title: 'Open issue detail' %></div>
-                <div class="tj-bug-bar-track">
-                  <div class="tj-bug-bar-fill" style="width:<%= width %>%"></div>
-                </div>
-                <div class="tj-bug-bar-count"><%= row[:total_returns] %> <span><%= format_hours(row[:rework_hours]) %></span></div>
-              </div>
-            <% end %>
+          <div class="tj-table-wrap">
+            <table class="tj-table">
+              <thead>
+                <tr>
+                  <th class="tj-th-issue">Issue</th>
+                  <th class="tj-th-title">Subject</th>
+                  <th class="tj-th-native">Return Reason</th>
+                  <th class="tj-th-total">Total R</th>
+                  <th class="tj-th-native">Work Duration</th>
+                  <th class="tj-th-native">Rework Duration</th>
+                  <th class="tj-th-native">Total Duration</th>
+                  <th class="tj-th-native">Rework Ratio</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% top_returned_rows.each do |row| %>
+                  <tr class="tj-row">
+                    <td class="tj-td-issue"><%= link_to "##{row[:issue_id]}", issue_path(row[:issue]), class: 'tj-issue-link' %></td>
+                    <td class="tj-td-title" title="<%= h(row[:subject]) %>"><%= link_to h(row[:subject]), ticket_journey_path(@project, issue_detail_params(@query, row[:issue])), class: 'tj-subject-link' %></td>
+                    <td class="tj-td-title"><%= h(row[:return_reason]) %></td>
+                    <td class="tj-td-total"><%= row[:total_returns] %></td>
+                    <td class="tj-td-native"><%= format_hours(row[:work_hours]) %></td>
+                    <td class="tj-td-native"><%= format_hours(row[:rework_hours]) %></td>
+                    <td class="tj-td-native"><%= format_hours(row[:total_duration_hours]) %></td>
+                    <td class="tj-td-native"><%= number_to_percentage(row[:rework_ratio] * 100, precision: 1) %></td>
+                  </tr>
+                <% end %>
+                <tr class="tj-total-row">
+                  <td colspan="3">Total shown</td>
+                  <td class="tj-td-total"><%= top_return_totals[:total_returns] %></td>
+                  <td class="tj-td-native"><%= format_hours(top_return_totals[:work_hours]) %></td>
+                  <td class="tj-td-native"><%= format_hours(top_return_totals[:rework_hours]) %></td>
+                  <td class="tj-td-native"><%= format_hours(top_return_totals[:total_duration_hours]) %></td>
+                  <td class="tj-td-native"><%= number_to_percentage(top_return_totals[:rework_ratio] * 100, precision: 1) %></td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         <% end %>
       </div>
