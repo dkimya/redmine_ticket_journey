@@ -183,6 +183,26 @@
     <% if @owner_avg_time_per_status_rows.present? %>
       <div class="tj-card tj-card-full">
         <div class="tj-card-title">Average Time for Each Status</div>
+        <%
+          max_avg_status_hours = @owner_avg_time_per_status_rows.map { |row| row[:avg_hours].to_f }.max.to_f
+        %>
+        <div class="tj-vertical-chart" aria-label="Average time for each status">
+          <% @owner_avg_time_per_status_rows.each do |row| %>
+            <%
+              avg_hours = row[:avg_hours].to_f
+              height = max_avg_status_hours.positive? ? ((avg_hours / max_avg_status_hours) * 100).round(1) : 0
+              height = 4 if avg_hours.positive? && height < 4
+            %>
+            <div class="tj-vertical-chart-item" title="<%= h(row[:status]) %>: <%= format_hours(avg_hours) %>, <%= row[:ticket_count] %> visits">
+              <div class="tj-vertical-chart-value"><%= format_hours(avg_hours) %></div>
+              <div class="tj-vertical-chart-plot">
+                <span class="tj-vertical-chart-bar" style="height:<%= height %>%"></span>
+              </div>
+              <div class="tj-vertical-chart-label"><%= h(row[:status]) %></div>
+              <div class="tj-vertical-chart-meta"><%= row[:ticket_count] %> visits</div>
+            </div>
+          <% end %>
+        </div>
         <div class="tj-table-wrap">
           <table class="tj-table">
             <thead>
