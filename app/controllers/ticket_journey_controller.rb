@@ -140,12 +140,11 @@ class TicketJourneyController < ApplicationController
 
   def executive_bug_quality_risk
     build_query_from(all_status_query_params, use_default_query: false)
-    executive_placeholder(
-      active_tab: :executive_bug_quality_risk,
-      title: 'Executive Bug & Quality Risk',
-      subtitle: 'Executive summary for bug burn-down, important bug age, source concentration, and quality risk.',
-      source_reports: ['Bug Analysis', 'Priority / SLA Risk', 'Release Readiness', 'Issue Detail']
-    )
+    @executive_period_key, @executive_start_date, @executive_end_date = executive_period_dates
+    @bug_start_date = @executive_start_date
+    @bug_end_date = @executive_end_date
+    @issues_data = compute_all_durations
+    @executive_bug_quality_report = compute_executive_bug_quality_risk_report(@issues_data, @executive_start_date, @executive_end_date)
   end
 
   def executive_technical_debt
@@ -575,6 +574,74 @@ class TicketJourneyController < ApplicationController
 
   def executive_find_owner_row(index, owner_value, owner_name)
     index[[:value, owner_value.to_s]] || index[[:name, owner_name.to_s.downcase]]
+  end
+
+  def compute_executive_bug_quality_risk_report(issues_data, start_date, end_date)
+    bug_rows, bug_totals, impact_rows, related_page_rows, critical_open_rows, closed_report = compute_bug_analysis_report(start_date, end_date, use_query: true)
+    important_closed = executive_important_closed_bug_rows(start_date, end_date)
+
+    {
+      period_start: start_date,
+      period_end: end_date,
+      kpis: {
+        bug_burndown_rate: bug_burndown_rate(bug_totals),
+        important_bugs_open: critical_open_rows.size,
+        avg_days_to_close_important_bugs: average_number(important_closed.map { |row| row[:days_to_close] }),
+        avg_bug_impact_rating: bug_totals[:impact_average].to_f,
+        ending_bugs: bug_totals[:remaining].to_i,
+        escaped_bugs: bug_totals[:escaped].to_i
+      },
+      bug_rows: bug_rows,
+      bug_totals: bug_totals,
+      impact_rows: impact_rows,
+      related_page_rows: related_page_rows,
+      critical_open_rows: critical_open_rows,
+      closed_report: closed_report,
+      important_closed_rows: important_closed,
+      bug_trend_rows: executive_bug_trend_rows(Array(issues_data), start_date, end_date),
+      critical_project_rows: executive_critical_bug_project_rows(critical_open_rows)
+    }
+  end
+
+  def executive_important_closed_bug_rows(start_date, end_date)
+    bugs =
+      if @query&.valid?
+        @query.issues(
+          order: "#{Issue.table_name}.id ASC",
+          include: [:status, :tracker, :priority, { custom_values: :custom_field }]
+        ).select { |issue| issue.tracker&.name == 'Bug' }
+      else
+        []
+      end
+
+    bugs.select { |issue| issue.closed_on.present? && issue.closed_on.to_date.between?(start_date, end_date) }
+        .select { |issue| issue.custom_value_for(BUG_IMPACT_RATING_CF_ID)&.value.to_i >= 3 || priority_performance_ticket?(issue) }
+        .map do |issue|
+      days_to_close = issue.created_on.present? ? (issue.closed_on.to_date - issue.created_on.to_date).to_f.round(1) : 0.0
+      {
+        issue: issue,
+        issue_id: issue.id,
+        subject: issue.subject,
+        project: issue.project&.name || '-',
+        page_module: bug_related_page_value(issue).presence || '-',
+        source: issue.custom_value_for(BUG_SOURCE_CF_ID)&.value.presence || '-',
+        impact_rating: issue.custom_value_for(BUG_IMPACT_RATING_CF_ID)&.value.to_i,
+        days_to_close: days_to_close
+      }
+    end.sort_by { |row| [-row[:days_to_close].to_f, row[:project].to_s.downcase, row[:issue_id].to_i] }
+  end
+
+  def executive_critical_bug_project_rows(critical_open_rows)
+    Array(critical_open_rows).group_by { |row| row[:issue]&.project&.name || '-' }
+                         .map do |project, rows|
+      {
+        project: project,
+        count: rows.size,
+        high_risk: rows.count { |row| row[:risk] == 'High' },
+        avg_impact: average_number(rows.map { |row| row[:impact_rating].is_a?(Integer) ? row[:impact_rating] : nil }),
+        issue_ids: rows.map { |row| row[:issue_id] }
+      }
+    end.sort_by { |row| [-row[:high_risk].to_i, -row[:count].to_i, row[:project].to_s.downcase] }
   end
 
   # ---------------------------------------------------------------

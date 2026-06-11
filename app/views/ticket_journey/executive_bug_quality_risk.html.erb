@@ -1,0 +1,238 @@
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'ticket_journey', plugin: 'redmine_ticket_journey' %>
+<% end %>
+
+<div id="tj-wrap">
+  <div class="tj-page-header">
+    <div class="tj-page-header-left">
+      <div>
+        <h2><%= ticket_journey_header_context_tag(:executive_dashboards) %>Bug &amp; Quality Risk</h2>
+        <p class="tj-page-sub">Executive bug burn-down, important bug age, source concentration, and quality risk &mdash; <%= @project.name %></p>
+      </div>
+    </div>
+  </div>
+
+  <%= render partial: 'report_tabs', locals: { active_tab: :executive_bug_quality_risk } %>
+
+  <%= form_tag(ticket_journey_executive_bug_quality_risk_path(@project), method: :get, id: 'query_form') do %>
+    <%= hidden_field_tag :support_section, params[:support_section] if params[:support_section].present? %>
+    <%= render partial: 'queries/query_form' %>
+
+    <div class="tj-filter-bar tj-owner-filter-bar">
+      <div class="tj-filter-form">
+        <div class="tj-filter-group">
+          <label for="exec_period">Executive Period</label>
+          <%= select_tag :exec_period,
+                options_for_select([['Last Month', 'last_month'], ['Last 3 Months', 'last_3_months'], ['Custom Period', 'custom']], @executive_period_key),
+                class: 'tj-input' %>
+        </div>
+        <div class="tj-filter-group">
+          <label for="exec_start_date">Period Start</label>
+          <%= date_field_tag :exec_start_date, @executive_start_date, class: 'tj-input' %>
+        </div>
+        <div class="tj-filter-group">
+          <label for="exec_end_date">Period End</label>
+          <%= date_field_tag :exec_end_date, @executive_end_date, class: 'tj-input' %>
+        </div>
+        <div class="tj-filter-group tj-flow-filter-note">
+          <span>Redmine filters choose the ticket population. This page then focuses on Bug tracker tickets in the executive period.</span>
+        </div>
+        <div class="tj-filter-group tj-filter-actions">
+          <%= submit_tag 'Apply', class: 'tj-btn tj-btn-primary' %>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <% if !@query.valid? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">Report</div>
+      <h3>Invalid filters</h3>
+      <p>Please review the Redmine query filters above.</p>
+    </div>
+  <% else %>
+    <% report = @executive_bug_quality_report %>
+    <% kpis = report[:kpis] %>
+
+    <div class="tj-summary-strip">
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Executive Period</div>
+        <div class="tj-sc-value tj-sc-accent"><%= format_date(report[:period_start]) %> - <%= format_date(report[:period_end]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label" title="Bugs closed during the period divided by bugs found during the period.">Bug Burn-down Rate</div>
+        <div class="tj-sc-value <%= kpis[:bug_burndown_rate].to_f >= 1.0 ? 'tj-sc-green' : 'tj-sc-orange' %>">
+          <%= link_to number_to_percentage(kpis[:bug_burndown_rate] * 100, precision: 1),
+                ticket_journey_bug_analysis_path(@project, bug_analysis_params(@query).merge('bug_start_date' => report[:period_start], 'bug_end_date' => report[:period_end], 'support_section' => 'bug_analysis')),
+                class: 'tj-drilldown-link',
+                title: 'Open operational Bug Analysis for this period' %>
+        </div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label" title="Open ending bugs with impact rating 3+ or high priority.">Important Bugs Open</div>
+        <div class="tj-sc-value <%= kpis[:important_bugs_open].to_i.positive? ? 'tj-sc-red' : 'tj-sc-green' %>"><%= duration_report_drilldown_link(@query, report[:critical_open_rows].map { |row| row[:issue_id] }, kpis[:important_bugs_open]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label" title="Calendar days from creation to close for important bugs closed in the period.">Avg Days to Close Important Bugs</div>
+        <div class="tj-sc-value tj-sc-blue"><%= kpis[:avg_days_to_close_important_bugs].positive? ? "#{number_with_precision(kpis[:avg_days_to_close_important_bugs], precision: 1, strip_insignificant_zeros: true)}d" : '-' %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label" title="Average impact rating for ending bugs with impact values.">Avg Bug Impact Rating</div>
+        <div class="tj-sc-value <%= kpis[:avg_bug_impact_rating].to_f >= 3 ? 'tj-sc-red' : (kpis[:avg_bug_impact_rating].to_f.positive? ? 'tj-sc-orange' : 'tj-sc-dim') %>"><%= kpis[:avg_bug_impact_rating].positive? ? number_with_precision(kpis[:avg_bug_impact_rating], precision: 1, strip_insignificant_zeros: true) : '-' %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Ending Bugs</div>
+        <div class="tj-sc-value <%= kpis[:ending_bugs].positive? ? 'tj-sc-orange' : 'tj-sc-green' %>"><%= duration_report_drilldown_link(@query, report[:bug_totals][:remaining_issue_ids], kpis[:ending_bugs]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label" title="Found bugs with Bug Source values that indicate leakage or escape.">Escaped Bugs</div>
+        <div class="tj-sc-value <%= kpis[:escaped_bugs].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, report[:bug_totals][:escaped_issue_ids], kpis[:escaped_bugs]) %></div>
+      </div>
+    </div>
+
+    <div class="tj-detail-grid">
+      <div class="tj-card">
+        <div class="tj-card-title">Bugs Created vs Resolved Trend</div>
+        <table class="tj-health-table">
+          <thead>
+            <tr>
+              <th class="tj-th-title">Period</th>
+              <th class="tj-th-native">Created</th>
+              <th class="tj-th-native">Resolved</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% report[:bug_trend_rows].each do |row| %>
+              <tr>
+                <td class="tj-health-label"><%= h(row[:period]) %></td>
+                <td class="tj-health-count tj-sc-orange"><%= row[:found] %></td>
+                <td class="tj-health-count tj-sc-green"><%= row[:resolved] %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="tj-card">
+        <div class="tj-card-title">Important Bugs by Project</div>
+        <table class="tj-health-table">
+          <tbody>
+            <% if report[:critical_project_rows].empty? %>
+              <tr><td class="tj-flow-empty-note">No important open bugs found at the end of this period.</td></tr>
+            <% end %>
+            <% report[:critical_project_rows].each do |row| %>
+              <tr>
+                <td class="tj-health-label"><%= h(row[:project]) %></td>
+                <td class="tj-health-count"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:count]) %></td>
+                <td class="tj-health-percent"><%= row[:high_risk] %> high risk</td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Bug Source Concentration</div>
+      <% remaining_rows = report[:bug_rows].select { |row| row[:remaining].to_i.positive? }.sort_by { |row| [-row[:remaining].to_i, row[:reason].to_s.downcase] } %>
+      <% if remaining_rows.empty? %>
+        <div class="tj-flow-empty-note">No ending bugs in this period.</div>
+      <% else %>
+        <div class="tj-bug-bars">
+          <% max_remaining = remaining_rows.map { |row| row[:remaining].to_i }.max.to_i %>
+          <% remaining_rows.each do |row| %>
+            <% width = max_remaining.positive? ? ((row[:remaining].to_f / max_remaining) * 100).round : 0 %>
+            <div class="tj-bug-bar-row">
+              <span class="tj-bug-bar-label"><%= h(row[:reason]) %></span>
+              <span class="tj-bug-bar-track">
+                <span class="tj-bug-bar-fill" style="width:<%= width %>%"></span>
+              </span>
+              <span class="tj-bug-bar-count"><%= row[:remaining] %></span>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Important Bugs Open Detail</div>
+      <% if report[:critical_open_rows].empty? %>
+        <div class="tj-flow-empty-note">No important open bugs found at the end of this period.</div>
+      <% else %>
+        <div class="tj-table-wrap">
+          <table class="tj-table">
+            <thead>
+              <tr>
+                <th class="tj-th-issue">Bug ID</th>
+                <th class="tj-th-title">Subject</th>
+                <th class="tj-th-native">Project</th>
+                <th class="tj-th-native">Page / Module</th>
+                <th class="tj-th-native">Bug Source</th>
+                <th class="tj-th-native">Priority</th>
+                <th class="tj-th-native">Impact</th>
+                <th class="tj-th-native">Owner</th>
+                <th class="tj-th-native">Status</th>
+                <th class="tj-th-native">Risk</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% report[:critical_open_rows].first(20).each do |row| %>
+                <% critical_risk_class = row[:risk] == 'High' ? 'tj-release-risk-pill-red' : (row[:risk] == 'Medium' ? 'tj-release-risk-pill-amber' : 'tj-release-risk-pill-green') %>
+                <tr class="tj-row">
+                  <td class="tj-td-issue"><%= link_to "##{row[:issue_id]}", issue_path(row[:issue]), class: 'tj-drilldown-link' %></td>
+                  <td class="tj-td-title" title="<%= h(row[:subject]) %>"><%= h(row[:subject]) %></td>
+                  <td class="tj-td-native"><%= h(row[:issue]&.project&.name || '-') %></td>
+                  <td class="tj-td-native"><%= h(row[:page_module]) %></td>
+                  <td class="tj-td-native"><%= h(row[:bug_source]) %></td>
+                  <td class="tj-td-native"><%= h(row[:priority]) %></td>
+                  <td class="tj-td-native"><%= row[:impact_rating] %></td>
+                  <td class="tj-td-native"><%= h(row[:owner]) %></td>
+                  <td class="tj-td-native"><span class="tj-status-badge"><%= h(row[:status]) %></span></td>
+                  <td class="tj-td-native"><span class="tj-release-risk-pill <%= critical_risk_class %>"><%= h(row[:risk]) %></span></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% end %>
+    </div>
+
+    <div class="tj-detail-grid">
+      <div class="tj-card">
+        <div class="tj-card-title">Important Bugs Closed in Period</div>
+        <table class="tj-health-table">
+          <tbody>
+            <% if report[:important_closed_rows].empty? %>
+              <tr><td class="tj-flow-empty-note">No important bugs were closed in this period.</td></tr>
+            <% end %>
+            <% report[:important_closed_rows].first(10).each do |row| %>
+              <tr>
+                <td class="tj-health-label"><%= link_to "##{row[:issue_id]} #{row[:subject]}", issue_path(row[:issue]), class: 'tj-drilldown-link', title: row[:subject] %></td>
+                <td class="tj-health-count"><%= number_with_precision(row[:days_to_close], precision: 1, strip_insignificant_zeros: true) %>d</td>
+                <td class="tj-health-percent">impact <%= row[:impact_rating].positive? ? row[:impact_rating] : '-' %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="tj-card">
+        <div class="tj-card-title">Bug Related Page / Module</div>
+        <table class="tj-health-table">
+          <tbody>
+            <% if report[:related_page_rows].empty? %>
+              <tr><td class="tj-flow-empty-note">No Related Page / Module values found for ending bugs.</td></tr>
+            <% end %>
+            <% report[:related_page_rows].first(10).each do |row| %>
+              <tr>
+                <td class="tj-health-label"><%= h(row[:page]) %></td>
+                <td class="tj-health-count"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:count]) %></td>
+                <td class="tj-health-percent"><%= number_to_percentage(row[:percent] * 100, precision: 1) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% end %>
+</div>
