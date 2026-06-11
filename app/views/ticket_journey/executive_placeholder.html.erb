@@ -1,0 +1,37 @@
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'ticket_journey', plugin: 'redmine_ticket_journey' %>
+<% end %>
+
+<div id="tj-wrap">
+  <div class="tj-page-header">
+    <div class="tj-page-header-left">
+      <div>
+        <h2><%= ticket_journey_header_context_tag(:executive_dashboards) %><%= h(@executive_placeholder_title) %></h2>
+        <p class="tj-page-sub"><%= h(@executive_placeholder_subtitle) %> &mdash; <%= @project.name %></p>
+      </div>
+    </div>
+  </div>
+
+  <%= render partial: 'report_tabs', locals: { active_tab: @executive_active_tab } %>
+
+  <div class="tj-card tj-card-full">
+    <div class="tj-card-title">Executive View Placeholder</div>
+    <div class="tj-flow-empty-note">
+      This executive page is now available in the dashboard structure. The detailed executive visualization should be implemented after the underlying operational numbers are confirmed.
+    </div>
+  </div>
+
+  <div class="tj-card tj-card-full">
+    <div class="tj-card-title">Source Reports to Reuse</div>
+    <table class="tj-health-table">
+      <tbody>
+        <% Array(@executive_placeholder_sources).each do |source| %>
+          <tr>
+            <td class="tj-health-label"><%= h(source) %></td>
+            <td class="tj-health-percent">existing report logic</td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+</div>

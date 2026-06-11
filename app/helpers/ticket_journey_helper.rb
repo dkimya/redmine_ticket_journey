@@ -14,7 +14,8 @@ module TicketJourneyHelper
       'bug_analysis' => 'Bug Analysis',
       'planning_estimation' => 'Planning Quality',
       'time_utilization' => 'Time Utilization & Scope Control',
-      'data_quality' => 'Ticket Quality & Data Discipline'
+      'data_quality' => 'Ticket Quality & Data Discipline',
+      'executive_dashboards' => 'Executive Dashboards'
     }[section_key.to_s]
 
     return ''.html_safe if label.blank?
@@ -50,6 +51,7 @@ module TicketJourneyHelper
       time_start_date time_end_date
       aging_group_by priority_sort priority_dir cycle_group_by
       data_sort data_dir release_sort release_dir snapshot_at
+      exec_period exec_start_date exec_end_date
     ]
 
     raw_params = params.respond_to?(:to_unsafe_h) ? params.to_unsafe_h : params.to_h
@@ -60,6 +62,10 @@ module TicketJourneyHelper
     {
       'index' => :ticket_journey_path,
       'pmo_control' => :ticket_journey_pmo_control_path,
+      'executive_overview' => :ticket_journey_executive_overview_path,
+      'executive_team_performance' => :ticket_journey_executive_team_performance_path,
+      'executive_bug_quality_risk' => :ticket_journey_executive_bug_quality_risk_path,
+      'executive_technical_debt' => :ticket_journey_executive_technical_debt_path,
       'sprint_delivery' => :ticket_journey_sprint_delivery_path,
       'planning_estimation' => :ticket_journey_planning_estimation_path,
       'owner_returns' => :ticket_journey_owner_returns_path,
@@ -129,6 +135,19 @@ module TicketJourneyHelper
     query_params = query.as_params.deep_dup.deep_stringify_keys
 
     %w[stale_days bug_start_date bug_end_date].each do |key|
+      query_params.delete(key)
+      value = params[key]
+      query_params[key] = value if value.present?
+    end
+
+    query_params.merge!(support_section_params)
+    query_params
+  end
+
+  def executive_dashboard_params(query)
+    query_params = query.as_params.deep_dup.deep_stringify_keys
+
+    %w[exec_period exec_start_date exec_end_date].each do |key|
       query_params.delete(key)
       value = params[key]
       query_params[key] = value if value.present?

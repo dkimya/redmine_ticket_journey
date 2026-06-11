@@ -95,7 +95,7 @@ class TicketJourneyController < ApplicationController
 
   before_action :find_project
   before_action :authorize
-  before_action :build_query, only: [:index, :pmo_control, :sprint_delivery, :planning_estimation, :owner_returns, :qa_returns, :owner_workload, :status_snapshot, :time_utilization, :aging_risk, :priority_risk, :cycle_distribution, :flow_report, :project_health, :release_readiness, :bug_analysis, :data_quality, :original_sprint, :export]
+  before_action :build_query, only: [:index, :pmo_control, :executive_overview, :executive_team_performance, :executive_bug_quality_risk, :executive_technical_debt, :sprint_delivery, :planning_estimation, :owner_returns, :qa_returns, :owner_workload, :status_snapshot, :time_utilization, :aging_risk, :priority_risk, :cycle_distribution, :flow_report, :project_health, :release_readiness, :bug_analysis, :data_quality, :original_sprint, :export]
   before_action :prepare_owner_role_filter, only: [:owner_returns, :owner_workload, :flow_report]
 
   helper :queries
@@ -117,6 +117,46 @@ class TicketJourneyController < ApplicationController
     build_query_from(pmo_control_default_query_params, use_default_query: false)
     @data_quality_stale_days = data_quality_stale_days_param
     @pmo_control_report = compute_pmo_control_report
+  end
+
+  # ---------------------------------------------------------------
+  # EXECUTIVE OVERVIEW - CEO-focused summary above operational reports
+  # ---------------------------------------------------------------
+  def executive_overview
+    build_query_from(all_status_query_params, use_default_query: false)
+    @executive_period_key, @executive_start_date, @executive_end_date = executive_period_dates
+    @issues_data = compute_all_durations
+    @executive_overview_report = compute_executive_overview_report(@issues_data, @executive_start_date, @executive_end_date)
+  end
+
+  def executive_team_performance
+    build_query_from(all_status_query_params, use_default_query: false)
+    executive_placeholder(
+      active_tab: :executive_team_performance,
+      title: 'Executive Team Member Performance',
+      subtitle: 'CEO-level team throughput, commitment, return burden, and utilization view.',
+      source_reports: ['Team Performance', 'Owner Workload / Time Support', 'Status Snapshot', 'Time Utilization & Scope Control']
+    )
+  end
+
+  def executive_bug_quality_risk
+    build_query_from(all_status_query_params, use_default_query: false)
+    executive_placeholder(
+      active_tab: :executive_bug_quality_risk,
+      title: 'Executive Bug & Quality Risk',
+      subtitle: 'Executive summary for bug burn-down, important bug age, source concentration, and quality risk.',
+      source_reports: ['Bug Analysis', 'Priority / SLA Risk', 'Release Readiness', 'Issue Detail']
+    )
+  end
+
+  def executive_technical_debt
+    build_query_from(all_status_query_params, use_default_query: false)
+    executive_placeholder(
+      active_tab: :executive_technical_debt,
+      title: 'Executive Technical Debt',
+      subtitle: 'Technical debt trend, aging, new debt, and burn-down view.',
+      source_reports: ['Project Control', 'Planning Quality', 'Sprint Delivery', 'Duration Report']
+    )
   end
 
   # ---------------------------------------------------------------
@@ -288,6 +328,157 @@ class TicketJourneyController < ApplicationController
   end
 
   private
+
+  def executive_placeholder(active_tab:, title:, subtitle:, source_reports:)
+    @executive_active_tab = active_tab
+    @executive_placeholder_title = title
+    @executive_placeholder_subtitle = subtitle
+    @executive_placeholder_sources = source_reports
+    render :executive_placeholder
+  end
+
+  def executive_period_dates
+    requested_key = params[:exec_period].presence || 'last_month'
+    today = User.current.today
+    last_month = today.prev_month
+
+    dates =
+      case requested_key
+      when 'last_3_months'
+        [(today - 3.months).to_date, today]
+      when 'custom'
+        [
+          parse_report_date(params[:exec_start_date]) || last_month.beginning_of_month,
+          parse_report_date(params[:exec_end_date]) || last_month.end_of_month
+        ]
+      else
+        requested_key = 'last_month'
+        [last_month.beginning_of_month, last_month.end_of_month]
+      end
+
+    start_date, end_date = dates
+    start_date, end_date = end_date, start_date if start_date > end_date
+    [requested_key, start_date, end_date]
+  end
+
+  def compute_executive_overview_report(issues_data, start_date, end_date)
+    period_start = start_date.beginning_of_day
+    period_end = end_date.end_of_day
+    items = Array(issues_data)
+    completed_items = items.select { |item| item[:issue].closed_on.present? && item[:issue].closed_on.between?(period_start, period_end) }
+    completed_issue_ids = completed_items.map { |item| item[:issue].id }
+    completed_cycle_hours = completed_items.filter_map { |item| completed_cycle_time_hours(item) || item[:durations][:TOTAL].to_f.presence }
+    average_closure_hours = average_number(completed_cycle_hours)
+    bug_rows, bug_totals, = compute_bug_analysis_report(start_date, end_date, use_query: true)
+    qa_report = compute_qa_returns_report(completed_items)
+    technical_debt_rows = executive_technical_debt_project_rows
+    technical_debt_count = technical_debt_rows.sum { |row| row[:count].to_i }
+
+    {
+      period_start: start_date,
+      period_end: end_date,
+      completed_issue_ids: completed_issue_ids,
+      kpis: {
+        throughput: completed_items.size,
+        bug_burndown_rate: bug_burndown_rate(bug_totals),
+        average_closure_hours: average_closure_hours,
+        work_rework_ratio: qa_report[:totals][:rework_ratio],
+        technical_debt_count: technical_debt_count
+      },
+      cycle_by_tracker_rows: executive_cycle_by_tracker_rows(completed_items),
+      work_rework_rows: executive_work_rework_rows(qa_report),
+      bug_trend_rows: executive_bug_trend_rows(items, start_date, end_date),
+      technical_debt_rows: technical_debt_rows,
+      links: {
+        throughput: completed_issue_ids,
+        bugs: bug_totals[:remaining_issue_ids] || [],
+        rework: qa_report[:drilldowns][:tickets_with_returns] || [],
+        technical_debt: technical_debt_rows.flat_map { |row| row[:issue_ids] }
+      }
+    }
+  end
+
+  def average_number(values)
+    values = Array(values).map(&:to_f).select(&:positive?)
+    return 0.0 if values.empty?
+
+    values.sum / values.size
+  end
+
+  def bug_burndown_rate(bug_totals)
+    found = bug_totals[:found].to_i
+    closed = bug_totals[:closed].to_i
+    return 0.0 if found.zero?
+
+    closed.to_f / found.to_f
+  end
+
+  def executive_cycle_by_tracker_rows(completed_items)
+    completed_items.group_by { |item| item[:issue].tracker&.name.presence || 'No Tracker' }
+                   .map do |tracker, tracker_items|
+      cycle_hours = tracker_items.filter_map { |item| completed_cycle_time_hours(item) || item[:durations][:TOTAL].to_f.presence }
+      {
+        tracker: tracker,
+        count: tracker_items.size,
+        avg_cycle_hours: average_number(cycle_hours),
+        issue_ids: tracker_items.map { |item| item[:issue].id }
+      }
+    end.sort_by { |row| [-row[:avg_cycle_hours].to_f, row[:tracker].to_s.downcase] }
+  end
+
+  def executive_work_rework_rows(qa_report)
+    totals = qa_report[:totals]
+    total_hours = totals[:total_duration_hours].to_f
+    [
+      {
+        label: 'Work Time',
+        hours: totals[:total_work_hours].to_f,
+        share: ratio(totals[:total_work_hours], total_hours),
+        issue_ids: qa_report[:drilldowns][:done_tickets] || []
+      },
+      {
+        label: 'Rework Time',
+        hours: totals[:total_rework_hours].to_f,
+        share: ratio(totals[:total_rework_hours], total_hours),
+        issue_ids: qa_report[:drilldowns][:tickets_with_returns] || []
+      }
+    ]
+  end
+
+  def executive_bug_trend_rows(items, start_date, end_date)
+    bug_issues = items.map { |item| item[:issue] }.select { |issue| issue.tracker&.name == 'Bug' }
+    cursor = start_date.beginning_of_month
+    rows = []
+
+    while cursor <= end_date
+      range_start = [cursor, start_date].max
+      range_end = [cursor.end_of_month, end_date].min
+      rows << {
+        period: cursor.strftime('%b %Y'),
+        found: bug_issues.count { |issue| issue.created_on.to_date.between?(range_start, range_end) },
+        resolved: bug_issues.count { |issue| issue.closed_on.present? && issue.closed_on.to_date.between?(range_start, range_end) }
+      }
+      cursor = cursor.next_month
+    end
+
+    rows
+  end
+
+  def executive_technical_debt_project_rows
+    sprint = pmo_current_sprint
+    return [] if sprint.blank?
+
+    issues = sprint_related_issues(sprint).reject { |issue| issue.id == sprint.id || issue.tracker&.name.to_s == 'Sprint' }
+    debt_issues = issues.select { |issue| carry_over_sprint_issue?(sprint, issue) && !completed_sprint_status?(issue.status&.name) }
+    debt_issues.group_by(&:project)
+               .map do |project, project_issues|
+      {
+        project: project.name,
+        count: project_issues.size,
+        issue_ids: project_issues.map(&:id)
+      }
+    end.sort_by { |row| [-row[:count].to_i, row[:project].to_s.downcase] }
+  end
 
   # ---------------------------------------------------------------
   # SPRINT DELIVERY helpers

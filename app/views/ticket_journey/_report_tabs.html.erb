@@ -19,6 +19,7 @@
   bug_params = clean_tab_params.call(bug_analysis_params(@query))
   data_quality_tab_params = clean_tab_params.call(data_quality_params(@query))
   original_sprint_tab_params = clean_tab_params.call(original_sprint_params(@query))
+  executive_params = clean_tab_params.call(executive_dashboard_params(@query))
   duration_params = duration_params.except('issue_id', 'view')
   detail_params =
     if @issue.present?
@@ -27,6 +28,11 @@
       clean_tab_params.call(issue_detail_tab_params(@query))
     end
   tabs_by_key = {
+    executive_dashboards: ['Executive Dashboards', ticket_journey_executive_overview_path(@project, executive_params)],
+    executive_overview: ['Executive Overview', ticket_journey_executive_overview_path(@project, executive_params)],
+    executive_team_performance: ['Team Member Performance', ticket_journey_executive_team_performance_path(@project, executive_params)],
+    executive_bug_quality_risk: ['Bug & Quality Risk', ticket_journey_executive_bug_quality_risk_path(@project, executive_params)],
+    executive_technical_debt: ['Technical Debt', ticket_journey_executive_technical_debt_path(@project, executive_params)],
     pmo_control: ['Project Control', ticket_journey_pmo_control_path(@project, pmo_params)],
     sprint_delivery: ['Sprint Delivery', ticket_journey_sprint_delivery_path(@project, sprint_params)],
     owner_returns: ['Team Performance', ticket_journey_owner_returns_path(@project, owner_params)],
@@ -49,6 +55,7 @@
   }
 
   main_dashboard_keys = [
+    :executive_dashboards,
     :pmo_control,
     :sprint_delivery,
     :owner_returns,
@@ -60,6 +67,10 @@
   ]
 
   support_sections = {
+    executive_dashboards: {
+      label: 'Executive Dashboards',
+      keys: [:executive_overview, :executive_team_performance, :executive_bug_quality_risk, :executive_technical_debt]
+    },
     pmo_control: {
       label: 'Project Control',
       keys: [:pmo_control, :project_health, :release_readiness, :aging_risk, :priority_risk, :issue_detail]
@@ -100,6 +111,8 @@
       requested_support_section
     else
       case active_tab
+      when :executive_overview, :executive_team_performance, :executive_bug_quality_risk, :executive_technical_debt
+        :executive_dashboards
       when :pmo_control, :project_health, :release_readiness, :aging_risk
         :pmo_control
       when :sprint_delivery, :duration, :cycle_distribution, :flow_report, :priority_risk

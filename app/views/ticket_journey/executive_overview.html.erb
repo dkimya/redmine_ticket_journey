@@ -1,0 +1,166 @@
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'ticket_journey', plugin: 'redmine_ticket_journey' %>
+<% end %>
+
+<div id="tj-wrap">
+  <div class="tj-page-header">
+    <div class="tj-page-header-left">
+      <div>
+        <h2><%= ticket_journey_header_context_tag(:executive_dashboards) %>Executive Overview</h2>
+        <p class="tj-page-sub">CEO-focused throughput, quality, rework, and debt snapshot &mdash; <%= @project.name %></p>
+      </div>
+    </div>
+  </div>
+
+  <%= render partial: 'report_tabs', locals: { active_tab: :executive_overview } %>
+
+  <%= form_tag(ticket_journey_executive_overview_path(@project), method: :get, id: 'query_form') do %>
+    <%= hidden_field_tag :support_section, params[:support_section] if params[:support_section].present? %>
+    <%= render partial: 'queries/query_form' %>
+
+    <div class="tj-filter-bar tj-owner-filter-bar">
+      <div class="tj-filter-form">
+        <div class="tj-filter-group">
+          <label for="exec_period">Executive Period</label>
+          <%= select_tag :exec_period,
+                options_for_select([['Last Month', 'last_month'], ['Last 3 Months', 'last_3_months'], ['Custom Period', 'custom']], @executive_period_key),
+                class: 'tj-input' %>
+        </div>
+        <div class="tj-filter-group">
+          <label for="exec_start_date">Period Start</label>
+          <%= date_field_tag :exec_start_date, @executive_start_date, class: 'tj-input' %>
+        </div>
+        <div class="tj-filter-group">
+          <label for="exec_end_date">Period End</label>
+          <%= date_field_tag :exec_end_date, @executive_end_date, class: 'tj-input' %>
+        </div>
+        <div class="tj-filter-group tj-flow-filter-note">
+          <span>Redmine filters choose the ticket population. The executive period is used for completed tickets, bug movement, and rework totals.</span>
+        </div>
+        <div class="tj-filter-group tj-filter-actions">
+          <%= submit_tag 'Apply', class: 'tj-btn tj-btn-primary' %>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <% if !@query.valid? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">Report</div>
+      <h3>Invalid filters</h3>
+      <p>Please review the Redmine query filters above.</p>
+    </div>
+  <% else %>
+    <% report = @executive_overview_report %>
+    <% kpis = report[:kpis] %>
+    <div class="tj-summary-strip">
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Executive Period</div>
+        <div class="tj-sc-value tj-sc-accent"><%= format_date(report[:period_start]) %> - <%= format_date(report[:period_end]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Whole Team Throughput</div>
+        <div class="tj-sc-value tj-sc-blue"><%= duration_report_drilldown_link(@query, report[:links][:throughput], kpis[:throughput], title: 'Tickets closed in the executive period') %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label" title="Bugs closed during the period divided by bugs found during the period.">Bug Burn-down Rate</div>
+        <div class="tj-sc-value <%= kpis[:bug_burndown_rate].to_f >= 1.0 ? 'tj-sc-green' : 'tj-sc-orange' %>">
+          <%= link_to number_to_percentage(kpis[:bug_burndown_rate] * 100, precision: 1),
+                ticket_journey_bug_analysis_path(@project, bug_analysis_params(@query).merge('bug_start_date' => report[:period_start], 'bug_end_date' => report[:period_end], 'support_section' => 'bug_analysis')),
+                class: 'tj-drilldown-link',
+                title: 'Open Bug Analysis for this period' %>
+        </div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Avg Ticket Closure Cycle</div>
+        <div class="tj-sc-value tj-sc-blue"><%= format_hours(kpis[:average_closure_hours]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label" title="Rework time divided by total duration for tickets completed in the period.">Work vs Rework Ratio</div>
+        <div class="tj-sc-value <%= kpis[:work_rework_ratio].to_f.positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= number_to_percentage(kpis[:work_rework_ratio] * 100, precision: 1) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Technical Debt Count</div>
+        <div class="tj-sc-value <%= kpis[:technical_debt_count].to_i.positive? ? 'tj-sc-red' : 'tj-sc-green' %>"><%= duration_report_drilldown_link(@query, report[:links][:technical_debt], kpis[:technical_debt_count], title: 'Open carry-over sprint tickets') %></div>
+      </div>
+    </div>
+
+    <div class="tj-detail-grid">
+      <div class="tj-card">
+        <div class="tj-card-title">Average Closure Cycle by Tracker</div>
+        <table class="tj-health-table">
+          <tbody>
+            <% if report[:cycle_by_tracker_rows].empty? %>
+              <tr><td class="tj-flow-empty-note">No tickets were closed in the selected period.</td></tr>
+            <% end %>
+            <% report[:cycle_by_tracker_rows].first(8).each do |row| %>
+              <tr>
+                <td class="tj-health-label"><%= h(row[:tracker]) %></td>
+                <td class="tj-health-count"><%= duration_report_drilldown_link(@query, row[:issue_ids], format_hours(row[:avg_cycle_hours])) %></td>
+                <td class="tj-health-percent"><%= row[:count] %> tickets</td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="tj-card">
+        <div class="tj-card-title">Work vs Rework for Selected Period</div>
+        <table class="tj-health-table">
+          <tbody>
+            <% report[:work_rework_rows].each do |row| %>
+              <tr>
+                <td class="tj-health-label"><%= h(row[:label]) %></td>
+                <td class="tj-health-count"><%= duration_report_drilldown_link(@query, row[:issue_ids], format_hours(row[:hours])) %></td>
+                <td class="tj-health-percent"><%= number_to_percentage(row[:share] * 100, precision: 1) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tj-detail-grid">
+      <div class="tj-card">
+        <div class="tj-card-title">Bugs Created vs Resolved Trend</div>
+        <table class="tj-health-table">
+          <thead>
+            <tr>
+              <th class="tj-th-title">Period</th>
+              <th class="tj-th-native">Created</th>
+              <th class="tj-th-native">Resolved</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% report[:bug_trend_rows].each do |row| %>
+              <tr>
+                <td class="tj-health-label"><%= h(row[:period]) %></td>
+                <td class="tj-health-count tj-sc-orange"><%= row[:found] %></td>
+                <td class="tj-health-count tj-sc-green"><%= row[:resolved] %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="tj-card">
+        <div class="tj-card-title">Technical Debt by Project</div>
+        <table class="tj-health-table">
+          <tbody>
+            <% if report[:technical_debt_rows].empty? %>
+              <tr><td class="tj-flow-empty-note">No open carry-over sprint debt found for the current sprint scope.</td></tr>
+            <% end %>
+            <% report[:technical_debt_rows].each do |row| %>
+              <tr>
+                <td class="tj-health-label"><%= h(row[:project]) %></td>
+                <td class="tj-health-count"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:count]) %></td>
+                <td class="tj-health-percent">open debt</td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+        <div class="tj-flow-empty-note">Technical debt uses current sprint carry-over tickets that are not completed.</div>
+      </div>
+    </div>
+  <% end %>
+</div>
