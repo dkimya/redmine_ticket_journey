@@ -6,7 +6,7 @@
   <div class="tj-page-header">
     <div class="tj-page-header-left">
       <div>
-        <h2>PMO Control Dashboard</h2>
+        <h2>Project Control Dashboard</h2>
         <p class="tj-page-sub">Executive project control snapshot &mdash; <%= @project.name %></p>
       </div>
     </div>
@@ -25,7 +25,7 @@
           <%= number_field_tag :stale_days, @data_quality_stale_days, min: 1, class: 'tj-input tj-small-number-input', onchange: 'this.form.submit();' %>
         </div>
         <div class="tj-filter-group tj-flow-filter-note">
-          <span>Uses the Redmine filters above, then combines open ticket health, SLA risk, release readiness, bug health, and data discipline signals.</span>
+          <span>Default view focuses on planned active tickets. Redmine filters above can narrow the base, then the report combines ticket health, SLA risk, release readiness, bug health, and data discipline signals.</span>
         </div>
       </div>
     </div>
@@ -57,7 +57,7 @@
     </div>
 
     <div class="tj-card tj-card-full">
-      <div class="tj-card-title">PMO Health Rule</div>
+      <div class="tj-card-title">Project Control Health Rule</div>
       <div class="tj-flow-empty-note">
         Overall Health becomes <strong>Risk</strong> when priority SLA, overdue, stopped, release risk, or high missing-data signals exist.
         It becomes <strong>Watch</strong> when aging, missing data, or stale-update cleanup is still needed.
@@ -68,7 +68,7 @@
       <div class="tj-card">
         <div class="tj-card-title">Executive Attention</div>
         <% if report[:attention_items].empty? %>
-          <div class="tj-flow-empty-note">No high-priority PMO attention items for the current filters.</div>
+          <div class="tj-flow-empty-note">No high-priority Project Control attention items for the current filters.</div>
         <% else %>
           <table class="tj-health-table">
             <tbody>
@@ -124,7 +124,16 @@
                 <tr class="tj-row">
                   <td class="tj-td-title"><%= h(row[:project_name]) %></td>
                   <td class="tj-td-native"><strong><%= row[:total_open] %></strong></td>
-                  <td class="tj-td-native"><%= row[:backlog] %></td>
+                  <td class="tj-td-native">
+                    <% if row[:backlog_issue_ids].present? %>
+                      <%= link_to row[:backlog],
+                            ticket_journey_path(@project, duration_report_drilldown_params(@query, row[:backlog_issue_ids]).merge('support_section' => 'pmo_control')),
+                            class: 'tj-drilldown-link',
+                            title: 'Open backlog tickets in Duration Report' %>
+                    <% else %>
+                      <%= row[:backlog] %>
+                    <% end %>
+                  </td>
                   <td class="tj-td-native"><%= number_to_percentage(row[:backlog_percent] * 100, precision: 1) %></td>
                   <td class="tj-td-native"><%= row[:under_work] %></td>
                   <td class="tj-td-native"><%= number_to_percentage(row[:under_work_percent] * 100, precision: 1) %></td>
@@ -181,9 +190,10 @@
           <% max_data_count = report[:data_quality_field_rows].map { |row| row[:count].to_i }.max.to_i %>
           <% report[:data_quality_field_rows].each do |row| %>
             <% width = max_data_count.positive? ? ((row[:count].to_f / max_data_count) * 100).round : 0 %>
-            <%= link_to project_issues_path(@project, data_quality_issue_filter_params(nil, row[:scope])),
+            <% data_quality_path = row[:issue_ids].present? ? ticket_journey_path(@project, duration_report_drilldown_params(@query, row[:issue_ids]).merge('support_section' => 'pmo_control')) : project_issues_path(@project, data_quality_issue_filter_params(nil, row[:scope])) %>
+            <%= link_to data_quality_path,
                   class: 'tj-workload-bar-row tj-data-quality-bar-row',
-                  title: "Open issues: #{row[:label]}" do %>
+                  title: "Open exact ticket list: #{row[:label]}" do %>
               <span class="tj-workload-bar-label"><%= h(row[:label]) %></span>
               <span class="tj-workload-bar-track">
                 <span class="tj-workload-bar-fill" style="width:<%= width %>%"></span>
@@ -260,6 +270,9 @@
 
       <div class="tj-card">
         <div class="tj-card-title">Bug Health</div>
+        <div class="tj-flow-empty-note">
+          Uses the Bug Analysis period to summarize Bug tracker tickets found, closed, and still remaining in the selected project scope.
+        </div>
         <table class="tj-health-table">
           <tbody>
             <tr>

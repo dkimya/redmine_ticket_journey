@@ -27,7 +27,7 @@
       clean_tab_params.call(issue_detail_tab_params(@query))
     end
   tabs_by_key = {
-    pmo_control: ['PMO Control', ticket_journey_pmo_control_path(@project, pmo_params)],
+    pmo_control: ['Project Control', ticket_journey_pmo_control_path(@project, pmo_params)],
     sprint_delivery: ['Sprint Delivery', ticket_journey_sprint_delivery_path(@project, sprint_params)],
     owner_returns: ['Team Performance', ticket_journey_owner_returns_path(@project, owner_params)],
     qa_returns: ['Rework Analysis', ticket_journey_qa_returns_path(@project, qa_params)],
@@ -61,7 +61,7 @@
 
   support_sections = {
     pmo_control: {
-      label: 'PMO Control',
+      label: 'Project Control',
       keys: [:pmo_control, :project_health, :release_readiness, :aging_risk, :priority_risk, :issue_detail]
     },
     sprint_delivery: {

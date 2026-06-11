@@ -7,7 +7,7 @@ module TicketJourneyHelper
   def ticket_journey_header_context_tag(default_section_key)
     section_key = params[:support_section].to_s.presence || default_section_key
     label = {
-      'pmo_control' => 'PMO Control',
+      'pmo_control' => 'Project Control',
       'sprint_delivery' => 'Sprint Delivery',
       'owner_returns' => 'Team Performance',
       'qa_returns' => 'Rework Analysis',
@@ -300,9 +300,6 @@ module TicketJourneyHelper
     operators = (query_params['op'] || query_params[:op] || {}).deep_dup.deep_stringify_keys
     values = (query_params['v'] || query_params[:v] || {}).deep_dup.deep_stringify_keys
     today = User.current.today
-
-    replace_filter(filters, operators, values, 'status_id')
-    add_status_filter(filters, operators, values, 'o')
 
     case scope.to_sym
     when :overdue

@@ -114,6 +114,7 @@ class TicketJourneyController < ApplicationController
   # PMO CONTROL - executive project control snapshot
   # ---------------------------------------------------------------
   def pmo_control
+    build_query_from(pmo_control_default_query_params, use_default_query: false)
     @data_quality_stale_days = data_quality_stale_days_param
     @pmo_control_report = compute_pmo_control_report
   end
@@ -1183,7 +1184,7 @@ class TicketJourneyController < ApplicationController
     bug_rows, bug_totals, = compute_bug_analysis_report(bug_start_date, bug_end_date, use_query: false)
 
     sprint = pmo_current_sprint
-    sprint_report = sprint ? safe_compute_sprint_delivery_report(sprint, context: 'PMO Control') : nil
+    sprint_report = sprint ? safe_compute_sprint_delivery_report(sprint, context: 'Project Control') : nil
     sprint_totals = sprint_report ? sprint_report[:totals] : {}
 
     open_issues = @query&.valid? ? @query.issues(include: [:status, :tracker, :priority, { custom_values: :custom_field }]).to_a : []
@@ -1381,23 +1382,28 @@ class TicketJourneyController < ApplicationController
       total_open = issues.size
       next nil if total_open.zero?
 
-      backlog = issues.count { |i| %i[new todo].include?(status_role(i.status&.name)) }
-      under_work = issues.count { |i| %i[in_progress returned].include?(status_role(i.status&.name)) }
-      ongoing = issues.count { |i| %i[feedback review ready_merge final_check].include?(status_role(i.status&.name)) }
-      stopped = issues.count { |i| paused_status?(i.status&.name) }
+      backlog_issues = issues.select { |i| %i[new todo].include?(status_role(i.status&.name)) }
+      under_work_issues = issues.select { |i| %i[in_progress returned].include?(status_role(i.status&.name)) }
+      ongoing_issues = issues.select { |i| %i[feedback review ready_merge final_check].include?(status_role(i.status&.name)) }
+      stopped_issues = issues.select { |i| paused_status?(i.status&.name) }
 
       {
         project_id: project.id,
         project_name: project.name,
         total_open: total_open,
-        backlog: backlog,
-        backlog_percent: ratio(backlog, total_open),
-        under_work: under_work,
-        under_work_percent: ratio(under_work, total_open),
-        ongoing: ongoing,
-        ongoing_percent: ratio(ongoing, total_open),
-        stopped: stopped,
-        stopped_percent: ratio(stopped, total_open)
+        issue_ids: issues.map(&:id),
+        backlog: backlog_issues.size,
+        backlog_issue_ids: backlog_issues.map(&:id),
+        backlog_percent: ratio(backlog_issues.size, total_open),
+        under_work: under_work_issues.size,
+        under_work_issue_ids: under_work_issues.map(&:id),
+        under_work_percent: ratio(under_work_issues.size, total_open),
+        ongoing: ongoing_issues.size,
+        ongoing_issue_ids: ongoing_issues.map(&:id),
+        ongoing_percent: ratio(ongoing_issues.size, total_open),
+        stopped: stopped_issues.size,
+        stopped_issue_ids: stopped_issues.map(&:id),
+        stopped_percent: ratio(stopped_issues.size, total_open)
       }
     end.compact.sort_by { |row| [-row[:total_open], row[:project_name].to_s.downcase] }
   rescue StandardError
@@ -1523,6 +1529,34 @@ class TicketJourneyController < ApplicationController
     query_params['op'] = operators
     query_params['v'] = values
     query_params
+  end
+
+  def pmo_control_default_query_params
+    query_params = params.to_unsafe_h.deep_dup.deep_stringify_keys
+    return query_params if query_params['query_id'].present?
+
+    filters = Array(query_params['f']).map(&:to_s).reject(&:blank?)
+    return query_params if filters.include?('status_id')
+
+    status_ids = planned_active_status_ids.map(&:to_s)
+    return query_params if status_ids.empty?
+
+    query_params['set_filter'] = '1'
+    query_params['f'] = filters + ['status_id']
+    query_params['op'] ||= {}
+    query_params['v'] ||= {}
+    query_params['op']['status_id'] = '='
+    query_params['v']['status_id'] = status_ids
+    query_params
+  end
+
+  def planned_active_status_ids
+    @planned_active_status_ids ||= IssueStatus.all.select { |status| planned_active_status?(status.name) }.map(&:id)
+  end
+
+  def planned_active_status?(status_name)
+    role = status_role(status_name)
+    PROJECT_HEALTH_ACTIVE_STATUS_ROLES.include?(role) || role == :returned || paused_status?(status_name)
   end
 
   def project_and_subproject_ids
