@@ -42,7 +42,7 @@
                 class: 'tj-input' %>
         </div>
         <div class="tj-filter-group tj-flow-filter-note">
-          <span>Redmine filters choose the open ticket population. Technical debt uses carry-over tickets from the selected sprint that are not completed.</span>
+          <span>Redmine filters choose the ticket population. Status = Open is treated as the default technical-debt scope and may be removed so completed burn-down calculations can still be included. Technical debt uses carry-over tickets from the selected sprint that are not completed.</span>
         </div>
         <div class="tj-filter-group tj-filter-actions">
           <%= submit_tag 'Apply', class: 'tj-btn tj-btn-primary' %>
