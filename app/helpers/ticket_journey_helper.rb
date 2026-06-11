@@ -171,7 +171,11 @@ module TicketJourneyHelper
   end
 
   def planning_estimation_params(query)
-    sprint_delivery_params(query)
+    query_params = sprint_delivery_params(query)
+    return query_params if query_params['query_id'].present?
+
+    remove_query_filter(query_params, 'tracker_id')
+    query_params
   end
 
   def sprint_delivery_issue_filter_params(scope = :committed, owner_value = :all)
@@ -689,18 +693,29 @@ module TicketJourneyHelper
   def force_bug_tracker_filter(query_params)
     return query_params if query_params['query_id'].present?
 
-    filters = Array(query_params['f']).map(&:to_s).reject(&:blank?)
-    filters = filters.reject { |filter| filter == 'tracker_id' }
-    operators = (query_params['op'] || {}).deep_dup.deep_stringify_keys
-    values = (query_params['v'] || {}).deep_dup.deep_stringify_keys
-    operators.delete('tracker_id')
-    values.delete('tracker_id')
+    filters, operators, values = remove_query_filter(query_params, 'tracker_id')
 
     query_params['set_filter'] = '1'
     query_params['f'] = filters + ['tracker_id']
     query_params['op'] = operators.merge('tracker_id' => '=')
     query_params['v'] = values.merge('tracker_id' => bug_tracker_filter_values.presence || ['0'])
     query_params
+  end
+
+  def remove_query_filter(query_params, field_name)
+    filters = Array(query_params['f']).map(&:to_s).reject(&:blank?)
+    operators = (query_params['op'] || {}).deep_dup.deep_stringify_keys
+    values = (query_params['v'] || {}).deep_dup.deep_stringify_keys
+
+    filters = filters.reject { |filter| filter == field_name }
+    operators.delete(field_name)
+    values.delete(field_name)
+
+    query_params['f'] = filters
+    query_params['op'] = operators
+    query_params['v'] = values
+
+    [filters, operators, values]
   end
 
   def release_readiness_issue_filter_params(row, scope)
