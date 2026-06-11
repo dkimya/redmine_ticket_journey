@@ -29,7 +29,7 @@
           <%= date_field_tag :time_end_date, @time_end_date, class: 'tj-input' %>
         </div>
         <div class="tj-filter-group tj-flow-filter-note">
-          <span>Uses the Redmine filters above, then sums time entries in the selected period. Sprint scope is based on Ticket Original Sprint.</span>
+          <span>Redmine filters choose which tickets are included. Period Start/End choose which spent-time entries are counted for those tickets. Sprint scope is based on Ticket Original Sprint.</span>
         </div>
         <div class="tj-filter-group tj-filter-actions">
           <%= submit_tag 'Apply', class: 'tj-btn tj-btn-primary' %>
@@ -58,7 +58,7 @@
     <div class="tj-summary-strip">
       <div class="tj-summary-card">
         <div class="tj-sc-label">Total Spent Time</div>
-        <div class="tj-sc-value tj-sc-accent"><%= format_hours(totals[:spent_hours]) %></div>
+        <div class="tj-sc-value tj-sc-accent"><%= format_spent_hours(totals[:spent_hours]) %></div>
       </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label">Issues With Time</div>
@@ -70,15 +70,15 @@
       </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label">Sprint Ticket Time</div>
-        <div class="tj-sc-value tj-sc-green"><%= format_hours(totals[:sprint_hours]) %></div>
+        <div class="tj-sc-value tj-sc-green"><%= format_spent_hours(totals[:sprint_hours]) %></div>
       </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label">Out-of-Sprint Time</div>
-        <div class="tj-sc-value <%= out_of_sprint_hours.positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= format_hours(out_of_sprint_hours) %></div>
+        <div class="tj-sc-value <%= out_of_sprint_hours.positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= format_spent_hours(out_of_sprint_hours) %></div>
       </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label">Avg Spent / Issue</div>
-        <div class="tj-sc-value tj-sc-blue"><%= format_hours(totals[:avg_spent_per_issue]) %></div>
+        <div class="tj-sc-value tj-sc-blue"><%= format_spent_hours(totals[:avg_spent_per_issue]) %></div>
       </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label">Spent vs Estimate</div>
@@ -104,7 +104,7 @@
             <% report[:scope_rows].each do |row| %>
               <tr>
                 <td class="tj-health-label" title="<%= h(row[:note]) %>"><%= h(row[:label]) %></td>
-                <td class="tj-health-count"><%= duration_report_drilldown_link(@query, row[:issue_ids], format_hours(row[:hours])) %></td>
+                <td class="tj-health-count"><%= duration_report_drilldown_link(@query, row[:issue_ids], format_spent_hours(row[:hours])) %></td>
                 <td class="tj-health-percent"><%= number_to_percentage(row[:share] * 100, precision: 1) %></td>
               </tr>
             <% end %>
@@ -119,7 +119,7 @@
             <% report[:activity_rows].first(10).each do |row| %>
               <tr>
                 <td class="tj-health-label"><%= h(row[:activity]) %></td>
-                <td class="tj-health-count"><%= duration_report_drilldown_link(@query, row[:issue_ids], format_hours(row[:hours])) %></td>
+                <td class="tj-health-count"><%= duration_report_drilldown_link(@query, row[:issue_ids], format_spent_hours(row[:hours])) %></td>
                 <td class="tj-health-percent"><%= number_to_percentage(row[:share] * 100, precision: 1) %></td>
               </tr>
             <% end %>
@@ -150,26 +150,26 @@
             <% report[:owner_rows].each do |row| %>
               <tr class="tj-row">
                 <td class="tj-td-title"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:owner]) %></td>
-                <td class="tj-td-native"><%= format_hours(row[:spent_hours]) %></td>
+                <td class="tj-td-native"><%= format_spent_hours(row[:spent_hours]) %></td>
                 <td class="tj-td-native"><%= number_to_percentage(row[:share] * 100, precision: 1) %></td>
                 <td class="tj-td-native"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:issue_count]) %></td>
                 <td class="tj-td-native"><%= row[:entry_count] %></td>
-                <td class="tj-td-native"><%= format_hours(row[:sprint_hours]) %></td>
-                <td class="tj-td-native"><%= format_hours(row[:general_hours]) %></td>
-                <td class="tj-td-native"><%= format_hours(row[:container_hours]) %></td>
+                <td class="tj-td-native"><%= format_spent_hours(row[:sprint_hours]) %></td>
+                <td class="tj-td-native"><%= format_spent_hours(row[:general_hours]) %></td>
+                <td class="tj-td-native"><%= format_spent_hours(row[:container_hours]) %></td>
                 <td class="tj-td-native"><%= row[:estimated_hours].to_f.positive? ? "#{number_with_precision(row[:estimated_hours], precision: 1, strip_insignificant_zeros: true)}h" : '-' %></td>
                 <td class="tj-td-native"><%= row[:estimated_hours].to_f.positive? ? number_to_percentage(row[:estimate_ratio] * 100, precision: 1) : '-' %></td>
               </tr>
             <% end %>
             <tr class="tj-flow-total-row">
               <td class="tj-td-title tj-total-label">Total</td>
-              <td class="tj-td-native"><%= format_hours(totals[:spent_hours]) %></td>
+              <td class="tj-td-native"><%= format_spent_hours(totals[:spent_hours]) %></td>
               <td class="tj-td-native">100%</td>
               <td class="tj-td-native"><%= totals[:issues_with_time] %></td>
               <td class="tj-td-native"><%= totals[:entry_count] %></td>
-              <td class="tj-td-native"><%= format_hours(totals[:sprint_hours]) %></td>
-              <td class="tj-td-native"><%= format_hours(totals[:general_hours]) %></td>
-              <td class="tj-td-native"><%= format_hours(totals[:container_hours]) %></td>
+              <td class="tj-td-native"><%= format_spent_hours(totals[:sprint_hours]) %></td>
+              <td class="tj-td-native"><%= format_spent_hours(totals[:general_hours]) %></td>
+              <td class="tj-td-native"><%= format_spent_hours(totals[:container_hours]) %></td>
               <td class="tj-td-native"><%= totals[:estimated_hours].to_f.positive? ? "#{number_with_precision(totals[:estimated_hours], precision: 1, strip_insignificant_zeros: true)}h" : '-' %></td>
               <td class="tj-td-native"><%= totals[:estimated_hours].to_f.positive? ? number_to_percentage(totals[:spent_estimate_ratio] * 100, precision: 1) : '-' %></td>
             </tr>
@@ -213,7 +213,7 @@
                 <td class="tj-td-native"><span class="tj-status-badge"><%= h(issue.status&.name || '-') %></span></td>
                 <td class="tj-td-native"><%= h(row[:scope_label]) %></td>
                 <td class="tj-td-native"><%= h(row[:original_sprint]) %></td>
-                <td class="tj-td-native"><%= format_hours(row[:spent_hours]) %></td>
+                <td class="tj-td-native"><%= format_spent_hours(row[:spent_hours]) %></td>
                 <td class="tj-td-native"><%= row[:estimated_hours].to_f.positive? ? "#{number_with_precision(row[:estimated_hours], precision: 1, strip_insignificant_zeros: true)}h" : '-' %></td>
                 <td class="tj-td-native"><%= format_hours(row[:calendar_hours]) %></td>
                 <td class="tj-td-native"><%= h(row[:activity_names].join(', ')) %></td>

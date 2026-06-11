@@ -1488,6 +1488,12 @@ module TicketJourneyHelper
     parts.empty? ? '0m' : parts.join(' ')
   end
 
+  def format_spent_hours(hours)
+    return '0h' if hours.nil? || hours.to_f.zero?
+
+    "#{number_with_precision(hours.to_f, precision: 1, strip_insignificant_zeros: true)}h"
+  end
+
   def duration_css_class(hours, aug: false)
     return 'tj-dur-zero' if hours.nil? || hours == 0
 
