@@ -367,6 +367,12 @@ class TicketJourneyController < ApplicationController
     average_closure_hours = average_number(completed_cycle_hours)
     bug_rows, bug_totals, = compute_bug_analysis_report(start_date, end_date, use_query: true)
     qa_report = compute_qa_returns_report(completed_items)
+    completed_logged_hours_by_issue = planning_time_entry_hours_by_issue(completed_issue_ids, start_date, end_date)
+    completed_logged_hours = completed_logged_hours_by_issue.values.sum
+    rework_issue_ids = Array(qa_report[:drilldowns][:tickets_with_returns]).map(&:to_i)
+    completed_logged_issue_ids = completed_logged_hours_by_issue.keys.map(&:to_i)
+    rework_logged_hours = completed_logged_hours_by_issue.slice(*rework_issue_ids).values.sum
+    work_logged_hours = [completed_logged_hours - rework_logged_hours, 0.0].max
     technical_debt_rows = executive_technical_debt_project_rows
     technical_debt_count = technical_debt_rows.sum { |row| row[:count].to_i }
 
@@ -378,7 +384,11 @@ class TicketJourneyController < ApplicationController
         throughput: completed_items.size,
         bug_burndown_rate: bug_burndown_rate(bug_totals),
         average_closure_hours: average_closure_hours,
+        average_logged_hours_per_completed: ratio(completed_logged_hours, completed_items.size),
         work_rework_ratio: qa_report[:totals][:rework_ratio],
+        work_logged_hours: work_logged_hours,
+        rework_logged_hours: rework_logged_hours,
+        rework_logged_ratio: ratio(rework_logged_hours, completed_logged_hours),
         technical_debt_count: technical_debt_count
       },
       cycle_by_tracker_rows: executive_cycle_by_tracker_rows(completed_items),
@@ -389,6 +399,8 @@ class TicketJourneyController < ApplicationController
         throughput: completed_issue_ids,
         bugs: bug_totals[:remaining_issue_ids] || [],
         rework: qa_report[:drilldowns][:tickets_with_returns] || [],
+        logged_work: completed_logged_issue_ids - rework_issue_ids,
+        logged_rework: completed_logged_issue_ids & rework_issue_ids,
         technical_debt: technical_debt_rows.flat_map { |row| row[:issue_ids] }
       }
     }

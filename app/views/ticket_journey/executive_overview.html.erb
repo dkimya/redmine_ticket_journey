@@ -60,11 +60,11 @@
         <div class="tj-sc-value tj-sc-accent"><%= format_date(report[:period_start]) %> - <%= format_date(report[:period_end]) %></div>
       </div>
       <div class="tj-summary-card">
-        <div class="tj-sc-label">Whole Team Throughput</div>
-        <div class="tj-sc-value tj-sc-blue"><%= duration_report_drilldown_link(@query, report[:links][:throughput], kpis[:throughput], title: 'Tickets closed in the executive period') %></div>
+        <div class="tj-sc-label" title="Number of tickets matching the current Redmine filters that were completed during the selected executive period.">Whole Team Throughput</div>
+        <div class="tj-sc-value tj-sc-blue"><%= duration_report_drilldown_link(@query, report[:links][:throughput], kpis[:throughput], title: 'Filtered tickets completed in the executive period') %></div>
       </div>
       <div class="tj-summary-card">
-        <div class="tj-sc-label" title="Bugs closed during the period divided by bugs found during the period.">Bug Burn-down Rate</div>
+        <div class="tj-sc-label" title="Formula: bugs resolved during the executive period / bugs created during the executive period.">Bug Burn-down Rate</div>
         <div class="tj-sc-value <%= kpis[:bug_burndown_rate].to_f >= 1.0 ? 'tj-sc-green' : 'tj-sc-orange' %>">
           <%= link_to number_to_percentage(kpis[:bug_burndown_rate] * 100, precision: 1),
                 ticket_journey_bug_analysis_path(@project, bug_analysis_params(@query).merge('bug_start_date' => report[:period_start], 'bug_end_date' => report[:period_end], 'support_section' => 'bug_analysis')),
@@ -73,16 +73,32 @@
         </div>
       </div>
       <div class="tj-summary-card">
-        <div class="tj-sc-label">Avg Ticket Closure Cycle</div>
+        <div class="tj-sc-label" title="Average active journey duration for tickets completed during the executive period. This is based on status timing, not logged spent time.">Avg Ticket Closure Cycle</div>
         <div class="tj-sc-value tj-sc-blue"><%= format_hours(kpis[:average_closure_hours]) %></div>
       </div>
       <div class="tj-summary-card">
-        <div class="tj-sc-label" title="Rework time divided by total duration for tickets completed in the period.">Work vs Rework Ratio</div>
+        <div class="tj-sc-label" title="Average Redmine logged time during the executive period for tickets completed in that same period.">Avg Logged Time / Closed Ticket</div>
+        <div class="tj-sc-value <%= kpis[:average_logged_hours_per_completed].to_f.positive? ? 'tj-sc-blue' : 'tj-sc-dim' %>"><%= format_spent_hours(kpis[:average_logged_hours_per_completed]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label" title="Journey-duration formula: rework duration divided by total active journey duration for tickets completed in the executive period. This is not logged spent time.">Journey Rework Ratio</div>
         <div class="tj-sc-value <%= kpis[:work_rework_ratio].to_f.positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= number_to_percentage(kpis[:work_rework_ratio] * 100, precision: 1) %></div>
       </div>
       <div class="tj-summary-card">
-        <div class="tj-sc-label">Technical Debt Count</div>
-        <div class="tj-sc-value <%= kpis[:technical_debt_count].to_i.positive? ? 'tj-sc-red' : 'tj-sc-green' %>"><%= duration_report_drilldown_link(@query, report[:links][:technical_debt], kpis[:technical_debt_count], title: 'Open carry-over sprint tickets') %></div>
+        <div class="tj-sc-label" title="Logged time in the executive period on completed tickets that did not have return events.">Work Logged Time</div>
+        <div class="tj-sc-value <%= kpis[:work_logged_hours].to_f.positive? ? 'tj-sc-green' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, report[:links][:logged_work], format_spent_hours(kpis[:work_logged_hours]), title: 'Completed tickets without return events') %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label" title="Logged time in the executive period on completed tickets that had at least one return event.">Rework Logged Time</div>
+        <div class="tj-sc-value <%= kpis[:rework_logged_hours].to_f.positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, report[:links][:logged_rework], format_spent_hours(kpis[:rework_logged_hours]), title: 'Completed tickets with return events') %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label" title="Formula: logged time on completed tickets with return events / all logged time on completed tickets during the executive period.">Rework Logged Ratio</div>
+        <div class="tj-sc-value <%= kpis[:rework_logged_ratio].to_f.positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= number_to_percentage(kpis[:rework_logged_ratio] * 100, precision: 1) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label" title="Current open carry-over sprint tickets that are not completed. This is a current technical-debt count, not a historical period-end snapshot.">Technical Debt Count</div>
+        <div class="tj-sc-value <%= kpis[:technical_debt_count].to_i.positive? ? 'tj-sc-red' : 'tj-sc-green' %>"><%= duration_report_drilldown_link(@query, report[:links][:technical_debt], kpis[:technical_debt_count], title: 'Current open carry-over sprint tickets') %></div>
       </div>
     </div>
 
