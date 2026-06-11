@@ -9,7 +9,7 @@ module TicketJourneyHelper
     label = {
       'pmo_control' => 'PMO Control',
       'sprint_delivery' => 'Sprint Delivery',
-      'owner_returns' => 'Team / Ticket Owner Performance',
+      'owner_returns' => 'Team Performance',
       'qa_returns' => 'Rework Analysis',
       'bug_analysis' => 'Bug Analysis',
       'planning_estimation' => 'Planning Quality',
@@ -729,6 +729,8 @@ module TicketJourneyHelper
       add_tracker_filter(filters, operators, values, technical_tracker_filter_values) unless filters.include?('tracker_id')
     when :task_open
       add_tracker_filter(filters, operators, values, task_tracker_filter_values) unless filters.include?('tracker_id')
+    when :container_open
+      add_tracker_filter(filters, operators, values, container_tracker_filter_values) unless filters.include?('tracker_id')
     when :stopped
       replace_filter(filters, operators, values, 'status_id')
       add_exact_status_filter(filters, operators, values, stopped_status_filter_values)
@@ -1036,6 +1038,10 @@ module TicketJourneyHelper
 
   def task_tracker_filter_values
     @task_tracker_filter_values ||= Tracker.where(name: TicketJourneyController::TRACKER_FAMILY_DEFINITIONS[:task][:tracker_names]).pluck(:id).map(&:to_s)
+  end
+
+  def container_tracker_filter_values
+    @container_tracker_filter_values ||= Tracker.where(name: TicketJourneyController::TRACKER_FAMILY_DEFINITIONS[:container][:tracker_names]).pluck(:id).map(&:to_s)
   end
 
   def priority_filter_values

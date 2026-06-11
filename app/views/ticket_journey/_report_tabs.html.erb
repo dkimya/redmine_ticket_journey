@@ -29,7 +29,7 @@
   tabs_by_key = {
     pmo_control: ['PMO Control', ticket_journey_pmo_control_path(@project, pmo_params)],
     sprint_delivery: ['Sprint Delivery', ticket_journey_sprint_delivery_path(@project, sprint_params)],
-    owner_returns: ['Team / Ticket Owner Performance', ticket_journey_owner_returns_path(@project, owner_params)],
+    owner_returns: ['Team Performance', ticket_journey_owner_returns_path(@project, owner_params)],
     qa_returns: ['Rework Analysis', ticket_journey_qa_returns_path(@project, qa_params)],
     bug_analysis: ['Bug Analysis', ticket_journey_bug_analysis_path(@project, bug_params)],
     planning_estimation: ['Planning Quality', ticket_journey_planning_estimation_path(@project, planning_params)],
@@ -69,7 +69,7 @@
       keys: [:sprint_delivery, :duration, :cycle_distribution, :flow_report, :priority_risk, :issue_detail]
     },
     owner_returns: {
-      label: 'Team / Ticket Owner Performance',
+      label: 'Team Performance',
       keys: [:owner_returns, :owner_workload, :status_snapshot, :duration, :issue_detail]
     },
     qa_returns: {

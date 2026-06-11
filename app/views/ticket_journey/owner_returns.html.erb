@@ -7,7 +7,7 @@
   <div class="tj-page-header">
     <div class="tj-page-header-left">
       <div>
-        <h2>Team / Ticket Owner Performance Dashboard</h2>
+        <h2>Team Performance Dashboard</h2>
         <p class="tj-page-sub">Journey Report Summary &mdash; <%= @project.name %></p>
       </div>
     </div>
@@ -56,6 +56,12 @@
       done_tickets = @owner_return_rows.sum { |row| row[:done_tickets] }
       owner_debt = @owner_return_rows.sum { |row| row[:owner_debt] }
       tickets_without_updates = @owner_return_rows.sum { |row| row[:tickets_without_updates] }
+      done_cycle_count = @owner_return_rows.sum { |row| row[:done_cycle_count].to_i }
+      done_cycle_hours = @owner_return_rows.sum { |row| row[:done_cycle_hours].to_f }
+      priority_done_cycle_count = @owner_return_rows.sum { |row| row[:priority_done_cycle_count].to_i }
+      priority_done_cycle_hours = @owner_return_rows.sum { |row| row[:priority_done_cycle_hours].to_f }
+      avg_cycle_time = done_cycle_count.positive? ? done_cycle_hours / done_cycle_count : 0.0
+      avg_priority_cycle_time = priority_done_cycle_count.positive? ? priority_done_cycle_hours / priority_done_cycle_count : 0.0
       return_counter_definitions = counter_definitions(:internal)
       counter_totals = return_counter_definitions.each_with_object({}) do |counter, totals|
         totals[counter[:key]] = @owner_return_rows.sum { |row| row[counter[:key].to_s.downcase.to_sym].to_i }
@@ -84,6 +90,14 @@
         <div class="tj-sc-label">Completion Rate</div>
         <div class="tj-sc-value <%= done_tickets.positive? ? 'tj-sc-green' : 'tj-sc-dim' %>"><%= format_percentage(done_tickets, total_tickets) %></div>
       </div>
+      <div class="tj-summary-card" title="Average active time from first In Progress to Done / Closed across completed tickets.">
+        <div class="tj-sc-label">Average Cycle Time</div>
+        <div class="tj-sc-value <%= avg_cycle_time.positive? ? 'tj-sc-blue' : 'tj-sc-dim' %>"><%= format_hours(avg_cycle_time) %></div>
+      </div>
+      <div class="tj-summary-card" title="Average active cycle time for completed Urgent or Immediate tickets.">
+        <div class="tj-sc-label">Average Priority Cycle Time</div>
+        <div class="tj-sc-value <%= avg_priority_cycle_time.positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= format_hours(avg_priority_cycle_time) %></div>
+      </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label">Owner Throughput</div>
         <div class="tj-sc-value tj-sc-blue" title="Total tickets across all owners in current scope"><%= number_with_precision(throughput_total, precision: 0) %> total</div>
@@ -109,8 +123,10 @@
       <% end %>
     </div>
 
-    <div class="tj-table-wrap">
-      <table class="tj-table">
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Ticket Delivery Status by Owner</div>
+      <div class="tj-table-wrap">
+        <table class="tj-table">
         <thead>
             <tr>
               <th class="tj-th-title"><%= owner_returns_sort_link(@query, :owner, 'Ticket Owner') %></th>
@@ -161,7 +177,8 @@
             </tr>
           <% end %>
         </tbody>
-      </table>
+        </table>
+      </div>
     </div>
     <% if @owner_avg_time_per_status_rows.present? %>
       <div class="tj-card tj-card-full">

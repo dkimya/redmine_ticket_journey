@@ -28,7 +28,7 @@
                 onchange: 'this.form.submit();' %>
         </div>
         <div class="tj-filter-group tj-flow-filter-note">
-          <span>Uses the Redmine filters above, then summarizes currently open issues by Ticket Owner. Age is counted from issue creation date.</span>
+          <span>This report always summarizes currently open issues by Ticket Owner. If the Status filter is Any or Closed, closed issues are still excluded from workload counts. Age is counted from issue creation date.</span>
         </div>
       </div>
     </div>
@@ -56,6 +56,10 @@
         <div class="tj-sc-label">Total Open</div>
         <div class="tj-sc-value tj-sc-blue"><%= @owner_workload_totals[:total_open] %></div>
       </div>
+      <div class="tj-summary-card" title="Open container trackers such as Sprint, User Story, EPIC / SDLC, and Milestones.">
+        <div class="tj-sc-label">Container Open</div>
+        <div class="tj-sc-value <%= @owner_workload_totals[:container_open].to_i.positive? ? 'tj-sc-blue' : 'tj-sc-dim' %>"><%= @owner_workload_totals[:container_open] %></div>
+      </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label">Stopped</div>
         <div class="tj-sc-value <%= @owner_workload_totals[:stopped].to_i.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= @owner_workload_totals[:stopped] %></div>
@@ -72,31 +76,29 @@
 
     <%
       attention_rows = @owner_workload_rows
-        .select { |row| row[:stopped].positive? || row[:overdue].positive? || row[:priority_open].positive? }
-        .sort_by { |row| [-row[:overdue].to_i, -row[:stopped].to_i, -row[:priority_open].to_i, -row[:total_open].to_i, row[:owner].to_s.downcase] }
+        .select { |row| row[:technical_open].positive? }
+        .sort_by { |row| [-row[:technical_open].to_i, row[:owner].to_s.downcase] }
         .first(12)
-      max_attention = attention_rows.map { |row| row[:total_open].to_i }.max.to_i
+      max_attention = attention_rows.map { |row| row[:technical_open].to_i }.max.to_i
     %>
     <div class="tj-card tj-card-full">
-      <div class="tj-card-title">Workload Attention</div>
+      <div class="tj-card-title">Technical Workload Attention</div>
       <% if attention_rows.empty? %>
-        <div class="tj-flow-empty-note">No stopped, overdue, or priority-open workload for the current filters.</div>
+        <div class="tj-flow-empty-note">No open technical workload for the current filters.</div>
       <% else %>
         <div class="tj-workload-bars">
           <% attention_rows.each do |row| %>
-            <% width = max_attention.positive? ? ((row[:total_open].to_f / max_attention) * 100).round : 0 %>
-            <%= link_to ticket_journey_path(@project, owner_workload_duration_filter_params(row)),
+            <% width = max_attention.positive? ? ((row[:technical_open].to_f / max_attention) * 100).round : 0 %>
+            <%= link_to ticket_journey_path(@project, owner_workload_duration_filter_params(row, :technical_open)),
                   class: 'tj-workload-bar-row',
-                  title: "Open workload for #{row[:owner]}" do %>
+                  title: "Open technical workload for #{row[:owner]}" do %>
               <span class="tj-workload-bar-label"><%= h(row[:owner]) %></span>
               <span class="tj-workload-bar-track">
                 <span class="tj-workload-bar-fill" style="width:<%= width %>%"></span>
               </span>
               <span class="tj-workload-bar-meta">
-                <strong><%= row[:total_open] %></strong>
-                <span>Stopped <%= row[:stopped] %></span>
-                <span>Overdue <%= row[:overdue] %></span>
-                <span>Priority <%= row[:priority_open] %></span>
+                <strong><%= row[:technical_open] %></strong>
+                <span>technical open</span>
               </span>
             <% end %>
           <% end %>
@@ -114,6 +116,7 @@
               <th class="tj-th-native"><%= owner_workload_sort_link(@query, :total_open, 'Total Open') %></th>
               <th class="tj-th-native"><%= owner_workload_sort_link(@query, :technical_open, 'Technical Open') %></th>
               <th class="tj-th-native"><%= owner_workload_sort_link(@query, :task_open, 'Tasks Open') %></th>
+              <th class="tj-th-native"><%= owner_workload_sort_link(@query, :container_open, 'Container Open', title: 'Open container trackers such as Sprint, User Story, EPIC / SDLC, and Milestones') %></th>
               <th class="tj-th-native"><%= owner_workload_sort_link(@query, :stopped, 'Stopped', title: 'Open issues currently Pending or On-Hold') %></th>
               <th class="tj-th-native"><%= owner_workload_sort_link(@query, :overdue, 'Overdue') %></th>
               <th class="tj-th-native"><%= owner_workload_sort_link(@query, :priority_open, 'Priority Open', title: 'Open Urgent or Immediate issues') %></th>
@@ -133,6 +136,7 @@
                 <td class="tj-td-native"><%= owner_workload_count_link(row, :total_open, row[:total_open]) %></td>
                 <td class="tj-td-native"><%= owner_workload_count_link(row, :technical_open, row[:technical_open]) %></td>
                 <td class="tj-td-native"><%= owner_workload_count_link(row, :task_open, row[:task_open]) %></td>
+                <td class="tj-td-native"><%= owner_workload_count_link(row, :container_open, row[:container_open]) %></td>
                 <td class="tj-td-native <%= row[:stopped].positive? ? 'tj-counter-active' : 'tj-counter-zero' %>"><%= owner_workload_count_link(row, :stopped, row[:stopped]) %></td>
                 <td class="tj-td-native <%= row[:overdue].positive? ? 'tj-counter-active' : 'tj-counter-zero' %>"><%= owner_workload_count_link(row, :overdue, row[:overdue]) %></td>
                 <td class="tj-td-native"><%= owner_workload_count_link(row, :priority_open, row[:priority_open]) %></td>
@@ -146,6 +150,7 @@
               <td class="tj-td-native"><%= @owner_workload_rows.sum { |row| row[:total_open] } %></td>
               <td class="tj-td-native"><%= @owner_workload_rows.sum { |row| row[:technical_open] } %></td>
               <td class="tj-td-native"><%= @owner_workload_rows.sum { |row| row[:task_open] } %></td>
+              <td class="tj-td-native"><%= @owner_workload_rows.sum { |row| row[:container_open] } %></td>
               <td class="tj-td-native"><%= @owner_workload_rows.sum { |row| row[:stopped] } %></td>
               <td class="tj-td-native"><%= @owner_workload_rows.sum { |row| row[:overdue] } %></td>
               <td class="tj-td-native"><%= @owner_workload_rows.sum { |row| row[:priority_open] } %></td>

@@ -10,7 +10,7 @@ class TicketJourneyController < ApplicationController
   BUG_RELATED_PAGE_CF_NAMES = ['Bug Related Page / Module', 'Related Page / Module', 'Bug Related Page', 'Related Page', 'Related to Page', 'Related to Page (FMS)', 'Related Module', 'Page / Module', 'Module / Page'].freeze
   BUG_LEAKAGE_SOURCE_KEYWORDS = ['test escape', 'coverage gap', 'requirement gap'].freeze
   OWNER_RETURN_SORTABLE_FIELDS = %w[owner total_tickets ticket_share done_tickets completion_rate avg_done_cycle_time avg_priority_done_cycle_time open_tickets owner_debt tickets_without_updates avg_idle_days returned_tickets return_rate c1 c2 c3 c4 c5 total_returns].freeze
-  OWNER_WORKLOAD_SORTABLE_FIELDS = %w[owner total_open technical_open task_open stopped overdue priority_open no_due_date avg_age oldest_age].freeze
+  OWNER_WORKLOAD_SORTABLE_FIELDS = %w[owner total_open technical_open task_open container_open stopped overdue priority_open no_due_date avg_age oldest_age].freeze
   AGING_RISK_SORTABLE_FIELDS = %w[group total_open bucket_0_7 bucket_8_14 bucket_15_30 bucket_31_60 bucket_60_plus stopped overdue priority_open no_due_date avg_age oldest_age].freeze
   PRIORITY_RISK_SORTABLE_FIELDS = %w[issue subject owner priority status tracker due_date age_days overdue stopped no_due_date].freeze
   CYCLE_DISTRIBUTION_SORTABLE_FIELDS = %w[group completed_count avg_cycle_hours max_cycle_hours bucket_0_2 bucket_3_7 bucket_8_14 bucket_15_30 bucket_30_plus].freeze
@@ -1799,6 +1799,7 @@ class TicketJourneyController < ApplicationController
         total_open: 0,
         technical_open: 0,
         task_open: 0,
+        container_open: 0,
         stopped: 0,
         overdue: 0,
         priority_open: 0,
@@ -1817,6 +1818,7 @@ class TicketJourneyController < ApplicationController
       row[:total_open] += 1
       row[:technical_open] += 1 if technical_tracker?(issue.tracker&.name)
       row[:task_open] += 1 if task_tracker?(issue.tracker&.name)
+      row[:container_open] += 1 if container_tracker?(issue.tracker&.name)
       row[:stopped] += 1 if paused_status?(issue.status&.name)
       row[:overdue] += 1 if issue.due_date.present? && issue.due_date < today
       row[:priority_open] += 1 if priority_performance_ticket?(issue)
@@ -1833,6 +1835,8 @@ class TicketJourneyController < ApplicationController
     totals = {
       owners: owner_rows.size,
       total_open: owner_rows.sum { |row| row[:total_open] },
+      technical_open: owner_rows.sum { |row| row[:technical_open] },
+      container_open: owner_rows.sum { |row| row[:container_open] },
       stopped: owner_rows.sum { |row| row[:stopped] },
       overdue: owner_rows.sum { |row| row[:overdue] },
       priority_open: owner_rows.sum { |row| row[:priority_open] }
@@ -1842,7 +1846,7 @@ class TicketJourneyController < ApplicationController
   end
 
   def empty_owner_workload_totals
-    { owners: 0, total_open: 0, stopped: 0, overdue: 0, priority_open: 0 }
+    { owners: 0, total_open: 0, technical_open: 0, container_open: 0, stopped: 0, overdue: 0, priority_open: 0 }
   end
 
   def owner_workload_issues
