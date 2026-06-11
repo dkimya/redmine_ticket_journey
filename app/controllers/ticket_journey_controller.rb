@@ -131,12 +131,11 @@ class TicketJourneyController < ApplicationController
 
   def executive_team_performance
     build_query_from(all_status_query_params, use_default_query: false)
-    executive_placeholder(
-      active_tab: :executive_team_performance,
-      title: 'Executive Team Member Performance',
-      subtitle: 'CEO-level team throughput, commitment, return burden, and utilization view.',
-      source_reports: ['Team Performance', 'Owner Workload / Time Support', 'Status Snapshot', 'Time Utilization & Scope Control']
-    )
+    @executive_period_key, @executive_start_date, @executive_end_date = executive_period_dates
+    @sprint_options = sprint_delivery_sprints
+    @selected_sprint = selected_sprint(@sprint_options)
+    @issues_data = compute_all_durations
+    @executive_team_report = compute_executive_team_performance_report(@issues_data, @executive_start_date, @executive_end_date, @selected_sprint)
   end
 
   def executive_bug_quality_risk
@@ -362,10 +361,8 @@ class TicketJourneyController < ApplicationController
   end
 
   def compute_executive_overview_report(issues_data, start_date, end_date)
-    period_start = start_date.beginning_of_day
-    period_end = end_date.end_of_day
     items = Array(issues_data)
-    completed_items = items.select { |item| item[:issue].closed_on.present? && item[:issue].closed_on.between?(period_start, period_end) }
+    completed_items = executive_completed_items(items, start_date, end_date)
     completed_issue_ids = completed_items.map { |item| item[:issue].id }
     completed_cycle_hours = completed_items.filter_map { |item| completed_cycle_time_hours(item) || item[:durations][:TOTAL].to_f.presence }
     average_closure_hours = average_number(completed_cycle_hours)
@@ -478,6 +475,106 @@ class TicketJourneyController < ApplicationController
         issue_ids: project_issues.map(&:id)
       }
     end.sort_by { |row| [-row[:count].to_i, row[:project].to_s.downcase] }
+  end
+
+  def compute_executive_team_performance_report(issues_data, start_date, end_date, sprint)
+    items = Array(issues_data)
+    completed_items = executive_completed_items(items, start_date, end_date)
+    completed_cycle_hours = completed_items.filter_map { |item| completed_cycle_time_hours(item) || item[:durations][:TOTAL].to_f.presence }
+    qa_report = compute_qa_returns_report(completed_items)
+    sprint_report = safe_compute_sprint_delivery_report(sprint, context: 'Executive Team Performance')
+    time_report = compute_time_utilization_report(start_date, end_date)
+    workload_rows, workload_totals = compute_owner_workload_report
+    owner_rows = executive_team_owner_rows(completed_items, sprint_report[:owner_rows], time_report[:owner_rows], workload_rows)
+
+    {
+      period_start: start_date,
+      period_end: end_date,
+      sprint: sprint,
+      kpis: {
+        owners: owner_rows.size,
+        throughput: completed_items.size,
+        average_commitment_reliability: ratio(sprint_report.dig(:totals, :completed).to_i, sprint_report.dig(:totals, :committed).to_i),
+        return_events: qa_report.dig(:totals, :return_events).to_i,
+        rework_hours: qa_report.dig(:totals, :total_rework_hours).to_f,
+        average_cycle_hours: average_number(completed_cycle_hours),
+        open_workload: workload_totals[:total_open].to_i
+      },
+      owner_rows: owner_rows,
+      commitment_rows: executive_team_commitment_rows(sprint_report[:owner_rows]),
+      return_rows: owner_rows.select { |row| row[:return_events].to_i.positive? || row[:rework_hours].to_f.positive? }
+                            .sort_by { |row| [-row[:return_events].to_i, -row[:rework_hours].to_f, row[:owner].to_s.downcase] },
+      time_rows: Array(time_report[:owner_rows]),
+      workload_rows: workload_rows
+    }
+  end
+
+  def executive_completed_items(items, start_date, end_date)
+    items.select do |item|
+      closed_on = item[:issue].closed_on
+      closed_on.present? && closed_on.to_date.between?(start_date, end_date)
+    end
+  end
+
+  def executive_team_owner_rows(completed_items, sprint_owner_rows, time_owner_rows, workload_rows)
+    sprint_by_owner = executive_index_owner_rows(sprint_owner_rows)
+    time_by_owner = executive_index_owner_rows(time_owner_rows)
+    workload_by_owner = executive_index_owner_rows(workload_rows)
+    completed_by_owner = completed_items.group_by { |item| ticket_owner_info(item[:issue]) }
+    owner_keys = (
+      completed_by_owner.keys +
+      Array(sprint_owner_rows).map { |row| [row[:owner_value], row[:owner]] } +
+      Array(time_owner_rows).map { |row| [row[:owner_value], row[:owner]] } +
+      Array(workload_rows).map { |row| [row[:owner_value], row[:owner]] }
+    ).uniq
+
+    owner_keys.map do |owner_value, owner_name|
+      owner_items = completed_by_owner[[owner_value, owner_name]] || []
+      cycle_hours = owner_items.filter_map { |item| completed_cycle_time_hours(item) || item[:durations][:TOTAL].to_f.presence }
+      qa_rows = qa_rework_rows(owner_items)
+      time_row = executive_find_owner_row(time_by_owner, owner_value, owner_name)
+      sprint_row = executive_find_owner_row(sprint_by_owner, owner_value, owner_name)
+      workload_row = executive_find_owner_row(workload_by_owner, owner_value, owner_name)
+
+      {
+        owner_value: owner_value,
+        owner: owner_name.presence || 'Unassigned',
+        throughput: owner_items.size,
+        issue_ids: owner_items.map { |item| item[:issue].id },
+        avg_cycle_hours: average_number(cycle_hours),
+        return_events: owner_items.sum { |item| item_total_returns(item) },
+        returned_tickets: owner_items.count { |item| item_total_returns(item).positive? },
+        rework_hours: qa_rows.sum { |row| row[:hours].to_f },
+        committed: sprint_row&.fetch(:committed, 0).to_i,
+        completed: sprint_row&.fetch(:completed, 0).to_i,
+        commitment_rate: sprint_row&.fetch(:completion_rate, 0.0).to_f,
+        spent_hours: time_row&.fetch(:spent_hours, 0.0).to_f,
+        spent_share: time_row&.fetch(:share, 0.0).to_f,
+        sprint_hours: time_row&.fetch(:sprint_hours, 0.0).to_f,
+        general_hours: time_row&.fetch(:general_hours, 0.0).to_f,
+        container_hours: time_row&.fetch(:container_hours, 0.0).to_f,
+        open_workload: workload_row&.fetch(:total_open, 0).to_i,
+        stopped: workload_row&.fetch(:stopped, 0).to_i,
+        overdue: workload_row&.fetch(:overdue, 0).to_i
+      }
+    end.sort_by { |row| [-row[:throughput].to_i, -row[:spent_hours].to_f, row[:owner].to_s.downcase] }
+  end
+
+  def executive_team_commitment_rows(owner_rows)
+    Array(owner_rows).map do |row|
+      row.merge(owner: row[:owner].presence || 'Unassigned')
+    end.sort_by { |row| [row[:completion_rate].to_f, -row[:committed].to_i, row[:owner].to_s.downcase] }
+  end
+
+  def executive_index_owner_rows(rows)
+    Array(rows).each_with_object({}) do |row, memo|
+      memo[[:value, row[:owner_value].to_s]] = row if row[:owner_value].present?
+      memo[[:name, row[:owner].to_s.downcase]] = row if row[:owner].present?
+    end
+  end
+
+  def executive_find_owner_row(index, owner_value, owner_name)
+    index[[:value, owner_value.to_s]] || index[[:name, owner_name.to_s.downcase]]
   end
 
   # ---------------------------------------------------------------

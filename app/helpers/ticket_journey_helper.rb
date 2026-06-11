@@ -147,7 +147,7 @@ module TicketJourneyHelper
   def executive_dashboard_params(query)
     query_params = query.as_params.deep_dup.deep_stringify_keys
 
-    %w[exec_period exec_start_date exec_end_date].each do |key|
+    %w[exec_period exec_start_date exec_end_date sprint_id].each do |key|
       query_params.delete(key)
       value = params[key]
       query_params[key] = value if value.present?

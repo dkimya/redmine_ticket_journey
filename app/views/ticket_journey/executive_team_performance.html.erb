@@ -1,0 +1,213 @@
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'ticket_journey', plugin: 'redmine_ticket_journey' %>
+<% end %>
+
+<div id="tj-wrap">
+  <div class="tj-page-header">
+    <div class="tj-page-header-left">
+      <div>
+        <h2><%= ticket_journey_header_context_tag(:executive_dashboards) %>Team Member Performance</h2>
+        <p class="tj-page-sub">Executive team throughput, commitment, rework, workload, and time utilization &mdash; <%= @project.name %></p>
+      </div>
+    </div>
+  </div>
+
+  <%= render partial: 'report_tabs', locals: { active_tab: :executive_team_performance } %>
+
+  <%= form_tag(ticket_journey_executive_team_performance_path(@project), method: :get, id: 'query_form') do %>
+    <%= hidden_field_tag :support_section, params[:support_section] if params[:support_section].present? %>
+    <%= render partial: 'queries/query_form' %>
+
+    <div class="tj-filter-bar tj-owner-filter-bar">
+      <div class="tj-filter-form">
+        <div class="tj-filter-group">
+          <label for="exec_period">Executive Period</label>
+          <%= select_tag :exec_period,
+                options_for_select([['Last Month', 'last_month'], ['Last 3 Months', 'last_3_months'], ['Custom Period', 'custom']], @executive_period_key),
+                class: 'tj-input' %>
+        </div>
+        <div class="tj-filter-group">
+          <label for="exec_start_date">Period Start</label>
+          <%= date_field_tag :exec_start_date, @executive_start_date, class: 'tj-input' %>
+        </div>
+        <div class="tj-filter-group">
+          <label for="exec_end_date">Period End</label>
+          <%= date_field_tag :exec_end_date, @executive_end_date, class: 'tj-input' %>
+        </div>
+        <div class="tj-filter-group">
+          <label for="sprint_id">Commitment Sprint</label>
+          <%= select_tag :sprint_id,
+                options_for_select(@sprint_options.map { |sprint| ["##{sprint.id} - #{sprint.subject}", sprint.id] }, @selected_sprint&.id),
+                include_blank: @sprint_options.empty? ? 'No sprint found' : nil,
+                class: 'tj-input' %>
+        </div>
+        <div class="tj-filter-group tj-flow-filter-note">
+          <span>Redmine filters choose the ticket population. The executive period is used for completed tickets and spent time. Commitment reliability uses the selected sprint.</span>
+        </div>
+        <div class="tj-filter-group tj-filter-actions">
+          <%= submit_tag 'Apply', class: 'tj-btn tj-btn-primary' %>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <% if !@query.valid? %>
+    <div class="tj-empty">
+      <div class="tj-empty-icon">Report</div>
+      <h3>Invalid filters</h3>
+      <p>Please review the Redmine query filters above.</p>
+    </div>
+  <% else %>
+    <% report = @executive_team_report %>
+    <% kpis = report[:kpis] %>
+
+    <div class="tj-summary-strip">
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Executive Period</div>
+        <div class="tj-sc-value tj-sc-accent"><%= format_date(report[:period_start]) %> - <%= format_date(report[:period_end]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Team Members</div>
+        <div class="tj-sc-value tj-sc-blue"><%= kpis[:owners] %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label" title="Tickets closed in the selected executive period.">Team Throughput</div>
+        <div class="tj-sc-value tj-sc-blue"><%= kpis[:throughput] %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label" title="Selected sprint completed tickets divided by committed tickets.">Commitment Reliability</div>
+        <div class="tj-sc-value <%= kpis[:average_commitment_reliability].to_f >= 0.8 ? 'tj-sc-green' : 'tj-sc-orange' %>"><%= number_to_percentage(kpis[:average_commitment_reliability] * 100, precision: 1) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label" title="Return status transitions on tickets closed in the executive period.">Total Return Events</div>
+        <div class="tj-sc-value <%= kpis[:return_events].to_i.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= kpis[:return_events] %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label" title="Estimated rework duration on tickets closed in the executive period.">Rework Burden</div>
+        <div class="tj-sc-value <%= kpis[:rework_hours].to_f.positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= format_hours(kpis[:rework_hours]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Average Cycle Time</div>
+        <div class="tj-sc-value tj-sc-blue"><%= format_hours(kpis[:average_cycle_hours]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label">Open Workload</div>
+        <div class="tj-sc-value <%= kpis[:open_workload].to_i.positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= kpis[:open_workload] %></div>
+      </div>
+    </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Team Member Executive Summary</div>
+      <div class="tj-table-wrap">
+        <table class="tj-table">
+          <thead>
+            <tr>
+              <th class="tj-th-title">Ticket Owner</th>
+              <th class="tj-th-native" title="Tickets closed in the selected executive period.">Throughput</th>
+              <th class="tj-th-native">Avg Cycle</th>
+              <th class="tj-th-native" title="Selected sprint completed tickets divided by committed tickets.">Commitment</th>
+              <th class="tj-th-native">Returns</th>
+              <th class="tj-th-native">Rework</th>
+              <th class="tj-th-native">Spent Time</th>
+              <th class="tj-th-native">Open Work</th>
+              <th class="tj-th-native">Stopped</th>
+              <th class="tj-th-native">Overdue</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if report[:owner_rows].empty? %>
+              <tr><td class="tj-flow-empty-note" colspan="10">No team member data found for the current filters.</td></tr>
+            <% end %>
+            <% report[:owner_rows].each do |row| %>
+              <tr class="tj-row">
+                <td class="tj-td-title"><%= h(row[:owner]) %></td>
+                <td class="tj-td-native"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:throughput]) %></td>
+                <td class="tj-td-native"><%= format_hours(row[:avg_cycle_hours]) %></td>
+                <td class="tj-td-native"><%= row[:committed].positive? ? number_to_percentage(row[:commitment_rate] * 100, precision: 1) : '-' %></td>
+                <td class="tj-td-native <%= row[:return_events].positive? ? 'tj-counter-active' : '' %>"><%= row[:return_events].positive? ? row[:return_events] : '-' %></td>
+                <td class="tj-td-native"><%= format_hours(row[:rework_hours]) %></td>
+                <td class="tj-td-native"><%= format_spent_hours(row[:spent_hours]) %></td>
+                <td class="tj-td-native"><%= row[:open_workload] %></td>
+                <td class="tj-td-native <%= row[:stopped].positive? ? 'tj-counter-active' : '' %>"><%= row[:stopped].positive? ? row[:stopped] : '-' %></td>
+                <td class="tj-td-native <%= row[:overdue].positive? ? 'tj-counter-active' : '' %>"><%= row[:overdue].positive? ? row[:overdue] : '-' %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tj-detail-grid">
+      <div class="tj-card">
+        <div class="tj-card-title">Throughput by Team Member</div>
+        <table class="tj-health-table">
+          <tbody>
+            <% report[:owner_rows].select { |row| row[:throughput].positive? }.first(10).each do |row| %>
+              <tr>
+                <td class="tj-health-label"><%= h(row[:owner]) %></td>
+                <td class="tj-health-count"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:throughput]) %></td>
+                <td class="tj-health-percent"><%= format_hours(row[:avg_cycle_hours]) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="tj-card">
+        <div class="tj-card-title">Commitment Reliability by Team Member</div>
+        <table class="tj-health-table">
+          <tbody>
+            <% if report[:commitment_rows].empty? %>
+              <tr><td class="tj-flow-empty-note">No sprint commitment data found.</td></tr>
+            <% end %>
+            <% report[:commitment_rows].first(10).each do |row| %>
+              <tr>
+                <td class="tj-health-label"><%= h(row[:owner]) %></td>
+                <td class="tj-health-count"><%= number_to_percentage(row[:completion_rate] * 100, precision: 1) %></td>
+                <td class="tj-health-percent"><%= row[:completed] %> / <%= row[:committed] %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tj-detail-grid">
+      <div class="tj-card">
+        <div class="tj-card-title">Return / Rework by Team Member</div>
+        <table class="tj-health-table">
+          <tbody>
+            <% if report[:return_rows].empty? %>
+              <tr><td class="tj-flow-empty-note">No return or rework signal found for completed tickets in this period.</td></tr>
+            <% end %>
+            <% report[:return_rows].first(10).each do |row| %>
+              <tr>
+                <td class="tj-health-label"><%= h(row[:owner]) %></td>
+                <td class="tj-health-count"><%= row[:return_events] %> returns</td>
+                <td class="tj-health-percent"><%= format_hours(row[:rework_hours]) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="tj-card">
+        <div class="tj-card-title">Time Utilization by Team Member</div>
+        <table class="tj-health-table">
+          <tbody>
+            <% if report[:time_rows].empty? %>
+              <tr><td class="tj-flow-empty-note">No spent-time data found in the selected executive period.</td></tr>
+            <% end %>
+            <% report[:time_rows].first(10).each do |row| %>
+              <tr>
+                <td class="tj-health-label"><%= h(row[:owner]) %></td>
+                <td class="tj-health-count"><%= duration_report_drilldown_link(@query, row[:issue_ids], format_spent_hours(row[:spent_hours])) %></td>
+                <td class="tj-health-percent"><%= number_to_percentage(row[:share] * 100, precision: 1) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% end %>
+</div>
