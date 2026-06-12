@@ -6,12 +6,44 @@
 
     if (!period || !startDate || !endDate) return;
 
+    function formatDate(date) {
+      var year = date.getFullYear();
+      var month = String(date.getMonth() + 1).padStart(2, '0');
+      var day = String(date.getDate()).padStart(2, '0');
+      return year + '-' + month + '-' + day;
+    }
+
+    function addMonths(date, amount) {
+      var result = new Date(date.getFullYear(), date.getMonth() + amount, date.getDate());
+
+      if (result.getMonth() !== ((date.getMonth() + amount) % 12 + 12) % 12) {
+        result = new Date(date.getFullYear(), date.getMonth() + amount + 1, 0);
+      }
+
+      return result;
+    }
+
+    function resetPresetDates() {
+      var today = new Date();
+
+      if (period.value === 'last_month') {
+        var firstDayLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        var lastDayLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+        startDate.value = formatDate(firstDayLastMonth);
+        endDate.value = formatDate(lastDayLastMonth);
+      } else if (period.value === 'last_3_months') {
+        startDate.value = formatDate(addMonths(today, -3));
+        endDate.value = formatDate(today);
+      }
+    }
+
     function markCustomPeriod() {
       if (period.value !== 'custom') {
         period.value = 'custom';
       }
     }
 
+    period.addEventListener('change', resetPresetDates);
     startDate.addEventListener('input', markCustomPeriod);
     startDate.addEventListener('change', markCustomPeriod);
     endDate.addEventListener('input', markCustomPeriod);
