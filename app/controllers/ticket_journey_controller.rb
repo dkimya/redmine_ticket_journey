@@ -139,7 +139,7 @@ class TicketJourneyController < ApplicationController
   end
 
   def executive_bug_quality_risk
-    build_query_from(all_status_query_params, use_default_query: false)
+    build_query_from(default_tracker_query_params(bug_tracker_ids, base_params: all_status_query_params), use_default_query: false)
     @executive_period_key, @executive_start_date, @executive_end_date = executive_period_dates
     @bug_start_date = @executive_start_date
     @bug_end_date = @executive_end_date
@@ -637,8 +637,22 @@ class TicketJourneyController < ApplicationController
       closed_report: closed_report,
       important_closed_rows: important_closed,
       bug_trend_rows: executive_bug_trend_rows(Array(issues_data), start_date, end_date),
-      critical_project_rows: executive_critical_bug_project_rows(critical_open_rows)
+      bug_source_histograms: executive_bug_source_histograms(bug_rows),
+      important_project_module_rows: executive_important_project_module_rows(critical_open_rows, important_closed)
     }
+  end
+
+  def executive_bug_source_histograms(bug_rows)
+    [
+      { title: 'Resolved Bugs During Period', count_key: :closed, percent_key: :closed_percent },
+      { title: 'Created Bugs During Period', count_key: :found, percent_key: :found_percent },
+      { title: 'Bugs at End of Period', count_key: :remaining, percent_key: :remaining_percent }
+    ].map do |scope|
+      rows = Array(bug_rows).select { |row| row[scope[:count_key]].to_i.positive? }
+                            .sort_by { |row| [-row[scope[:count_key]].to_i, row[:reason].to_s.downcase] }
+
+      scope.merge(rows: rows)
+    end
   end
 
   def executive_important_closed_bug_rows(start_date, end_date)
@@ -667,6 +681,39 @@ class TicketJourneyController < ApplicationController
         days_to_close: days_to_close
       }
     end.sort_by { |row| [-row[:days_to_close].to_f, row[:project].to_s.downcase, row[:issue_id].to_i] }
+  end
+
+  def executive_important_project_module_rows(critical_open_rows, important_closed_rows)
+    groups = Hash.new do |hash, key|
+      hash[key] = {
+        project: key.first,
+        page_module: key.last,
+        ending_count: 0,
+        resolved_count: 0,
+        high_risk: 0,
+        issue_ids: []
+      }
+    end
+
+    Array(critical_open_rows).each do |row|
+      key = [row[:issue]&.project&.name || '-', row[:page_module].presence || '-']
+      groups[key][:ending_count] += 1
+      groups[key][:high_risk] += 1 if row[:risk] == 'High'
+      groups[key][:issue_ids] << row[:issue_id]
+    end
+
+    Array(important_closed_rows).each do |row|
+      key = [row[:project].presence || '-', row[:page_module].presence || '-']
+      groups[key][:resolved_count] += 1
+      groups[key][:issue_ids] << row[:issue_id]
+    end
+
+    groups.values.map do |row|
+      row.merge(
+        total_count: row[:ending_count].to_i + row[:resolved_count].to_i,
+        issue_ids: row[:issue_ids].compact.uniq
+      )
+    end.sort_by { |row| [-row[:total_count].to_i, -row[:resolved_count].to_i, -row[:ending_count].to_i, row[:project].to_s.downcase, row[:page_module].to_s.downcase] }
   end
 
   def executive_critical_bug_project_rows(critical_open_rows)

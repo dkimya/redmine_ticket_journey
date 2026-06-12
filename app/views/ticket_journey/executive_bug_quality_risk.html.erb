@@ -91,7 +91,7 @@
       </div>
     </div>
 
-    <div class="tj-detail-grid">
+    <div class="tj-detail-grid tj-executive-quality-top-grid">
       <div class="tj-card">
         <div class="tj-card-title">Bugs Created vs Resolved Trend</div>
         <table class="tj-health-table">
@@ -115,17 +115,29 @@
       </div>
 
       <div class="tj-card">
-        <div class="tj-card-title">Important Bugs by Project</div>
+        <div class="tj-card-title" title="Important bugs resolved during the period plus important bugs still open at the period end, grouped by project and page/module.">Important Bugs by Project / Module</div>
         <table class="tj-health-table">
+          <thead>
+            <tr>
+              <th class="tj-th-title">Project / Module</th>
+              <th class="tj-th-native">Resolved</th>
+              <th class="tj-th-native">Ending</th>
+              <th class="tj-th-native">Total</th>
+            </tr>
+          </thead>
           <tbody>
-            <% if report[:critical_project_rows].empty? %>
-              <tr><td class="tj-flow-empty-note">No important open bugs found at the end of this period.</td></tr>
+            <% if report[:important_project_module_rows].empty? %>
+              <tr><td colspan="4" class="tj-flow-empty-note">No important bugs were resolved or remained open in this period.</td></tr>
             <% end %>
-            <% report[:critical_project_rows].each do |row| %>
+            <% report[:important_project_module_rows].each do |row| %>
               <tr>
-                <td class="tj-health-label"><%= h(row[:project]) %></td>
-                <td class="tj-health-count"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:count]) %></td>
-                <td class="tj-health-percent"><%= row[:high_risk] %> high risk</td>
+                <td class="tj-health-label">
+                  <%= h(row[:project]) %>
+                  <span class="tj-muted-inline">/ <%= h(row[:page_module]) %></span>
+                </td>
+                <td class="tj-health-count tj-sc-green"><%= row[:resolved_count] %></td>
+                <td class="tj-health-count tj-sc-orange"><%= row[:ending_count] %></td>
+                <td class="tj-health-count"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:total_count]) %></td>
               </tr>
             <% end %>
           </tbody>
@@ -134,25 +146,33 @@
     </div>
 
     <div class="tj-card tj-card-full">
-      <div class="tj-card-title">Bug Source Concentration</div>
-      <% remaining_rows = report[:bug_rows].select { |row| row[:remaining].to_i.positive? }.sort_by { |row| [-row[:remaining].to_i, row[:reason].to_s.downcase] } %>
-      <% if remaining_rows.empty? %>
-        <div class="tj-flow-empty-note">No ending bugs in this period.</div>
-      <% else %>
-        <div class="tj-bug-bars">
-          <% max_remaining = remaining_rows.map { |row| row[:remaining].to_i }.max.to_i %>
-          <% remaining_rows.each do |row| %>
-            <% width = max_remaining.positive? ? ((row[:remaining].to_f / max_remaining) * 100).round : 0 %>
-            <div class="tj-bug-bar-row">
-              <span class="tj-bug-bar-label"><%= h(row[:reason]) %></span>
-              <span class="tj-bug-bar-track">
-                <span class="tj-bug-bar-fill" style="width:<%= width %>%"></span>
-              </span>
-              <span class="tj-bug-bar-count"><%= row[:remaining] %></span>
-            </div>
-          <% end %>
-        </div>
-      <% end %>
+      <div class="tj-card-title" title="Default executive read is resolved bugs during the period, with created and ending bug-source views shown for comparison.">Bug Source Histogram</div>
+      <div class="tj-source-histogram-grid">
+        <% report[:bug_source_histograms].each_with_index do |histogram, index| %>
+          <div class="tj-subpanel">
+            <div class="tj-subpanel-title"><%= h(histogram[:title]) %><%= index.zero? ? ' (Default)' : '' %></div>
+            <% rows = histogram[:rows] %>
+            <% if rows.empty? %>
+              <div class="tj-flow-empty-note">No bugs for this scope.</div>
+            <% else %>
+              <div class="tj-bug-bars">
+                <% max_count = rows.map { |row| row[histogram[:count_key]].to_i }.max.to_i %>
+                <% rows.each do |row| %>
+                  <% count = row[histogram[:count_key]].to_i %>
+                  <% width = max_count.positive? ? ((count.to_f / max_count) * 100).round : 0 %>
+                  <div class="tj-bug-bar-row">
+                    <span class="tj-bug-bar-label"><%= h(row[:reason]) %></span>
+                    <span class="tj-bug-bar-track">
+                      <span class="tj-bug-bar-fill" style="width:<%= width %>%"></span>
+                    </span>
+                    <span class="tj-bug-bar-count"><%= count %></span>
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
     </div>
 
     <div class="tj-card tj-card-full">

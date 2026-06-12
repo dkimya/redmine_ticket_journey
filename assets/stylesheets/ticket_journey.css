@@ -610,6 +610,23 @@
 .tj-subpanel .tj-bug-bar-row {
   grid-template-columns: minmax(120px, 220px) minmax(120px, 1fr) 48px;
 }
+.tj-source-histogram-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.tj-subpanel-title {
+  margin: 0 0 10px;
+  color: var(--tj-text-dim);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .7px;
+  text-transform: uppercase;
+}
+.tj-muted-inline {
+  color: var(--tj-text-muted);
+  font-weight: 600;
+}
 .tj-bug-page-meta {
   display: flex;
   justify-content: flex-end;
@@ -1293,11 +1310,15 @@
   gap: 16px;
   margin-bottom: 16px;
 }
+.tj-detail-grid.tj-executive-quality-top-grid {
+  grid-template-columns: 1fr minmax(420px, 520px);
+}
 .tj-detail-grid.tj-bug-closed-panels {
   grid-template-columns: 1fr;
 }
 @media (max-width: 900px) {
   .tj-detail-grid { grid-template-columns: 1fr; }
+  .tj-source-histogram-grid { grid-template-columns: 1fr; }
 }
 
 .tj-card {
