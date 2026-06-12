@@ -20,6 +20,7 @@
   data_quality_tab_params = clean_tab_params.call(data_quality_params(@query))
   original_sprint_tab_params = clean_tab_params.call(original_sprint_params(@query))
   executive_params = clean_tab_params.call(executive_dashboard_params(@query))
+  executive_overview_params = clean_tab_params.call(executive_overview_default_params(@query))
   duration_params = duration_params.except('issue_id', 'view')
   detail_params =
     if @issue.present?
@@ -28,8 +29,8 @@
       clean_tab_params.call(issue_detail_tab_params(@query))
     end
   tabs_by_key = {
-    executive_dashboards: ['Executive Dashboards', ticket_journey_executive_overview_path(@project, executive_params)],
-    executive_overview: ['Executive Overview', ticket_journey_executive_overview_path(@project, executive_params)],
+    executive_dashboards: ['Executive Dashboards', ticket_journey_executive_overview_path(@project, executive_overview_params)],
+    executive_overview: ['Executive Overview', ticket_journey_executive_overview_path(@project, executive_overview_params)],
     executive_team_performance: ['Team Member Performance', ticket_journey_executive_team_performance_path(@project, executive_params)],
     executive_bug_quality_risk: ['Bug & Quality Risk', ticket_journey_executive_bug_quality_risk_path(@project, executive_params)],
     executive_technical_debt: ['Technical Debt', ticket_journey_executive_technical_debt_path(@project, executive_params)],

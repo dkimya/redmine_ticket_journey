@@ -157,6 +157,20 @@ module TicketJourneyHelper
     query_params
   end
 
+  def executive_overview_default_params(query)
+    query_params = executive_dashboard_params(query)
+    return query_params if query_params['query_id'].present?
+
+    remove_query_filter(query_params, 'status_id')
+    filters, operators, values = remove_query_filter(query_params, 'tracker_id')
+
+    query_params['set_filter'] = '1'
+    query_params['f'] = filters + ['tracker_id']
+    query_params['op'] = operators.merge('tracker_id' => '=')
+    query_params['v'] = values.merge('tracker_id' => technical_tracker_filter_values.presence || ['0'])
+    query_params
+  end
+
   def sprint_delivery_params(query)
     query_params = query.as_params.deep_dup.deep_stringify_keys
 

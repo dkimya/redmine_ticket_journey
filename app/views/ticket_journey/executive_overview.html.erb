@@ -142,38 +142,39 @@
           rework_spent_row = work_rework_rows.find { |row| row[:label] == 'Rework Time' }
           logged_rework_percent = (rework_spent_row&.fetch(:spent_share, 0.0).to_f * 100).round(1)
           logged_work_percent = (work_spent_row&.fetch(:spent_share, 0.0).to_f * 100).round(1)
+          logged_total_hours = work_rework_rows.find { |row| row[:label] == 'Total' }&.fetch(:spent_hours, 0.0).to_f
         %>
         <div class="tj-pie-summary">
-          <div class="tj-pie-chart"
-               style="background: conic-gradient(var(--tj-orange) 0 <%= logged_rework_percent %>%, var(--tj-green) <%= logged_rework_percent %>% 100%);"
-               title="Logged spent time split: work <%= logged_work_percent %>%, rework <%= logged_rework_percent %>%"></div>
+          <% if logged_total_hours.positive? %>
+            <div class="tj-pie-chart"
+                 style="background: conic-gradient(var(--tj-orange) 0 <%= logged_rework_percent %>%, var(--tj-green) <%= logged_rework_percent %>% 100%);"
+                 title="Logged spent time split: work <%= logged_work_percent %>%, rework <%= logged_rework_percent %>%"></div>
+          <% else %>
+            <div class="tj-pie-chart tj-pie-chart-empty" title="No logged work or rework time in the selected period"></div>
+          <% end %>
           <div class="tj-pie-legend">
             <div><span class="tj-pie-key tj-pie-key-work"></span> Work logged time <strong><%= number_to_percentage(logged_work_percent, precision: 1) %></strong></div>
             <div><span class="tj-pie-key tj-pie-key-rework"></span> Rework logged time <strong><%= number_to_percentage(logged_rework_percent, precision: 1) %></strong></div>
           </div>
         </div>
-        <table class="tj-health-table">
-          <thead>
-            <tr>
-              <th class="tj-th-title">Item</th>
-              <th class="tj-th-native">Duration Cycle</th>
-              <th class="tj-th-native">Duration %</th>
-              <th class="tj-th-native">Logged Spent Time</th>
-              <th class="tj-th-native">Spent %</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% work_rework_rows.each do |row| %>
-              <tr>
-                <td class="tj-health-label"><%= h(row[:label]) %></td>
-                <td class="tj-health-count"><%= duration_report_drilldown_link(@query, row[:issue_ids], format_hours(row[:duration_hours])) %></td>
-                <td class="tj-health-percent"><%= number_to_percentage(row[:duration_share] * 100, precision: 1) %></td>
-                <td class="tj-health-count"><%= duration_report_drilldown_link(@query, row[:issue_ids], format_spent_hours(row[:spent_hours])) %></td>
-                <td class="tj-health-percent"><%= number_to_percentage(row[:spent_share] * 100, precision: 1) %></td>
-              </tr>
-            <% end %>
-          </tbody>
-        </table>
+        <div class="tj-compact-metrics">
+          <div class="tj-compact-metric-row tj-compact-metric-head">
+            <div></div>
+            <div class="tj-compact-metric-values">
+              <span>Cycle</span>
+              <span>Logged</span>
+            </div>
+          </div>
+          <% work_rework_rows.each do |row| %>
+            <div class="tj-compact-metric-row">
+              <div class="tj-compact-metric-label"><%= h(row[:label]) %></div>
+              <div class="tj-compact-metric-values">
+                <span title="Duration cycle"><%= duration_report_drilldown_link(@query, row[:issue_ids], format_hours(row[:duration_hours])) %> <small><%= number_to_percentage(row[:duration_share] * 100, precision: 1) %></small></span>
+                <span title="Logged spent time"><%= duration_report_drilldown_link(@query, row[:issue_ids], format_spent_hours(row[:spent_hours])) %> <small><%= number_to_percentage(row[:spent_share] * 100, precision: 1) %></small></span>
+              </div>
+            </div>
+          <% end %>
+        </div>
       </div>
     </div>
 

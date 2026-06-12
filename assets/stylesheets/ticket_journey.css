@@ -474,6 +474,15 @@
   border-radius: 50%;
   box-shadow: var(--tj-shadow);
 }
+.tj-pie-chart-empty {
+  background: repeating-linear-gradient(
+    135deg,
+    #f4f6fa 0,
+    #f4f6fa 8px,
+    #e8ecf3 8px,
+    #e8ecf3 16px
+  );
+}
 .tj-pie-legend {
   display: flex;
   flex-direction: column;
@@ -496,6 +505,51 @@
 }
 .tj-pie-key-rework {
   background: var(--tj-orange);
+}
+.tj-compact-metrics {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  border-top: 1px solid #eef0f5;
+  padding-top: 8px;
+}
+.tj-compact-metric-row {
+  display: grid;
+  grid-template-columns: minmax(92px, 1fr) minmax(0, 1.3fr);
+  gap: 10px;
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px solid #eef0f5;
+  font-family: 'Courier New', monospace;
+}
+.tj-compact-metric-head {
+  padding-top: 0;
+  color: var(--tj-text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+.tj-compact-metric-label {
+  color: var(--tj-text);
+  font-weight: 700;
+}
+.tj-compact-metric-values {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  min-width: 0;
+  text-align: right;
+}
+.tj-compact-metric-values span {
+  min-width: 0;
+  color: var(--tj-blue);
+  font-weight: 800;
+}
+.tj-compact-metric-values small {
+  display: block;
+  margin-top: 2px;
+  color: var(--tj-text-dim);
+  font-size: 11px;
+  font-weight: 400;
 }
 .tj-bug-analysis-table {
   min-width: 1320px;
