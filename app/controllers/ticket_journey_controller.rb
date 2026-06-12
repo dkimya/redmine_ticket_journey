@@ -130,7 +130,7 @@ class TicketJourneyController < ApplicationController
   end
 
   def executive_team_performance
-    build_query_from(all_status_query_params, use_default_query: false)
+    build_query_from(executive_team_performance_query_params, use_default_query: false)
     @executive_period_key, @executive_start_date, @executive_end_date = executive_period_dates
     @sprint_options = sprint_delivery_sprints
     @selected_sprint = selected_sprint(@sprint_options)
@@ -510,11 +510,15 @@ class TicketJourneyController < ApplicationController
     items = Array(issues_data)
     completed_items = executive_completed_items(items, start_date, end_date)
     completed_cycle_hours = completed_items.filter_map { |item| completed_cycle_time_hours(item) || item[:durations][:TOTAL].to_f.presence }
+    completed_issue_ids = completed_items.map { |item| item[:issue].id }
+    completed_logged_hours_by_issue = planning_time_entry_hours_by_issue(completed_issue_ids, start_date, end_date)
     qa_report = compute_qa_returns_report(completed_items)
+    returned_issue_ids = completed_items.select { |item| item_total_returns(item).positive? }.map { |item| item[:issue].id }
+    rework_spent_hours = completed_logged_hours_by_issue.slice(*returned_issue_ids).values.sum
     sprint_report = safe_compute_sprint_delivery_report(sprint, context: 'Executive Team Performance')
     time_report = compute_time_utilization_report(start_date, end_date)
     workload_rows, workload_totals = compute_owner_workload_report
-    owner_rows = executive_team_owner_rows(completed_items, sprint_report[:owner_rows], time_report[:owner_rows], workload_rows)
+    owner_rows = executive_team_owner_rows(completed_items, sprint_report[:owner_rows], time_report[:owner_rows], workload_rows, completed_logged_hours_by_issue)
 
     {
       period_start: start_date,
@@ -526,13 +530,15 @@ class TicketJourneyController < ApplicationController
         average_commitment_reliability: ratio(sprint_report.dig(:totals, :completed).to_i, sprint_report.dig(:totals, :committed).to_i),
         return_events: qa_report.dig(:totals, :return_events).to_i,
         rework_hours: qa_report.dig(:totals, :total_rework_hours).to_f,
+        rework_spent_hours: rework_spent_hours,
         average_cycle_hours: average_number(completed_cycle_hours),
+        average_spent_hours: ratio(completed_logged_hours_by_issue.values.sum, completed_items.size),
         open_workload: workload_totals[:total_open].to_i
       },
       owner_rows: owner_rows,
       commitment_rows: executive_team_commitment_rows(sprint_report[:owner_rows]),
-      return_rows: owner_rows.select { |row| row[:return_events].to_i.positive? || row[:rework_hours].to_f.positive? }
-                            .sort_by { |row| [-row[:return_events].to_i, -row[:rework_hours].to_f, row[:owner].to_s.downcase] },
+      return_rows: owner_rows.select { |row| row[:return_events].to_i.positive? || row[:rework_hours].to_f.positive? || row[:rework_spent_hours].to_f.positive? }
+                            .sort_by { |row| [-row[:return_events].to_i, -row[:rework_hours].to_f, -row[:rework_spent_hours].to_f, row[:owner].to_s.downcase] },
       time_rows: Array(time_report[:owner_rows]),
       workload_rows: workload_rows
     }
@@ -545,7 +551,7 @@ class TicketJourneyController < ApplicationController
     end
   end
 
-  def executive_team_owner_rows(completed_items, sprint_owner_rows, time_owner_rows, workload_rows)
+  def executive_team_owner_rows(completed_items, sprint_owner_rows, time_owner_rows, workload_rows, completed_logged_hours_by_issue = {})
     sprint_by_owner = executive_index_owner_rows(sprint_owner_rows)
     time_by_owner = executive_index_owner_rows(time_owner_rows)
     workload_by_owner = executive_index_owner_rows(workload_rows)
@@ -561,6 +567,7 @@ class TicketJourneyController < ApplicationController
       owner_items = completed_by_owner[[owner_value, owner_name]] || []
       cycle_hours = owner_items.filter_map { |item| completed_cycle_time_hours(item) || item[:durations][:TOTAL].to_f.presence }
       qa_rows = qa_rework_rows(owner_items)
+      owner_returned_issue_ids = owner_items.select { |item| item_total_returns(item).positive? }.map { |item| item[:issue].id }
       time_row = executive_find_owner_row(time_by_owner, owner_value, owner_name)
       sprint_row = executive_find_owner_row(sprint_by_owner, owner_value, owner_name)
       workload_row = executive_find_owner_row(workload_by_owner, owner_value, owner_name)
@@ -574,6 +581,7 @@ class TicketJourneyController < ApplicationController
         return_events: owner_items.sum { |item| item_total_returns(item) },
         returned_tickets: owner_items.count { |item| item_total_returns(item).positive? },
         rework_hours: qa_rows.sum { |row| row[:hours].to_f },
+        rework_spent_hours: completed_logged_hours_by_issue.slice(*owner_returned_issue_ids).values.sum,
         committed: sprint_row&.fetch(:committed, 0).to_i,
         completed: sprint_row&.fetch(:completed, 0).to_i,
         commitment_rate: sprint_row&.fetch(:completion_rate, 0.0).to_f,
@@ -850,8 +858,32 @@ class TicketJourneyController < ApplicationController
     query_params
   end
 
+  def executive_team_performance_query_params
+    query_params = default_excluded_status_query_params(['New', 'Archived', 'Ongoing'], base_params: all_status_query_params)
+    default_tracker_query_params(technical_tracker_ids, base_params: query_params)
+  end
+
   def executive_overview_query_params
     default_tracker_query_params(technical_tracker_ids, base_params: all_status_query_params)
+  end
+
+  def default_excluded_status_query_params(status_names, base_params: params.to_unsafe_h)
+    query_params = base_params.deep_dup.deep_stringify_keys
+    return query_params if query_params['query_id'].present?
+
+    filters = Array(query_params['f']).map(&:to_s)
+    return query_params if filters.include?('status_id')
+
+    status_ids = IssueStatus.where(name: status_names).pluck(:id).map(&:to_s)
+    return query_params if status_ids.empty?
+
+    query_params['set_filter'] = '1'
+    query_params['f'] = filters + ['status_id']
+    query_params['op'] ||= {}
+    query_params['v'] ||= {}
+    query_params['op']['status_id'] = '!'
+    query_params['v']['status_id'] = status_ids
+    query_params
   end
 
   def default_tracker_query_params(tracker_ids, base_params: params.to_unsafe_h)

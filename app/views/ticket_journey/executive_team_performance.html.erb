@@ -34,6 +34,14 @@
           <label for="exec_end_date">Period End</label>
           <%= date_field_tag :exec_end_date, @executive_end_date, class: 'tj-input' %>
         </div>
+        <div class="tj-filter-group tj-flow-filter-note">
+          <span>Redmine filters choose the ticket population. The executive period is used for completed tickets, spent time, return events, and rework totals.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="tj-filter-bar tj-owner-filter-bar">
+      <div class="tj-filter-form">
         <div class="tj-filter-group">
           <label for="sprint_id">Commitment Sprint</label>
           <%= select_tag :sprint_id,
@@ -42,7 +50,7 @@
                 class: 'tj-input' %>
         </div>
         <div class="tj-filter-group tj-flow-filter-note">
-          <span>Redmine filters choose the ticket population. The executive period is used for completed tickets and spent time. Commitment reliability uses the selected sprint.</span>
+          <span>Commitment reliability uses the selected sprint. Historical sprint reconstruction is still pending confirmation.</span>
         </div>
         <div class="tj-filter-group tj-filter-actions">
           <%= submit_tag 'Apply', class: 'tj-btn tj-btn-primary' %>
@@ -88,11 +96,19 @@
         <div class="tj-sc-value <%= kpis[:rework_hours].to_f.positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= format_hours(kpis[:rework_hours]) %></div>
       </div>
       <div class="tj-summary-card">
-        <div class="tj-sc-label">Average Cycle Time</div>
+        <div class="tj-sc-label" title="Average calendar/cycle duration for tickets closed in the selected executive period.">Average Cycle Time</div>
         <div class="tj-sc-value tj-sc-blue"><%= format_hours(kpis[:average_cycle_hours]) %></div>
       </div>
       <div class="tj-summary-card">
-        <div class="tj-sc-label">Open Workload</div>
+        <div class="tj-sc-label" title="Average logged time per ticket closed in the selected executive period.">Average Spent Time</div>
+        <div class="tj-sc-value tj-sc-blue"><%= format_spent_hours(kpis[:average_spent_hours]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label" title="Logged time in the executive period on tickets that had at least one return event.">Rework Spent Time</div>
+        <div class="tj-sc-value <%= kpis[:rework_spent_hours].to_f.positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= format_spent_hours(kpis[:rework_spent_hours]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label" title="Current open technical workload after the report filters are applied. This is a current snapshot, not limited to the executive period.">Open Workload</div>
         <div class="tj-sc-value <%= kpis[:open_workload].to_i.positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= kpis[:open_workload] %></div>
       </div>
     </div>
@@ -108,7 +124,8 @@
               <th class="tj-th-native">Avg Cycle</th>
               <th class="tj-th-native" title="Selected sprint completed tickets divided by committed tickets.">Commitment</th>
               <th class="tj-th-native">Returns</th>
-              <th class="tj-th-native">Rework</th>
+              <th class="tj-th-native" title="Estimated rework duration from return transitions.">Rework Cycle</th>
+              <th class="tj-th-native" title="Logged time in the executive period on returned tickets.">Rework Spent</th>
               <th class="tj-th-native">Spent Time</th>
               <th class="tj-th-native">Open Work</th>
               <th class="tj-th-native">Stopped</th>
@@ -117,7 +134,7 @@
           </thead>
           <tbody>
             <% if report[:owner_rows].empty? %>
-              <tr><td class="tj-flow-empty-note" colspan="10">No team member data found for the current filters.</td></tr>
+              <tr><td class="tj-flow-empty-note" colspan="11">No team member data found for the current filters.</td></tr>
             <% end %>
             <% report[:owner_rows].each do |row| %>
               <tr class="tj-row">
@@ -127,6 +144,7 @@
                 <td class="tj-td-native"><%= row[:committed].positive? ? number_to_percentage(row[:commitment_rate] * 100, precision: 1) : '-' %></td>
                 <td class="tj-td-native <%= row[:return_events].positive? ? 'tj-counter-active' : '' %>"><%= row[:return_events].positive? ? row[:return_events] : '-' %></td>
                 <td class="tj-td-native"><%= format_hours(row[:rework_hours]) %></td>
+                <td class="tj-td-native"><%= format_spent_hours(row[:rework_spent_hours]) %></td>
                 <td class="tj-td-native"><%= format_spent_hours(row[:spent_hours]) %></td>
                 <td class="tj-td-native"><%= row[:open_workload] %></td>
                 <td class="tj-td-native <%= row[:stopped].positive? ? 'tj-counter-active' : '' %>"><%= row[:stopped].positive? ? row[:stopped] : '-' %></td>
@@ -185,7 +203,7 @@
               <tr>
                 <td class="tj-health-label"><%= h(row[:owner]) %></td>
                 <td class="tj-health-count"><%= row[:return_events] %> returns</td>
-                <td class="tj-health-percent"><%= format_hours(row[:rework_hours]) %></td>
+                <td class="tj-health-percent" title="Cycle / logged rework time"><%= format_hours(row[:rework_hours]) %> / <%= format_spent_hours(row[:rework_spent_hours]) %></td>
               </tr>
             <% end %>
           </tbody>
