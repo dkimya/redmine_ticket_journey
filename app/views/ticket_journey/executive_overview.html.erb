@@ -106,15 +106,28 @@
       <div class="tj-card">
         <div class="tj-card-title">Average Closure Cycle by Tracker</div>
         <table class="tj-health-table">
+          <thead>
+            <tr>
+              <th class="tj-th-title">Tracker</th>
+              <th class="tj-th-native">Number of Tickets</th>
+              <th class="tj-th-native">Total Cycle</th>
+              <th class="tj-th-native">Avg Cycle / Ticket</th>
+              <th class="tj-th-native">Total Logged Time</th>
+              <th class="tj-th-native">Avg Logged / Ticket</th>
+            </tr>
+          </thead>
           <tbody>
             <% if report[:cycle_by_tracker_rows].empty? %>
-              <tr><td class="tj-flow-empty-note">No tickets were closed in the selected period.</td></tr>
+              <tr><td class="tj-flow-empty-note" colspan="6">No tickets were closed in the selected period.</td></tr>
             <% end %>
             <% report[:cycle_by_tracker_rows].first(8).each do |row| %>
               <tr>
                 <td class="tj-health-label"><%= h(row[:tracker]) %></td>
-                <td class="tj-health-count"><%= duration_report_drilldown_link(@query, row[:issue_ids], format_hours(row[:avg_cycle_hours])) %></td>
-                <td class="tj-health-percent"><%= row[:count] %> tickets</td>
+                <td class="tj-health-count"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:count]) %></td>
+                <td class="tj-health-count"><%= format_hours(row[:total_cycle_hours]) %></td>
+                <td class="tj-health-count"><%= format_hours(row[:avg_cycle_hours]) %></td>
+                <td class="tj-health-count"><%= format_spent_hours(row[:total_logged_hours]) %></td>
+                <td class="tj-health-count"><%= format_spent_hours(row[:avg_logged_hours]) %></td>
               </tr>
             <% end %>
           </tbody>
@@ -123,13 +136,40 @@
 
       <div class="tj-card">
         <div class="tj-card-title">Work vs Rework for Selected Period</div>
+        <%
+          work_rework_rows = report[:work_rework_rows]
+          work_spent_row = work_rework_rows.find { |row| row[:label] == 'Work Time' }
+          rework_spent_row = work_rework_rows.find { |row| row[:label] == 'Rework Time' }
+          logged_rework_percent = (rework_spent_row&.fetch(:spent_share, 0.0).to_f * 100).round(1)
+          logged_work_percent = (work_spent_row&.fetch(:spent_share, 0.0).to_f * 100).round(1)
+        %>
+        <div class="tj-pie-summary">
+          <div class="tj-pie-chart"
+               style="background: conic-gradient(var(--tj-orange) 0 <%= logged_rework_percent %>%, var(--tj-green) <%= logged_rework_percent %>% 100%);"
+               title="Logged spent time split: work <%= logged_work_percent %>%, rework <%= logged_rework_percent %>%"></div>
+          <div class="tj-pie-legend">
+            <div><span class="tj-pie-key tj-pie-key-work"></span> Work logged time <strong><%= number_to_percentage(logged_work_percent, precision: 1) %></strong></div>
+            <div><span class="tj-pie-key tj-pie-key-rework"></span> Rework logged time <strong><%= number_to_percentage(logged_rework_percent, precision: 1) %></strong></div>
+          </div>
+        </div>
         <table class="tj-health-table">
+          <thead>
+            <tr>
+              <th class="tj-th-title">Item</th>
+              <th class="tj-th-native">Duration Cycle</th>
+              <th class="tj-th-native">Duration %</th>
+              <th class="tj-th-native">Logged Spent Time</th>
+              <th class="tj-th-native">Spent %</th>
+            </tr>
+          </thead>
           <tbody>
-            <% report[:work_rework_rows].each do |row| %>
+            <% work_rework_rows.each do |row| %>
               <tr>
                 <td class="tj-health-label"><%= h(row[:label]) %></td>
-                <td class="tj-health-count"><%= duration_report_drilldown_link(@query, row[:issue_ids], format_hours(row[:hours])) %></td>
-                <td class="tj-health-percent"><%= number_to_percentage(row[:share] * 100, precision: 1) %></td>
+                <td class="tj-health-count"><%= duration_report_drilldown_link(@query, row[:issue_ids], format_hours(row[:duration_hours])) %></td>
+                <td class="tj-health-percent"><%= number_to_percentage(row[:duration_share] * 100, precision: 1) %></td>
+                <td class="tj-health-count"><%= duration_report_drilldown_link(@query, row[:issue_ids], format_spent_hours(row[:spent_hours])) %></td>
+                <td class="tj-health-percent"><%= number_to_percentage(row[:spent_share] * 100, precision: 1) %></td>
               </tr>
             <% end %>
           </tbody>

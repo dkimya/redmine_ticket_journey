@@ -123,7 +123,7 @@ class TicketJourneyController < ApplicationController
   # EXECUTIVE OVERVIEW - CEO-focused summary above operational reports
   # ---------------------------------------------------------------
   def executive_overview
-    build_query_from(all_status_query_params, use_default_query: false)
+    build_query_from(executive_overview_query_params, use_default_query: false)
     @executive_period_key, @executive_start_date, @executive_end_date = executive_period_dates
     @issues_data = compute_all_durations
     @executive_overview_report = compute_executive_overview_report(@issues_data, @executive_start_date, @executive_end_date)
@@ -391,8 +391,8 @@ class TicketJourneyController < ApplicationController
         rework_logged_ratio: ratio(rework_logged_hours, completed_logged_hours),
         technical_debt_count: technical_debt_count
       },
-      cycle_by_tracker_rows: executive_cycle_by_tracker_rows(completed_items),
-      work_rework_rows: executive_work_rework_rows(qa_report),
+      cycle_by_tracker_rows: executive_cycle_by_tracker_rows(completed_items, completed_logged_hours_by_issue),
+      work_rework_rows: executive_work_rework_rows(qa_report, work_logged_hours, rework_logged_hours),
       bug_trend_rows: executive_bug_trend_rows(items, start_date, end_date),
       technical_debt_rows: technical_debt_rows,
       links: {
@@ -421,34 +421,52 @@ class TicketJourneyController < ApplicationController
     closed.to_f / found.to_f
   end
 
-  def executive_cycle_by_tracker_rows(completed_items)
+  def executive_cycle_by_tracker_rows(completed_items, logged_hours_by_issue = {})
     completed_items.group_by { |item| item[:issue].tracker&.name.presence || 'No Tracker' }
                    .map do |tracker, tracker_items|
       cycle_hours = tracker_items.filter_map { |item| completed_cycle_time_hours(item) || item[:durations][:TOTAL].to_f.presence }
+      issue_ids = tracker_items.map { |item| item[:issue].id }
+      logged_hours = issue_ids.sum { |issue_id| logged_hours_by_issue[issue_id].to_f }
       {
         tracker: tracker,
         count: tracker_items.size,
+        total_cycle_hours: cycle_hours.sum,
         avg_cycle_hours: average_number(cycle_hours),
-        issue_ids: tracker_items.map { |item| item[:issue].id }
+        total_logged_hours: logged_hours,
+        avg_logged_hours: ratio(logged_hours, tracker_items.size),
+        issue_ids: issue_ids
       }
     end.sort_by { |row| [-row[:avg_cycle_hours].to_f, row[:tracker].to_s.downcase] }
   end
 
-  def executive_work_rework_rows(qa_report)
+  def executive_work_rework_rows(qa_report, work_logged_hours = 0.0, rework_logged_hours = 0.0)
     totals = qa_report[:totals]
-    total_hours = totals[:total_duration_hours].to_f
+    total_duration_hours = totals[:total_duration_hours].to_f
+    total_logged_hours = work_logged_hours.to_f + rework_logged_hours.to_f
     [
       {
         label: 'Work Time',
-        hours: totals[:total_work_hours].to_f,
-        share: ratio(totals[:total_work_hours], total_hours),
+        duration_hours: totals[:total_work_hours].to_f,
+        duration_share: ratio(totals[:total_work_hours], total_duration_hours),
+        spent_hours: work_logged_hours.to_f,
+        spent_share: ratio(work_logged_hours, total_logged_hours),
         issue_ids: qa_report[:drilldowns][:done_tickets] || []
       },
       {
         label: 'Rework Time',
-        hours: totals[:total_rework_hours].to_f,
-        share: ratio(totals[:total_rework_hours], total_hours),
+        duration_hours: totals[:total_rework_hours].to_f,
+        duration_share: ratio(totals[:total_rework_hours], total_duration_hours),
+        spent_hours: rework_logged_hours.to_f,
+        spent_share: ratio(rework_logged_hours, total_logged_hours),
         issue_ids: qa_report[:drilldowns][:tickets_with_returns] || []
+      },
+      {
+        label: 'Total',
+        duration_hours: total_duration_hours,
+        duration_share: total_duration_hours.positive? ? 1.0 : 0.0,
+        spent_hours: total_logged_hours,
+        spent_share: total_logged_hours.positive? ? 1.0 : 0.0,
+        issue_ids: qa_report[:drilldowns][:done_tickets] || []
       }
     ]
   end
@@ -832,6 +850,12 @@ class TicketJourneyController < ApplicationController
     query_params
   end
 
+  def executive_overview_query_params
+    query_params = all_status_query_params
+    add_task_trackers_to_standard_internal_filter(query_params)
+    query_params
+  end
+
   def default_tracker_query_params(tracker_ids, base_params: params.to_unsafe_h)
     query_params = base_params.deep_dup.deep_stringify_keys
     return query_params if query_params['query_id'].present?
@@ -886,6 +910,26 @@ class TicketJourneyController < ApplicationController
 
   def technical_tracker_ids
     @technical_tracker_ids ||= Tracker.where(name: TRACKER_FAMILY_DEFINITIONS[:internal][:tracker_names]).pluck(:id)
+  end
+
+  def task_tracker_ids
+    @task_tracker_ids ||= Tracker.where(name: TRACKER_FAMILY_DEFINITIONS[:task][:tracker_names]).pluck(:id)
+  end
+
+  def add_task_trackers_to_standard_internal_filter(query_params)
+    return query_params if query_params['query_id'].present?
+    return query_params unless Array(query_params['f']).map(&:to_s).include?('tracker_id')
+    return query_params unless (query_params['op'] || {})['tracker_id'].to_s == '='
+
+    values = Array((query_params['v'] || {})['tracker_id']).map(&:to_s).reject(&:blank?)
+    internal_values = technical_tracker_ids.map(&:to_s)
+    task_values = task_tracker_ids.map(&:to_s)
+    return query_params if task_values.empty?
+    return query_params unless (internal_values - values).empty?
+
+    query_params['v'] ||= {}
+    query_params['v']['tracker_id'] = (values + task_values).uniq
+    query_params
   end
 
   def remove_query_param_filter(query_params, field_name)
