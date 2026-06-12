@@ -851,9 +851,7 @@ class TicketJourneyController < ApplicationController
   end
 
   def executive_overview_query_params
-    query_params = all_status_query_params
-    add_task_trackers_to_standard_internal_filter(query_params)
-    query_params
+    default_tracker_query_params(technical_tracker_ids, base_params: all_status_query_params)
   end
 
   def default_tracker_query_params(tracker_ids, base_params: params.to_unsafe_h)
@@ -910,26 +908,6 @@ class TicketJourneyController < ApplicationController
 
   def technical_tracker_ids
     @technical_tracker_ids ||= Tracker.where(name: TRACKER_FAMILY_DEFINITIONS[:internal][:tracker_names]).pluck(:id)
-  end
-
-  def task_tracker_ids
-    @task_tracker_ids ||= Tracker.where(name: TRACKER_FAMILY_DEFINITIONS[:task][:tracker_names]).pluck(:id)
-  end
-
-  def add_task_trackers_to_standard_internal_filter(query_params)
-    return query_params if query_params['query_id'].present?
-    return query_params unless Array(query_params['f']).map(&:to_s).include?('tracker_id')
-    return query_params unless (query_params['op'] || {})['tracker_id'].to_s == '='
-
-    values = Array((query_params['v'] || {})['tracker_id']).map(&:to_s).reject(&:blank?)
-    internal_values = technical_tracker_ids.map(&:to_s)
-    task_values = task_tracker_ids.map(&:to_s)
-    return query_params if task_values.empty?
-    return query_params unless (internal_values - values).empty?
-
-    query_params['v'] ||= {}
-    query_params['v']['tracker_id'] = (values + task_values).uniq
-    query_params
   end
 
   def remove_query_param_filter(query_params, field_name)
