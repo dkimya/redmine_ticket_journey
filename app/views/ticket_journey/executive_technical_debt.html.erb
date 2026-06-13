@@ -35,14 +35,28 @@
           <%= date_field_tag :exec_end_date, @executive_end_date, class: 'tj-input' %>
         </div>
         <div class="tj-filter-group">
-          <label for="sprint_id">Debt Sprint</label>
+          <label for="sprint_id">Period Sprint</label>
           <%= select_tag :sprint_id,
-                options_for_select(@sprint_options.map { |sprint| ["##{sprint.id} - #{sprint.subject}", sprint.id] }, @selected_sprint&.id),
+                options_for_select(
+                  @sprint_options.map do |sprint|
+                    [
+                      "##{sprint.id} - #{sprint.subject}",
+                      sprint.id,
+                      {
+                        data: {
+                          start_date: sprint.start_date&.iso8601,
+                          due_date: sprint.due_date&.iso8601
+                        }
+                      }
+                    ]
+                  end,
+                  @selected_sprint&.id
+                ),
                 include_blank: @sprint_options.empty? ? 'No sprint found' : nil,
                 class: 'tj-input' %>
         </div>
         <div class="tj-filter-group tj-flow-filter-note">
-          <span>Redmine filters choose the ticket population. Status = Open is treated as the default technical-debt scope and may be removed so completed burn-down calculations can still be included. Technical debt uses carry-over tickets from the selected sprint that are not completed.</span>
+          <span>Redmine filters choose the ticket population. Technical debt is based on Due date and historical closed status. The sprint selector is only a period helper/context, not the debt formula.</span>
         </div>
         <div class="tj-filter-group tj-filter-actions">
           <%= submit_tag 'Apply', class: 'tj-btn tj-btn-primary' %>
@@ -51,6 +65,24 @@
     </div>
   <% end %>
   <%= render partial: 'executive_period_customizer' %>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      var sprintSelect = document.getElementById('sprint_id');
+      var periodSelect = document.getElementById('exec_period');
+      var startInput = document.getElementById('exec_start_date');
+      var endInput = document.getElementById('exec_end_date');
+      if (!sprintSelect || !periodSelect || !startInput || !endInput) return;
+
+      sprintSelect.addEventListener('change', function () {
+        var option = sprintSelect.options[sprintSelect.selectedIndex];
+        if (!option) return;
+
+        if (option.dataset.startDate) startInput.value = option.dataset.startDate;
+        if (option.dataset.dueDate) endInput.value = option.dataset.dueDate;
+        if (option.dataset.startDate || option.dataset.dueDate) periodSelect.value = 'custom';
+      });
+    });
+  </script>
 
   <% if !@query.valid? %>
     <div class="tj-empty">
@@ -69,12 +101,20 @@
         <div class="tj-sc-value tj-sc-accent"><%= format_date(report[:period_start]) %> - <%= format_date(report[:period_end]) %></div>
       </div>
       <div class="tj-summary-card">
-        <div class="tj-sc-label" title="Tickets that should have been completed by the report period but are still not done. Currently this uses unfinished carry-over tickets in the selected sprint.">Technical Debt Count</div>
+        <div class="tj-sc-label" title="Tickets with Due date on or before the report end date that were not closed as of the report end date.">Technical Debt Count</div>
         <div class="tj-sc-value <%= totals[:technical_debt].positive? ? 'tj-sc-red' : 'tj-sc-green' %>"><%= duration_report_drilldown_link(@query, drilldowns[:technical_debt], totals[:technical_debt]) %></div>
       </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label" title="Unfinished technical-debt tickets older than the current average technical-debt age (<%= number_with_precision(totals[:average_debt_age].to_f, precision: 1, strip_insignificant_zeros: true) %> days).">Debt Aging Risk</div>
         <div class="tj-sc-value <%= totals[:debt_aging_risk].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, drilldowns[:debt_aging_risk], totals[:debt_aging_risk]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label" title="Tickets whose Due date passed inside the executive period and were not closed by that Due date.">New Debt</div>
+        <div class="tj-sc-value <%= totals[:new_debt].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, drilldowns[:new_debt], totals[:new_debt]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label" title="Debt tickets that entered a closed status during the executive period.">Resolved Debt</div>
+        <div class="tj-sc-value <%= totals[:resolved_debt].positive? ? 'tj-sc-green' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, drilldowns[:resolved_debt], totals[:resolved_debt]) %></div>
       </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label" title="Selected sprint tickets currently Pending or On-Hold.">Stopped / Blocked</div>
@@ -89,7 +129,7 @@
         <div class="tj-sc-value <%= totals[:not_started].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, drilldowns[:not_started], totals[:not_started]) %></div>
       </div>
       <div class="tj-summary-card">
-        <div class="tj-sc-label" title="Open filtered tickets older than 30 calendar days.">Aged Open 30d+</div>
+        <div class="tj-sc-label" title="Open due-date technical debts whose Due date is at least 30 days before the report end date.">Aged Debt 30d+</div>
         <div class="tj-sc-value <%= totals[:aged_open].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, drilldowns[:aged_open], totals[:aged_open]) %></div>
       </div>
       <div class="tj-summary-card">
@@ -101,13 +141,13 @@
         <div class="tj-sc-value <%= totals[:stale_updates].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, drilldowns[:stale_updates], totals[:stale_updates]) %></div>
       </div>
       <div class="tj-summary-card">
-        <div class="tj-sc-label" title="Carry-over tickets closed during the executive period.">Debt Burn-down</div>
+        <div class="tj-sc-label" title="Resolved debt during the executive period. Debt is due-date based, not sprint carry-over based.">Debt Burn-down</div>
         <div class="tj-sc-value <%= totals[:debt_burn_down].positive? ? 'tj-sc-green' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, drilldowns[:debt_burn_down], totals[:debt_burn_down]) %></div>
       </div>
     </div>
 
     <div class="tj-card tj-card-full">
-      <div class="tj-card-title">Selected Sprint Debt Context</div>
+      <div class="tj-card-title">Selected Sprint Period Context</div>
       <table class="tj-health-table">
         <tbody>
           <% if report[:sprint].blank? %>
@@ -121,7 +161,45 @@
           <% end %>
         </tbody>
       </table>
-      <div class="tj-flow-empty-note">Historical sprint debt trends should be added after confirming whether old sprints must use status snapshots at sprint due date.</div>
+      <div class="tj-flow-empty-note">Debt calculations use ticket Due date and historical status at the report date. Selecting a sprint is only a convenient way to review a known period/context.</div>
+    </div>
+
+    <div class="tj-detail-grid">
+      <div class="tj-card">
+        <div class="tj-card-title" title="Number of due-date technical debts still open at each snapshot date in the executive period.">Technical Debt Trend</div>
+        <% trend_rows = report[:debt_trend_rows] || [] %>
+        <% if trend_rows.empty? %>
+          <div class="tj-flow-empty-note">No technical debt trend data found for this period.</div>
+        <% else %>
+          <div class="tj-bug-bars">
+            <% max_trend_count = trend_rows.map { |row| row[:count].to_i }.max.to_i %>
+            <% trend_rows.each do |row| %>
+              <% width = max_trend_count.positive? ? ((row[:count].to_f / max_trend_count) * 100).round : 0 %>
+              <div class="tj-bug-bar-row">
+                <span class="tj-bug-bar-label"><%= h(row[:label]) %></span>
+                <span class="tj-bug-bar-track">
+                  <span class="tj-bug-bar-fill" style="width:<%= width %>%"></span>
+                </span>
+                <span class="tj-bug-bar-count"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:count]) %></span>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+
+      <div class="tj-card">
+        <div class="tj-card-title">New Debt vs Debt Burn-down</div>
+        <table class="tj-health-table">
+          <tbody>
+            <% report[:debt_movement_rows].each do |row| %>
+              <tr>
+                <td class="tj-health-label"><%= h(row[:label]) %></td>
+                <td class="tj-health-count"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:count]) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <div class="tj-detail-grid">
@@ -159,6 +237,38 @@
             <% end %>
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <div class="tj-detail-grid">
+      <div class="tj-card">
+        <div class="tj-card-title" title="Age is calculated as report end date minus Due date for debts still open at period end.">Open Debt Aging Distribution</div>
+        <div class="tj-bug-bars">
+          <% max_open_age = report[:open_age_rows].map { |row| row[:count].to_i }.max.to_i %>
+          <% report[:open_age_rows].each do |row| %>
+            <% width = max_open_age.positive? ? ((row[:count].to_f / max_open_age) * 100).round : 0 %>
+            <div class="tj-bug-bar-row">
+              <span class="tj-bug-bar-label"><%= h(row[:label]) %></span>
+              <span class="tj-bug-bar-track"><span class="tj-bug-bar-fill" style="width:<%= width %>%"></span></span>
+              <span class="tj-bug-bar-count"><%= row[:count] %></span>
+            </div>
+          <% end %>
+        </div>
+      </div>
+
+      <div class="tj-card">
+        <div class="tj-card-title" title="Age is calculated as closed date minus Due date for debt tickets resolved in the period.">Resolved Debt Aging Distribution</div>
+        <div class="tj-bug-bars">
+          <% max_resolved_age = report[:resolved_age_rows].map { |row| row[:count].to_i }.max.to_i %>
+          <% report[:resolved_age_rows].each do |row| %>
+            <% width = max_resolved_age.positive? ? ((row[:count].to_f / max_resolved_age) * 100).round : 0 %>
+            <div class="tj-bug-bar-row">
+              <span class="tj-bug-bar-label"><%= h(row[:label]) %></span>
+              <span class="tj-bug-bar-track"><span class="tj-bug-bar-fill" style="width:<%= width %>%"></span></span>
+              <span class="tj-bug-bar-count"><%= row[:count] %></span>
+            </div>
+          <% end %>
+        </div>
       </div>
     </div>
 
@@ -230,7 +340,7 @@
     <div class="tj-card tj-card-full">
       <div class="tj-card-title">Open Technical Debt Detail</div>
       <% if report[:debt_issue_rows].empty? %>
-        <div class="tj-flow-empty-note">No open carry-over technical debt found for the selected sprint.</div>
+        <div class="tj-flow-empty-note">No open due-date technical debt found for this report period.</div>
       <% else %>
         <div class="tj-table-wrap">
           <table class="tj-table">
@@ -241,9 +351,11 @@
                 <th class="tj-th-native">Project</th>
                 <th class="tj-th-native">Owner</th>
                 <th class="tj-th-native">Tracker</th>
-                <th class="tj-th-native">Status</th>
+                <th class="tj-th-native">Status at End</th>
+                <th class="tj-th-native">Current Status</th>
+                <th class="tj-th-native">Due Date</th>
                 <th class="tj-th-native">Original Sprint</th>
-                <th class="tj-th-native">Age</th>
+                <th class="tj-th-native">Debt Age</th>
                 <th class="tj-th-native">Signals</th>
               </tr>
             </thead>
@@ -259,6 +371,8 @@
                   <td class="tj-td-native"><%= h(row[:owner]) %></td>
                   <td class="tj-td-native"><%= h(row[:tracker]) %></td>
                   <td class="tj-td-native"><span class="tj-status-badge"><%= h(row[:status]) %></span></td>
+                  <td class="tj-td-native"><%= h(row[:current_status]) %></td>
+                  <td class="tj-td-native"><%= row[:due_date] ? format_date(row[:due_date]) : '-' %></td>
                   <td class="tj-td-native"><%= h(row[:original_sprint]) %></td>
                   <td class="tj-td-native"><%= row[:age_days] %>d</td>
                   <td class="tj-td-native"><%= signals.any? ? h(signals.join(', ')) : '-' %></td>
@@ -273,7 +387,7 @@
     <div class="tj-card tj-card-full">
       <div class="tj-card-title">Debt Burn-down in Executive Period</div>
       <% if report[:completed_debt_rows].empty? %>
-        <div class="tj-flow-empty-note">No carry-over tickets were completed in the executive period.</div>
+        <div class="tj-flow-empty-note">No due-date debts were resolved in the executive period.</div>
       <% else %>
         <div class="tj-table-wrap">
           <table class="tj-table">
@@ -285,8 +399,10 @@
                 <th class="tj-th-native">Owner</th>
                 <th class="tj-th-native">Tracker</th>
                 <th class="tj-th-native">Status</th>
+                <th class="tj-th-native">Due Date</th>
+                <th class="tj-th-native">Closed Date</th>
                 <th class="tj-th-native">Original Sprint</th>
-                <th class="tj-th-native">Cycle</th>
+                <th class="tj-th-native">Debt Age</th>
               </tr>
             </thead>
             <tbody>
@@ -298,8 +414,10 @@
                   <td class="tj-td-native"><%= h(row[:owner]) %></td>
                   <td class="tj-td-native"><%= h(row[:tracker]) %></td>
                   <td class="tj-td-native"><span class="tj-status-badge"><%= h(row[:status]) %></span></td>
+                  <td class="tj-td-native"><%= row[:due_date] ? format_date(row[:due_date]) : '-' %></td>
+                  <td class="tj-td-native"><%= row[:closed_at] ? format_date(row[:closed_at].to_date) : '-' %></td>
                   <td class="tj-td-native"><%= h(row[:original_sprint]) %></td>
-                  <td class="tj-td-native"><%= format_hours(row[:cycle_hours]) %></td>
+                  <td class="tj-td-native"><%= row[:debt_age_days] %>d</td>
                 </tr>
               <% end %>
             </tbody>

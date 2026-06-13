@@ -97,8 +97,8 @@
         <div class="tj-sc-value <%= kpis[:rework_logged_ratio].to_f.positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= number_to_percentage(kpis[:rework_logged_ratio] * 100, precision: 1) %></div>
       </div>
       <div class="tj-summary-card">
-        <div class="tj-sc-label" title="Current open carry-over sprint tickets that are not completed. This is a current technical-debt count, not a historical period-end snapshot.">Technical Debt Count</div>
-        <div class="tj-sc-value <%= kpis[:technical_debt_count].to_i.positive? ? 'tj-sc-red' : 'tj-sc-green' %>"><%= duration_report_drilldown_link(@query, report[:links][:technical_debt], kpis[:technical_debt_count], title: 'Current open carry-over sprint tickets') %></div>
+        <div class="tj-sc-label" title="Tickets with Due date on or before the executive period end date that were not closed as of that date.">Technical Debt Count</div>
+        <div class="tj-sc-value <%= kpis[:technical_debt_count].to_i.positive? ? 'tj-sc-red' : 'tj-sc-green' %>"><%= duration_report_drilldown_link(@query, report[:links][:technical_debt], kpis[:technical_debt_count], title: 'Open due-date technical debt at period end') %></div>
       </div>
     </div>
 
@@ -206,7 +206,7 @@
         <table class="tj-health-table">
           <tbody>
             <% if report[:technical_debt_rows].empty? %>
-              <tr><td class="tj-flow-empty-note">No open carry-over sprint debt found for the current sprint scope.</td></tr>
+              <tr><td class="tj-flow-empty-note">No open due-date technical debt found at the period end.</td></tr>
             <% end %>
             <% report[:technical_debt_rows].each do |row| %>
               <tr>
@@ -217,7 +217,7 @@
             <% end %>
           </tbody>
         </table>
-        <div class="tj-flow-empty-note">Technical debt uses current sprint carry-over tickets that are not completed.</div>
+        <div class="tj-flow-empty-note">Technical debt uses Due date and historical status at the executive period end.</div>
       </div>
     </div>
   <% end %>
