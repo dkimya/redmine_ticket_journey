@@ -148,7 +148,7 @@ class TicketJourneyController < ApplicationController
   end
 
   def executive_technical_debt
-    build_query_from(all_status_query_params, use_default_query: false)
+    build_query_from(executive_technical_debt_query_params, use_default_query: false)
     @executive_period_key, @executive_start_date, @executive_end_date = executive_period_dates
     @data_quality_stale_days = data_quality_stale_days_param
     @sprint_options = sprint_delivery_sprints
@@ -1046,6 +1046,10 @@ class TicketJourneyController < ApplicationController
   end
 
   def executive_overview_query_params
+    default_tracker_query_params(technical_tracker_ids, base_params: all_status_query_params)
+  end
+
+  def executive_technical_debt_query_params
     default_tracker_query_params(technical_tracker_ids, base_params: all_status_query_params)
   end
 
