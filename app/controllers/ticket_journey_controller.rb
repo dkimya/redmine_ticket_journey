@@ -879,7 +879,7 @@ class TicketJourneyController < ApplicationController
     expected_end = beginning_debt_issues.size + new_debt_issues.size - resolved_debt_items.size
     other_net_movement = ending_debt_issues.size - expected_end
     if other_net_movement != 0
-      rows.insert(3, { label: 'Other Net Movement', count: other_net_movement, issue_ids: [] })
+      rows.insert(3, { label: 'Reopened / Scope Change', count: other_net_movement, issue_ids: [] })
     end
     rows
   end
