@@ -742,8 +742,8 @@ class TicketJourneyController < ApplicationController
     stopped_issues = debt_issues.select { |issue| paused_status?(executive_issue_status_name_at(issue, status_changes, end_date, status_names)) }
     overdue_issues = debt_issues
     not_started_issues = debt_issues.select { |issue| not_started_sprint_status?(executive_issue_status_name_at(issue, status_changes, end_date, status_names)) }
-    data_quality_report = compute_data_quality_report
-    data_totals = data_quality_report[:totals] || data_quality_totals([])
+    debt_data_quality_report = executive_debt_data_quality_report(debt_issues, end_date)
+    debt_data_totals = debt_data_quality_report[:totals]
     open_rows, _open_totals = compute_owner_workload_report
     aged_open_issues = debt_issues.select { |issue| executive_debt_age_days(issue, end_date).to_i >= 30 }
     debt_age_days = debt_issues.filter_map { |issue| executive_debt_age_days(issue, end_date) }
@@ -769,8 +769,8 @@ class TicketJourneyController < ApplicationController
         overdue: overdue_issues.size,
         not_started: not_started_issues.size,
         aged_open: aged_open_issues.size,
-        missing_required: data_totals[:missing_required].to_i,
-        stale_updates: data_totals[:tickets_without_updates].to_i,
+        missing_required: debt_data_totals[:missing_required].to_i,
+        stale_updates: debt_data_totals[:tickets_without_updates].to_i,
         debt_burn_down: resolved_debt_items.size,
         debt_aging_risk: debt_aging_risk_issues.size,
         average_debt_age: average_debt_age
@@ -784,15 +784,15 @@ class TicketJourneyController < ApplicationController
         overdue: overdue_issues.map(&:id),
         not_started: not_started_issues.map(&:id),
         aged_open: aged_open_issues.map(&:id),
-        missing_required: data_totals[:missing_required_issue_ids] || [],
-        stale_updates: data_totals[:tickets_without_updates_issue_ids] || [],
+        missing_required: debt_data_totals[:missing_required_issue_ids] || [],
+        stale_updates: debt_data_totals[:tickets_without_updates_issue_ids] || [],
         debt_burn_down: resolved_debt_items.map { |item| item[:issue].id },
         debt_aging_risk: debt_aging_risk_issues.map(&:id)
       },
       debt_by_project_rows: executive_debt_project_rows(debt_issues, end_date, status_changes, status_names),
       debt_by_owner_rows: executive_debt_owner_rows(debt_issues, end_date, status_changes, status_names),
       open_risk_owner_rows: executive_debt_open_risk_owner_rows(open_rows),
-      data_quality_rows: data_quality_report[:field_rows] || [],
+      data_quality_rows: debt_data_quality_report[:field_rows] || [],
       debt_issue_rows: executive_debt_issue_rows(debt_issues, end_date, status_changes, status_names),
       completed_debt_rows: executive_completed_debt_rows(resolved_debt_items),
       debt_trend_rows: executive_debt_trend_rows(candidate_issues, status_changes, start_date, end_date, closed_status_ids),
@@ -809,6 +809,16 @@ class TicketJourneyController < ApplicationController
       order: "#{Issue.table_name}.id ASC",
       include: [:status, :tracker, :priority, { custom_values: :custom_field }]
     ).select(&:due_date)
+  end
+
+  def executive_debt_data_quality_report(issues, report_date)
+    issue_rows = Array(issues).map { |issue| data_quality_issue_row(issue, report_date) }
+    totals = data_quality_totals(issue_rows)
+
+    {
+      totals: totals,
+      field_rows: data_quality_field_rows(totals, issue_rows)
+    }
   end
 
   def executive_debt_open_at(issues, status_changes, snapshot_date, closed_status_ids)
@@ -860,12 +870,18 @@ class TicketJourneyController < ApplicationController
   end
 
   def executive_debt_movement_rows(beginning_debt_issues, new_debt_issues, resolved_debt_items, ending_debt_issues)
-    [
+    rows = [
       { label: 'Debts at Beginning of Period', count: beginning_debt_issues.size, issue_ids: beginning_debt_issues.map(&:id) },
       { label: 'New Debt During Period', count: new_debt_issues.size, issue_ids: new_debt_issues.map(&:id) },
       { label: 'Resolved Debt During Period', count: resolved_debt_items.size, issue_ids: resolved_debt_items.map { |item| item[:issue].id } },
       { label: 'Debts at End of Period', count: ending_debt_issues.size, issue_ids: ending_debt_issues.map(&:id) }
     ]
+    expected_end = beginning_debt_issues.size + new_debt_issues.size - resolved_debt_items.size
+    other_net_movement = ending_debt_issues.size - expected_end
+    if other_net_movement != 0
+      rows.insert(3, { label: 'Other Net Movement', count: other_net_movement, issue_ids: [] })
+    end
+    rows
   end
 
   def executive_debt_age_distribution_rows(issues, snapshot_date)

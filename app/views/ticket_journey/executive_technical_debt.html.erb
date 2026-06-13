@@ -188,7 +188,7 @@
       </div>
 
       <div class="tj-card">
-        <div class="tj-card-title">New Debt vs Debt Burn-down</div>
+        <div class="tj-card-title" title="Beginning debt plus new debt minus resolved debt may differ from ending debt when tickets reopen, enter/leave the filtered population, or change status history during the period.">New Debt vs Debt Burn-down</div>
         <table class="tj-health-table">
           <tbody>
             <% report[:debt_movement_rows].each do |row| %>
@@ -199,6 +199,7 @@
             <% end %>
           </tbody>
         </table>
+        <div class="tj-flow-empty-note">Other Net Movement explains reopenings, filter-scope changes, or historical status changes that affect the period ending debt count.</div>
       </div>
     </div>
 
@@ -310,7 +311,7 @@
     </div>
 
     <div class="tj-card tj-card-full">
-      <div class="tj-card-title">Data Quality Debt Signals</div>
+      <div class="tj-card-title" title="Signals are calculated only for tickets that are open technical debt at the report end date.">Data Quality Debt Signals</div>
       <div class="tj-table-wrap">
         <table class="tj-table">
           <thead>
@@ -323,7 +324,7 @@
           <tbody>
             <% visible_data_rows = report[:data_quality_rows].select { |row| row[:count].to_i.positive? } %>
             <% if visible_data_rows.empty? %>
-              <tr><td class="tj-flow-empty-note" colspan="3">No data-quality debt signals found for the current filters.</td></tr>
+              <tr><td class="tj-flow-empty-note" colspan="3">No data-quality signals found for open technical debt at the report end date.</td></tr>
             <% end %>
             <% visible_data_rows.each do |row| %>
               <tr class="tj-row">
