@@ -69,8 +69,12 @@
         <div class="tj-sc-value tj-sc-accent"><%= format_date(report[:period_start]) %> - <%= format_date(report[:period_end]) %></div>
       </div>
       <div class="tj-summary-card">
-        <div class="tj-sc-label" title="Carry-over tickets in the selected sprint that are not completed.">Open Technical Debt</div>
+        <div class="tj-sc-label" title="Tickets that should have been completed by the report period but are still not done. Currently this uses unfinished carry-over tickets in the selected sprint.">Technical Debt Count</div>
         <div class="tj-sc-value <%= totals[:technical_debt].positive? ? 'tj-sc-red' : 'tj-sc-green' %>"><%= duration_report_drilldown_link(@query, drilldowns[:technical_debt], totals[:technical_debt]) %></div>
+      </div>
+      <div class="tj-summary-card">
+        <div class="tj-sc-label" title="Unfinished technical-debt tickets older than the current average technical-debt age (<%= number_with_precision(totals[:average_debt_age].to_f, precision: 1, strip_insignificant_zeros: true) %> days).">Debt Aging Risk</div>
+        <div class="tj-sc-value <%= totals[:debt_aging_risk].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, drilldowns[:debt_aging_risk], totals[:debt_aging_risk]) %></div>
       </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label" title="Selected sprint tickets currently Pending or On-Hold.">Stopped / Blocked</div>

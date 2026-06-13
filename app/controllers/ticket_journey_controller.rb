@@ -742,6 +742,13 @@ class TicketJourneyController < ApplicationController
     open_issues = executive_debt_open_issues
     aged_open_issues = open_issues.select { |issue| issue.created_on.present? && issue.created_on.to_date <= User.current.today - 30 }
     period_completed_debt = executive_completed_debt_items(sprint, start_date, end_date)
+    debt_age_days = debt_issues.filter_map { |issue| issue.created_on.present? ? [(User.current.today - issue.created_on.to_date).to_i, 0].max : nil }
+    average_debt_age = debt_age_days.any? ? (debt_age_days.sum.to_f / debt_age_days.size).round(1) : 0.0
+    debt_aging_risk_issues = debt_issues.select do |issue|
+      next false unless issue.created_on.present?
+
+      (User.current.today - issue.created_on.to_date).to_i > average_debt_age
+    end
 
     {
       period_start: start_date,
@@ -756,7 +763,9 @@ class TicketJourneyController < ApplicationController
         aged_open: aged_open_issues.size,
         missing_required: data_totals[:missing_required].to_i,
         stale_updates: data_totals[:tickets_without_updates].to_i,
-        debt_burn_down: period_completed_debt.size
+        debt_burn_down: period_completed_debt.size,
+        debt_aging_risk: debt_aging_risk_issues.size,
+        average_debt_age: average_debt_age
       },
       drilldowns: {
         technical_debt: debt_issues.map(&:id),
@@ -766,7 +775,8 @@ class TicketJourneyController < ApplicationController
         aged_open: aged_open_issues.map(&:id),
         missing_required: data_totals[:missing_required_issue_ids] || [],
         stale_updates: data_totals[:tickets_without_updates_issue_ids] || [],
-        debt_burn_down: period_completed_debt.map { |item| item[:issue].id }
+        debt_burn_down: period_completed_debt.map { |item| item[:issue].id },
+        debt_aging_risk: debt_aging_risk_issues.map(&:id)
       },
       debt_by_project_rows: executive_debt_project_rows(debt_issues),
       debt_by_owner_rows: executive_debt_owner_rows(debt_issues),
