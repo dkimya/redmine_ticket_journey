@@ -5684,8 +5684,8 @@ class TicketJourneyController < ApplicationController
     returned_visits = visits[:returned] || []
     in_progress_visits = visits[:in_progress] || []
 
-    result[:D1] = period_hours(todo_visits.first)
-    result[:D1aug] = Array(todo_visits[1..]).sum { |period| period_hours(period) } + returned_visits.sum { |period| period_hours(period) }
+    result[:D1] = todo_visits.sum { |period| period_hours(period) }
+    result[:D1aug] = returned_visits.sum { |period| period_hours(period) }
     result[:D2] = period_hours(in_progress_visits.first)
     result[:D2aug] = Array(in_progress_visits[1..]).sum { |period| period_hours(period) }
 
@@ -5767,8 +5767,8 @@ class TicketJourneyController < ApplicationController
     returned_visits = visits[:returned] || []
     in_progress_visits = visits[:in_progress] || []
 
-    result[:DT1] = period_hours(todo_visits.first)
-    result[:DT1aug] = Array(todo_visits[1..]).sum { |period| period_hours(period) } + returned_visits.sum { |period| period_hours(period) }
+    result[:DT1] = todo_visits.sum { |period| period_hours(period) }
+    result[:DT1aug] = returned_visits.sum { |period| period_hours(period) }
     result[:DT2] = period_hours(in_progress_visits.first)
     result[:DT2aug] = Array(in_progress_visits[1..]).sum { |period| period_hours(period) }
 
