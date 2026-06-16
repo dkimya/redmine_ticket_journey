@@ -186,6 +186,18 @@
 .tj-input:focus { border-color: var(--tj-accent); }
 .tj-filter-search .tj-input { width: 200px; }
 .tj-small-number-input { max-width: 110px; }
+.tj-filter-group .tj-checkbox-label {
+  align-items: center;
+  color: var(--tj-text);
+  display: flex;
+  flex-direction: row;
+  font-size: 12px;
+  gap: 6px;
+  height: 32px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.tj-checkbox-label input { margin: 0; }
 .tj-owner-filter-bar { margin-top: 12px; }
 .tj-drilldown-note {
   background: #fff8e6;

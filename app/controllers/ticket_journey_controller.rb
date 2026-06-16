@@ -181,8 +181,14 @@ class TicketJourneyController < ApplicationController
   # ---------------------------------------------------------------
   def owner_returns
     @owner_performance_stale_days = data_quality_stale_days_param
+    @include_locked_owner_users = include_locked_owner_users_param
     @issues_data = compute_all_durations
-    @owner_return_rows = compute_owner_returns_summary(@issues_data, role_id: @selected_owner_role&.id, stale_days: @owner_performance_stale_days)
+    @owner_return_rows = compute_owner_returns_summary(
+      @issues_data,
+      role_id: @selected_owner_role&.id,
+      stale_days: @owner_performance_stale_days,
+      include_locked_users: @include_locked_owner_users
+    )
     @owner_avg_time_per_status_rows = owner_avg_time_per_status_rows(@issues_data)
     @owner_idle_detail_rows = owner_idle_detail_rows(@owner_return_rows)
   end
@@ -3757,6 +3763,10 @@ class TicketJourneyController < ApplicationController
     days.positive? ? days : DATA_QUALITY_DEFAULT_STALE_DAYS
   end
 
+  def include_locked_owner_users_param
+    params[:include_locked_users].to_s == '1'
+  end
+
   def compute_data_quality_report
     return empty_data_quality_report unless @query&.valid?
 
@@ -5068,7 +5078,7 @@ class TicketJourneyController < ApplicationController
     report_peak_duration_value(durations, family_key) / total
   end
 
-  def compute_owner_returns_summary(issues_data, role_id: nil, stale_days: DATA_QUALITY_DEFAULT_STALE_DAYS)
+  def compute_owner_returns_summary(issues_data, role_id: nil, stale_days: DATA_QUALITY_DEFAULT_STALE_DAYS, include_locked_users: false)
     allowed_owner_values = ticket_owner_values_for_role(role_id)
     today = User.current.today
 
@@ -5111,6 +5121,7 @@ class TicketJourneyController < ApplicationController
     issues_data.each do |item|
       owner_value, owner_name = ticket_owner_info(item[:issue])
       next if allowed_owner_values && !allowed_owner_values.include?(owner_value.to_s)
+      next if !include_locked_users && locked_ticket_owner_value?(owner_value)
 
       row = rows[[owner_value, owner_name]]
       row[:total_tickets] += 1
@@ -5545,6 +5556,22 @@ class TicketJourneyController < ApplicationController
                                                     .pluck(:user_id)
                                                     .compact
                                                     .map(&:to_s)
+  end
+
+  def locked_ticket_owner_value?(owner_value)
+    return false if owner_value.blank?
+
+    @locked_ticket_owner_value_cache ||= {}
+    @locked_ticket_owner_value_cache[owner_value.to_s] ||= begin
+      user = User.find_by(id: owner_value)
+      if user.blank?
+        false
+      elsif user.respond_to?(:active?)
+        !user.active?
+      else
+        user.status.to_i != Principal::STATUS_ACTIVE
+      end
+    end
   end
 
   def ticket_owner_info(issue)

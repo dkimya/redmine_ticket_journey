@@ -32,6 +32,13 @@
           <label for="stale_days">No Update Threshold</label>
           <%= number_field_tag :stale_days, @owner_performance_stale_days, min: 1, class: 'tj-input tj-small-number-input', onchange: 'this.form.submit();' %>
         </div>
+        <div class="tj-filter-group">
+          <label for="include_locked_users">Locked Users</label>
+          <label class="tj-checkbox-label" title="Include locked/inactive Ticket Owner users in Team Performance totals and owner rows.">
+            <%= check_box_tag :include_locked_users, '1', @include_locked_owner_users, id: 'include_locked_users', onchange: 'this.form.submit();' %>
+            Include locked users
+          </label>
+        </div>
       </div>
     </div>
   <% end %>
