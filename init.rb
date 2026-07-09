@@ -1,5 +1,5 @@
 Redmine::Plugin.register :redmine_ticket_journey do
-  name        'Ticket Journey Duration Report'
+  name        'PMO Dashboard'
   author      'Manage Petro'
   description 'Calculates V10 ticket journey durations, return counters, and calendar totals by tracker family.'
   version     '1.0.0'
@@ -17,7 +17,7 @@ Redmine::Plugin.register :redmine_ticket_journey do
   menu :project_menu,
        :ticket_journey,
        { controller: 'ticket_journey', action: 'pmo_control' },
-       caption: 'Journey Report',
+       caption: 'PMO Dashboard',
        after:   :activity,
        param:   :project_id
 end

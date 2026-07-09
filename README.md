@@ -103,7 +103,7 @@ app/controllers/ticket_journey_controller.rb
 ## Usage
 
 1. Navigate to any project
-2. Click **Journey Report** in the project menu
+2. Click **PMO Dashboard** in the project menu
 3. Use date / tracker / assignee filters and click **Apply**
 4. Click any **#issue-id** link to see the detail view with bar chart and timeline
 5. Click **Export CSV** to download the full report

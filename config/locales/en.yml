@@ -1,7 +1,8 @@
 en:
+  project_module_ticket_journey: "PMO Dashboard"
   ticket_journey:
     title: "Ticket Journey Duration Report"
-    menu_caption: "Journey Report"
+    menu_caption: "PMO Dashboard"
     labels:
       D0:    "Planning"
       D0aug: "Unnecessary Ticket Identification"
