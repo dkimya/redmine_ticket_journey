@@ -115,7 +115,7 @@ module TicketJourneyHelper
       text,
       ticket_journey_path(@project, duration_report_drilldown_params(query, ids)),
       class: class_name,
-      title: title || 'Open matching tickets in Duration Report'
+      title: title || 'Open matching tickets in Ticket Journey Report'
     )
   end
 
@@ -221,7 +221,7 @@ module TicketJourneyHelper
       value,
       ticket_journey_path(@project, sprint_delivery_duration_filter_params(scope, owner_value)),
       class: 'tj-drilldown-link',
-      title: 'Open matching sprint tickets in Duration Report'
+      title: 'Open matching sprint tickets in Ticket Journey Report'
     )
   end
 

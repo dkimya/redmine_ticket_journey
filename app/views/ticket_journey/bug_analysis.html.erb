@@ -260,7 +260,7 @@
                 <% source_rows.each_with_index do |row, index| %>
                   <div class="tj-bug-source-legend-row">
                     <span class="tj-bug-source-swatch" style="background:<%= pie_colors[index % pie_colors.size] %>"></span>
-                    <span><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:source].to_s, title: 'Open closed bugs for this source in Duration Report') %></span>
+                    <span><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:source].to_s, title: 'Open closed bugs for this source in Ticket Journey Report') %></span>
                     <strong><%= row[:count] %></strong>
                     <span><%= number_to_percentage(row[:percent] * 100, precision: 1) %></span>
                   </div>
@@ -281,7 +281,7 @@
               <% closed_page_rows.each do |row| %>
                 <% width = max_closed_page_count.positive? ? ((row[:count].to_f / max_closed_page_count) * 100).round : 0 %>
                 <div class="tj-bug-bar-row">
-                  <span class="tj-bug-bar-label"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:page].to_s, title: 'Open closed bugs for this page/module in Duration Report') %></span>
+                  <span class="tj-bug-bar-label"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:page].to_s, title: 'Open closed bugs for this page/module in Ticket Journey Report') %></span>
                   <span class="tj-bug-bar-track">
                     <span class="tj-bug-bar-fill" style="width:<%= width %>%"></span>
                   </span>
@@ -306,7 +306,7 @@
           <% width = max_page_count.positive? ? ((row[:count].to_f / max_page_count) * 100).round : 0 %>
           <% bug_risk_class = row[:risk] == 'High' ? 'tj-release-risk-pill-red' : (row[:risk] == 'Medium' ? 'tj-release-risk-pill-amber' : 'tj-release-risk-pill-green') %>
           <div class="tj-bug-bar-row tj-bug-page-bar-row">
-            <span class="tj-bug-bar-label"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:page].to_s, title: 'Open bugs for this page/module in Duration Report') %></span>
+            <span class="tj-bug-bar-label"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:page].to_s, title: 'Open bugs for this page/module in Ticket Journey Report') %></span>
             <span class="tj-bug-bar-track">
               <span class="tj-bug-bar-fill" style="width:<%= width %>%"></span>
             </span>

@@ -301,7 +301,7 @@
             <tbody>
               <% @sprint_delivery_report[:owner_rows].each do |row| %>
                 <tr class="tj-row">
-                  <td class="tj-td-title"><%= link_to h(row[:owner]), ticket_journey_path(@project, sprint_delivery_duration_filter_params(:committed, row[:owner_value])), class: 'tj-drilldown-link', title: 'Open this owner sprint tickets in Duration Report' %></td>
+                  <td class="tj-td-title"><%= link_to h(row[:owner]), ticket_journey_path(@project, sprint_delivery_duration_filter_params(:committed, row[:owner_value])), class: 'tj-drilldown-link', title: 'Open this owner sprint tickets in Ticket Journey Report' %></td>
                   <td class="tj-td-native"><%= sprint_delivery_count_link(:committed, row[:committed], row[:owner_value], target: :duration) %></td>
                   <td class="tj-td-native"><%= sprint_delivery_count_link(:completed, row[:completed], row[:owner_value]) %></td>
                   <td class="tj-td-native"><%= number_to_percentage(row[:completion_rate] * 100, precision: 1) %></td>
@@ -363,7 +363,7 @@
                   <td class="tj-td-native"><%= h(row[:original_sprint]) %></td>
                   <td class="tj-td-native">
                     <% if row[:flags].any? %>
-                      <%= safe_join(row[:flags].map { |flag| link_to flag, ticket_journey_path(@project, sprint_delivery_duration_filter_params(sprint_delivery_flag_scope(flag), row[:owner_value])), class: 'tj-drilldown-link', title: "Open #{flag.downcase} sprint tickets in Duration Report" }, ', ') %>
+                      <%= safe_join(row[:flags].map { |flag| link_to flag, ticket_journey_path(@project, sprint_delivery_duration_filter_params(sprint_delivery_flag_scope(flag), row[:owner_value])), class: 'tj-drilldown-link', title: "Open #{flag.downcase} sprint tickets in Ticket Journey Report" }, ', ') %>
                     <% else %>
                       -
                     <% end %>

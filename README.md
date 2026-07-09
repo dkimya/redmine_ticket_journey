@@ -1,6 +1,6 @@
 # redmine_ticket_journey
 
-**Ticket Journey Duration Report** — Redmine Plugin  
+**Ticket Journey Report** — Redmine Plugin
 Calculates D1–D7-aug durations and return counters for every issue,  
 based on the **Ticket Journey Map** by Manage Petro.
 

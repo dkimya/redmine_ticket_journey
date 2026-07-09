@@ -51,31 +51,31 @@
     </div>
 
     <div class="tj-summary-strip">
-      <%= duration_report_drilldown_block(@query, drilldowns[:done_tickets], class: 'tj-summary-card tj-summary-link', title: 'Open done tickets in Duration Report') do %>
+      <%= duration_report_drilldown_block(@query, drilldowns[:done_tickets], class: 'tj-summary-card tj-summary-link', title: 'Open done tickets in Ticket Journey Report') do %>
         <div class="tj-sc-label">Done Tickets</div>
         <div class="tj-sc-value tj-sc-blue"><%= totals[:done_tickets] %></div>
       <% end %>
-      <%= duration_report_drilldown_block(@query, drilldowns[:done_tickets_with_returns], class: 'tj-summary-card tj-summary-link', title: 'Open done tickets with returns in Duration Report') do %>
+      <%= duration_report_drilldown_block(@query, drilldowns[:done_tickets_with_returns], class: 'tj-summary-card tj-summary-link', title: 'Open done tickets with returns in Ticket Journey Report') do %>
         <div class="tj-sc-label">Tickets With Returns</div>
         <div class="tj-sc-value <%= totals[:done_tickets_with_returns].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= totals[:done_tickets_with_returns] %></div>
       <% end %>
-      <%= duration_report_drilldown_block(@query, drilldowns[:done_tickets_with_returns], class: 'tj-summary-card tj-summary-link', title: 'Open done tickets with returns in Duration Report') do %>
+      <%= duration_report_drilldown_block(@query, drilldowns[:done_tickets_with_returns], class: 'tj-summary-card tj-summary-link', title: 'Open done tickets with returns in Ticket Journey Report') do %>
         <div class="tj-sc-label">Return Rate</div>
         <div class="tj-sc-value <%= totals[:return_rate].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= number_to_percentage(totals[:return_rate] * 100, precision: 1) %></div>
       <% end %>
-      <%= duration_report_drilldown_block(@query, drilldowns[:done_tickets_without_returns], class: 'tj-summary-card tj-summary-link', title: 'Open first-pass done tickets in Duration Report') do %>
+      <%= duration_report_drilldown_block(@query, drilldowns[:done_tickets_without_returns], class: 'tj-summary-card tj-summary-link', title: 'Open first-pass done tickets in Ticket Journey Report') do %>
         <div class="tj-sc-label">First Time Pass</div>
         <div class="tj-sc-value <%= totals[:done_tickets_without_returns].positive? ? 'tj-sc-green' : 'tj-sc-dim' %>"><%= totals[:done_tickets_without_returns] %></div>
       <% end %>
-      <%= duration_report_drilldown_block(@query, drilldowns[:done_tickets_without_returns], class: 'tj-summary-card tj-summary-link', title: 'Open first-pass done tickets in Duration Report') do %>
+      <%= duration_report_drilldown_block(@query, drilldowns[:done_tickets_without_returns], class: 'tj-summary-card tj-summary-link', title: 'Open first-pass done tickets in Ticket Journey Report') do %>
         <div class="tj-sc-label">First Time Pass %</div>
         <div class="tj-sc-value <%= totals[:first_pass_rate] >= 0.8 ? 'tj-sc-green' : 'tj-sc-orange' %>"><%= number_to_percentage(totals[:first_pass_rate] * 100, precision: 1) %></div>
       <% end %>
-      <%= duration_report_drilldown_block(@query, drilldowns[:done_tickets_without_returns], class: 'tj-summary-card tj-summary-link', title: 'Open tickets without returns in Duration Report') do %>
+      <%= duration_report_drilldown_block(@query, drilldowns[:done_tickets_without_returns], class: 'tj-summary-card tj-summary-link', title: 'Open tickets without returns in Ticket Journey Report') do %>
         <div class="tj-sc-label">Tickets Without Returns</div>
         <div class="tj-sc-value <%= totals[:done_tickets_without_returns].positive? ? 'tj-sc-green' : 'tj-sc-dim' %>"><%= totals[:done_tickets_without_returns] %></div>
       <% end %>
-      <%= duration_report_drilldown_block(@query, drilldowns[:tickets_with_returns], class: 'tj-summary-card tj-summary-link', title: 'Open all tickets with returns in Duration Report') do %>
+      <%= duration_report_drilldown_block(@query, drilldowns[:tickets_with_returns], class: 'tj-summary-card tj-summary-link', title: 'Open all tickets with returns in Ticket Journey Report') do %>
         <div class="tj-sc-label">Total Return</div>
         <div class="tj-sc-value <%= totals[:return_events].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= totals[:return_events] %></div>
       <% end %>
@@ -98,7 +98,7 @@
     <% else %>
       <div class="tj-legend-strip tj-legend-strip-section">
         <% counter_rows.each do |counter| %>
-          <%= duration_report_drilldown_block(@query, counter[:issue_ids], class: 'tj-legend-item tj-legend-link', title: "Open #{counter[:code]} tickets in Duration Report") do %>
+          <%= duration_report_drilldown_block(@query, counter[:issue_ids], class: 'tj-legend-item tj-legend-link', title: "Open #{counter[:code]} tickets in Ticket Journey Report") do %>
             <div class="tj-legend-code"><%= counter[:code] %></div>
             <div class="tj-legend-copy">
               <div class="tj-legend-title"><%= h(counter[:title]) %></div>

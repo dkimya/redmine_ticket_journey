@@ -6,7 +6,7 @@
   <div class="tj-page-header">
     <div class="tj-page-header-left">
       <div>
-        <h2><%= ticket_journey_header_context_tag(:sprint_delivery) %>Ticket Journey Duration Report</h2>
+        <h2><%= ticket_journey_header_context_tag(:sprint_delivery) %>Ticket Journey Report</h2>
         <p class="tj-page-sub">Ticket Journey Map &mdash; <%= @project.name %></p>
       </div>
     </div>
@@ -114,7 +114,7 @@
       <% if @detail_issue_error.present? %>
         <div class="tj-detail-search-message is-error"><%= @detail_issue_error %></div>
       <% elsif @issue.blank? %>
-        <div class="tj-detail-search-message">Enter an issue ID or click a subject from the Duration Report to open its detail view here.</div>
+        <div class="tj-detail-search-message">Enter an issue ID or click a subject from the Ticket Journey Report to open its detail view here.</div>
       <% end %>
     </div>
 

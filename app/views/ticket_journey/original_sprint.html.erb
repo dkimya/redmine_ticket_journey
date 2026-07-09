@@ -34,7 +34,7 @@
   <% else %>
     <% report = @original_sprint_report %>
     <div class="tj-summary-strip">
-      <%= duration_report_drilldown_block(@query, report[:all_issue_ids], class: 'tj-summary-card tj-summary-link', title: 'Open all technical tickets in Duration Report') do %>
+      <%= duration_report_drilldown_block(@query, report[:all_issue_ids], class: 'tj-summary-card tj-summary-link', title: 'Open all technical tickets in Ticket Journey Report') do %>
         <div class="tj-sc-label">Technical Tickets</div>
         <div class="tj-sc-value tj-sc-blue"><%= report[:total_technical] %></div>
       <% end %>

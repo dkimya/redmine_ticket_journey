@@ -38,7 +38,7 @@
     <div class="tj-summary-card">
       <div class="tj-sc-label">Total Open</div>
       <div class="tj-sc-value tj-sc-green">
-        <%= duration_report_drilldown_link(@query, @project_health_report[:issue_ids], @project_health_report[:total_open], title: 'Open all health report tickets in Duration Report') %>
+        <%= duration_report_drilldown_link(@query, @project_health_report[:issue_ids], @project_health_report[:total_open], title: 'Open all health report tickets in Ticket Journey Report') %>
       </div>
     </div>
   </div>
@@ -51,7 +51,7 @@
           <div>
             <div class="tj-card-title"><%= block[:title] %></div>
             <div class="tj-health-total">
-              <%= duration_report_drilldown_link(@query, block[:issue_ids], block[:total], title: "Open #{block[:title]} tickets in Duration Report") %>
+              <%= duration_report_drilldown_link(@query, block[:issue_ids], block[:total], title: "Open #{block[:title]} tickets in Ticket Journey Report") %>
             </div>
           </div>
         </div>
@@ -63,7 +63,7 @@
               <tr>
                 <td class="tj-health-label"><%= row[:label] %></td>
                 <td class="tj-health-count">
-                  <%= duration_report_drilldown_link(@query, row[:issue_ids], row[:count], title: "Open #{row[:label]} tickets in Duration Report") %>
+                  <%= duration_report_drilldown_link(@query, row[:issue_ids], row[:count], title: "Open #{row[:label]} tickets in Ticket Journey Report") %>
                 </td>
                 <td class="tj-health-percent"><%= number_to_percentage(row[:percent] * 100, precision: 1) %></td>
               </tr>

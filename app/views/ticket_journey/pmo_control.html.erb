@@ -129,7 +129,7 @@
                       <%= link_to row[:backlog],
                             ticket_journey_path(@project, duration_report_drilldown_params(@query, row[:backlog_issue_ids]).merge('support_section' => 'pmo_control')),
                             class: 'tj-drilldown-link',
-                            title: 'Open backlog tickets in Duration Report' %>
+                            title: 'Open backlog tickets in Ticket Journey Report' %>
                     <% else %>
                       <%= row[:backlog] %>
                     <% end %>
