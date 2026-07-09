@@ -49,7 +49,7 @@ module TicketJourneyHelper
       support_section stale_days ticket_owner_role_id sprint_id
       bug_start_date bug_end_date flow_start_date flow_end_date
       time_start_date time_end_date
-      aging_group_by priority_sort priority_dir cycle_group_by
+      aging_group_by aging_calculation priority_sort priority_dir cycle_group_by
       data_sort data_dir release_sort release_dir snapshot_at
       exec_period exec_start_date exec_end_date
     ]
@@ -427,7 +427,7 @@ module TicketJourneyHelper
   def aging_risk_params(query)
     query_params = query.as_params.deep_dup.deep_stringify_keys
 
-    %w[aging_group_by aging_sort aging_dir].each do |key|
+    %w[aging_group_by aging_calculation aging_sort aging_dir].each do |key|
       query_params.delete(key)
       value = params[key]
       query_params[key] = value if value.present?
@@ -920,63 +920,37 @@ module TicketJourneyHelper
     )
   end
 
-  def aging_risk_issue_filter_params(row, scope)
-    query_params = @query.as_params.deep_dup.deep_stringify_keys
-    filters = Array(query_params['f'] || query_params[:f]).map(&:to_s)
-    operators = (query_params['op'] || query_params[:op] || {}).deep_dup.deep_stringify_keys
-    values = (query_params['v'] || query_params[:v] || {}).deep_dup.deep_stringify_keys
-
-    replace_filter(filters, operators, values, 'status_id')
-    add_status_filter(filters, operators, values, 'o')
-    add_aging_group_filter(filters, operators, values, row)
-    add_aging_scope_filter(filters, operators, values, row, scope)
-
-    query_params['set_filter'] = '1'
-    query_params['f'] = filters
-    query_params['op'] = operators
-    query_params['v'] = values
-    query_params.merge!(support_section_params)
-    query_params
-  end
-
   def aging_risk_count_link(row, scope, value)
     return '-' if value.to_i.zero?
 
+    issue_ids = Array(row.dig(:issue_ids_by_scope, scope.to_sym)).map(&:to_i).reject(&:zero?).uniq
+    return '-' if issue_ids.empty?
+
     link_to(
       value,
-      project_issues_path(@project, aging_risk_issue_filter_params(row, scope)),
+      ticket_journey_path(@project, duration_report_drilldown_params(@query, issue_ids)),
       class: 'tj-drilldown-link',
-      title: 'Open matching issues'
+      title: 'Open matching issues in Ticket Journey Report'
     )
-  end
-
-  def aging_risk_total_filter_params(scope)
-    query_params = @query.as_params.deep_dup.deep_stringify_keys
-    filters = Array(query_params['f'] || query_params[:f]).map(&:to_s)
-    operators = (query_params['op'] || query_params[:op] || {}).deep_dup.deep_stringify_keys
-    values = (query_params['v'] || query_params[:v] || {}).deep_dup.deep_stringify_keys
-
-    replace_filter(filters, operators, values, 'status_id')
-    add_status_filter(filters, operators, values, 'o')
-    add_aging_scope_filter(filters, operators, values, { group_by: nil }, scope)
-
-    query_params['set_filter'] = '1'
-    query_params['f'] = filters
-    query_params['op'] = operators
-    query_params['v'] = values
-    query_params.merge!(support_section_params)
-    query_params
   end
 
   def aging_risk_total_link(scope, value)
     return '-' if value.to_i.zero?
 
+    issue_ids = Array(@aging_risk_totals.dig(:issue_ids_by_scope, scope.to_sym)).map(&:to_i).reject(&:zero?).uniq
+    return '-' if issue_ids.empty?
+
     link_to(
       value,
-      project_issues_path(@project, aging_risk_total_filter_params(scope)),
+      ticket_journey_path(@project, duration_report_drilldown_params(@query, issue_ids)),
       class: 'tj-drilldown-link',
-      title: 'Open matching issues'
+      title: 'Open matching issues in Ticket Journey Report'
     )
+  end
+
+  def aging_risk_drilldown_path(row, scope)
+    issue_ids = Array(row.dig(:issue_ids_by_scope, scope.to_sym)).map(&:to_i).reject(&:zero?).uniq
+    ticket_journey_path(@project, duration_report_drilldown_params(@query, issue_ids))
   end
 
   def priority_risk_issue_filter_params(scope, row = nil)
@@ -1019,63 +993,6 @@ module TicketJourneyHelper
       class: 'tj-drilldown-link',
       title: 'Open matching priority issues'
     )
-  end
-
-  def add_aging_group_filter(filters, operators, values, row)
-    case row[:group_by].to_s
-    when 'tracker'
-      replace_filter(filters, operators, values, 'tracker_id')
-      add_exact_filter(filters, operators, values, 'tracker_id', [row[:group_value]])
-    when 'status'
-      replace_filter(filters, operators, values, 'status_id')
-      add_exact_filter(filters, operators, values, 'status_id', [row[:group_value]])
-    when 'priority'
-      replace_filter(filters, operators, values, 'priority_id')
-      add_exact_filter(filters, operators, values, 'priority_id', [row[:group_value]])
-    else
-      add_ticket_owner_filter(filters, operators, values, row[:group_value])
-    end
-  end
-
-  def add_aging_scope_filter(filters, operators, values, row, scope)
-    today = User.current.today
-
-    case scope.to_sym
-    when :bucket_0_7
-      replace_filter(filters, operators, values, 'created_on')
-      add_date_filter(filters, operators, values, 'created_on', '>=', [today - 7])
-    when :bucket_8_14
-      replace_filter(filters, operators, values, 'created_on')
-      add_date_filter(filters, operators, values, 'created_on', '><', [today - 14, today - 8])
-    when :bucket_15_30
-      replace_filter(filters, operators, values, 'created_on')
-      add_date_filter(filters, operators, values, 'created_on', '><', [today - 30, today - 15])
-    when :bucket_30_plus
-      replace_filter(filters, operators, values, 'created_on')
-      add_date_filter(filters, operators, values, 'created_on', '<=', [today - 31])
-    when :bucket_31_60
-      replace_filter(filters, operators, values, 'created_on')
-      add_date_filter(filters, operators, values, 'created_on', '><', [today - 60, today - 31])
-    when :bucket_60_plus
-      replace_filter(filters, operators, values, 'created_on')
-      add_date_filter(filters, operators, values, 'created_on', '<=', [today - 61])
-    when :stopped
-      unless row[:group_by].to_s == 'status'
-        replace_filter(filters, operators, values, 'status_id')
-        add_exact_status_filter(filters, operators, values, stopped_status_filter_values)
-      end
-    when :overdue
-      replace_filter(filters, operators, values, 'due_date')
-      add_date_filter(filters, operators, values, 'due_date', '<=', [today - 1])
-    when :priority_open
-      unless row[:group_by].to_s == 'priority'
-        replace_filter(filters, operators, values, 'priority_id')
-        add_priority_filter(filters, operators, values)
-      end
-    when :no_due_date
-      replace_filter(filters, operators, values, 'due_date')
-      add_missing_filter(filters, operators, values, 'due_date')
-    end
   end
 
   def release_readiness_no_target_filter_params

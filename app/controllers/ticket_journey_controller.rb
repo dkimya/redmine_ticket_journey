@@ -32,6 +32,20 @@ class TicketJourneyController < ApplicationController
     'status' => 'Status',
     'priority' => 'Priority'
   }.freeze
+  AGING_CALCULATION_OPTIONS = {
+    'development' => {
+      label: 'Development aging (first To-Do to today)',
+      description: 'Age is counted from the ticket\'s first entry into To-Do. Tickets that have not reached To-Do are excluded.'
+    },
+    'planning' => {
+      label: 'Planning aging (created to first To-Do)',
+      description: 'Age is counted from ticket creation for open tickets that have not yet reached To-Do.'
+    },
+    'end_to_end' => {
+      label: 'End-to-end aging (created to today)',
+      description: 'Age is counted from ticket creation, including both planning and development time.'
+    }
+  }.freeze
   AGING_BUCKETS = [
     { key: :bucket_0_7, label: '0-7d', min: 0, max: 7 },
     { key: :bucket_8_14, label: '8-14d', min: 8, max: 14 },
@@ -230,7 +244,8 @@ class TicketJourneyController < ApplicationController
   def aging_risk
     build_query_from(bug_tracker_query_params, use_default_query: false) if params[:support_section].to_s == 'bug_analysis'
     @aging_group_by = aging_group_by_param
-    @aging_risk_rows, @aging_risk_totals = compute_aging_risk_report(@aging_group_by)
+    @aging_calculation = aging_calculation_param
+    @aging_risk_rows, @aging_risk_totals = compute_aging_risk_report(@aging_group_by, @aging_calculation)
   end
 
   # ---------------------------------------------------------------
@@ -2986,19 +3001,24 @@ class TicketJourneyController < ApplicationController
     original_sprint.present? ? :sprint : :general
   end
 
-  def compute_aging_risk_report(group_by)
+  def compute_aging_risk_report(group_by, calculation = aging_calculation_param)
     return [[], empty_aging_risk_totals] unless @query&.valid?
 
     today = User.current.today
+    issues = aging_risk_issues
+    transitions_by_issue = load_transitions(issues)
     rows = Hash.new do |hash, group_key|
       group_value, group_label = group_key
       hash[group_key] = empty_aging_risk_row(group_by, group_value, group_label)
     end
 
-    aging_risk_issues.each do |issue|
+    issues.each do |issue|
+      age_start = aging_start_time(issue, transitions_by_issue[issue.id], calculation)
+      next if age_start.blank?
+
       group_value, group_label = aging_group_value(issue, group_by)
       row = rows[[group_value, group_label]]
-      age_days = [(today - issue.created_on.to_date).to_i, 0].max
+      age_days = [(today - age_start.to_date).to_i, 0].max
       bucket_key = aging_bucket_key(age_days)
 
       row[:total_open] += 1
@@ -3009,6 +3029,12 @@ class TicketJourneyController < ApplicationController
       row[:no_due_date] += 1 if issue.due_date.blank?
       row[:age_sum] += age_days
       row[:oldest_age] = [row[:oldest_age], age_days].max
+      row[:issue_ids_by_scope][:total_open] << issue.id
+      row[:issue_ids_by_scope][bucket_key] << issue.id if bucket_key
+      row[:issue_ids_by_scope][:stopped] << issue.id if paused_status?(issue.status&.name)
+      row[:issue_ids_by_scope][:overdue] << issue.id if issue.due_date.present? && issue.due_date < today
+      row[:issue_ids_by_scope][:priority_open] << issue.id if priority_performance_ticket?(issue)
+      row[:issue_ids_by_scope][:no_due_date] << issue.id if issue.due_date.blank?
     end
 
     report_rows = rows.values.map do |row|
@@ -3023,8 +3049,30 @@ class TicketJourneyController < ApplicationController
   def aging_risk_issues
     @query.issues(
       order: "#{Issue.table_name}.id ASC",
-      include: [:status, :tracker, :priority, { custom_values: :custom_field }]
+      include: [:status, :author, :tracker, :priority, { custom_values: :custom_field }]
     ).reject { |issue| issue.status&.is_closed? }
+  end
+
+  def aging_calculation_param
+    calculation = params[:aging_calculation].to_s
+    AGING_CALCULATION_OPTIONS.key?(calculation) ? calculation : 'development'
+  end
+
+  def aging_start_time(issue, transitions, calculation)
+    case calculation
+    when 'planning'
+      return nil if first_todo_entry_time(transitions).present?
+
+      issue.created_on
+    when 'end_to_end'
+      issue.created_on
+    else
+      first_todo_entry_time(transitions)
+    end
+  end
+
+  def first_todo_entry_time(transitions)
+    Array(transitions).find { |transition| status_role(transition[:to_status]) == :todo }&.dig(:changed_at)
   end
 
   def empty_aging_risk_row(group_by, group_value, group_label)
@@ -3044,7 +3092,8 @@ class TicketJourneyController < ApplicationController
       no_due_date: 0,
       age_sum: 0,
       avg_age: 0.0,
-      oldest_age: 0
+      oldest_age: 0,
+      issue_ids_by_scope: Hash.new { |hash, key| hash[key] = [] }
     }
   end
 
@@ -3062,7 +3111,8 @@ class TicketJourneyController < ApplicationController
       priority_open: 0,
       no_due_date: 0,
       avg_age: 0.0,
-      oldest_age: 0
+      oldest_age: 0,
+      issue_ids_by_scope: Hash.new { |hash, key| hash[key] = [] }
     }
   end
 
@@ -3076,6 +3126,12 @@ class TicketJourneyController < ApplicationController
     age_sum = rows.sum { |row| row[:age_sum].to_i }
     totals[:avg_age] = totals[:total_open].positive? ? age_sum.to_f / totals[:total_open] : 0.0
     totals[:oldest_age] = rows.map { |row| row[:oldest_age].to_i }.max.to_i
+    rows.each do |row|
+      row[:issue_ids_by_scope].each do |scope, issue_ids|
+        totals[:issue_ids_by_scope][scope].concat(issue_ids)
+      end
+    end
+    totals[:issue_ids_by_scope].each_value(&:uniq!)
     totals
   end
 

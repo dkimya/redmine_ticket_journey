@@ -27,8 +27,15 @@
                 class: 'tj-input',
                 onchange: 'this.form.submit();' %>
         </div>
+        <div class="tj-filter-group">
+          <label for="aging_calculation">Age Calculation</label>
+          <%= select_tag :aging_calculation,
+                options_for_select(TicketJourneyController::AGING_CALCULATION_OPTIONS.map { |value, option| [option[:label], value] }, @aging_calculation),
+                class: 'tj-input',
+                onchange: 'this.form.submit();' %>
+        </div>
         <div class="tj-filter-group tj-flow-filter-note">
-          <span>Uses the Redmine filters above, then summarizes currently open issues by age bucket and risk flags. Age is counted from issue creation date.</span>
+          <span>Uses the Redmine filters above, then summarizes currently open issues by age bucket and risk flags. <%= TicketJourneyController::AGING_CALCULATION_OPTIONS.fetch(@aging_calculation).fetch(:description) %></span>
         </div>
       </div>
     </div>
@@ -90,7 +97,7 @@
         <div class="tj-workload-bars">
           <% attention_rows.each do |row| %>
             <% width = max_attention.positive? ? ((row[:total_open].to_f / max_attention) * 100).round : 0 %>
-            <%= link_to project_issues_path(@project, aging_risk_issue_filter_params(row, :total_open)),
+            <%= link_to aging_risk_drilldown_path(row, :total_open),
                   class: 'tj-workload-bar-row tj-aging-bar-row',
                   title: "Open issues for #{row[:group]}" do %>
               <span class="tj-workload-bar-label"><%= h(row[:group]) %></span>
