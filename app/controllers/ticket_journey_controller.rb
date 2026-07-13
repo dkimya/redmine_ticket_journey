@@ -9,7 +9,8 @@ class TicketJourneyController < ApplicationController
   RETURN_REASON_CF_ID = 66
   BUG_RELATED_PAGE_CF_NAMES = ['Bug Related Page / Module', 'Related Page / Module', 'Bug Related Page', 'Related Page', 'Related to Page', 'Related to Page (FMS)', 'Related Module', 'Page / Module', 'Module / Page'].freeze
   BUG_LEAKAGE_SOURCE_KEYWORDS = ['test escape', 'coverage gap', 'requirement gap'].freeze
-  OWNER_RETURN_SORTABLE_FIELDS = %w[owner total_tickets ticket_share done_tickets completion_rate avg_done_cycle_time avg_priority_done_cycle_time open_tickets owner_debt tickets_without_updates avg_idle_days returned_tickets return_rate c1 c2 c3 c4 c5 total_returns].freeze
+  OWNER_RETURN_SORTABLE_FIELDS = %w[owner beginning_debt new_commitment total_commitment ticket_share done_committed other_done total_done returned_tickets return_rate r1 r2 r3 r4 r5 total_return_events end_debt_now_paid end_debt_still_open end_debt_total debt_ratio].freeze
+  OWNER_PERFORMANCE_TRACKER_NAMES = ['Bug', 'Feature', 'Change Request / Improvement'].freeze
   OWNER_WORKLOAD_SORTABLE_FIELDS = %w[owner total_open technical_open task_open container_open stopped overdue priority_open no_due_date avg_age oldest_age].freeze
   AGING_RISK_SORTABLE_FIELDS = %w[group total_open bucket_0_7 bucket_8_14 bucket_15_30 bucket_31_60 bucket_60_plus stopped overdue priority_open no_due_date avg_age oldest_age].freeze
   PRIORITY_RISK_SORTABLE_FIELDS = %w[issue subject owner priority status tracker due_date age_days overdue stopped no_due_date].freeze
@@ -109,7 +110,7 @@ class TicketJourneyController < ApplicationController
 
   before_action :find_project
   before_action :authorize
-  before_action :build_query, only: [:index, :pmo_control, :executive_overview, :executive_team_performance, :executive_bug_quality_risk, :executive_technical_debt, :sprint_delivery, :planning_estimation, :owner_returns, :qa_returns, :owner_workload, :status_snapshot, :time_utilization, :aging_risk, :priority_risk, :cycle_distribution, :flow_report, :project_health, :release_readiness, :bug_analysis, :data_quality, :original_sprint, :export]
+  before_action :build_query, only: [:index, :pmo_control, :executive_overview, :executive_team_performance, :executive_bug_quality_risk, :executive_technical_debt, :sprint_delivery, :planning_estimation, :qa_returns, :owner_workload, :status_snapshot, :time_utilization, :aging_risk, :priority_risk, :cycle_distribution, :flow_report, :project_health, :release_readiness, :bug_analysis, :data_quality, :original_sprint, :export]
   before_action :prepare_owner_role_filter, only: [:owner_returns, :owner_workload, :flow_report]
 
   helper :queries
@@ -191,20 +192,41 @@ class TicketJourneyController < ApplicationController
   end
 
   # ---------------------------------------------------------------
-  # OWNER RETURNS — summary of returned tickets by ticket owner
+  # TICKET OWNER PERFORMANCE — commitments, delivery, activity, idle, and rework
   # ---------------------------------------------------------------
   def owner_returns
-    @owner_performance_stale_days = data_quality_stale_days_param
+    build_query_from(owner_performance_query_params, use_default_query: false)
+    remove_owner_performance_open_status_filter
+    @owner_period_start, @owner_period_end = owner_performance_period_dates
     @include_locked_owner_users = include_locked_owner_users_param
-    @issues_data = compute_all_durations
-    @owner_return_rows = compute_owner_returns_summary(
-      @issues_data,
+    @selected_owner_user_id = params[:owner_user_id].presence
+    @owner_users = owner_performance_owner_options(
       role_id: @selected_owner_role&.id,
-      stale_days: @owner_performance_stale_days,
       include_locked_users: @include_locked_owner_users
     )
-    @owner_avg_time_per_status_rows = owner_avg_time_per_status_rows(@issues_data)
-    @owner_idle_detail_rows = owner_idle_detail_rows(@owner_return_rows)
+    unless @owner_users.any? { |_name, value| value.to_s == @selected_owner_user_id.to_s }
+      selected_principal = Principal.find_by(id: @selected_owner_user_id) if @selected_owner_user_id && @selected_owner_role.nil?
+      if selected_principal && (@include_locked_owner_users || !locked_ticket_owner_value?(@selected_owner_user_id))
+        @owner_users << [selected_principal.name, @selected_owner_user_id.to_s]
+      else
+        @selected_owner_user_id = nil
+      end
+    end
+    @owner_performance_report = compute_ticket_owner_performance_report(
+      @owner_period_start,
+      @owner_period_end,
+      role_id: @selected_owner_role&.id,
+      owner_user_id: @selected_owner_user_id,
+      include_locked_users: @include_locked_owner_users
+    )
+    historical_owner_options = Array(@owner_performance_report[:delivery_rows]).filter_map do |row|
+      next if row[:owner_value].blank?
+
+      [row[:owner], row[:owner_value].to_s]
+    end
+    @owner_users = (@owner_users + historical_owner_options)
+                   .uniq { |_name, value| value }
+                   .sort_by { |name, _value| name.to_s.downcase }
   end
 
   # ---------------------------------------------------------------
@@ -1072,6 +1094,26 @@ class TicketJourneyController < ApplicationController
 
   def executive_technical_debt_query_params
     default_tracker_query_params(technical_tracker_ids, base_params: all_status_query_params)
+  end
+
+  def owner_performance_query_params
+    default_tracker_query_params(owner_performance_tracker_ids, base_params: all_status_query_params)
+  end
+
+  def owner_performance_tracker_ids
+    @owner_performance_tracker_ids ||= Tracker.where(name: OWNER_PERFORMANCE_TRACKER_NAMES).pluck(:id)
+  end
+
+  def remove_owner_performance_open_status_filter
+    filters = @query&.filters
+    return unless filters
+
+    status_key = filters.key?('status_id') ? 'status_id' : :status_id
+    status_filter = filters[status_key]
+    return unless status_filter
+
+    operator = status_filter[:operator] || status_filter['operator']
+    filters.delete(status_key) if operator.to_s == 'o'
   end
 
   def default_excluded_status_query_params(status_names, base_params: params.to_unsafe_h)
@@ -2393,16 +2435,17 @@ class TicketJourneyController < ApplicationController
                        .order(:position, :name)
 
     requested_role_id = params[:ticket_owner_role_id].presence
+    developer_role = @owner_roles.find { |role| role.name.casecmp('Developer').zero? }
     @selected_owner_role =
       if requested_role_id == 'all'
         nil
       elsif requested_role_id.present?
-        @owner_roles.find { |role| role.id == requested_role_id.to_i }
+        @owner_roles.find { |role| role.id == requested_role_id.to_i } || developer_role
       else
-        @owner_roles.find { |role| role.name.casecmp('Developer').zero? }
+        developer_role
       end
 
-    @selected_owner_role_option = requested_role_id == 'all' ? 'all' : @selected_owner_role&.id
+    @selected_owner_role_option = requested_role_id == 'all' || @selected_owner_role.nil? ? 'all' : @selected_owner_role.id
   end
 
   # ---------------------------------------------------------------
@@ -2482,7 +2525,7 @@ class TicketJourneyController < ApplicationController
       LEFT JOIN issue_statuses s_to   ON s_to.id   = CAST(jd.value AS UNSIGNED)
       LEFT JOIN users u ON u.id = j.user_id
       WHERE i.id IN (#{issue_ids.join(',')})
-      ORDER BY i.id, j.created_on ASC
+      ORDER BY i.id, j.created_on ASC, j.id ASC, jd.id ASC
     SQL
 
     by_issue = Hash.new { |h, k| h[k] = [] }
@@ -4910,7 +4953,7 @@ class TicketJourneyController < ApplicationController
                           'journal_details.old_value AS old_value',
                           'journal_details.value AS value'
                         )
-                        .order('journals.journalized_id ASC, journals.created_on ASC')
+                        .order('journals.journalized_id ASC, journals.created_on ASC, journals.id ASC, journal_details.id ASC')
 
     rows.group_by { |row| row.issue_id.to_i }
   end
@@ -4933,7 +4976,7 @@ class TicketJourneyController < ApplicationController
                           'journal_details.old_value AS old_value',
                           'journal_details.value AS value'
                         )
-                        .order('journals.journalized_id ASC, journals.created_on ASC')
+                        .order('journals.journalized_id ASC, journals.created_on ASC, journals.id ASC, journal_details.id ASC')
 
     rows.group_by { |row| row.issue_id.to_i }
   end
@@ -5134,161 +5177,801 @@ class TicketJourneyController < ApplicationController
     report_peak_duration_value(durations, family_key) / total
   end
 
-  def compute_owner_returns_summary(issues_data, role_id: nil, stale_days: DATA_QUALITY_DEFAULT_STALE_DAYS, include_locked_users: false)
-    allowed_owner_values = ticket_owner_values_for_role(role_id)
+  # ---------------------------------------------------------------
+  # TICKET OWNER PERFORMANCE - period commitment and activity report
+  # ---------------------------------------------------------------
+  def owner_performance_period_dates
     today = User.current.today
+    previous_month = today.prev_month
+    start_date = parse_report_date(params[:owner_start_date]) || previous_month.beginning_of_month
+    end_date = parse_report_date(params[:owner_end_date]) || previous_month.end_of_month
 
-    rows = Hash.new do |hash, owner_key|
-      owner_value, owner_name = owner_key
-      hash[owner_key] = {
-        owner: owner_name,
-        owner_value: owner_value,
-        total_tickets: 0,
-        all_issue_ids: [],
-        done_tickets: 0,
-        done_issue_ids: [],
-        completion_rate: 0.0,
-        done_cycle_count: 0,
-        done_cycle_hours: 0.0,
-        priority_done_cycle_count: 0,
-        priority_done_cycle_hours: 0.0,
-        avg_done_cycle_time: 0.0,
-        avg_priority_done_cycle_time: 0.0,
-        open_tickets: 0,
-        open_issue_ids: [],
-        owner_debt: 0,
-        owner_debt_issue_ids: [],
-        tickets_without_updates: 0,
-        no_update_issue_ids: [],
-        idle_days_sum: 0,
-        avg_idle_days: 0.0,
-        highest_idle_days: 0,
-        returned_tickets: 0,
-        returned_issue_ids: [],
-        c1: 0,
-        c2: 0,
-        c3: 0,
-        c4: 0,
-        c5: 0,
-        total_returns: 0
-      }
-    end
+    start_date, end_date = end_date, start_date if start_date > end_date
+    [start_date, end_date]
+  end
 
-    issues_data.each do |item|
-      owner_value, owner_name = ticket_owner_info(item[:issue])
-      next if allowed_owner_values && !allowed_owner_values.include?(owner_value.to_s)
+  def owner_performance_owner_options(role_id:, include_locked_users: false)
+    owner_values =
+      if role_id.present?
+        ticket_owner_values_for_role(role_id)
+      else
+        Member.where(project_id: project_and_subproject_ids).distinct.pluck(:user_id).compact.map(&:to_s)
+      end
+
+    Array(owner_values).uniq.filter_map do |owner_value|
       next if !include_locked_users && locked_ticket_owner_value?(owner_value)
 
-      row = rows[[owner_value, owner_name]]
-      row[:total_tickets] += 1
-      row[:all_issue_ids] << item[:issue].id
-
-      if !item[:issue].status&.is_closed?
-        days_since_update = item[:issue].updated_on.present? ? [(today - item[:issue].updated_on.to_date).to_i, 0].max : 0
-
-        row[:open_tickets] += 1
-        row[:open_issue_ids] << item[:issue].id
-        row[:idle_days_sum] += days_since_update
-        row[:highest_idle_days] = [row[:highest_idle_days], days_since_update].max
-
-        if item[:issue].due_date.present? && item[:issue].due_date < today
-          row[:owner_debt] += 1
-          row[:owner_debt_issue_ids] << item[:issue].id
-        end
-
-        if days_since_update >= stale_days
-          row[:tickets_without_updates] += 1
-          row[:no_update_issue_ids] << item[:issue].id
-        end
-      end
-
-      cycle_hours = done_cycle_time_hours(item)
-      if status_role(item[:issue].status&.name) == :done
-        row[:done_tickets] += 1
-        row[:done_issue_ids] << item[:issue].id
-        if cycle_hours
-          row[:done_cycle_count] += 1
-          row[:done_cycle_hours] += cycle_hours
-
-          if priority_performance_ticket?(item[:issue])
-            row[:priority_done_cycle_count] += 1
-            row[:priority_done_cycle_hours] += cycle_hours
-          end
-        end
-      end
-
-      durations = item[:durations]
-      total_returns = item_total_returns(item)
-      next if total_returns.zero?
-
-      row[:returned_tickets] += 1
-      row[:returned_issue_ids] << item[:issue].id
-      row[:c1] += durations[:C1].to_i
-      row[:c2] += durations[:C2].to_i
-      row[:c3] += durations[:C3].to_i
-      row[:c4] += durations[:C4].to_i
-      row[:c5] += durations[:C5].to_i
-      row[:total_returns] += total_returns
-    end
-
-    owner_rows = rows.values
-    owner_rows.each do |row|
-      row[:completion_rate] = ratio(row[:done_tickets], row[:total_tickets])
-      row[:avg_done_cycle_time] = row[:done_cycle_count].positive? ? row[:done_cycle_hours] / row[:done_cycle_count] : 0.0
-      row[:avg_priority_done_cycle_time] = row[:priority_done_cycle_count].positive? ? row[:priority_done_cycle_hours] / row[:priority_done_cycle_count] : 0.0
-      row[:avg_idle_days] = row[:open_tickets].positive? ? row[:idle_days_sum].to_f / row[:open_tickets] : 0.0
-    end
-
-    sort_owner_return_rows(owner_rows)
+      [ticket_owner_user_name(owner_value), owner_value.to_s]
+    end.sort_by { |name, _value| name.to_s.downcase }
   end
 
-  def owner_avg_time_per_status_rows(issues_data)
-    issue_ids = issues_data.map { |item| item[:issue].id }
+  def compute_ticket_owner_performance_report(start_date, end_date, role_id:, owner_user_id: nil, include_locked_users: false)
+    report = empty_owner_performance_report(start_date, end_date)
+    return report unless @query&.valid?
+
+    issues = owner_performance_issues
+    return report if issues.empty?
+
+    issue_ids = issues.map(&:id)
+    issue_by_id = issues.index_by(&:id)
+    transitions_by_issue = load_transitions(issues)
+    status_changes = load_attribute_changes(issue_ids, 'status_id')
+    due_date_changes = load_attribute_changes(issue_ids, 'due_date')
+    owner_changes = load_custom_field_changes(issue_ids, TICKET_OWNER_CF_ID)
+    closed_status_ids = IssueStatus.where(is_closed: true).pluck(:id).map(&:to_s).to_set
+    start_snapshot = start_date.end_of_day
+    end_snapshot = end_date.end_of_day
+    period_start = start_date.beginning_of_day
+    commitment_period_start = (start_date + 1).beginning_of_day
+    period_end = (end_date + 1).beginning_of_day
+    allowed_owner_values = ticket_owner_values_for_role(role_id)
+    selected_owner_value = owner_user_id.to_s.presence
+
+    owner_allowed = lambda do |owner_value|
+      value = owner_value.to_s.presence
+      next false if value.blank? && role_id.present?
+      next false if allowed_owner_values && !allowed_owner_values.include?(value.to_s)
+      next false if selected_owner_value.present? && value.to_s != selected_owner_value
+      next false if !include_locked_users && locked_ticket_owner_value?(value)
+
+      true
+    end
+
+    rows = {}
+    row_for = lambda do |owner_value|
+      key = owner_value.to_s.presence || '__unassigned__'
+      rows[key] ||= new_owner_performance_work_row(owner_value)
+    end
+
+    global = Hash.new { |hash, key| hash[key] = Set.new }
+    commitment_owner_by_issue = {}
+    done_at_by_issue = {}
+    delivery_owner_by_issue = {}
+
+    issues.each do |issue|
+      next if issue.created_on.blank? || issue.created_on > start_snapshot
+
+      due_date = owner_performance_due_date_at(issue, due_date_changes[issue.id], start_snapshot)
+      next unless due_date && due_date <= start_date
+      next if historically_closed?(issue, status_changes[issue.id], start_snapshot, closed_status_ids)
+
+      owner_value = owner_performance_owner_value_at(issue, owner_changes[issue.id], start_snapshot)
+      next unless owner_allowed.call(owner_value)
+
+      row = row_for.call(owner_value)
+      owner_performance_add_metric(row, :beginning_total, issue.id)
+      global[:beginning_total] << issue.id
+      commitment_owner_by_issue[issue.id] = owner_value
+
+      if issue.status&.is_closed?
+        closed_at = owner_performance_latest_closed_at(issue, transitions_by_issue[issue.id])
+        bucket = closed_at && closed_at < period_end ? :beginning_paid_in_period : :beginning_paid_after_period
+      else
+        bucket = :beginning_still_open
+      end
+
+      owner_performance_add_metric(row, bucket, issue.id)
+      global[bucket] << issue.id
+    end
+
+    issues.each do |issue|
+      next if global[:beginning_total].include?(issue.id)
+      next if issue.created_on.blank? || issue.created_on >= period_end
+      next if issue.created_on <= start_snapshot && historically_closed?(issue, status_changes[issue.id], start_snapshot, closed_status_ids)
+
+      due_date = owner_performance_due_date_at(issue, due_date_changes[issue.id], end_snapshot)
+      next unless due_date && due_date > start_date && due_date <= end_date
+
+      owner_value = owner_performance_owner_value_at(issue, owner_changes[issue.id], due_date.end_of_day)
+      next unless owner_allowed.call(owner_value)
+
+      row = row_for.call(owner_value)
+      owner_performance_add_metric(row, :new_commitment, issue.id)
+      global[:new_commitment] << issue.id
+      commitment_owner_by_issue[issue.id] = owner_value
+    end
+
+    commitment_owner_by_issue.each do |issue_id, owner_value|
+      owner_performance_add_metric(row_for.call(owner_value), :total_commitment, issue_id)
+      global[:total_commitment] << issue_id
+    end
+
+    issues.each do |issue|
+      done_event = Array(transitions_by_issue[issue.id]).reverse.find do |transition|
+        !transition[:synthetic] &&
+          status_role(transition[:to_status]) == :done &&
+          transition[:changed_at] >= commitment_period_start &&
+          transition[:changed_at] < period_end
+      end
+      next unless done_event
+      next unless historically_closed?(issue, status_changes[issue.id], end_snapshot, closed_status_ids)
+
+      done_at_by_issue[issue.id] = done_event[:changed_at]
+      if commitment_owner_by_issue.key?(issue.id)
+        owner_value = commitment_owner_by_issue[issue.id]
+        row = row_for.call(owner_value)
+        owner_performance_add_metric(row, :done_committed, issue.id)
+        global[:done_committed] << issue.id
+      else
+        owner_value = owner_performance_owner_value_at(issue, owner_changes[issue.id], done_event[:changed_at])
+        next unless owner_allowed.call(owner_value)
+
+        row = row_for.call(owner_value)
+        owner_performance_add_metric(row, :other_done, issue.id)
+        global[:other_done] << issue.id
+      end
+
+      delivery_owner_by_issue[issue.id] = owner_value
+      owner_performance_add_metric(row, :total_done, issue.id)
+      global[:total_done] << issue.id
+    end
+
+    issues.each do |issue|
+      next if issue.created_on.blank? || issue.created_on > end_snapshot
+
+      due_date = owner_performance_due_date_at(issue, due_date_changes[issue.id], end_snapshot)
+      next unless due_date && due_date <= end_date
+      next if historically_closed?(issue, status_changes[issue.id], end_snapshot, closed_status_ids)
+
+      owner_value = owner_performance_owner_value_at(issue, owner_changes[issue.id], end_snapshot)
+      next unless owner_allowed.call(owner_value)
+
+      row = row_for.call(owner_value)
+      owner_performance_add_metric(row, :end_debt_total, issue.id)
+      global[:end_debt_total] << issue.id
+
+      bucket = issue.status&.is_closed? ? :end_debt_now_paid : :end_debt_still_open
+      owner_performance_add_metric(row, bucket, issue.id)
+      global[bucket] << issue.id
+    end
+
+    entries = time_utilization_entries(issue_ids, start_date, end_date)
+    entries.each do |entry|
+      issue = issue_by_id[entry.issue_id]
+      next unless issue && entry.user_id
+
+      owner_value = entry.user_id.to_s
+      historical_owner = owner_performance_owner_value_at(issue, owner_changes[issue.id], entry.spent_on.end_of_day)
+      next unless owner_value == historical_owner.to_s && owner_allowed.call(owner_value)
+
+      row = row_for.call(owner_value)
+      owner_performance_add_metric(row, :spent_time_tickets, issue.id)
+      global[:spent_time_tickets] << issue.id
+    end
+
+    period_journals = owner_performance_period_journals(issue_ids, period_start, period_end)
+    period_journals.each do |journal|
+      issue = issue_by_id[journal.journalized_id.to_i]
+      next unless issue && journal.user_id
+
+      owner_value = journal.user_id.to_s
+      historical_owner = owner_performance_owner_value_at(issue, owner_changes[issue.id], journal.created_on)
+      next unless owner_value == historical_owner.to_s && owner_allowed.call(owner_value)
+
+      row = row_for.call(owner_value)
+      owner_performance_add_metric(row, :updated_tickets, issue.id)
+      global[:updated_tickets] << issue.id
+    end
+
+    rows.each_value do |row|
+      additional_ids = row[:metrics][:updated_tickets] - row[:metrics][:spent_time_tickets]
+      worked_ids = row[:metrics][:updated_tickets] | row[:metrics][:spent_time_tickets]
+      row[:metrics][:additional_updated_tickets].merge(additional_ids)
+      row[:metrics][:total_worked_tickets].merge(worked_ids)
+      global[:additional_updated_tickets].merge(additional_ids)
+      global[:total_worked_tickets].merge(worked_ids)
+    end
+
+    return_events = []
+    issues.each do |issue|
+      Array(transitions_by_issue[issue.id]).each do |transition|
+        next if transition[:synthetic]
+        next unless transition[:changed_at] >= period_start && transition[:changed_at] < period_end
+        next unless status_role(transition[:to_status]) == :returned
+
+        return_code = owner_performance_return_code(transition[:from_status])
+        next unless return_code
+
+        event_owner_value = owner_performance_owner_value_at(issue, owner_changes[issue.id], transition[:changed_at])
+        delivery_owner_value = delivery_owner_by_issue[issue.id] || event_owner_value
+        next unless owner_allowed.call(delivery_owner_value)
+
+        event = {
+          issue_id: issue.id,
+          owner_value: event_owner_value.to_s.presence,
+          owner: ticket_owner_display_name(event_owner_value),
+          delivery_owner_value: delivery_owner_value.to_s.presence,
+          delivery_owner: ticket_owner_display_name(delivery_owner_value),
+          code: return_code,
+          changed_at: transition[:changed_at]
+        }
+        return_events << event
+        row_for.call(delivery_owner_value)[:return_events] << event
+        global[:returned_tickets] << issue.id
+      end
+    end
+
+    updated_issue_ids = period_journals.map { |journal| journal.journalized_id.to_i }.to_set
+    issues.each do |issue|
+      updated_issue_ids << issue.id if issue.created_on && issue.created_on >= period_start && issue.created_on < period_end
+    end
+
+    commitment_owner_by_issue.each do |issue_id, owner_value|
+      row = row_for.call(owner_value)
+      unless updated_issue_ids.include?(issue_id)
+        owner_performance_add_metric(row, :without_update, issue_id)
+        global[:without_update] << issue_id
+      end
+
+      idle_hours = owner_performance_idle_hours(transitions_by_issue[issue_id], period_start, period_end)
+      next unless idle_hours.positive?
+
+      row[:idle_hours_by_issue][issue_id] = idle_hours
+      owner_performance_add_metric(row, :idle_tickets, issue_id)
+      global[:idle_tickets] << issue_id
+    end
+
+    delivery_rows = rows.values.map do |row|
+      owner_performance_delivery_row(row, global[:total_commitment].size)
+    end
+    delivery_rows = sort_owner_performance_delivery_rows(delivery_rows)
+
+    no_update_rows = delivery_rows.filter_map do |delivery_row|
+      source = rows[delivery_row[:owner_value].to_s.presence || '__unassigned__']
+      next unless source && source[:metrics][:total_commitment].any?
+
+      {
+        owner_id: delivery_row[:owner_id],
+        owner_value: delivery_row[:owner_value],
+        owner: delivery_row[:owner],
+        commitment: owner_performance_metric(source[:metrics][:total_commitment]),
+        without_update: owner_performance_metric(source[:metrics][:without_update]),
+        ratio: ratio(source[:metrics][:without_update].size, source[:metrics][:total_commitment].size)
+      }
+    end
+
+    idle_rows = delivery_rows.filter_map do |delivery_row|
+      source = rows[delivery_row[:owner_value].to_s.presence || '__unassigned__']
+      next unless source && source[:metrics][:total_commitment].any?
+
+      idle_values = source[:idle_hours_by_issue].values
+      maximum = idle_values.max.to_f
+      {
+        owner_id: delivery_row[:owner_id],
+        owner_value: delivery_row[:owner_value],
+        owner: delivery_row[:owner],
+        commitment: owner_performance_metric(source[:metrics][:total_commitment]),
+        idle_tickets: owner_performance_metric(source[:metrics][:idle_tickets]),
+        avg_idle_hours: idle_values.any? ? idle_values.sum / idle_values.size : 0.0,
+        max_idle_hours: maximum,
+        max_idle_issue_ids: source[:idle_hours_by_issue].select { |_id, hours| hours == maximum }.keys.sort
+      }
+    end
+
+    rework_rows, rework_audit_rows = owner_performance_rework_rows(
+      rows,
+      delivery_rows,
+      issue_by_id,
+      transitions_by_issue,
+      entries,
+      done_at_by_issue,
+      period_start,
+      period_end
+    )
+
+    beginning_total_ids = global[:beginning_total]
+    total_commitment_ids = global[:total_commitment]
+    total_done_ids = global[:total_done]
+
+    {
+      period: { start: start_date, end: end_date, generated_at: Time.current },
+      totals: {
+        owner_count: delivery_rows.size,
+        committed: owner_performance_metric(total_commitment_ids),
+        done_committed: owner_performance_metric(global[:done_committed]),
+        completion_rate: ratio(global[:done_committed].size, total_commitment_ids.size),
+        returned_tickets: owner_performance_metric(global[:returned_tickets]),
+        return_events: return_events.size,
+        return_issue_ids: global[:returned_tickets].to_a.sort,
+        end_debt: owner_performance_metric(global[:end_debt_total])
+      },
+      commitment: {
+        beginning_paid_in_period: owner_performance_metric(global[:beginning_paid_in_period]),
+        beginning_paid_after_period: owner_performance_metric(global[:beginning_paid_after_period]),
+        beginning_still_open: owner_performance_metric(global[:beginning_still_open]),
+        beginning_total: owner_performance_metric(beginning_total_ids),
+        new_commitment: owner_performance_metric(global[:new_commitment]),
+        total_commitment: owner_performance_metric(total_commitment_ids)
+      },
+      activity: {
+        spent_time_tickets: owner_performance_metric(global[:spent_time_tickets]),
+        additional_updated_tickets: owner_performance_metric(global[:additional_updated_tickets]),
+        total_worked_tickets: owner_performance_metric(global[:total_worked_tickets])
+      },
+      completion: {
+        done_committed: owner_performance_metric(global[:done_committed]),
+        other_done: owner_performance_metric(global[:other_done]),
+        total_done: owner_performance_metric(total_done_ids),
+        end_debt_now_paid: owner_performance_metric(global[:end_debt_now_paid]),
+        end_debt_still_open: owner_performance_metric(global[:end_debt_still_open]),
+        end_debt_total: owner_performance_metric(global[:end_debt_total])
+      },
+      delivery_rows: delivery_rows,
+      status_rows: owner_performance_status_rows(total_done_ids, transitions_by_issue, period_start, period_end),
+      no_update_rows: no_update_rows,
+      idle_rows: idle_rows,
+      rework_rows: rework_rows,
+      rework_audit_rows: rework_audit_rows,
+      return_event_rows: return_events.sort_by { |event| [event[:changed_at], event[:issue_id], event[:code].to_s] }
+    }
+  end
+
+  def owner_performance_issues
+    issues = @query.issues(
+      order: "#{Issue.table_name}.id ASC",
+      include: [:project, :status, :author, :assigned_to, :tracker, :priority, { custom_values: :custom_field }]
+    )
+    filter_sprint_drilldown_issues(issues)
+  end
+
+  def owner_performance_period_journals(issue_ids, period_start, period_end)
     return [] if issue_ids.empty?
 
-    status_changes = load_attribute_changes(issue_ids, 'status_id')
-    status_names_by_id = IssueStatus.pluck(:id, :name).to_h.transform_keys(&:to_s)
-    hours_by_status = Hash.new { |h, k| h[k] = [] }
+    Journal.where(journalized_type: 'Issue', journalized_id: issue_ids)
+           .where('journals.created_on >= ? AND journals.created_on < ?', period_start, period_end)
+           .select(:id, :journalized_id, :user_id, :created_on)
+           .order(:created_on, :id)
+           .to_a
+  end
 
-    issues_data.each do |item|
-      issue = item[:issue]
-      changes = status_changes[issue.id] || []
-      transitions = changes.map { |c| { changed_at: c.changed_at, to_status: status_names_by_id[c.value.to_s] } }
-      periods = build_periods(transitions)
-      periods.each do |period|
-        h = period_hours(period)
-        hours_by_status[period[:status]] << h if h.positive?
+  def owner_performance_owner_value_at(issue, changes, snapshot_time)
+    current_value = issue.custom_value_for(TICKET_OWNER_CF_ID)&.value.presence
+    historical_attribute_value(current_value, changes, snapshot_time).to_s.presence || current_value
+  end
+
+  def owner_performance_due_date_at(issue, changes, snapshot_time)
+    raw_value = historical_attribute_value(issue.due_date, changes, snapshot_time)
+    return raw_value if raw_value.is_a?(Date)
+
+    parse_report_date(raw_value)
+  end
+
+  def owner_performance_latest_closed_at(issue, transitions)
+    return issue.closed_on if issue.closed_on
+
+    closed_transition = Array(transitions).reverse.find do |transition|
+      !transition[:synthetic] && %i[done archived].include?(status_role(transition[:to_status]))
+    end
+    closed_transition&.dig(:changed_at)
+  end
+
+  def owner_performance_return_code(from_status)
+    {
+      feedback: :r1,
+      review: :r2,
+      ready_merge: :r3,
+      final_check: :r4,
+      done: :r5
+    }[status_role(from_status)]
+  end
+
+  def new_owner_performance_work_row(owner_value)
+    owner_id = owner_value.to_s.to_i
+    {
+      owner_id: owner_id.positive? ? owner_id : nil,
+      owner_value: owner_value.to_s.presence,
+      owner: ticket_owner_display_name(owner_value),
+      metrics: Hash.new { |hash, key| hash[key] = Set.new },
+      return_events: [],
+      idle_hours_by_issue: {}
+    }
+  end
+
+  def owner_performance_add_metric(row, key, issue_id)
+    row[:metrics][key] << issue_id.to_i
+  end
+
+  def owner_performance_metric(issue_ids)
+    raw_ids = issue_ids.respond_to?(:to_a) ? issue_ids.to_a : Array(issue_ids)
+    ids = raw_ids.map(&:to_i).reject(&:zero?).uniq.sort
+    { count: ids.size, issue_ids: ids }
+  end
+
+  def owner_performance_delivery_row(row, total_commitment_count)
+    metrics = row[:metrics]
+    done_ids = metrics[:total_done]
+    delivery_events = row[:return_events].select { |event| done_ids.include?(event[:issue_id]) }
+    returns = %i[r1 r2 r3 r4 r5].each_with_object({}) do |code, memo|
+      events = delivery_events.select { |event| event[:code] == code }
+      memo[code] = { events: events.size, issue_ids: events.map { |event| event[:issue_id] }.uniq.sort }
+    end
+    returned_ids = delivery_events.map { |event| event[:issue_id] }.uniq
+
+    {
+      owner_id: row[:owner_id],
+      owner_value: row[:owner_value],
+      owner: row[:owner],
+      beginning_debt: owner_performance_metric(metrics[:beginning_total]),
+      new_commitment: owner_performance_metric(metrics[:new_commitment]),
+      total_commitment: owner_performance_metric(metrics[:total_commitment]),
+      ticket_share: ratio(metrics[:total_commitment].size, total_commitment_count),
+      done_committed: owner_performance_metric(metrics[:done_committed]),
+      other_done: owner_performance_metric(metrics[:other_done]),
+      total_done: owner_performance_metric(metrics[:total_done]),
+      returned_tickets: owner_performance_metric(returned_ids),
+      return_rate: ratio(returned_ids.size, done_ids.size),
+      returns: returns,
+      total_return_events: delivery_events.size,
+      total_return_issue_ids: returned_ids.sort,
+      end_debt_now_paid: owner_performance_metric(metrics[:end_debt_now_paid]),
+      end_debt_still_open: owner_performance_metric(metrics[:end_debt_still_open]),
+      end_debt_total: owner_performance_metric(metrics[:end_debt_total]),
+      debt_ratio: ratio(metrics[:end_debt_total].size, metrics[:total_commitment].size)
+    }
+  end
+
+  def owner_performance_idle_hours(transitions, period_start, period_end)
+    build_periods(Array(transitions)).sum do |period|
+      next 0.0 unless %i[pending on_hold].include?(status_role(period[:status]))
+
+      owner_performance_overlap_hours(period, period_start, period_end)
+    end
+  end
+
+  def owner_performance_overlap_hours(period, period_start, period_end)
+    overlap_start = [period[:enter], period_start].compact.max
+    overlap_end = [period[:exit], period_end].compact.min
+    return 0.0 if overlap_start.blank? || overlap_end.blank? || overlap_end <= overlap_start
+
+    (overlap_end - overlap_start) / 3600.0
+  end
+
+  def owner_performance_status_rows(issue_ids, transitions_by_issue, period_start, period_end)
+    hours_by_status_and_issue = Hash.new { |hash, status| hash[status] = Hash.new(0.0) }
+    visits_by_status = Hash.new(0)
+
+    Array(issue_ids.to_a).each do |issue_id|
+      build_periods(Array(transitions_by_issue[issue_id])).each do |period|
+        hours = owner_performance_overlap_hours(period, period_start, period_end)
+        next unless hours.positive?
+        next if %i[done archived].include?(status_role(period[:status]))
+
+        hours_by_status_and_issue[period[:status]][issue_id] += hours
+        visits_by_status[period[:status]] += 1
       end
     end
 
-    target_statuses = ['To-Do', 'In Progress', 'Feedback', 'Review', 'Ready to Merge', 'Final Check', 'Returned', 'On-Hold', 'Pending']
-    target_statuses.map do |status_name|
-      hours = hours_by_status[status_name]
+    preferred_order = FLOW_STATUS_ORDER.each_with_index.to_h
+    hours_by_status_and_issue.map do |status, issue_hours|
       {
-        status: status_name,
-        avg_hours: hours.any? ? (hours.sum / hours.size).round(2) : nil,
-        ticket_count: hours.size
+        status: status,
+        avg_hours: issue_hours.values.sum / issue_hours.size,
+        visit_count: visits_by_status[status],
+        issue_count: issue_hours.size,
+        issue_ids: issue_hours.keys.sort
       }
-    end.select { |row| row[:ticket_count].positive? }
+    end.sort_by { |row| [preferred_order.fetch(row[:status], 999), row[:status].to_s.downcase] }
   end
 
-  def owner_idle_detail_rows(owner_rows)
-    today = User.current.today
-    owner_rows.map do |row|
-      next nil if row[:open_tickets].zero?
+  def owner_performance_rework_rows(rows, delivery_rows, issue_by_id, transitions_by_issue, entries, done_at_by_issue, period_start, period_end)
+    audit_rows = []
+    rework_rows = delivery_rows.filter_map do |delivery_row|
+      source = rows[delivery_row[:owner_value].to_s.presence || '__unassigned__']
+      next unless source && source[:metrics][:total_commitment].any?
+
+      owner_value = delivery_row[:owner_value].to_s
+      done_ids = source[:metrics][:done_committed]
+      owner_entries = entries.select do |entry|
+        entry.user_id.to_s == owner_value && done_ids.include?(entry.issue_id.to_i)
+      end
+      total_logged_hours = owner_entries.sum { |entry| entry.hours.to_f }
+      estimated_rework_hours = 0.0
+
+      owner_entries.each do |entry|
+        issue = issue_by_id[entry.issue_id.to_i]
+        next unless issue
+
+        all_periods = build_periods(Array(transitions_by_issue[issue.id]))
+        intervals = owner_performance_augmented_intervals(all_periods, tracker_family_for_issue(issue))
+        clipped_intervals = intervals.filter_map do |interval|
+          clipped = owner_performance_clip_interval(interval, period_start, period_end)
+          clipped if clipped
+        end
+        day_start = entry.spent_on.beginning_of_day
+        day_end = (entry.spent_on + 1).beginning_of_day
+        matched = clipped_intervals.select do |interval|
+          interval[:enter] < day_end && interval[:exit] > day_start
+        end
+        next if matched.empty?
+
+        estimated_rework_hours += entry.hours.to_f
+        matched_source_signatures = matched.map do |interval|
+          [interval[:source_enter].to_f, interval[:source_exit].to_f, interval[:status].to_s]
+        end.to_set
+        mixed_stage_day = all_periods.any? do |period|
+          next false unless period[:enter] < day_end && period[:exit] > day_start
+
+          !matched_source_signatures.include?([period[:enter].to_f, period[:exit].to_f, period[:status].to_s])
+        end
+        boundary_day = matched.any? do |interval|
+          last_active_date = (interval[:exit] - 0.000001).to_date
+          interval[:enter].to_date == entry.spent_on || last_active_date == entry.spent_on
+        end
+        matched_interval_rows = matched.sort_by { |interval| [interval[:enter], interval[:exit], interval[:key].to_s] }.map do |interval|
+          {
+            code: interval[:key].to_s,
+            stage: interval[:stage],
+            enter: interval[:enter],
+            exit: interval[:exit]
+          }
+        end
+
+        audit_rows << {
+          time_entry_id: entry.id,
+          owner_id: delivery_row[:owner_id],
+          owner: delivery_row[:owner],
+          issue_id: issue.id,
+          spent_on: entry.spent_on,
+          hours: entry.hours.to_f,
+          matched_stage_codes: matched.map { |interval| interval[:key].to_s }.uniq.sort,
+          matched_stages: matched.map { |interval| interval[:stage] }.uniq.sort,
+          matched_intervals: matched_interval_rows,
+          interval_start: matched.map { |interval| interval[:enter] }.min,
+          interval_end: matched.map { |interval| interval[:exit] }.max,
+          boundary_day: boundary_day,
+          mixed_stage_day: mixed_stage_day
+        }
+      end
+
+      cycle_hours = done_ids.filter_map do |issue_id|
+        issue = issue_by_id[issue_id]
+        done_at = done_at_by_issue[issue_id]
+        next unless issue && done_at
+
+        owner_performance_cycle_hours(issue, transitions_by_issue[issue_id], done_at)
+      end
+      owner_return_events = source[:return_events].select { |event| done_ids.include?(event[:issue_id]) }
+      returned_ids = owner_return_events.map { |event| event[:issue_id] }.uniq
 
       {
-        owner: row[:owner],
-        owner_value: row[:owner_value],
-        active_tickets: row[:open_tickets],
-        tickets_without_updates: row[:tickets_without_updates],
-        without_updates_percent: ratio(row[:tickets_without_updates], row[:open_tickets]),
-        avg_idle_days: row[:avg_idle_days].round(1),
-        highest_idle_days: row[:highest_idle_days],
-        no_update_issue_ids: row[:no_update_issue_ids],
-        open_issue_ids: row[:open_issue_ids]
+        owner_id: delivery_row[:owner_id],
+        owner_value: delivery_row[:owner_value],
+        owner: delivery_row[:owner],
+        commitment: owner_performance_metric(source[:metrics][:total_commitment]),
+        throughput: owner_performance_metric(done_ids),
+        completion_rate: ratio(done_ids.size, source[:metrics][:total_commitment].size),
+        avg_cycle_hours: cycle_hours.any? ? cycle_hours.sum / cycle_hours.size : 0.0,
+        returned_tickets: owner_performance_metric(returned_ids),
+        return_events: owner_return_events.size,
+        return_issue_ids: returned_ids.sort,
+        total_logged_hours: total_logged_hours,
+        estimated_rework_hours: estimated_rework_hours,
+        rework_rate: ratio(estimated_rework_hours, total_logged_hours),
+        end_debt: owner_performance_metric(source[:metrics][:end_debt_total])
       }
-    end.compact.sort_by { |row| [-row[:highest_idle_days], -row[:tickets_without_updates]] }
+    end
+
+    [rework_rows, audit_rows.sort_by { |row| [row[:owner].to_s.downcase, row[:spent_on], row[:issue_id], row[:time_entry_id]] }]
+  end
+
+  def owner_performance_cycle_hours(issue, transitions, done_at)
+    periods = build_periods(Array(transitions))
+    start_at = periods.find do |period|
+      status_role(period[:status]) == :in_progress && period[:enter] < done_at
+    end&.dig(:enter)
+    return unless start_at && start_at < done_at
+
+    pause_roles = pause_roles_for_family(tracker_family_for_issue(issue))
+    periods.sum do |period|
+      next 0.0 if pause_roles.include?(status_role(period[:status]))
+
+      owner_performance_overlap_hours(period, start_at, done_at)
+    end
+  end
+
+  def owner_performance_augmented_intervals(periods, family_key)
+    return [] unless %i[internal task].include?(family_key.to_sym)
+
+    stages = owner_performance_logical_stage_periods(periods, family_key)
+    in_progress_index = 0
+    normal_feedback_seen = false
+    augmented = []
+
+    stages.each_with_index do |stage, index|
+      role = stage[:role]
+      next_role = stages[index + 1]&.dig(:role)
+      key = nil
+
+      if family_key.to_sym == :internal
+        case role
+        when :returned
+          key = :D1aug
+        when :in_progress
+          in_progress_index += 1
+          key = :D2aug if in_progress_index > 1
+        when :feedback
+          if next_role == :returned
+            key = :D3aug
+          elsif !%i[archived new].include?(next_role)
+            if normal_feedback_seen
+              key = :D3aug
+            else
+              normal_feedback_seen = true
+            end
+          end
+        when :review
+          key = :D4aug if next_role == :returned
+        when :ready_merge
+          key = :D5aug if next_role == :returned
+        when :final_check
+          key = :D6aug if next_role == :returned
+        end
+      else
+        case role
+        when :returned
+          key = :DT1aug
+        when :in_progress
+          in_progress_index += 1
+          key = :DT2aug if in_progress_index > 1
+        when :feedback
+          key = :DT3aug if next_role == :returned
+        when :final_check
+          key = :DT4aug if next_role == :returned
+        end
+      end
+
+      next unless key
+
+      stage[:source_periods].each do |period|
+        augmented << period.merge(key: key, stage: owner_performance_augmented_stage_label(key))
+      end
+    end
+
+    augmented
+  end
+
+  def owner_performance_logical_stage_periods(periods, family_key)
+    pause_roles = pause_roles_for_family(family_key)
+    stages = []
+
+    periods.each do |period|
+      role = status_role(period[:status])
+      next if pause_roles.include?(role)
+      next unless period_hours(period).positive?
+
+      if stages.last && stages.last[:role] == role
+        stages.last[:source_periods] << period.dup
+        stages.last[:hours] += period_hours(period)
+      else
+        stages << {
+          status: period[:status],
+          role: role,
+          hours: period_hours(period),
+          source_periods: [period.dup]
+        }
+      end
+    end
+
+    stages
+  end
+
+  def owner_performance_augmented_stage_label(key)
+    {
+      D1aug: 'Returned wait',
+      D2aug: 'Repeated development',
+      D3aug: 'QA / feedback rework',
+      D4aug: 'Review rework',
+      D5aug: 'Merge rework',
+      D6aug: 'Final-check rework',
+      DT1aug: 'Returned wait',
+      DT2aug: 'Repeated task work',
+      DT3aug: 'Task feedback rework',
+      DT4aug: 'Task final-check rework'
+    }[key] || key.to_s
+  end
+
+  def owner_performance_clip_interval(interval, period_start, period_end)
+    enter_at = [interval[:enter], period_start].compact.max
+    exit_at = [interval[:exit], period_end].compact.min
+    return if enter_at.blank? || exit_at.blank? || exit_at <= enter_at
+
+    interval.merge(
+      source_enter: interval[:enter],
+      source_exit: interval[:exit],
+      enter: enter_at,
+      exit: exit_at
+    )
+  end
+
+  def sort_owner_performance_delivery_rows(rows)
+    sort_key = params[:owner_sort].to_s
+    sort_key = 'total_commitment' unless OWNER_RETURN_SORTABLE_FIELDS.include?(sort_key)
+    direction = owner_return_sort_direction(sort_key)
+
+    rows.sort do |left, right|
+      left_value = owner_performance_sort_value(left, sort_key)
+      right_value = owner_performance_sort_value(right, sort_key)
+      comparison = left_value <=> right_value
+      comparison = -comparison if direction == 'desc'
+      comparison.zero? ? (left[:owner].to_s.downcase <=> right[:owner].to_s.downcase) : comparison
+    end
+  end
+
+  def owner_performance_sort_value(row, sort_key)
+    return row[:owner].to_s.downcase if sort_key == 'owner'
+    return row[:ticket_share].to_f if sort_key == 'ticket_share'
+    return row[:return_rate].to_f if sort_key == 'return_rate'
+    return row[:debt_ratio].to_f if sort_key == 'debt_ratio'
+    return row[:total_return_events].to_i if sort_key == 'total_return_events'
+    return row[:returns].dig(sort_key.to_sym, :events).to_i if %w[r1 r2 r3 r4 r5].include?(sort_key)
+
+    value = row[sort_key.to_sym]
+    value.is_a?(Hash) ? value[:count].to_i : value.to_f
+  end
+
+  def empty_owner_performance_report(start_date, end_date)
+    metric = -> { { count: 0, issue_ids: [] } }
+    {
+      period: { start: start_date, end: end_date, generated_at: Time.current },
+      totals: {
+        owner_count: 0,
+        committed: metric.call,
+        done_committed: metric.call,
+        completion_rate: 0.0,
+        returned_tickets: metric.call,
+        return_events: 0,
+        return_issue_ids: [],
+        end_debt: metric.call
+      },
+      commitment: {
+        beginning_paid_in_period: metric.call,
+        beginning_paid_after_period: metric.call,
+        beginning_still_open: metric.call,
+        beginning_total: metric.call,
+        new_commitment: metric.call,
+        total_commitment: metric.call
+      },
+      activity: {
+        spent_time_tickets: metric.call,
+        additional_updated_tickets: metric.call,
+        total_worked_tickets: metric.call
+      },
+      completion: {
+        done_committed: metric.call,
+        other_done: metric.call,
+        total_done: metric.call,
+        end_debt_now_paid: metric.call,
+        end_debt_still_open: metric.call,
+        end_debt_total: metric.call
+      },
+      delivery_rows: [],
+      status_rows: [],
+      no_update_rows: [],
+      idle_rows: [],
+      rework_rows: [],
+      rework_audit_rows: [],
+      return_event_rows: []
+    }
   end
 
   def compute_qa_returns_report(issues_data)
@@ -5503,13 +6186,6 @@ class TicketJourneyController < ApplicationController
     ALL_COUNTER_KEYS.sum { |key| item[:durations][key].to_i }
   end
 
-  def done_cycle_time_hours(item)
-    issue = item[:issue]
-    return unless status_role(issue.status&.name) == :done
-
-    cycle_time_hours_from_periods(item)
-  end
-
   def completed_cycle_time_hours(item)
     issue = item[:issue]
     return unless %i[done archived].include?(status_role(issue.status&.name))
@@ -5547,54 +6223,6 @@ class TicketJourneyController < ApplicationController
     priority_name.include?('urgent') || priority_name.include?('immediate')
   end
 
-  def sort_owner_return_rows(rows)
-    sort_key = params[:owner_sort].to_s
-    return rows.sort_by { |row| [-row[:total_returns], -row[:total_tickets], row[:owner].downcase] } unless OWNER_RETURN_SORTABLE_FIELDS.include?(sort_key)
-
-    total_ticket_count = rows.sum { |row| row[:total_tickets].to_i }
-    direction_factor = owner_return_sort_direction(sort_key) == 'asc' ? 1 : -1
-
-    rows.sort_by do |row|
-      [
-        owner_return_sort_primary(row, sort_key, total_ticket_count, direction_factor),
-        owner_return_sort_secondary(row, sort_key, direction_factor),
-        row[:owner].to_s.downcase
-      ]
-    end
-  end
-
-  def owner_return_sort_primary(row, sort_key, total_ticket_count, direction_factor)
-    case sort_key
-    when 'owner'
-      row[:owner].to_s.downcase
-    when 'ticket_share'
-      direction_factor * owner_return_ticket_share(row, total_ticket_count)
-    when 'return_rate'
-      direction_factor * owner_return_rate(row)
-    else
-      direction_factor * row[sort_key.to_sym].to_f
-    end
-  end
-
-  def owner_return_sort_secondary(row, sort_key, direction_factor)
-    return row[:total_returns].to_i * direction_factor if %w[ticket_share return_rate].include?(sort_key)
-    return 0 if sort_key == 'owner'
-
-    row[:total_tickets].to_i * direction_factor
-  end
-
-  def owner_return_ticket_share(row, total_ticket_count)
-    return 0.0 if total_ticket_count.to_f <= 0
-
-    row[:total_tickets].to_f / total_ticket_count.to_f
-  end
-
-  def owner_return_rate(row)
-    return 0.0 if row[:total_tickets].to_f <= 0
-
-    row[:returned_tickets].to_f / row[:total_tickets].to_f
-  end
-
   def owner_return_sort_direction(sort_key)
     requested_dir = params[:owner_dir].to_s
     return requested_dir if %w[asc desc].include?(requested_dir)
@@ -5618,7 +6246,10 @@ class TicketJourneyController < ApplicationController
     return false if owner_value.blank?
 
     @locked_ticket_owner_value_cache ||= {}
-    @locked_ticket_owner_value_cache[owner_value.to_s] ||= begin
+    cache_key = owner_value.to_s
+    return @locked_ticket_owner_value_cache[cache_key] if @locked_ticket_owner_value_cache.key?(cache_key)
+
+    @locked_ticket_owner_value_cache[cache_key] = begin
       user = User.find_by(id: owner_value)
       if user.blank?
         false

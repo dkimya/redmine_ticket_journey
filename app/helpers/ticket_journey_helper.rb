@@ -49,6 +49,7 @@ module TicketJourneyHelper
       support_section stale_days ticket_owner_role_id sprint_id
       bug_start_date bug_end_date flow_start_date flow_end_date
       time_start_date time_end_date
+      owner_start_date owner_end_date owner_user_id include_locked_users
       aging_group_by aging_calculation priority_sort priority_dir cycle_group_by
       data_sort data_dir release_sort release_dir snapshot_at
       exec_period exec_start_date exec_end_date
@@ -88,11 +89,16 @@ module TicketJourneyHelper
   def duration_report_params(query)
     query_params = query.as_params.deep_dup.deep_stringify_keys
 
-    %w[report_sort report_dir report_family sprint_id sprint_issue_ids tj_issue_ids].each do |key|
+    %w[
+      report_sort report_dir report_family sprint_id sprint_issue_ids tj_issue_ids
+      owner_start_date owner_end_date owner_user_id ticket_owner_role_id include_locked_users
+    ].each do |key|
       query_params.delete(key)
       value = params[key]
       query_params[key] = value if value.present?
     end
+    query_params['owner_start_date'] ||= @owner_period_start.iso8601 if @owner_period_start
+    query_params['owner_end_date'] ||= @owner_period_end.iso8601 if @owner_period_end
 
     query_params.merge!(support_section_params)
     query_params
@@ -371,11 +377,13 @@ module TicketJourneyHelper
   def owner_returns_params(query)
     query_params = query.as_params.deep_dup.deep_stringify_keys
 
-    %w[ticket_owner_role_id stale_days include_locked_users owner_sort owner_dir].each do |key|
+    %w[ticket_owner_role_id owner_start_date owner_end_date owner_user_id include_locked_users owner_sort owner_dir].each do |key|
       query_params.delete(key)
       value = params[key]
       query_params[key] = value if value.present?
     end
+    query_params['owner_start_date'] ||= @owner_period_start.iso8601 if @owner_period_start
+    query_params['owner_end_date'] ||= @owner_period_end.iso8601 if @owner_period_end
 
     query_params.merge!(support_section_params)
     query_params

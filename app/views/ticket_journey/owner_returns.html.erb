@@ -2,13 +2,57 @@
   <%= stylesheet_link_tag 'ticket_journey', plugin: 'redmine_ticket_journey' %>
 <% end %>
 
-<div id="tj-wrap">
+<%
+  report = @owner_performance_report || {}
+  totals = report[:totals] || {}
+  delivery_rows = Array(report[:delivery_rows])
+  return_definitions = [
+    { code: 'R1', short_label: 'Feedback Rejection', title: 'Returned from Feedback', transition: 'Feedback -> Returned' },
+    { code: 'R2', short_label: 'Review Rejection', title: 'Returned from Review', transition: 'Review -> Returned' },
+    { code: 'R3', short_label: 'Merge-Readiness Rejection', title: 'Returned from Ready to Merge', transition: 'Ready to Merge -> Returned' },
+    { code: 'R4', short_label: 'Final-Check Rejection', title: 'Returned from Final Check', transition: 'Final Check -> Returned' },
+    { code: 'R5', short_label: 'Post-Closure Return', title: 'Returned after Done / Closed', transition: 'Done / Closed -> Returned' }
+  ]
 
+  metric_count = ->(metric) { (metric || {})[:count].to_i }
+  metric_ids = ->(metric) { Array((metric || {})[:issue_ids]) }
+  metric_link = lambda do |metric, text = nil, title = nil|
+    value = text.nil? ? metric_count.call(metric) : text
+    duration_report_drilldown_link(@query, metric_ids.call(metric), value, title: title)
+  end
+  event_display = lambda do |event_metric, title = nil|
+    event_metric ||= {}
+    issue_ids = Array(event_metric[:issue_ids]).map(&:to_i).reject(&:zero?).uniq
+    event_count = event_metric[:events].to_i
+    parts = [content_tag(:span, event_count, title: title)]
+    if issue_ids.any?
+      ticket_link = duration_report_drilldown_link(
+        @query,
+        issue_ids,
+        "#{issue_ids.size} tickets",
+        title: 'View distinct matching tickets'
+      )
+      parts << content_tag(
+        :span,
+        safe_join(['(', ticket_link, ')']),
+        class: 'tj-event-ticket-link'
+      )
+    end
+    safe_join(parts, ' ')
+  end
+
+  owner_options = [['Any', '']] + Array(@owner_users)
+  selected_owner_user_id = @selected_owner_user_id.to_s
+%>
+
+<div id="tj-wrap">
   <div class="tj-page-header">
     <div class="tj-page-header-left">
       <div>
-        <h2>Team/Ticket Owner Performance Dashboard</h2>
-        <p class="tj-page-sub">PMO Dashboard Summary &mdash; <%= @project.name %></p>
+        <h2>Ticket Owner Performance</h2>
+        <p class="tj-page-sub">
+          Period-based commitment, activity, delivery, debt and rework &mdash; <%= @project.name %>
+        </p>
       </div>
     </div>
   </div>
@@ -22,22 +66,43 @@
     <div class="tj-filter-bar tj-owner-filter-bar">
       <div class="tj-filter-form">
         <div class="tj-filter-group">
+          <label for="owner_start_date">Report Period Start Date</label>
+          <%= date_field_tag :owner_start_date, @owner_period_start, class: 'tj-input', required: true %>
+        </div>
+        <div class="tj-filter-group">
+          <label for="owner_end_date">Report Period End Date</label>
+          <%= date_field_tag :owner_end_date, @owner_period_end, class: 'tj-input', required: true %>
+        </div>
+        <div class="tj-filter-group">
+          <label for="owner_user_id">Ticket Owner</label>
+          <%= select_tag :owner_user_id,
+                options_for_select(owner_options, selected_owner_user_id),
+                class: 'tj-input' %>
+        </div>
+        <div class="tj-filter-group">
           <label for="ticket_owner_role_id">Ticket Owner Role</label>
           <%= select_tag :ticket_owner_role_id,
                 options_for_select([['All roles', 'all']] + @owner_roles.map { |role| [role.name, role.id] }, @selected_owner_role_option),
-                class: 'tj-input',
-                onchange: 'this.form.submit();' %>
-        </div>
-        <div class="tj-filter-group">
-          <label for="stale_days">No Update Threshold</label>
-          <%= number_field_tag :stale_days, @owner_performance_stale_days, min: 1, class: 'tj-input tj-small-number-input', onchange: 'this.form.submit();' %>
+                class: 'tj-input' %>
         </div>
         <div class="tj-filter-group">
           <label for="include_locked_users">Locked Users</label>
-          <label class="tj-checkbox-label" title="Include locked/inactive Ticket Owner users in Team Performance totals and owner rows.">
-            <%= check_box_tag :include_locked_users, '1', @include_locked_owner_users, id: 'include_locked_users', onchange: 'this.form.submit();' %>
+          <label class="tj-checkbox-label" title="Include locked or inactive Ticket Owner users in report totals and owner rows.">
+            <%= check_box_tag :include_locked_users, '1', @include_locked_owner_users, id: 'include_locked_users' %>
             Include locked users
           </label>
+        </div>
+        <div class="tj-filter-group tj-filter-actions">
+          <%= submit_tag 'Apply Report', class: 'tj-btn tj-btn-primary', name: nil %>
+        </div>
+        <div class="tj-filter-group tj-flow-filter-note">
+          <span>
+            Defaults: Bug, Feature and Change Request / Improvement; Ticket Owner = Any; Role = Developer.
+            Open-only status filters are cleared because commitment and throughput require both open and closed tickets.
+            Historical ownership is used when available, with the current owner as fallback.
+            Role membership is current; choose All roles to include former owners in aggregate results.
+            Use this Ticket Owner selector for historical reporting; Redmine's custom-field filter uses only the current owner.
+          </span>
         </div>
       </div>
     </div>
@@ -45,227 +110,430 @@
 
   <% if !@query.valid? %>
     <div class="tj-empty">
-      <div class="tj-empty-icon">📋</div>
+      <div class="tj-empty-icon">&#128203;</div>
       <h3>Invalid filters</h3>
       <p>Please review the Redmine query filters above.</p>
     </div>
-  <% elsif @owner_return_rows.empty? %>
+  <% elsif report.blank? || (delivery_rows.empty? && metric_count.call(totals[:committed]).zero? && metric_count.call(report.dig(:completion, :total_done)).zero?) %>
     <div class="tj-empty">
-      <div class="tj-empty-icon">📋</div>
+      <div class="tj-empty-icon">&#128203;</div>
       <h3>No ticket owner performance data found</h3>
-      <p>Try adjusting the Redmine query filters above.</p>
+      <p>Try adjusting the report period or Redmine query filters above.</p>
     </div>
   <% else %>
-    <%
-      total_tickets = @owner_return_rows.sum { |row| row[:total_tickets] }
-      returned_tickets = @owner_return_rows.sum { |row| row[:returned_tickets] }
-      total_returns = @owner_return_rows.sum { |row| row[:total_returns] }
-      done_tickets = @owner_return_rows.sum { |row| row[:done_tickets] }
-      owner_debt = @owner_return_rows.sum { |row| row[:owner_debt] }
-      tickets_without_updates = @owner_return_rows.sum { |row| row[:tickets_without_updates] }
-      done_cycle_count = @owner_return_rows.sum { |row| row[:done_cycle_count].to_i }
-      done_cycle_hours = @owner_return_rows.sum { |row| row[:done_cycle_hours].to_f }
-      priority_done_cycle_count = @owner_return_rows.sum { |row| row[:priority_done_cycle_count].to_i }
-      priority_done_cycle_hours = @owner_return_rows.sum { |row| row[:priority_done_cycle_hours].to_f }
-      avg_cycle_time = done_cycle_count.positive? ? done_cycle_hours / done_cycle_count : 0.0
-      avg_priority_cycle_time = priority_done_cycle_count.positive? ? priority_done_cycle_hours / priority_done_cycle_count : 0.0
-      return_counter_definitions = counter_definitions(:internal)
-      counter_totals = return_counter_definitions.each_with_object({}) do |counter, totals|
-        totals[counter[:key]] = @owner_return_rows.sum { |row| row[counter[:key].to_s.downcase.to_sym].to_i }
-      end
-    %>
-
-    <%
-      throughput_total = @owner_return_rows.sum { |row| row[:total_tickets].to_f }
-      total_open_all = @owner_return_rows.sum { |row| row[:open_tickets] }
-    %>
-
     <div class="tj-summary-strip">
-      <div class="tj-summary-card">
+      <div class="tj-summary-card" title="Ticket owners represented by commitment, activity, completion, returns or period-end debt in this report.">
         <div class="tj-sc-label">Ticket Owners</div>
-        <div class="tj-sc-value tj-sc-accent"><%= @owner_return_rows.size %></div>
+        <div class="tj-sc-value tj-sc-accent"><%= totals[:owner_count].to_i %></div>
       </div>
-      <div class="tj-summary-card">
-        <div class="tj-sc-label">No. of Tickets</div>
-        <div class="tj-sc-value tj-sc-blue"><%= total_tickets %></div>
+      <div class="tj-summary-card" title="Total Commitment (C): beginning debt plus new commitments in the report period.">
+        <div class="tj-sc-label">No. of Committed Tickets</div>
+        <div class="tj-sc-value tj-sc-blue"><%= metric_link.call(totals[:committed]) %></div>
       </div>
-      <div class="tj-summary-card">
-        <div class="tj-sc-label">No. of Returned Tickets</div>
-        <div class="tj-sc-value tj-sc-orange"><%= returned_tickets %></div>
+      <div class="tj-summary-card" title="Committed tickets whose final Done transition was from the day after report start through report end and that remained closed at RED.">
+        <div class="tj-sc-label">Owner Throughput (Committed Done)</div>
+        <div class="tj-sc-value <%= metric_count.call(totals[:done_committed]).positive? ? 'tj-sc-green' : 'tj-sc-dim' %>"><%= metric_link.call(totals[:done_committed]) %></div>
       </div>
-      <div class="tj-summary-card">
+      <div class="tj-summary-card" title="Done committed tickets divided by total committed tickets.">
         <div class="tj-sc-label">Completion Rate</div>
-        <div class="tj-sc-value <%= done_tickets.positive? ? 'tj-sc-green' : 'tj-sc-dim' %>"><%= format_percentage(done_tickets, total_tickets) %></div>
+        <div class="tj-sc-value <%= metric_count.call(totals[:committed]).zero? ? 'tj-sc-dim' : 'tj-sc-blue' %>">
+          <%= format_percentage(metric_count.call(totals[:done_committed]), metric_count.call(totals[:committed])) %>
+        </div>
       </div>
-      <div class="tj-summary-card" title="Average active time from first In Progress to Done / Closed across completed tickets.">
-        <div class="tj-sc-label">Average Cycle Time</div>
-        <div class="tj-sc-value <%= avg_cycle_time.positive? ? 'tj-sc-blue' : 'tj-sc-dim' %>"><%= format_hours(avg_cycle_time) %></div>
+      <div class="tj-summary-card" title="Distinct tickets that entered Returned during the report period.">
+        <div class="tj-sc-label">Returned Tickets During Period</div>
+        <div class="tj-sc-value <%= metric_count.call(totals[:returned_tickets]).positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>">
+          <%= metric_link.call(totals[:returned_tickets]) %>
+        </div>
       </div>
-      <div class="tj-summary-card" title="Average active cycle time for completed Urgent or Immediate tickets.">
-        <div class="tj-sc-label">Average Priority Cycle Time</div>
-        <div class="tj-sc-value <%= avg_priority_cycle_time.positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= format_hours(avg_priority_cycle_time) %></div>
+      <div class="tj-summary-card" title="All R1-R5 return transitions during the report period. A ticket may be counted more than once.">
+        <div class="tj-sc-label">Total Returns During Period</div>
+        <div class="tj-sc-value <%= totals[:return_events].to_i.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>">
+          <%= totals[:return_events].to_i %>
+        </div>
+        <% if Array(totals[:return_issue_ids]).any? %>
+          <div class="tj-sc-label"><%= duration_report_drilldown_link(@query, totals[:return_issue_ids], "#{Array(totals[:return_issue_ids]).uniq.size} distinct tickets", title: 'View tickets with return events') %></div>
+        <% end %>
       </div>
-      <div class="tj-summary-card">
-        <div class="tj-sc-label">Owner Throughput</div>
-        <div class="tj-sc-value tj-sc-blue" title="Total tickets across all owners in current scope"><%= number_with_precision(throughput_total, precision: 0) %> total</div>
+      <div class="tj-summary-card" title="Tickets due on or before the report end date that were still open at that date, split by their current paid/open state.">
+        <div class="tj-sc-label">Debt at End of Period</div>
+        <div class="tj-sc-value <%= metric_count.call(totals[:end_debt]).positive? ? 'tj-sc-red' : 'tj-sc-green' %>">
+          <%= metric_link.call(totals[:end_debt]) %>
+        </div>
       </div>
-      <div class="tj-summary-card">
-        <div class="tj-sc-label">Owner Debt</div>
-        <div class="tj-sc-value <%= owner_debt.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= owner_debt %></div>
-      </div>
-      <div class="tj-summary-card">
-        <div class="tj-sc-label">No Update <%= @owner_performance_stale_days %>d+</div>
-        <div class="tj-sc-value <%= tickets_without_updates.positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= tickets_without_updates %></div>
-      </div>
-      <div class="tj-summary-card">
-        <div class="tj-sc-label">Total Returns</div>
-        <div class="tj-sc-value tj-sc-red"><%= total_returns %></div>
-      </div>
-      <% return_counter_definitions.each do |counter| %>
-        <% total = counter_totals[counter[:key]] %>
-        <div class="tj-summary-card" title="<%= counter[:title] %>">
-          <div class="tj-sc-label"><%= counter[:code] %></div>
-          <div class="tj-sc-value <%= total > 0 ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= total %></div>
+    </div>
+    <p class="tj-owner-section-note">
+      Report period: <%= format_date(report.dig(:period, :start)) %> through <%= format_date(report.dig(:period, :end)) %>.
+      "Paid after period" and "still open" debt classifications are evaluated at
+      <%= format_time(report.dig(:period, :generated_at)) %>.
+      Commitment outcomes remain with the owner responsible for A/B; activity and return-audit rows use the historical owner at the event;
+      end debt uses the owner at RED. Current owner is used only when no historical owner exists.
+    </p>
+
+    <%
+      commitment_rows = [
+        ['A1', 'Beginning debt paid during the report period', report.dig(:commitment, :beginning_paid_in_period), 'Due on or before RSD, open at RSD, and currently closed during RSD+1 through RED.'],
+        ['A2', 'Beginning debt paid after the report period', report.dig(:commitment, :beginning_paid_after_period), 'Due on or before RSD, open at RSD, and currently closed after RED through report generation time.'],
+        ['A3', 'Beginning debt still open', report.dig(:commitment, :beginning_still_open), 'Due on or before RSD, open at RSD, and still open when this report is generated.'],
+        ['A', 'Total debt at beginning', report.dig(:commitment, :beginning_total), 'A1 + A2 + A3.'],
+        ['B', 'New commitments during the period', report.dig(:commitment, :new_commitment), 'Tickets due from RSD+1 through RED, excluding tickets already closed at RSD.'],
+        ['C', 'Total commitment', report.dig(:commitment, :total_commitment), 'Beginning debt (A) plus new commitments (B), de-duplicated.']
+      ]
+      activity_rows = [
+        ['D', 'Tickets based on Spent Time', report.dig(:activity, :spent_time_tickets), 'Distinct tickets with time logged by the Ticket Owner during RSD through RED.'],
+        ['E', 'Additional tickets updated by owner', report.dig(:activity, :additional_updated_tickets), 'Tickets updated by the Ticket Owner during the period that are not already in D.'],
+        ['F', 'Total tickets worked', report.dig(:activity, :total_worked_tickets), 'Distinct union of D and E.']
+      ]
+      completion_rows = [
+        ['H', 'Done committed tickets', report.dig(:completion, :done_committed), 'Committed tickets finally closed during RSD+1 through RED and still closed at RED.'],
+        ['H+', 'Other done tickets', report.dig(:completion, :other_done), 'Tickets finally closed during the period, still closed at RED, and not in Total Commitment (C).'],
+        ['T', 'Total done tickets', report.dig(:completion, :total_done), 'Done committed tickets plus other done tickets.'],
+        ['I1', 'End debt now paid', report.dig(:completion, :end_debt_now_paid), 'Due on or before RED, open at RED, and closed after RED through report generation time.'],
+        ['I2', 'End debt still open', report.dig(:completion, :end_debt_still_open), 'Due on or before RED, open at RED, and still open when this report is generated.'],
+        ['I', 'Total debt at end', report.dig(:completion, :end_debt_total), 'I1 + I2.']
+      ]
+    %>
+
+    <div class="tj-owner-summary-grid">
+      <% [
+           ['Committed Tickets Details', commitment_rows],
+           ['Done Activities Details', activity_rows],
+           ['End-of-Report Status', completion_rows]
+         ].each do |title, rows| %>
+        <div class="tj-card">
+          <div class="tj-card-title"><%= title %></div>
+          <div class="tj-table-wrap tj-owner-metric-table-wrap">
+            <table class="tj-table tj-owner-metric-table">
+              <thead>
+                <tr>
+                  <th class="tj-th-counter">Code</th>
+                  <th class="tj-th-title">Metric</th>
+                  <th class="tj-th-native">Tickets</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% rows.each do |code, label, metric, title_text| %>
+                  <tr class="tj-row" title="<%= title_text %>">
+                    <td class="tj-td-native tj-owner-metric-code"><%= code %></td>
+                    <td class="tj-td-title"><%= label %></td>
+                    <td class="tj-td-native"><%= metric_link.call(metric, nil, title_text) %></td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
         </div>
       <% end %>
     </div>
 
+    <div class="tj-legend-strip" aria-label="Return classification definitions">
+      <% return_definitions.each do |definition| %>
+        <%
+          return_key = definition[:code].downcase.to_sym
+          return_total = delivery_rows.sum { |row| (row.dig(:returns, return_key) || {})[:events].to_i }
+          return_issue_ids = delivery_rows.flat_map { |row| Array((row.dig(:returns, return_key) || {})[:issue_ids]) }.uniq
+        %>
+        <div class="tj-legend-item" title="<%= "#{definition[:title]} among Total Done tickets: #{definition[:transition]}" %>">
+          <span class="tj-legend-code"><%= definition[:code] %></span>
+          <span class="tj-legend-copy">
+            <span class="tj-legend-title"><%= definition[:short_label] %></span>
+            <span class="tj-legend-sub"><%= definition[:transition] %></span>
+            <% if return_issue_ids.any? %>
+              <span class="tj-legend-sub"><%= duration_report_drilldown_link(@query, return_issue_ids, "#{return_issue_ids.size} distinct tickets", title: 'View matching tickets') %></span>
+            <% end %>
+          </span>
+          <span class="tj-legend-total <%= return_total.positive? ? 'is-active' : '' %>" title="Return events"><%= return_total %></span>
+        </div>
+      <% end %>
+    </div>
+    <p class="tj-owner-section-note">
+      R1-R5 totals in the legend and delivery table are limited to each owner's Total Done tickets;
+      the KPI above counts every return during the report period.
+    </p>
+
+    <% if report[:return_event_rows].present? %>
+      <div class="tj-card tj-card-full">
+        <div class="tj-card-title">Return Event Audit</div>
+        <p class="tj-owner-section-note">One row per R1-R5 transition. Responsible Owner is used in the delivery table; Ticket Owner at Return preserves the historical event attribution.</p>
+        <div class="tj-table-wrap">
+          <table class="tj-table tj-flow-table" aria-label="Return event audit">
+            <thead>
+              <tr>
+                <th class="tj-th-native">Event</th>
+                <th class="tj-th-native">Returned At</th>
+                <th class="tj-th-title">Responsible Owner</th>
+                <th class="tj-th-title">Ticket Owner at Return</th>
+                <th class="tj-th-native">Ticket</th>
+                <th class="tj-th-counter">Class</th>
+                <th class="tj-th-title">Transition</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% Array(report[:return_event_rows]).each_with_index do |event, index| %>
+                <% definition = return_definitions.find { |item| item[:code].downcase.to_sym == event[:code].to_sym } %>
+                <tr class="tj-row">
+                  <td class="tj-td-native"><%= index + 1 %></td>
+                  <td class="tj-td-native"><%= format_time(event[:changed_at]) %></td>
+                  <td class="tj-td-title"><%= h(event[:delivery_owner]) %></td>
+                  <td class="tj-td-title"><%= h(event[:owner]) %></td>
+                  <td class="tj-td-native"><%= link_to "##{event[:issue_id]}", issue_path(event[:issue_id]), class: 'tj-issue-link' %></td>
+                  <td class="tj-td-native tj-owner-metric-code"><%= event[:code].to_s.upcase %></td>
+                  <td class="tj-td-title" title="<%= definition&.dig(:title) %>"><%= definition&.dig(:transition) || '-' %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    <% end %>
+
     <div class="tj-card tj-card-full">
       <div class="tj-card-title">Ticket Delivery Status by Owner</div>
       <div class="tj-table-wrap">
-        <table class="tj-table">
-        <thead>
+        <table class="tj-table tj-owner-performance-table" aria-label="Ticket delivery status by owner">
+          <thead>
             <tr>
               <th class="tj-th-title"><%= owner_returns_sort_link(@query, :owner, 'Ticket Owner') %></th>
-              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :total_tickets, 'No. of Tickets') %></th>
-              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :ticket_share, '% of All Tickets') %></th>
-              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :done_tickets, 'No. of Done Tickets', title: 'Done / Closed tickets in the current filtered result') %></th>
-              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :completion_rate, 'Completion Rate', title: 'Done tickets divided by all tickets in the current filtered result') %></th>
-              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :avg_done_cycle_time, 'Avg Cycle Time', title: 'Average active time from first In Progress to Done / Closed') %></th>
-              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :avg_priority_done_cycle_time, 'Avg Priority Cycle Time', title: 'Average active cycle time for Urgent or Immediate done tickets') %></th>
-              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :open_tickets, 'Open Tickets', title: 'Open tickets in the current filtered result') %></th>
-              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :owner_debt, 'Owner Debt', title: 'Open overdue tickets') %></th>
-              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :tickets_without_updates, "No Update #{@owner_performance_stale_days}d+", title: 'Open tickets not updated within the selected threshold') %></th>
-              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :avg_idle_days, 'Avg Idle', title: 'Average days since update for open tickets') %></th>
-              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :returned_tickets, 'No. of Returned Tickets') %></th>
-              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :return_rate, 'Return Rate') %></th>
-              <% return_counter_definitions.each do |counter| %>
-                <% sort_key = counter[:key].to_s.downcase.to_sym %>
-                <th class="tj-th-counter"><%= owner_returns_sort_link(@query, sort_key, counter[:code], title: counter[:title]) %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :beginning_debt, 'Debt at Beginning', title: 'Total beginning debt (A)') %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :new_commitment, 'New Commitment', title: 'New commitments during the report period (B)') %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :total_commitment, 'Total Commitment', title: 'Total commitment for the report period (C)') %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :ticket_share, '% of All Tickets', title: 'Owner commitment divided by all committed tickets') %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :done_committed, 'Done Committed', title: 'Committed tickets finally closed in the report period and still closed at RED') %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :other_done, 'Other Done', title: 'Other tickets finally closed in the report period and still closed at RED') %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :total_done, 'Total Done', title: 'All tickets finally closed in the report period and still closed at RED') %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :returned_tickets, 'Returned Tickets', title: 'Distinct returned tickets out of Total Done Tickets') %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :return_rate, 'Return Rate', title: 'Returned tickets divided by Total Done Tickets') %></th>
+              <% return_definitions.each do |definition| %>
+                <th class="tj-th-counter">
+                  <%= owner_returns_sort_link(
+                        @query,
+                        definition[:code].downcase.to_sym,
+                        definition[:code],
+                        title: "#{definition[:title]}: #{definition[:transition]}"
+                      ) %>
+                </th>
               <% end %>
-            <th class="tj-th-total"><%= owner_returns_sort_link(@query, :total_returns, 'Total Returns') %></th>
-          </tr>
-        </thead>
-        <tbody>
-          <% @owner_return_rows.each do |row| %>
-            <tr class="tj-row">
-              <td class="tj-td-title">
-                <%= link_to row[:owner],
-                      ticket_journey_path(@project, ticket_owner_filter_params(@query, row[:owner_value])),
-                      class: 'tj-subject-link' %>
-              </td>
-              <td class="tj-td-native"><%= duration_report_drilldown_link(@query, row[:all_issue_ids], row[:total_tickets]) %></td>
-              <td class="tj-td-native"><%= format_percentage(row[:total_tickets], total_tickets) %></td>
-              <td class="tj-td-native"><%= duration_report_drilldown_link(@query, row[:done_issue_ids], row[:done_tickets]) %></td>
-              <td class="tj-td-native"><%= number_to_percentage(row[:completion_rate] * 100, precision: 1) %></td>
-              <td class="tj-td-native"><%= format_hours(row[:avg_done_cycle_time]) %></td>
-              <td class="tj-td-native"><%= format_hours(row[:avg_priority_done_cycle_time]) %></td>
-              <td class="tj-td-native"><%= duration_report_drilldown_link(@query, row[:open_issue_ids], row[:open_tickets]) %></td>
-              <td class="tj-td-native <%= row[:owner_debt].positive? ? 'tj-counter-active' : '' %>"><%= duration_report_drilldown_link(@query, row[:owner_debt_issue_ids], row[:owner_debt]) %></td>
-              <td class="tj-td-native <%= row[:tickets_without_updates].positive? ? 'tj-counter-active' : '' %>"><%= duration_report_drilldown_link(@query, row[:no_update_issue_ids], row[:tickets_without_updates]) %></td>
-              <td class="tj-td-native"><%= row[:open_tickets].positive? ? "#{number_with_precision(row[:avg_idle_days], precision: 1, strip_insignificant_zeros: true)}d" : '-' %></td>
-              <td class="tj-td-native"><%= duration_report_drilldown_link(@query, row[:returned_issue_ids], row[:returned_tickets]) %></td>
-              <td class="tj-td-native"><%= format_percentage(row[:returned_tickets], row[:total_tickets]) %></td>
-              <% return_counter_definitions.each do |counter| %>
-                <% value = row[counter[:key].to_s.downcase.to_sym].to_i %>
-                <td class="<%= counter_css_class(value) %>"><%= value.positive? ? value : '—' %></td>
-              <% end %>
-              <td class="tj-td-total"><%= row[:total_returns] %></td>
+              <th class="tj-th-total"><%= owner_returns_sort_link(@query, :total_return_events, 'Total Returns', title: 'R1-R5 return events on the owner\'s Total Done tickets') %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :end_debt_now_paid, 'End Debt Now Paid', title: 'Debt at RED that has since been closed') %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :end_debt_still_open, 'End Debt Still Open', title: 'Debt at RED that remains open') %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :end_debt_total, 'Total Debt at End', title: 'All tickets that were debt at RED') %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :debt_ratio, '% Debt / Commitment', title: 'Total debt at end divided by Total Commitment') %></th>
             </tr>
-          <% end %>
-        </tbody>
+          </thead>
+          <tbody>
+            <% delivery_rows.each do |row| %>
+              <tr class="tj-row">
+                <td class="tj-td-title"><%= h(row[:owner]) %></td>
+                <td class="tj-td-native"><%= metric_link.call(row[:beginning_debt]) %></td>
+                <td class="tj-td-native"><%= metric_link.call(row[:new_commitment]) %></td>
+                <td class="tj-td-native"><%= metric_link.call(row[:total_commitment]) %></td>
+                <td class="tj-td-native"><%= format_percentage(metric_count.call(row[:total_commitment]), metric_count.call(totals[:committed])) %></td>
+                <td class="tj-td-native"><%= metric_link.call(row[:done_committed]) %></td>
+                <td class="tj-td-native"><%= metric_link.call(row[:other_done]) %></td>
+                <td class="tj-td-native"><%= metric_link.call(row[:total_done]) %></td>
+                <td class="tj-td-native"><%= metric_link.call(row[:returned_tickets]) %></td>
+                <td class="tj-td-native"><%= format_percentage(metric_count.call(row[:returned_tickets]), metric_count.call(row[:total_done])) %></td>
+                <% return_definitions.each do |definition| %>
+                  <% event_metric = row.dig(:returns, definition[:code].downcase.to_sym) || {} %>
+                  <td class="<%= counter_css_class(event_metric[:events]) %>">
+                    <%= event_metric[:events].to_i.positive? ? event_display.call(event_metric, "#{definition[:title]}: #{definition[:transition]}") : '&mdash;'.html_safe %>
+                  </td>
+                <% end %>
+                <td class="tj-td-total">
+                  <%= event_display.call({ events: row[:total_return_events], issue_ids: row[:total_return_issue_ids] }, 'Return events on Total Done tickets') %>
+                </td>
+                <td class="tj-td-native"><%= metric_link.call(row[:end_debt_now_paid]) %></td>
+                <td class="tj-td-native"><%= metric_link.call(row[:end_debt_still_open]) %></td>
+                <td class="tj-td-native"><%= metric_link.call(row[:end_debt_total]) %></td>
+                <td class="tj-td-native"><%= format_percentage(metric_count.call(row[:end_debt_total]), metric_count.call(row[:total_commitment])) %></td>
+              </tr>
+            <% end %>
+          </tbody>
         </table>
       </div>
     </div>
-    <% if @owner_avg_time_per_status_rows.present? %>
-      <div class="tj-card tj-card-full">
-        <div class="tj-card-title">Average Time for Each Status</div>
-        <%
-          max_avg_status_hours = @owner_avg_time_per_status_rows.map { |row| row[:avg_hours].to_f }.max.to_f
-        %>
-        <div class="tj-vertical-chart" aria-label="Average time for each status">
-          <% @owner_avg_time_per_status_rows.each do |row| %>
-            <%
-              avg_hours = row[:avg_hours].to_f
-              height = max_avg_status_hours.positive? ? ((avg_hours / max_avg_status_hours) * 100).round(1) : 0
-              height = 4 if avg_hours.positive? && height < 4
-            %>
-            <div class="tj-vertical-chart-item" title="<%= h(row[:status]) %>: <%= format_hours(avg_hours) %>, <%= row[:ticket_count] %> visits">
-              <div class="tj-vertical-chart-value"><%= format_hours(avg_hours) %></div>
-              <div class="tj-vertical-chart-plot">
-                <span class="tj-vertical-chart-bar" style="height:<%= height %>%"></span>
-              </div>
-              <div class="tj-vertical-chart-label"><%= h(row[:status]) %></div>
-              <div class="tj-vertical-chart-meta"><%= row[:ticket_count] %> visits</div>
-            </div>
-          <% end %>
-        </div>
+
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Average Time for Each Status</div>
+      <p class="tj-owner-section-note">For each Total Done ticket, all visits to a status during the report period are summed; the average is calculated across tickets that entered that status.</p>
+      <% if report[:status_rows].present? %>
         <div class="tj-table-wrap">
-          <table class="tj-table">
+          <table class="tj-table tj-flow-table">
             <thead>
               <tr>
                 <th class="tj-th-title">Status</th>
-                <th class="tj-th-native">Average Duration in Status</th>
-                <th class="tj-th-native">Ticket Count (Visits)</th>
+                <th class="tj-th-native">Average Duration per Ticket</th>
+                <th class="tj-th-native">Tickets</th>
+                <th class="tj-th-native">Status Visits</th>
               </tr>
             </thead>
             <tbody>
-              <% @owner_avg_time_per_status_rows.each do |row| %>
+              <% Array(report[:status_rows]).each do |row| %>
                 <tr class="tj-row">
                   <td class="tj-td-title"><%= h(row[:status]) %></td>
-                  <td class="tj-td-native"><%= row[:avg_hours].present? ? format_hours(row[:avg_hours]) : '-' %></td>
-                  <td class="tj-td-native"><%= row[:ticket_count] %></td>
+                  <td class="tj-td-native"><%= format_hours(row[:avg_hours]) %></td>
+                  <td class="tj-td-native"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:issue_count].to_i) %></td>
+                  <td class="tj-td-native" title="Visits across the linked tickets"><%= row[:visit_count].to_i %></td>
                 </tr>
               <% end %>
             </tbody>
           </table>
         </div>
-      </div>
-    <% end %>
+      <% else %>
+        <p class="tj-owner-section-note">No completed ticket status durations are available for this period.</p>
+      <% end %>
+    </div>
 
-    <% if @owner_idle_detail_rows.present? %>
-      <div class="tj-card tj-card-full">
-        <div class="tj-card-title">Owner Ticket Idle / No Update Detail</div>
+    <div class="tj-owner-analysis-grid">
+      <div class="tj-card">
+        <div class="tj-card-title">Without Update Tickets</div>
+        <p class="tj-owner-section-note">Committed tickets with no creation or journal activity during RSD through RED.</p>
         <div class="tj-table-wrap">
-          <table class="tj-table">
+          <table class="tj-table tj-owner-analysis-table">
             <thead>
               <tr>
-                <th class="tj-th-title">Owner</th>
-                <th class="tj-th-native">Active Tickets</th>
-                <th class="tj-th-native">Without Updates</th>
-                <th class="tj-th-native">Without Updates %</th>
-                <th class="tj-th-native">Average Idle Time</th>
-                <th class="tj-th-native">Highest Idle (Days)</th>
+                <th class="tj-th-title">Ticket Owner</th>
+                <th class="tj-th-native">Commitment</th>
+                <th class="tj-th-native">Without Update</th>
+                <th class="tj-th-native">Without Update %</th>
               </tr>
             </thead>
             <tbody>
-              <% @owner_idle_detail_rows.each do |row| %>
+              <% Array(report[:no_update_rows]).each do |row| %>
                 <tr class="tj-row">
-                  <td class="tj-td-title">
-                    <%= link_to row[:owner], ticket_journey_path(@project, ticket_owner_filter_params(@query, row[:owner_value])), class: 'tj-subject-link' %>
-                  </td>
-                  <td class="tj-td-native"><%= duration_report_drilldown_link(@query, row[:open_issue_ids], row[:active_tickets]) %></td>
-                  <td class="tj-td-native <%= row[:tickets_without_updates].positive? ? 'tj-counter-active' : '' %>"><%= duration_report_drilldown_link(@query, row[:no_update_issue_ids], row[:tickets_without_updates]) %></td>
-                  <td class="tj-td-native"><%= number_to_percentage(row[:without_updates_percent] * 100, precision: 1) %></td>
-                  <td class="tj-td-native"><%= "#{row[:avg_idle_days]}d" %></td>
-                  <td class="tj-td-native <%= row[:highest_idle_days] >= @owner_performance_stale_days ? 'tj-counter-active' : '' %>"><%= "#{row[:highest_idle_days]}d" %></td>
+                  <td class="tj-td-title"><%= h(row[:owner]) %></td>
+                  <td class="tj-td-native"><%= metric_link.call(row[:commitment]) %></td>
+                  <td class="tj-td-native <%= metric_count.call(row[:without_update]).positive? ? 'tj-counter-active' : '' %>"><%= metric_link.call(row[:without_update]) %></td>
+                  <td class="tj-td-native"><%= format_percentage(metric_count.call(row[:without_update]), metric_count.call(row[:commitment])) %></td>
                 </tr>
               <% end %>
             </tbody>
           </table>
         </div>
       </div>
-    <% end %>
-  <% end %>
 
+      <div class="tj-card">
+        <div class="tj-card-title">Tickets Having Idle Time</div>
+        <p class="tj-owner-section-note">Committed tickets that experienced Pending or On-Hold during RSD through RED.</p>
+        <div class="tj-table-wrap">
+          <table class="tj-table tj-owner-analysis-table">
+            <thead>
+              <tr>
+                <th class="tj-th-title">Ticket Owner</th>
+                <th class="tj-th-native">Commitment</th>
+                <th class="tj-th-native">Tickets with Idle Time</th>
+                <th class="tj-th-native">Average Idle Time</th>
+                <th class="tj-th-native">Highest Idle Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% Array(report[:idle_rows]).each do |row| %>
+                <tr class="tj-row">
+                  <td class="tj-td-title"><%= h(row[:owner]) %></td>
+                  <td class="tj-td-native"><%= metric_link.call(row[:commitment]) %></td>
+                  <td class="tj-td-native <%= metric_count.call(row[:idle_tickets]).positive? ? 'tj-counter-active' : '' %>"><%= metric_link.call(row[:idle_tickets]) %></td>
+                  <td class="tj-td-native"><%= format_hours(row[:avg_idle_hours]) %></td>
+                  <td class="tj-td-native">
+                    <%= duration_report_drilldown_link(@query, row[:max_idle_issue_ids], format_hours(row[:max_idle_hours]), title: 'Open the ticket or tickets with the highest idle time') %>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="tj-card tj-card-full" id="owner-rework-analysis">
+      <div class="tj-card-title">Rework Analysis for Committed Done Tickets</div>
+      <div class="tj-drilldown-note">
+        <strong>Estimated Rework Logged Time:</strong>
+        time entries logged by the Ticket Owner on dates that overlap augmented Ticket Journey periods for the same ticket.
+        Redmine records the work date but not the exact work interval, so normal and rework hours logged on the same day cannot always be separated.
+        Each time entry is counted at most once even if multiple augmented periods overlap its date.
+      </div>
+      <div class="tj-table-wrap">
+        <table class="tj-table tj-owner-rework-table" aria-label="Rework analysis by owner">
+          <thead>
+            <tr>
+              <th class="tj-th-title">Ticket Owner</th>
+              <th class="tj-th-native">Commitment</th>
+              <th class="tj-th-native">Throughput</th>
+              <th class="tj-th-native">Completion %</th>
+              <th class="tj-th-native">Avg Cycle for Done Committed</th>
+              <th class="tj-th-native">Returned Tickets</th>
+              <th class="tj-th-native">Return Events</th>
+              <th class="tj-th-native">Total Logged Time</th>
+              <th class="tj-th-native" title="Estimated from same-ticket, same-owner time entries whose work date overlaps an augmented journey interval.">Estimated Rework Logged Time</th>
+              <th class="tj-th-native">Rework / Total Logged</th>
+              <th class="tj-th-native">Debt at End</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% Array(report[:rework_rows]).each do |row| %>
+              <tr class="tj-row">
+                <td class="tj-td-title"><%= h(row[:owner]) %></td>
+                <td class="tj-td-native"><%= metric_link.call(row[:commitment]) %></td>
+                <td class="tj-td-native"><%= metric_link.call(row[:throughput]) %></td>
+                <td class="tj-td-native"><%= format_percentage(metric_count.call(row[:throughput]), metric_count.call(row[:commitment])) %></td>
+                <td class="tj-td-native"><%= format_hours(row[:avg_cycle_hours]) %></td>
+                <td class="tj-td-native"><%= metric_link.call(row[:returned_tickets]) %></td>
+                <td class="tj-td-native" title="Return events on the linked returned tickets"><%= row[:return_events].to_i %></td>
+                <td class="tj-td-native"><%= format_spent_hours(row[:total_logged_hours]) %></td>
+                <td class="tj-td-native <%= row[:estimated_rework_hours].to_f.positive? ? 'tj-counter-active' : '' %>"><%= format_spent_hours(row[:estimated_rework_hours]) %></td>
+                <td class="tj-td-native"><%= format_percentage(row[:estimated_rework_hours], row[:total_logged_hours]) %></td>
+                <td class="tj-td-native"><%= metric_link.call(row[:end_debt]) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tj-card tj-card-full" id="owner-rework-audit">
+      <div class="tj-card-title">Estimated Rework Logged-Time Audit</div>
+      <p class="tj-owner-section-note">
+        Every included time entry is listed with the matched augmented interval so the estimate can be reviewed ticket by ticket.
+      </p>
+      <% if report[:rework_audit_rows].present? %>
+        <div class="tj-table-wrap">
+          <table class="tj-table tj-owner-audit-table" aria-label="Estimated rework logged-time audit">
+            <thead>
+              <tr>
+                <th class="tj-th-title">Ticket Owner</th>
+                <th class="tj-th-native">Ticket</th>
+                <th class="tj-th-native">Work Date</th>
+                <th class="tj-th-native">Logged Hours</th>
+                <th class="tj-th-title">Matched Augmented Interval(s)</th>
+                <th class="tj-th-native" title="The time entry falls on the first or last calendar date of the matched interval.">Boundary Date</th>
+                <th class="tj-th-native" title="Normal and augmented journey stages both touch this work date, so the logged hours may contain mixed work.">Mixed Stage Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% Array(report[:rework_audit_rows]).each do |row| %>
+                <tr class="tj-row">
+                  <td class="tj-td-title"><%= h(row[:owner]) %></td>
+                  <td class="tj-td-native"><%= link_to "##{row[:issue_id]}", issue_path(row[:issue_id]), class: 'tj-issue-link' %></td>
+                  <td class="tj-td-native"><%= format_date(row[:spent_on]) %></td>
+                  <td class="tj-td-native"><%= format_spent_hours(row[:hours]) %></td>
+                  <td class="tj-td-title">
+                    <% Array(row[:matched_intervals]).each do |interval| %>
+                      <div class="tj-owner-audit-interval">
+                        <strong><%= interval[:code] %></strong> &mdash; <%= h(interval[:stage]) %><br>
+                        <span><%= format_time(interval[:enter]) %> &rarr; <%= format_time(interval[:exit]) %></span>
+                      </div>
+                    <% end %>
+                  </td>
+                  <td class="tj-td-native"><%= row[:boundary_day] ? 'Yes' : 'No' %></td>
+                  <td class="tj-td-native"><%= row[:mixed_stage_day] ? 'Yes' : 'No' %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% else %>
+        <p class="tj-owner-section-note">No time entries matched an augmented Ticket Journey period in this report.</p>
+      <% end %>
+    </div>
+  <% end %>
 </div>
