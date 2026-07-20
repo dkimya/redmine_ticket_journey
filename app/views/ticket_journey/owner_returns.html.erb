@@ -66,11 +66,17 @@
     <div class="tj-filter-bar tj-owner-filter-bar">
       <div class="tj-filter-form">
         <div class="tj-filter-group">
-          <label for="owner_start_date">Report Period Start Date</label>
+          <label for="owner_start_date" class="tj-period-label">
+            Report Period Start Date
+            <span class="tj-period-code tj-period-code-rsd" title="RSD: the first date included in the report">(RSD)</span>
+          </label>
           <%= date_field_tag :owner_start_date, @owner_period_start, class: 'tj-input', required: true %>
         </div>
         <div class="tj-filter-group">
-          <label for="owner_end_date">Report Period End Date</label>
+          <label for="owner_end_date" class="tj-period-label">
+            Report Period End Date
+            <span class="tj-period-code tj-period-code-red" title="RED: the last date included in the report">(RED)</span>
+          </label>
           <%= date_field_tag :owner_end_date, @owner_period_end, class: 'tj-input', required: true %>
         </div>
         <div class="tj-filter-group">
@@ -97,8 +103,8 @@
         </div>
         <div class="tj-filter-group tj-flow-filter-note">
           <span>
-            Defaults: Bug, Feature and Change Request / Improvement; Ticket Owner = Any; Role = Developer.
-            Open-only status filters are cleared because commitment and throughput require both open and closed tickets.
+            Defaults: all statuses except New, Ongoing and Archived; Bug, Feature and Change Request / Improvement;
+            Ticket Owner = Any; Role = Developer. Saved and explicitly selected status filters are respected.
             Historical ownership is used when available, with the current owner as fallback.
             Role membership is current; choose All roles to include former owners in aggregate results.
             Use this Ticket Owner selector for historical reporting; Redmine's custom-field filter uses only the current owner.
@@ -194,14 +200,23 @@
       ]
     %>
 
+    <div class="tj-report-section-controls" role="group" aria-label="Report table display controls">
+      <button type="button" class="tj-mini-button" data-tj-owner-expand-all>Expand all tables</button>
+      <button type="button" class="tj-mini-button" data-tj-owner-collapse-all>Collapse all tables</button>
+    </div>
+
+    <div id="tj-owner-report-sections">
     <div class="tj-owner-summary-grid">
       <% [
-           ['Committed Tickets Details', commitment_rows],
-           ['Done Activities Details', activity_rows],
-           ['End-of-Report Status', completion_rows]
-         ].each do |title, rows| %>
-        <div class="tj-card">
-          <div class="tj-card-title"><%= title %></div>
+           ['owner-commitment-details', 'Committed Tickets Details', commitment_rows],
+           ['owner-activity-details', 'Done Activities Details', activity_rows],
+           ['owner-end-status', 'End-of-Report Status', completion_rows]
+         ].each do |section_id, title, rows| %>
+        <details class="tj-card tj-report-section" id="<%= section_id %>" data-tj-owner-report-section open>
+          <summary class="tj-card-title tj-report-section-summary">
+            <span><%= title %></span>
+            <span class="tj-report-section-count"><%= pluralize(rows.size, 'metric') %></span>
+          </summary>
           <div class="tj-table-wrap tj-owner-metric-table-wrap">
             <table class="tj-table tj-owner-metric-table">
               <thead>
@@ -222,7 +237,7 @@
               </tbody>
             </table>
           </div>
-        </div>
+        </details>
       <% end %>
     </div>
 
@@ -252,8 +267,11 @@
     </p>
 
     <% if report[:return_event_rows].present? %>
-      <div class="tj-card tj-card-full">
-        <div class="tj-card-title">Return Event Audit</div>
+      <details class="tj-card tj-card-full tj-report-section" id="owner-return-event-audit" data-tj-owner-report-section>
+        <summary class="tj-card-title tj-report-section-summary">
+          <span>Return Event Audit</span>
+          <span class="tj-report-section-count"><%= pluralize(Array(report[:return_event_rows]).size, 'event') %></span>
+        </summary>
         <p class="tj-owner-section-note">One row per R1-R5 transition. Responsible Owner is used in the delivery table; Ticket Owner at Return preserves the historical event attribution.</p>
         <div class="tj-table-wrap">
           <table class="tj-table tj-flow-table" aria-label="Return event audit">
@@ -284,11 +302,14 @@
             </tbody>
           </table>
         </div>
-      </div>
+      </details>
     <% end %>
 
-    <div class="tj-card tj-card-full">
-      <div class="tj-card-title">Ticket Delivery Status by Owner</div>
+    <details class="tj-card tj-card-full tj-report-section" id="owner-delivery-status" data-tj-owner-report-section open>
+      <summary class="tj-card-title tj-report-section-summary">
+        <span>Ticket Delivery Status by Owner</span>
+        <span class="tj-report-section-count"><%= pluralize(delivery_rows.size, 'owner') %></span>
+      </summary>
       <div class="tj-table-wrap">
         <table class="tj-table tj-owner-performance-table" aria-label="Ticket delivery status by owner">
           <thead>
@@ -351,10 +372,13 @@
           </tbody>
         </table>
       </div>
-    </div>
+    </details>
 
-    <div class="tj-card tj-card-full">
-      <div class="tj-card-title">Average Time for Each Status</div>
+    <details class="tj-card tj-card-full tj-report-section" id="owner-status-duration" data-tj-owner-report-section>
+      <summary class="tj-card-title tj-report-section-summary">
+        <span>Average Time for Each Status</span>
+        <span class="tj-report-section-count"><%= pluralize(Array(report[:status_rows]).size, 'status') %></span>
+      </summary>
       <p class="tj-owner-section-note">For each Total Done ticket, all visits to a status during the report period are summed; the average is calculated across tickets that entered that status.</p>
       <% if report[:status_rows].present? %>
         <div class="tj-table-wrap">
@@ -382,11 +406,14 @@
       <% else %>
         <p class="tj-owner-section-note">No completed ticket status durations are available for this period.</p>
       <% end %>
-    </div>
+    </details>
 
     <div class="tj-owner-analysis-grid">
-      <div class="tj-card">
-        <div class="tj-card-title">Without Update Tickets</div>
+      <details class="tj-card tj-report-section" id="owner-without-update" data-tj-owner-report-section>
+        <summary class="tj-card-title tj-report-section-summary">
+          <span>Without Update Tickets</span>
+          <span class="tj-report-section-count"><%= pluralize(Array(report[:no_update_rows]).size, 'owner') %></span>
+        </summary>
         <p class="tj-owner-section-note">Committed tickets with no creation or journal activity during RSD through RED.</p>
         <div class="tj-table-wrap">
           <table class="tj-table tj-owner-analysis-table">
@@ -410,10 +437,13 @@
             </tbody>
           </table>
         </div>
-      </div>
+      </details>
 
-      <div class="tj-card">
-        <div class="tj-card-title">Tickets Having Idle Time</div>
+      <details class="tj-card tj-report-section" id="owner-idle-time" data-tj-owner-report-section>
+        <summary class="tj-card-title tj-report-section-summary">
+          <span>Tickets Having Idle Time</span>
+          <span class="tj-report-section-count"><%= pluralize(Array(report[:idle_rows]).size, 'owner') %></span>
+        </summary>
         <p class="tj-owner-section-note">Committed tickets that experienced Pending or On-Hold during RSD through RED.</p>
         <div class="tj-table-wrap">
           <table class="tj-table tj-owner-analysis-table">
@@ -441,11 +471,14 @@
             </tbody>
           </table>
         </div>
-      </div>
+      </details>
     </div>
 
-    <div class="tj-card tj-card-full" id="owner-rework-analysis">
-      <div class="tj-card-title">Rework Analysis for Committed Done Tickets</div>
+    <details class="tj-card tj-card-full tj-report-section" id="owner-rework-analysis" data-tj-owner-report-section open>
+      <summary class="tj-card-title tj-report-section-summary">
+        <span>Rework Analysis for Committed Done Tickets</span>
+        <span class="tj-report-section-count"><%= pluralize(Array(report[:rework_rows]).size, 'owner') %></span>
+      </summary>
       <div class="tj-drilldown-note">
         <strong>Estimated Rework Logged Time:</strong>
         time entries logged by the Ticket Owner on dates that overlap augmented Ticket Journey periods for the same ticket.
@@ -488,10 +521,13 @@
           </tbody>
         </table>
       </div>
-    </div>
+    </details>
 
-    <div class="tj-card tj-card-full" id="owner-rework-audit">
-      <div class="tj-card-title">Estimated Rework Logged-Time Audit</div>
+    <details class="tj-card tj-card-full tj-report-section" id="owner-rework-audit" data-tj-owner-report-section>
+      <summary class="tj-card-title tj-report-section-summary">
+        <span>Estimated Rework Logged-Time Audit</span>
+        <span class="tj-report-section-count"><%= pluralize(Array(report[:rework_audit_rows]).size, 'entry') %></span>
+      </summary>
       <p class="tj-owner-section-note">
         Every included time entry is listed with the matched augmented interval so the estimate can be reviewed ticket by ticket.
       </p>
@@ -534,6 +570,32 @@
       <% else %>
         <p class="tj-owner-section-note">No time entries matched an augmented Ticket Journey period in this report.</p>
       <% end %>
+    </details>
     </div>
   <% end %>
 </div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var reportSections = document.getElementById('tj-owner-report-sections');
+    if (!reportSections) return;
+
+    var sections = Array.prototype.slice.call(
+      reportSections.querySelectorAll('details[data-tj-owner-report-section]')
+    );
+    var expandAll = document.querySelector('[data-tj-owner-expand-all]');
+    var collapseAll = document.querySelector('[data-tj-owner-collapse-all]');
+
+    if (expandAll) {
+      expandAll.addEventListener('click', function () {
+        sections.forEach(function (section) { section.open = true; });
+      });
+    }
+
+    if (collapseAll) {
+      collapseAll.addEventListener('click', function () {
+        sections.forEach(function (section) { section.open = false; });
+      });
+    }
+  });
+</script>

@@ -196,7 +196,6 @@ class TicketJourneyController < ApplicationController
   # ---------------------------------------------------------------
   def owner_returns
     build_query_from(owner_performance_query_params, use_default_query: false)
-    remove_owner_performance_open_status_filter
     @owner_period_start, @owner_period_end = owner_performance_period_dates
     @include_locked_owner_users = include_locked_owner_users_param
     @selected_owner_user_id = params[:owner_user_id].presence
@@ -1097,23 +1096,15 @@ class TicketJourneyController < ApplicationController
   end
 
   def owner_performance_query_params
-    default_tracker_query_params(owner_performance_tracker_ids, base_params: all_status_query_params)
+    query_params = default_excluded_status_query_params(
+      ['New', 'Ongoing', 'Archived'],
+      base_params: params.to_unsafe_h
+    )
+    default_tracker_query_params(owner_performance_tracker_ids, base_params: query_params)
   end
 
   def owner_performance_tracker_ids
     @owner_performance_tracker_ids ||= Tracker.where(name: OWNER_PERFORMANCE_TRACKER_NAMES).pluck(:id)
-  end
-
-  def remove_owner_performance_open_status_filter
-    filters = @query&.filters
-    return unless filters
-
-    status_key = filters.key?('status_id') ? 'status_id' : :status_id
-    status_filter = filters[status_key]
-    return unless status_filter
-
-    operator = status_filter[:operator] || status_filter['operator']
-    filters.delete(status_key) if operator.to_s == 'o'
   end
 
   def default_excluded_status_query_params(status_names, base_params: params.to_unsafe_h)
