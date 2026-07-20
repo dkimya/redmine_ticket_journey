@@ -38,53 +38,66 @@
     </div>
   <% end %>
 
-  <% closed_report = @bug_closed_analysis_report || {} %>
+  <%
+    closed_report = @bug_closed_analysis_report || {}
+    bug_kpi_help = {
+      beginning: "Definition: Bug tickets open at the start of the selected period.\nCalculation: created on or before Period Start and not in a closed or terminal status at that start snapshot.",
+      found: "Definition: new Bug tickets found during the selected period.\nCalculation: created from Period Start through Period End, inclusive.",
+      closed: "Definition: distinct Bug tickets closed during the selected period.\nCalculation: entered a closed or terminal status at least once from Period Start through Period End.",
+      ending: "Definition: Bug tickets still open at the end of the selected period.\nCalculation: created on or before Period End and not in a closed or terminal status at the end snapshot.",
+      critical_open: "Definition: important Bug tickets still open at Period End.\nCalculation: Ending Bugs with Bug Impact Rating 3 or higher, or with an Urgent or Immediate priority.",
+      leakage: "Bug Leakage = Escaped Bugs / Found Bugs x 100. Escaped Bugs are bugs found during the period whose Bug Source contains Test Escape, Coverage Gap, or Requirement Gap. The result is 0% when no bugs were found.",
+      start_end_change: "Start-End Bug Change = (Ending Bugs - Beginning Bugs) / Beginning Bugs x 100. A negative value means the bug backlog decreased; a positive value means it increased. A dash is shown when Beginning Bugs is zero.",
+      escaped: "Definition: bugs found during the selected period that indicate quality leakage.\nCalculation: Found Bugs whose Bug Source contains Test Escape, Coverage Gap, or Requirement Gap.",
+      ending_impact: "Definition: total known impact of the bug backlog at Period End.\nCalculation: sum of positive Bug Impact Rating values across Ending Bugs; missing and zero ratings are excluded.",
+      average_ending_impact: "Average Ending Impact = Ending Impact / number of Ending Bugs with a positive Bug Impact Rating. Ending Bugs with missing or zero ratings are excluded.",
+      average_closed_cycle: "Definition: average active cycle time for bugs closed during the period.\nCalculation: from first In Progress, or ticket creation when In Progress is unavailable, to the first closure in the period, excluding configured pause time."
+    }
+  %>
 
   <div class="tj-summary-strip">
     <div class="tj-summary-card">
-      <div class="tj-sc-label">Beginning Bugs</div>
+      <div class="tj-sc-label">Beginning Bugs <%= ticket_journey_kpi_tooltip(bug_kpi_help[:beginning]) %></div>
       <div class="tj-sc-value tj-sc-dim"><%= duration_report_drilldown_link(@query, @bug_analysis_totals[:beginning_issue_ids], @bug_analysis_totals[:beginning], title: 'Open bugs present at the beginning of the selected period') %></div>
     </div>
     <div class="tj-summary-card">
-      <div class="tj-sc-label">Found</div>
+      <div class="tj-sc-label">Found <%= ticket_journey_kpi_tooltip(bug_kpi_help[:found]) %></div>
       <div class="tj-sc-value tj-sc-orange"><%= duration_report_drilldown_link(@query, @bug_analysis_totals[:found_issue_ids], @bug_analysis_totals[:found], title: 'Open bugs found during the selected period') %></div>
     </div>
     <div class="tj-summary-card">
-      <div class="tj-sc-label">Closed</div>
+      <div class="tj-sc-label">Closed <%= ticket_journey_kpi_tooltip(bug_kpi_help[:closed]) %></div>
       <div class="tj-sc-value tj-sc-green"><%= duration_report_drilldown_link(@query, @bug_analysis_totals[:closed_issue_ids], @bug_analysis_totals[:closed], title: 'Open bugs closed during the selected period') %></div>
     </div>
     <div class="tj-summary-card">
-      <div class="tj-sc-label">Ending Bugs</div>
+      <div class="tj-sc-label">Ending Bugs <%= ticket_journey_kpi_tooltip(bug_kpi_help[:ending]) %></div>
       <div class="tj-sc-value tj-sc-red"><%= duration_report_drilldown_link(@query, @bug_analysis_totals[:remaining_issue_ids], @bug_analysis_totals[:remaining], title: 'Open bugs remaining at the end of the selected period') %></div>
     </div>
     <div class="tj-summary-card">
-      <div class="tj-sc-label">Critical Bugs Open</div>
+      <div class="tj-sc-label">Critical Bugs Open <%= ticket_journey_kpi_tooltip(bug_kpi_help[:critical_open]) %></div>
       <div class="tj-sc-value <%= @bug_analysis_totals[:critical_open].positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, @bug_analysis_totals[:critical_open_issue_ids], @bug_analysis_totals[:critical_open], title: 'Open critical bugs at the end of the selected period') %></div>
     </div>
     <div class="tj-summary-card">
-      <div class="tj-sc-label">Bug Leakage (%)</div>
-      <div class="tj-sc-value <%= @bug_analysis_totals[:leakage_percent].to_f >= 0.3 ? 'tj-sc-red' : (@bug_analysis_totals[:leakage_percent].to_f.positive? ? 'tj-sc-orange' : 'tj-sc-dim') %>"
-           title="Escaped bugs divided by bugs found in the period. Escaped bugs use Bug Source values: Test Escape, Coverage Gap, or Requirement Gap."><%= number_to_percentage(@bug_analysis_totals[:leakage_percent] * 100, precision: 1) %></div>
+      <div class="tj-sc-label">Bug Leakage (%) <%= ticket_journey_kpi_tooltip(bug_kpi_help[:leakage]) %></div>
+      <div class="tj-sc-value <%= @bug_analysis_totals[:leakage_percent].to_f >= 0.3 ? 'tj-sc-red' : (@bug_analysis_totals[:leakage_percent].to_f.positive? ? 'tj-sc-orange' : 'tj-sc-dim') %>"><%= number_to_percentage(@bug_analysis_totals[:leakage_percent] * 100, precision: 1) %></div>
     </div>
     <div class="tj-summary-card">
-      <div class="tj-sc-label">Start-End Bug Change %</div>
-      <div class="tj-sc-value <%= @bug_analysis_totals[:change_percent].to_f.positive? ? 'tj-sc-red' : (@bug_analysis_totals[:change_percent].to_f.negative? ? 'tj-sc-green' : 'tj-sc-dim') %>"
-           title="Ending bugs minus beginning bugs, divided by beginning bugs."><%= @bug_analysis_totals[:change_percent].nil? ? '-' : number_to_percentage(@bug_analysis_totals[:change_percent] * 100, precision: 1) %></div>
+      <div class="tj-sc-label">Start-End Bug Change % <%= ticket_journey_kpi_tooltip(bug_kpi_help[:start_end_change]) %></div>
+      <div class="tj-sc-value <%= @bug_analysis_totals[:change_percent].to_f.positive? ? 'tj-sc-red' : (@bug_analysis_totals[:change_percent].to_f.negative? ? 'tj-sc-green' : 'tj-sc-dim') %>"><%= @bug_analysis_totals[:change_percent].nil? ? '-' : number_to_percentage(@bug_analysis_totals[:change_percent] * 100, precision: 1) %></div>
     </div>
     <div class="tj-summary-card">
-      <div class="tj-sc-label">Escaped Bugs</div>
+      <div class="tj-sc-label">Escaped Bugs <%= ticket_journey_kpi_tooltip(bug_kpi_help[:escaped]) %></div>
       <div class="tj-sc-value <%= @bug_analysis_totals[:escaped].to_i.positive? ? 'tj-sc-red' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, @bug_analysis_totals[:escaped_issue_ids], @bug_analysis_totals[:escaped], title: 'Open escaped bugs found during the selected period') %></div>
     </div>
     <div class="tj-summary-card">
-      <div class="tj-sc-label">Ending Impact</div>
+      <div class="tj-sc-label">Ending Impact <%= ticket_journey_kpi_tooltip(bug_kpi_help[:ending_impact]) %></div>
       <div class="tj-sc-value tj-sc-orange"><%= duration_report_drilldown_link(@query, @bug_analysis_totals[:impact_issue_ids], @bug_analysis_totals[:impact_sum], title: 'Open ending bugs with impact rating') %></div>
     </div>
     <div class="tj-summary-card">
-      <div class="tj-sc-label">Avg Ending Impact</div>
+      <div class="tj-sc-label">Avg Ending Impact <%= ticket_journey_kpi_tooltip(bug_kpi_help[:average_ending_impact]) %></div>
       <div class="tj-sc-value tj-sc-blue"><%= duration_report_drilldown_link(@query, @bug_analysis_totals[:impact_issue_ids], number_with_precision(@bug_analysis_totals[:impact_average], precision: 1, strip_insignificant_zeros: true), title: 'Open ending bugs used for average impact') %></div>
     </div>
     <div class="tj-summary-card">
-      <div class="tj-sc-label">Avg Closed Cycle Time</div>
+      <div class="tj-sc-label">Avg Closed Cycle Time <%= ticket_journey_kpi_tooltip(bug_kpi_help[:average_closed_cycle]) %></div>
       <div class="tj-sc-value tj-sc-blue">
         <% if closed_report[:avg_cycle_hours].present? %>
           <%= duration_report_drilldown_link(@query, closed_report[:avg_cycle_issue_ids], format_hours(closed_report[:avg_cycle_hours]), title: 'Open closed bugs used for average cycle time') %>
@@ -223,11 +236,11 @@
     <% else %>
       <div class="tj-summary-strip tj-compact-summary-strip">
         <div class="tj-summary-card">
-          <div class="tj-sc-label">Closed Bugs</div>
+          <div class="tj-sc-label">Closed Bugs <%= ticket_journey_kpi_tooltip(bug_kpi_help[:closed]) %></div>
           <div class="tj-sc-value tj-sc-green"><%= closed_report[:total_closed] %></div>
         </div>
         <div class="tj-summary-card">
-          <div class="tj-sc-label">Avg Cycle Time</div>
+          <div class="tj-sc-label">Avg Cycle Time <%= ticket_journey_kpi_tooltip(bug_kpi_help[:average_closed_cycle]) %></div>
           <div class="tj-sc-value tj-sc-blue">
             <% if closed_report[:avg_cycle_hours].present? %>
               <%= duration_report_drilldown_link(@query, closed_report[:avg_cycle_issue_ids], format_hours(closed_report[:avg_cycle_hours]), title: 'Open closed bugs used for average cycle time') %>

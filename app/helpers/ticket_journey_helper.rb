@@ -23,6 +23,17 @@ module TicketJourneyHelper
     content_tag(:span, "#{label} / ", class: 'tj-page-title-context')
   end
 
+  def ticket_journey_kpi_tooltip(text)
+    content_tag(
+      :span,
+      '?',
+      class: 'tj-kpi-tooltip',
+      tabindex: 0,
+      title: text,
+      'aria-label': text
+    )
+  end
+
   def ticket_journey_saved_issue_queries
     return [] unless @project
 

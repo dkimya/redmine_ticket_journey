@@ -352,6 +352,32 @@
   color: var(--tj-text-dim);
   margin-bottom: 4px;
 }
+.tj-kpi-tooltip {
+  align-items: center;
+  border: 1px solid #8aa4c4;
+  border-radius: 50%;
+  color: var(--tj-blue);
+  cursor: help;
+  display: inline-flex;
+  font-size: 9px;
+  height: 14px;
+  justify-content: center;
+  letter-spacing: 0;
+  margin-left: 3px;
+  text-transform: none;
+  vertical-align: middle;
+  width: 14px;
+}
+.tj-kpi-tooltip:hover,
+.tj-kpi-tooltip:focus {
+  background: var(--tj-blue);
+  border-color: var(--tj-blue);
+  color: #fff;
+  outline: none;
+}
+.tj-kpi-tooltip:focus-visible {
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, .25);
+}
 .tj-sc-value {
   font-size: 22px;
   font-weight: 700;
