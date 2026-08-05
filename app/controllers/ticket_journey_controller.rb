@@ -4,6 +4,21 @@ class TicketJourneyController < ApplicationController
   TICKET_ORIGINAL_SPRINT_CF_ID = 68
   COMPLEXITY_WEIGHT_CF_ID = 70
   FEATURE_IMPACT_CHECKLIST_CF_ID = 73
+  SPRINT_MONTH_NUMBERS = {
+    'jan' => 1, 'january' => 1,
+    'feb' => 2, 'february' => 2,
+    'mar' => 3, 'march' => 3,
+    'apr' => 4, 'april' => 4,
+    'may' => 5,
+    'jun' => 6, 'june' => 6,
+    'jul' => 7, 'july' => 7,
+    'aug' => 8, 'august' => 8,
+    'sep' => 9, 'sept' => 9, 'september' => 9,
+    'oct' => 10, 'october' => 10,
+    'nov' => 11, 'november' => 11,
+    'dec' => 12, 'december' => 12
+  }.freeze
+  SPRINT_MONTH_PATTERN = SPRINT_MONTH_NUMBERS.keys.sort_by { |name| -name.length }.join('|').freeze
   BUG_SOURCE_CF_ID = 63
   BUG_IMPACT_RATING_CF_ID = 65
   RETURN_REASON_CF_ID = 66
@@ -1960,12 +1975,49 @@ class TicketJourneyController < ApplicationController
     ].map { |value| normalize_sprint_reference(value) }
 
     return true if current_names.include?(original_normalized)
+    return true if sprint_calendar_alias_matches?(sprint, original_sprint)
 
     sprint_number = sprint_number_from(sprint.subject)
     return false if sprint_number.blank?
     return false unless sprint_number_from(original_sprint) == sprint_number
 
     sprint_prefix_matches?(sprint, original_sprint)
+  end
+
+  def sprint_calendar_alias_matches?(sprint, original_sprint)
+    current_period = sprint_month_week_from_subject(sprint.subject)
+    original_period = coded_sprint_month_week(original_sprint)
+    return false if current_period.blank? || original_period.blank?
+    return false unless current_period[:month] == original_period[:month]
+    return false unless current_period[:week] == original_period[:week]
+
+    sprint_year = sprint.start_date&.year || sprint.due_date&.year
+    return false if sprint_year.blank?
+    return false unless sprint_reference_year_matches?(sprint_year, original_period[:year])
+
+    sprint_prefix_matches?(sprint, original_sprint)
+  end
+
+  def sprint_month_week_from_subject(subject)
+    normalized = normalize_sprint_reference(subject)
+    match = normalized.match(/\bsprint\s+(#{SPRINT_MONTH_PATTERN})\s+(?:w\s*)?(\d+)\b/)
+    return if match.nil?
+
+    { month: SPRINT_MONTH_NUMBERS[match[1]], week: match[2].to_i }
+  end
+
+  def coded_sprint_month_week(reference)
+    normalized = normalize_sprint_reference(reference)
+    match = normalized.match(/\b(\d{2}|\d{4})\s+(#{SPRINT_MONTH_PATTERN})\s+w\s*(\d+)\b/)
+    return if match.nil?
+
+    { year: match[1].to_i, month: SPRINT_MONTH_NUMBERS[match[2]], week: match[3].to_i }
+  end
+
+  def sprint_reference_year_matches?(sprint_year, reference_year)
+    return sprint_year == reference_year if reference_year >= 100
+
+    (sprint_year % 100) == reference_year
   end
 
   def normalize_sprint_reference(value)
