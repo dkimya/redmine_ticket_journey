@@ -5472,14 +5472,7 @@ class TicketJourneyController < ApplicationController
       global[:updated_tickets] << issue.id
     end
 
-    rows.each_value do |row|
-      additional_ids = row[:metrics][:updated_tickets] - row[:metrics][:spent_time_tickets]
-      worked_ids = row[:metrics][:updated_tickets] | row[:metrics][:spent_time_tickets]
-      row[:metrics][:additional_updated_tickets].merge(additional_ids)
-      row[:metrics][:total_worked_tickets].merge(worked_ids)
-      global[:additional_updated_tickets].merge(additional_ids)
-      global[:total_worked_tickets].merge(worked_ids)
-    end
+    owner_performance_finalize_activity(rows, global)
 
     return_events = []
     issues.each do |issue|
@@ -5623,6 +5616,19 @@ class TicketJourneyController < ApplicationController
       rework_audit_rows: rework_audit_rows,
       return_event_rows: return_events.sort_by { |event| [event[:changed_at], event[:issue_id], event[:code].to_s] }
     }
+  end
+
+  def owner_performance_finalize_activity(rows, global)
+    rows.each_value do |row|
+      metrics = row[:metrics]
+      metrics[:additional_updated_tickets] = metrics[:updated_tickets] - metrics[:spent_time_tickets]
+      metrics[:total_worked_tickets] = metrics[:updated_tickets] | metrics[:spent_time_tickets]
+    end
+
+    # A ticket updated by one owner may have time logged by another owner.
+    # Exclude it from E at report scope so distinct-ticket totals satisfy D + E = F.
+    global[:additional_updated_tickets] = global[:updated_tickets] - global[:spent_time_tickets]
+    global[:total_worked_tickets] = global[:updated_tickets] | global[:spent_time_tickets]
   end
 
   def owner_performance_issues

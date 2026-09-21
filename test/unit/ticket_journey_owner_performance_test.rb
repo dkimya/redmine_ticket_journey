@@ -39,6 +39,23 @@ class TicketJourneyOwnerPerformanceTest < ActiveSupport::TestCase
     assert_includes tracker_names, 'User Story'
   end
 
+  test 'combined additional activity excludes time logged under another owner' do
+    rows = {
+      '7' => { metrics: { spent_time_tickets: Set[101, 102], updated_tickets: Set[101] } },
+      '8' => { metrics: { spent_time_tickets: Set.new, updated_tickets: Set[102, 103] } }
+    }
+    global = { spent_time_tickets: Set[101, 102], updated_tickets: Set[101, 102, 103] }
+
+    @controller.send(:owner_performance_finalize_activity, rows, global)
+
+    assert_equal Set[102, 103], rows['8'][:metrics][:additional_updated_tickets]
+    assert_equal Set[103], global[:additional_updated_tickets]
+    assert_equal Set[101, 102, 103], global[:total_worked_tickets]
+    assert_empty global[:spent_time_tickets] & global[:additional_updated_tickets]
+    assert_equal global[:total_worked_tickets].size,
+                 global[:spent_time_tickets].size + global[:additional_updated_tickets].size
+  end
+
   test 'default status exclusions match ticket owner performance requirements' do
     assert_equal(
       ['New', 'On-Hold', 'Ongoing', 'Archived'],
