@@ -1120,7 +1120,7 @@ class TicketJourneyController < ApplicationController
   end
 
   def owner_performance_query_params
-    query_params = default_excluded_status_query_params(
+    query_params = default_included_status_query_params_except(
       OWNER_PERFORMANCE_EXCLUDED_STATUS_NAMES,
       base_params: params.to_unsafe_h
     )
@@ -1129,6 +1129,25 @@ class TicketJourneyController < ApplicationController
 
   def owner_performance_tracker_ids
     @owner_performance_tracker_ids ||= Tracker.where(name: OWNER_PERFORMANCE_TRACKER_NAMES).pluck(:id)
+  end
+
+  def default_included_status_query_params_except(excluded_status_names, base_params: params.to_unsafe_h)
+    query_params = base_params.deep_dup.deep_stringify_keys
+    return query_params if query_params['query_id'].present?
+
+    filters = Array(query_params['f']).map(&:to_s)
+    return query_params if filters.include?('status_id')
+
+    status_ids = IssueStatus.where.not(name: excluded_status_names).pluck(:id).map(&:to_s)
+    return query_params if status_ids.empty?
+
+    query_params['set_filter'] = '1'
+    query_params['f'] = filters + ['status_id']
+    query_params['op'] ||= {}
+    query_params['v'] ||= {}
+    query_params['op']['status_id'] = '='
+    query_params['v']['status_id'] = status_ids
+    query_params
   end
 
   def default_excluded_status_query_params(status_names, base_params: params.to_unsafe_h)
