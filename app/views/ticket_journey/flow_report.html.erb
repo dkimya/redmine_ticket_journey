@@ -36,7 +36,7 @@
                 class: 'tj-input' %>
         </div>
         <div class="tj-filter-group tj-flow-filter-note">
-          <span>Use the Redmine filters above for project/subprojects, tracker, ticket owner, status, and other issue fields.</span>
+          <span>Default: Any Status, including closed tickets. Saved queries and explicitly selected filters are respected. Use the Redmine filters above for project/subprojects, tracker, ticket owner, status, and other issue fields.</span>
         </div>
       </div>
     </div>
@@ -82,7 +82,7 @@
         status_rate_total = @flow_status_rows.sum { |row| row[:rate].to_f }
       %>
       <div class="tj-table-wrap tj-flow-table-wrap">
-        <table class="tj-table tj-flow-table">
+        <table class="tj-table tj-flow-table tj-status-trend-table">
           <thead>
             <tr>
               <th class="tj-th-title">Status</th>
@@ -165,7 +165,17 @@
       <% if @flow_return_reason_rows.empty? %>
         <div class="tj-flow-empty-note">No tickets entered Returned during this period.</div>
       <% else %>
-        <% return_reason_total = @flow_return_reason_rows.sum { |row| row[:count].to_i } %>
+        <%
+          return_reason_total = @flow_return_reason_rows.sum { |row| row[:count].to_i }
+          reason_colors = %w[#2563eb #d97706 #059669 #9333ea #dc2626 #0891b2 #be185d #64748b]
+          reason_offset = 0.0
+          reason_segments = @flow_return_reason_rows.each_with_index.map do |row, index|
+            segment_start = reason_offset
+            reason_offset += return_reason_total.positive? ? row[:count].to_f / return_reason_total * 100 : 0
+            "#{reason_colors[index % reason_colors.size]} #{segment_start}% #{reason_offset}%"
+          end
+        %>
+        <div class="tj-flow-reason-layout">
         <div class="tj-table-wrap tj-flow-reason-wrap">
           <table class="tj-table tj-flow-reason-table">
             <thead>
@@ -176,9 +186,9 @@
               </tr>
             </thead>
             <tbody>
-              <% @flow_return_reason_rows.each do |row| %>
+              <% @flow_return_reason_rows.each_with_index do |row, index| %>
                 <tr class="tj-row">
-                  <td class="tj-td-title"><%= h(row[:reason]) %></td>
+                  <td class="tj-td-title"><span class="tj-flow-reason-key" style="background-color: <%= reason_colors[index % reason_colors.size] %>;" aria-hidden="true"></span><%= h(row[:reason]) %></td>
                   <td class="tj-td-native"><%= row[:count] %></td>
                   <td class="tj-td-native"><%= number_to_percentage(row[:percent] * 100, precision: 0) %></td>
                 </tr>
@@ -190,6 +200,16 @@
               </tr>
             </tbody>
           </table>
+        </div>
+        <% if return_reason_total.positive? %>
+          <figure class="tj-flow-reason-chart">
+            <div class="tj-flow-reason-pie"
+                 style="background: conic-gradient(<%= reason_segments.join(', ') %>);"
+                 role="img"
+                 aria-label="<%= @flow_return_reason_rows.map { |row| "#{row[:reason]}: #{row[:count]} (#{number_to_percentage(row[:percent] * 100, precision: 0)})" }.join('; ') %>"></div>
+            <figcaption>Return reasons — <%= return_reason_total %> total<br>Colors match the table.</figcaption>
+          </figure>
+        <% end %>
         </div>
       <% end %>
     </div>

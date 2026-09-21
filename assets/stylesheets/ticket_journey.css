@@ -572,6 +572,9 @@
 .tj-flow-table {
   min-width: 860px;
 }
+.tj-status-trend-table tr > :nth-last-child(2) {
+  border-left: 3px solid #65758b;
+}
 .tj-flow-table .tj-td-title {
   text-align: left;
   min-width: 180px;
@@ -612,6 +615,41 @@
 }
 .tj-flow-reason-wrap {
   max-width: 760px;
+}
+.tj-flow-reason-layout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 24px;
+}
+.tj-flow-reason-layout .tj-flow-reason-wrap {
+  flex: 1 1 520px;
+  min-width: 0;
+}
+.tj-flow-reason-chart {
+  flex: 1 1 240px;
+  margin: 0;
+  text-align: center;
+}
+.tj-flow-reason-pie {
+  width: 240px;
+  max-width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  margin: 0 auto 12px;
+  box-shadow: var(--tj-shadow);
+}
+.tj-flow-reason-chart figcaption {
+  color: var(--tj-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.tj-flow-reason-key {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 8px;
 }
 .tj-flow-reason-table .tj-td-title {
   text-align: left;

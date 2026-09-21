@@ -316,6 +316,7 @@ class TicketJourneyController < ApplicationController
   # FLOW REPORT - status/tracker snapshot trend over a date range
   # ---------------------------------------------------------------
   def flow_report
+    build_query_from(flow_report_query_params, use_default_query: false)
     @flow_start_date, @flow_end_date = flow_period_dates
     @flow_dates = flow_snapshot_dates(@flow_start_date, @flow_end_date)
     @flow_issues = flow_report_issues
@@ -1118,6 +1119,22 @@ class TicketJourneyController < ApplicationController
 
   def executive_technical_debt_query_params
     default_tracker_query_params(technical_tracker_ids, base_params: all_status_query_params)
+  end
+
+  def flow_report_query_params
+    query_params = params.to_unsafe_h.deep_dup.deep_stringify_keys
+    return query_params if query_params['query_id'].present?
+
+    filters = Array(query_params['f']).map(&:to_s)
+    return query_params if filters.include?('status_id')
+
+    query_params['set_filter'] = '1'
+    query_params['f'] = filters + ['status_id']
+    query_params['op'] ||= {}
+    query_params['v'] ||= {}
+    query_params['op']['status_id'] = '*'
+    query_params['v']['status_id'] = ['']
+    query_params
   end
 
   def data_quality_query_params
