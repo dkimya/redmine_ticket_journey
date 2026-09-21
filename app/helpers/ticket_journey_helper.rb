@@ -796,6 +796,18 @@ module TicketJourneyHelper
     )
   end
 
+  def owner_workload_drilldown_status_ids(operators, values)
+    open_ids = IssueStatus.where(is_closed: false).pluck(:id).map(&:to_s)
+    selected_ids = Array(values['status_id']).map(&:to_s)
+
+    case operators['status_id']
+    when '=' then open_ids & selected_ids
+    when '!' then open_ids - selected_ids
+    when 'c', '!*' then []
+    else open_ids
+    end
+  end
+
   def owner_workload_issue_filter_params(row, scope)
     query_params = @query.as_params.deep_dup.deep_stringify_keys
     filters = Array(query_params['f'] || query_params[:f]).map(&:to_s)
@@ -803,8 +815,9 @@ module TicketJourneyHelper
     values = (query_params['v'] || query_params[:v] || {}).deep_dup.deep_stringify_keys
 
     add_ticket_owner_filter(filters, operators, values, row[:owner_value])
+    status_ids = owner_workload_drilldown_status_ids(operators, values)
     replace_filter(filters, operators, values, 'status_id')
-    add_status_filter(filters, operators, values, 'o')
+    add_exact_status_filter(filters, operators, values, status_ids)
 
     case scope.to_sym
     when :technical_open
@@ -815,7 +828,7 @@ module TicketJourneyHelper
       add_tracker_filter(filters, operators, values, container_tracker_filter_values) unless filters.include?('tracker_id')
     when :stopped
       replace_filter(filters, operators, values, 'status_id')
-      add_exact_status_filter(filters, operators, values, stopped_status_filter_values)
+      add_exact_status_filter(filters, operators, values, status_ids & stopped_status_filter_values)
     when :overdue
       replace_filter(filters, operators, values, 'due_date')
       add_date_filter(filters, operators, values, 'due_date', '<=', [User.current.today])
