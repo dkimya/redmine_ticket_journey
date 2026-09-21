@@ -41,7 +41,7 @@
     safe_join(parts, ' ')
   end
 
-  owner_options = [['Any', '']] + Array(@owner_users)
+  owner_options = [['All', '']] + Array(@owner_users)
   selected_owner_user_id = @selected_owner_user_id.to_s
 %>
 
@@ -103,8 +103,8 @@
         </div>
         <div class="tj-filter-group tj-flow-filter-note">
           <span>
-            Defaults: all statuses except New, Ongoing and Archived; Bug, Feature and Change Request / Improvement;
-            Ticket Owner = Any; Role = Developer. Saved and explicitly selected status filters are respected.
+            Defaults: all statuses except New, On-Hold, Ongoing and Archived; Bug, Change Request, Feature,
+            Task and User Story; Ticket Owner = All; Role = Developer. Saved and explicitly selected status filters are respected.
             Historical ownership is used when available, with the current owner as fallback.
             Role membership is current; choose All roles to include former owners in aggregate results.
             Use this Ticket Owner selector for historical reporting; Redmine's custom-field filter uses only the current owner.

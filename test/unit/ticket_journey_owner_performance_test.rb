@@ -28,4 +28,21 @@ class TicketJourneyOwnerPerformanceTest < ActiveSupport::TestCase
     assert_equal [101, 202], result.dig(:returns, :r1, :issue_ids)
     assert_equal 1, result.dig(:returns, :r2, :events)
   end
+
+  test 'default tracker names cover all ticket owner performance types' do
+    tracker_names = TicketJourneyController::OWNER_PERFORMANCE_TRACKER_NAMES
+
+    assert_includes tracker_names, 'Bug'
+    assert_includes tracker_names, 'Change Request'
+    assert_includes tracker_names, 'Feature'
+    assert_includes tracker_names, 'Task'
+    assert_includes tracker_names, 'User Story'
+  end
+
+  test 'default status exclusions match ticket owner performance requirements' do
+    assert_equal(
+      ['New', 'On-Hold', 'Ongoing', 'Archived'],
+      TicketJourneyController::OWNER_PERFORMANCE_EXCLUDED_STATUS_NAMES
+    )
+  end
 end

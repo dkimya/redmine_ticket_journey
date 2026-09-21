@@ -25,7 +25,16 @@ class TicketJourneyController < ApplicationController
   BUG_RELATED_PAGE_CF_NAMES = ['Bug Related Page / Module', 'Related Page / Module', 'Bug Related Page', 'Related Page', 'Related to Page', 'Related to Page (FMS)', 'Related Module', 'Page / Module', 'Module / Page'].freeze
   BUG_LEAKAGE_SOURCE_KEYWORDS = ['test escape', 'coverage gap', 'requirement gap'].freeze
   OWNER_RETURN_SORTABLE_FIELDS = %w[owner beginning_debt new_commitment total_commitment ticket_share done_committed other_done total_done returned_tickets return_rate r1 r2 r3 r4 r5 total_return_events end_debt_now_paid end_debt_still_open end_debt_total debt_ratio].freeze
-  OWNER_PERFORMANCE_TRACKER_NAMES = ['Bug', 'Feature', 'Change Request / Improvement'].freeze
+  OWNER_PERFORMANCE_TRACKER_NAMES = [
+    'Bug',
+    'Change Request',
+    'Change Request / Improvement',
+    'Feature',
+    'Task',
+    'Task (Business Jobs)',
+    'User Story'
+  ].freeze
+  OWNER_PERFORMANCE_EXCLUDED_STATUS_NAMES = ['New', 'On-Hold', 'Ongoing', 'Archived'].freeze
   OWNER_WORKLOAD_SORTABLE_FIELDS = %w[owner total_open technical_open task_open container_open stopped overdue priority_open no_due_date avg_age oldest_age].freeze
   AGING_RISK_SORTABLE_FIELDS = %w[group total_open bucket_0_7 bucket_8_14 bucket_15_30 bucket_31_60 bucket_60_plus stopped overdue priority_open no_due_date avg_age oldest_age].freeze
   PRIORITY_RISK_SORTABLE_FIELDS = %w[issue subject owner priority status tracker due_date age_days overdue stopped no_due_date].freeze
@@ -1112,7 +1121,7 @@ class TicketJourneyController < ApplicationController
 
   def owner_performance_query_params
     query_params = default_excluded_status_query_params(
-      ['New', 'Ongoing', 'Archived'],
+      OWNER_PERFORMANCE_EXCLUDED_STATUS_NAMES,
       base_params: params.to_unsafe_h
     )
     default_tracker_query_params(owner_performance_tracker_ids, base_params: query_params)
