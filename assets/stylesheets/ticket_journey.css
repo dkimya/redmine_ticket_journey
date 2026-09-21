@@ -477,6 +477,34 @@
   font-family: 'Courier New', monospace;
   font-weight: 700;
 }
+.tj-owner-metric-table tr.tj-owner-metric-subtotal td,
+.tj-owner-metric-table tr.tj-owner-metric-total td {
+  background: #f7f9fc;
+  color: var(--tj-text);
+  font-weight: 700;
+}
+.tj-owner-metric-table tr.tj-owner-metric-subtotal td {
+  border-top: 2px solid #8b9bb0;
+}
+.tj-owner-metric-table tr.tj-owner-metric-total td {
+  border-top: 4px double #65758b;
+  background: #eef3f8;
+}
+.tj-owner-metric-table tr.tj-owner-metric-subtotal:hover td,
+.tj-owner-metric-table tr.tj-owner-metric-total:hover td {
+  background: #e7eef7;
+}
+.tj-owner-metric-formula {
+  color: var(--tj-text-muted);
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  margin-left: 6px;
+  white-space: nowrap;
+}
+.tj-owner-metric-formula::before {
+  content: '= ';
+}
 .tj-owner-section-note {
   color: var(--tj-text-muted);
   font-size: 12px;

@@ -181,22 +181,22 @@
         ['A1', 'Beginning debt paid during the report period', report.dig(:commitment, :beginning_paid_in_period), 'Due on or before RSD, open at RSD, and currently closed during RSD+1 through RED.'],
         ['A2', 'Beginning debt paid after the report period', report.dig(:commitment, :beginning_paid_after_period), 'Due on or before RSD, open at RSD, and currently closed after RED through report generation time.'],
         ['A3', 'Beginning debt still open', report.dig(:commitment, :beginning_still_open), 'Due on or before RSD, open at RSD, and still open when this report is generated.'],
-        ['A', 'Total debt at beginning', report.dig(:commitment, :beginning_total), 'A1 + A2 + A3.'],
+        ['A', 'Total debt at beginning', report.dig(:commitment, :beginning_total), 'A1 + A2 + A3.', :subtotal, 'A1 + A2 + A3'],
         ['B', 'New commitments during the period', report.dig(:commitment, :new_commitment), 'Tickets due from RSD+1 through RED, excluding tickets already closed at RSD.'],
-        ['C', 'Total commitment', report.dig(:commitment, :total_commitment), 'Beginning debt (A) plus new commitments (B), de-duplicated.']
+        ['C', 'Total commitment', report.dig(:commitment, :total_commitment), 'Beginning debt (A) plus new commitments (B), de-duplicated.', :total, 'A + B']
       ]
       activity_rows = [
         ['D', 'Tickets based on Spent Time', report.dig(:activity, :spent_time_tickets), 'Distinct tickets with time logged by the Ticket Owner during RSD through RED.'],
         ['E', 'Additional tickets updated by owner', report.dig(:activity, :additional_updated_tickets), 'Tickets updated by the Ticket Owner during the period that are not already in D.'],
-        ['F', 'Total tickets worked', report.dig(:activity, :total_worked_tickets), 'Distinct union of D and E.']
+        ['F', 'Total tickets worked', report.dig(:activity, :total_worked_tickets), 'Distinct union of D and E.', :total, 'D + E']
       ]
       completion_rows = [
         ['H', 'Done committed tickets', report.dig(:completion, :done_committed), 'Committed tickets finally closed during RSD+1 through RED and still closed at RED.'],
         ['H+', 'Other done tickets', report.dig(:completion, :other_done), 'Tickets finally closed during the period, still closed at RED, and not in Total Commitment (C).'],
-        ['T', 'Total done tickets', report.dig(:completion, :total_done), 'Done committed tickets plus other done tickets.'],
+        ['T', 'Total done tickets', report.dig(:completion, :total_done), 'Done committed tickets plus other done tickets.', :subtotal, 'H + H+'],
         ['I1', 'End debt now paid', report.dig(:completion, :end_debt_now_paid), 'Due on or before RED, open at RED, and closed after RED through report generation time.'],
         ['I2', 'End debt still open', report.dig(:completion, :end_debt_still_open), 'Due on or before RED, open at RED, and still open when this report is generated.'],
-        ['I', 'Total debt at end', report.dig(:completion, :end_debt_total), 'I1 + I2.']
+        ['I', 'Total debt at end', report.dig(:completion, :end_debt_total), 'I1 + I2.', :total, 'I1 + I2']
       ]
     %>
 
@@ -227,10 +227,15 @@
                 </tr>
               </thead>
               <tbody>
-                <% rows.each do |code, label, metric, title_text| %>
-                  <tr class="tj-row" title="<%= title_text %>">
+                <% rows.each do |code, label, metric, title_text, sum_kind, formula| %>
+                  <tr class="tj-row <%= "tj-owner-metric-#{sum_kind}" if sum_kind %>" title="<%= title_text %>">
                     <td class="tj-td-native tj-owner-metric-code"><%= code %></td>
-                    <td class="tj-td-title"><%= label %></td>
+                    <td class="tj-td-title">
+                      <%= label %>
+                      <% if formula.present? %>
+                        <span class="tj-owner-metric-formula"><%= formula %></span>
+                      <% end %>
+                    </td>
                     <td class="tj-td-native"><%= metric_link.call(metric, nil, title_text) %></td>
                   </tr>
                 <% end %>
