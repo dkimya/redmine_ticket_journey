@@ -199,7 +199,9 @@ class TicketJourneyController < ApplicationController
   # SPRINT DELIVERY - sprint commitment, completion, and carry-over
   # ---------------------------------------------------------------
   def sprint_delivery
-    build_query_from(sprint_delivery_query_params)
+    tracker_ids = Tracker.where(name: TRACKER_FAMILY_DEFINITIONS[:internal][:tracker_names] + ['User Story']).pluck(:id)
+    query_params = default_tracker_query_params(tracker_ids, base_params: sprint_delivery_query_params)
+    build_query_from(query_params, use_default_query: false)
     @sprint_options = sprint_delivery_sprints
     @selected_sprint = selected_sprint(@sprint_options)
     @sprint_delivery_report = safe_compute_sprint_delivery_report(@selected_sprint, context: 'Sprint Delivery')
@@ -1599,6 +1601,7 @@ class TicketJourneyController < ApplicationController
   def sprint_delivery_query_filter_active?
     query_params = sprint_delivery_query_params
     return true if query_params['query_id'].present?
+    return true if @query&.filters&.key?('tracker_id')
 
     Array(query_params['f']).map(&:to_s).reject(&:blank?).any?
   end
