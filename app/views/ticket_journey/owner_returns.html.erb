@@ -248,7 +248,7 @@
           return_total = delivery_rows.sum { |row| (row.dig(:returns, return_key) || {})[:events].to_i }
           return_issue_ids = delivery_rows.flat_map { |row| Array((row.dig(:returns, return_key) || {})[:issue_ids]) }.uniq
         %>
-        <div class="tj-legend-item" title="<%= "#{definition[:title]} among Total Done tickets: #{definition[:transition]}" %>">
+        <div class="tj-legend-item" title="<%= "#{definition[:title]} during the report period: #{definition[:transition]}" %>">
           <span class="tj-legend-code"><%= definition[:code] %></span>
           <span class="tj-legend-copy">
             <span class="tj-legend-title"><%= definition[:short_label] %></span>
@@ -262,8 +262,7 @@
       <% end %>
     </div>
     <p class="tj-owner-section-note">
-      R1-R5 totals in the legend and delivery table are limited to each owner's Total Done tickets;
-      the KPI above counts every return during the report period.
+      R1-R5 totals in the legend, KPI and delivery table count every return during the report period.
     </p>
 
     <% if report[:return_event_rows].present? %>
@@ -322,8 +321,8 @@
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :done_committed, 'Done Committed', title: 'Committed tickets finally closed in the report period and still closed at RED') %></th>
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :other_done, 'Other Done', title: 'Other tickets finally closed in the report period and still closed at RED') %></th>
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :total_done, 'Total Done', title: 'All tickets finally closed in the report period and still closed at RED') %></th>
-              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :returned_tickets, 'Returned Tickets', title: 'Distinct returned tickets out of Total Done Tickets') %></th>
-              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :return_rate, 'Return Rate', title: 'Returned tickets divided by Total Done Tickets') %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :returned_tickets, 'Returned Tickets', title: 'Distinct tickets returned during the report period') %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :return_rate, 'Return Rate', title: 'Distinct tickets returned during the report period divided by Total Done Tickets') %></th>
               <% return_definitions.each do |definition| %>
                 <th class="tj-th-counter">
                   <%= owner_returns_sort_link(
@@ -334,7 +333,7 @@
                       ) %>
                 </th>
               <% end %>
-              <th class="tj-th-total"><%= owner_returns_sort_link(@query, :total_return_events, 'Total Returns', title: 'R1-R5 return events on the owner\'s Total Done tickets') %></th>
+              <th class="tj-th-total"><%= owner_returns_sort_link(@query, :total_return_events, 'Total Returns', title: 'All R1-R5 return events attributed to the owner during the report period') %></th>
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :end_debt_now_paid, 'End Debt Now Paid', title: 'Debt at RED that has since been closed') %></th>
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :end_debt_still_open, 'End Debt Still Open', title: 'Debt at RED that remains open') %></th>
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :end_debt_total, 'Total Debt at End', title: 'All tickets that were debt at RED') %></th>
@@ -361,7 +360,7 @@
                   </td>
                 <% end %>
                 <td class="tj-td-total">
-                  <%= event_display.call({ events: row[:total_return_events], issue_ids: row[:total_return_issue_ids] }, 'Return events on Total Done tickets') %>
+                  <%= event_display.call({ events: row[:total_return_events], issue_ids: row[:total_return_issue_ids] }, 'Return events during the report period') %>
                 </td>
                 <td class="tj-td-native"><%= metric_link.call(row[:end_debt_now_paid]) %></td>
                 <td class="tj-td-native"><%= metric_link.call(row[:end_debt_still_open]) %></td>

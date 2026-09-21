@@ -5643,7 +5643,10 @@ class TicketJourneyController < ApplicationController
   def owner_performance_delivery_row(row, total_commitment_count)
     metrics = row[:metrics]
     done_ids = metrics[:total_done]
-    delivery_events = row[:return_events].select { |event| done_ids.include?(event[:issue_id]) }
+    # Return reporting is period-based. Keep every R1-R5 transition attributed
+    # to this owner in the selected period, including tickets that were not in
+    # Total Done at RED. The page-level KPI uses the same event population.
+    delivery_events = row[:return_events]
     returns = %i[r1 r2 r3 r4 r5].each_with_object({}) do |code, memo|
       events = delivery_events.select { |event| event[:code] == code }
       memo[code] = { events: events.size, issue_ids: events.map { |event| event[:issue_id] }.uniq.sort }
