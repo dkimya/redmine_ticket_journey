@@ -358,6 +358,7 @@ class TicketJourneyController < ApplicationController
   # DATA QUALITY - ticket quality and data discipline snapshot
   # ---------------------------------------------------------------
   def data_quality
+    build_query_from(data_quality_query_params, use_default_query: false)
     @data_quality_stale_days = data_quality_stale_days_param
     @data_quality_report = compute_data_quality_report
   end
@@ -1117,6 +1118,13 @@ class TicketJourneyController < ApplicationController
 
   def executive_technical_debt_query_params
     default_tracker_query_params(technical_tracker_ids, base_params: all_status_query_params)
+  end
+
+  def data_quality_query_params
+    query_params = default_excluded_status_query_params(
+      ['New', 'Done', 'Done / Closed', 'Ongoing', 'Archived']
+    )
+    default_tracker_query_params(technical_tracker_ids, base_params: query_params)
   end
 
   def owner_performance_query_params

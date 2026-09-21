@@ -25,7 +25,7 @@
           <%= number_field_tag :stale_days, @data_quality_stale_days, min: 1, class: 'tj-input tj-small-number-input', onchange: 'this.form.submit();' %>
         </div>
         <div class="tj-filter-group tj-flow-filter-note">
-          <span>Uses the Redmine filters above, then checks owner, dates, estimation, priority, original sprint, time logging, and stale updates.</span>
+          <span>Defaults: Tracker is Bug, Change Request / Improvement or Feature; Status is not New, Done / Closed, Ongoing or Archived. Saved queries and explicitly selected filters are respected. Checks owner, dates, estimation, priority, original sprint, time logging, and stale updates.</span>
         </div>
       </div>
     </div>
