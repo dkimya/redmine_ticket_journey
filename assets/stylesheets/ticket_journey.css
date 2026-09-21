@@ -644,6 +644,37 @@
   font-size: 12px;
   line-height: 1.5;
 }
+.tj-flow-reason-slice {
+  outline: none;
+}
+.tj-flow-reason-slice.is-highlighted > path,
+.tj-flow-reason-slice.is-highlighted > circle,
+.tj-flow-reason-slice:focus > path,
+.tj-flow-reason-slice:focus > circle {
+  stroke: #172554;
+  stroke-width: 3px;
+  filter: brightness(1.12);
+}
+.tj-flow-reason-percent {
+  fill: #fff;
+  stroke: #172554;
+  stroke-width: 2px;
+  paint-order: stroke;
+  font: bold 12px sans-serif;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+.tj-flow-reason-table .is-highlighted td {
+  background: #e7eef7;
+}
+.tj-flow-reason-tooltip {
+  min-height: 36px;
+  margin: 0 auto 8px;
+  max-width: 360px;
+  color: var(--tj-text);
+  font-size: 12px;
+}
 .tj-flow-reason-key {
   display: inline-block;
   width: 10px;

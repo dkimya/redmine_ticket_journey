@@ -172,7 +172,16 @@
           reason_segments = @flow_return_reason_rows.each_with_index.map do |row, index|
             segment_start = reason_offset
             reason_offset += return_reason_total.positive? ? row[:count].to_f / return_reason_total * 100 : 0
-            "#{reason_colors[index % reason_colors.size]} #{segment_start}% #{reason_offset}%"
+            start_angle = segment_start / 100 * 2 * Math::PI - Math::PI / 2
+            end_angle = reason_offset / 100 * 2 * Math::PI - Math::PI / 2
+            middle_angle = (start_angle + end_angle) / 2
+            {
+              path: "M 120 120 L #{120 + 112 * Math.cos(start_angle)} #{120 + 112 * Math.sin(start_angle)} A 112 112 0 #{reason_offset - segment_start > 50 ? 1 : 0} 1 #{120 + 112 * Math.cos(end_angle)} #{120 + 112 * Math.sin(end_angle)} Z",
+              full: row[:count].to_i == return_reason_total,
+              percent: reason_offset - segment_start,
+              x: 120 + 76 * Math.cos(middle_angle),
+              y: 120 + 76 * Math.sin(middle_angle)
+            }
           end
         %>
         <div class="tj-flow-reason-layout">
@@ -187,7 +196,7 @@
             </thead>
             <tbody>
               <% @flow_return_reason_rows.each_with_index do |row, index| %>
-                <tr class="tj-row">
+                <tr class="tj-row" data-reason-index="<%= index %>">
                   <td class="tj-td-title"><span class="tj-flow-reason-key" style="background-color: <%= reason_colors[index % reason_colors.size] %>;" aria-hidden="true"></span><%= h(row[:reason]) %></td>
                   <td class="tj-td-native"><%= row[:count] %></td>
                   <td class="tj-td-native"><%= number_to_percentage(row[:percent] * 100, precision: 0) %></td>
@@ -203,10 +212,23 @@
         </div>
         <% if return_reason_total.positive? %>
           <figure class="tj-flow-reason-chart">
-            <div class="tj-flow-reason-pie"
-                 style="background: conic-gradient(<%= reason_segments.join(', ') %>);"
-                 role="img"
-                 aria-label="<%= @flow_return_reason_rows.map { |row| "#{row[:reason]}: #{row[:count]} (#{number_to_percentage(row[:percent] * 100, precision: 0)})" }.join('; ') %>"></div>
+            <svg class="tj-flow-reason-pie" viewBox="0 0 240 240" role="group" aria-label="Return reasons pie chart">
+              <% @flow_return_reason_rows.each_with_index do |row, index| %>
+                <% segment = reason_segments[index]; tooltip = "#{row[:reason]}: #{row[:count]} returns (#{number_to_percentage(row[:percent] * 100, precision: 0)})" %>
+                <g class="tj-flow-reason-slice" data-reason-index="<%= index %>" tabindex="0" role="img" aria-label="<%= tooltip %>">
+                  <title><%= tooltip %></title>
+                  <% if segment[:full] %>
+                    <circle cx="120" cy="120" r="112" fill="<%= reason_colors[index % reason_colors.size] %>" />
+                  <% else %>
+                    <path d="<%= segment[:path] %>" fill="<%= reason_colors[index % reason_colors.size] %>" />
+                  <% end %>
+                  <% if segment[:percent].round >= 7 %>
+                    <text x="<%= segment[:full] ? 120 : segment[:x] %>" y="<%= segment[:full] ? 120 : segment[:y] %>" class="tj-flow-reason-percent" aria-hidden="true"><%= number_to_percentage(row[:percent] * 100, precision: 0) %></text>
+                  <% end %>
+                </g>
+              <% end %>
+            </svg>
+            <div class="tj-flow-reason-tooltip" aria-live="polite">Hover a slice or focus it to see details.</div>
             <figcaption>Return reasons — <%= return_reason_total %> total<br>Colors match the table.</figcaption>
           </figure>
         <% end %>
@@ -216,3 +238,29 @@
   <% end %>
 
 </div>
+
+<script>
+  (function () {
+    document.querySelectorAll('.tj-flow-reason-layout').forEach(function (layout) {
+      var tooltip = layout.querySelector('.tj-flow-reason-tooltip');
+      if (!tooltip) return;
+      var items = layout.querySelectorAll('[data-reason-index]');
+      function highlight(index) {
+        items.forEach(function (item) {
+          item.classList.toggle('is-highlighted', item.dataset.reasonIndex === index);
+        });
+        var slice = layout.querySelector('.tj-flow-reason-slice[data-reason-index="' + index + '"]');
+        tooltip.textContent = slice ? slice.getAttribute('aria-label') : 'Hover a slice or focus it to see details.';
+      }
+      items.forEach(function (item) {
+        item.addEventListener('mouseenter', function () { highlight(item.dataset.reasonIndex); });
+        item.addEventListener('mouseleave', function () {
+          var focused = layout.querySelector('.tj-flow-reason-slice:focus');
+          highlight(focused ? focused.dataset.reasonIndex : '');
+        });
+        item.addEventListener('focus', function () { highlight(item.dataset.reasonIndex); });
+        item.addEventListener('blur', function () { highlight(''); });
+      });
+    });
+  })();
+</script>
