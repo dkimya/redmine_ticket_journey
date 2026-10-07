@@ -263,6 +263,25 @@ class TicketJourneyController < ApplicationController
     @qa_returns_report = compute_qa_returns_report(@issues_data)
   end
 
+  # Lifetime returns: advancing or completing a ticket never resets its count.
+  def consecutive_returns
+    build_query_from(flow_report_query_params, use_default_query: false)
+    @minimum_returns = minimum_returns_param(params[:minimum_returns])
+    @consecutive_return_rows = []
+    @return_ticket_count = 0
+    return unless @query.valid?
+
+    issues = @query.issues(
+      order: "#{Issue.table_name}.id DESC",
+      include: [:status, :author, :tracker, { custom_values: :custom_field }]
+    )
+    issues = filter_sprint_drilldown_issues(issues)
+    transitions = load_transitions(issues)
+    report = consecutive_returns_report(issues, transitions, @minimum_returns)
+    @return_ticket_count = report[:ticket_count]
+    @consecutive_return_rows = report[:rows]
+  end
+
   # ---------------------------------------------------------------
   # OWNER WORKLOAD - current open workload by ticket owner
   # ---------------------------------------------------------------
@@ -2606,6 +2625,8 @@ class TicketJourneyController < ApplicationController
         i.subject           AS issue_subject,
         i.created_on        AS issue_created_on,
         j.created_on        AS changed_at,
+        j.id                AS journal_id,
+        jd.id               AS journal_detail_id,
         j.notes             AS notes,
         s_from.name         AS from_status,
         s_to.name           AS to_status,
@@ -2659,6 +2680,8 @@ class TicketJourneyController < ApplicationController
         by_issue[iss.id] << {
           issue_id: iss.id,
           issue_subject: row['issue_subject'],
+          journal_id: row['journal_id'].to_i,
+          journal_detail_id: row['journal_detail_id'].to_i,
           changed_at: row['changed_at'].is_a?(String) ? Time.parse(row['changed_at']) : row['changed_at'],
           from_status: row['from_status'],
           to_status: row['to_status'],
@@ -6458,6 +6481,54 @@ class TicketJourneyController < ApplicationController
     end
 
     durations
+  end
+
+  def minimum_returns_param(value)
+    text = value.to_s
+    text.match?(/\A[0-9]+\z/) && text.to_i.positive? ? text.to_i : 3
+  end
+
+  def consecutive_return_rows(issues, transitions_by_issue)
+    issues.filter_map do |issue|
+      events = cumulative_return_events(tracker_family_for_issue(issue), transitions_by_issue[issue.id] || [])
+      next if events.empty?
+
+      counts = ALL_COUNTER_KEYS.each_with_object({}) do |key, result|
+        result[key] = events.count { |event| event[:counter_key] == key }
+      end
+      {
+        issue: issue,
+        total_returns: events.size,
+        counts: counts,
+        latest_return_at: events.last[:changed_at],
+        events: events
+      }
+    end.sort_by { |row| [-row[:total_returns], row[:issue].id] }
+  end
+
+  def consecutive_returns_report(issues, transitions_by_issue, minimum_returns)
+    rows = consecutive_return_rows(issues, transitions_by_issue)
+    { ticket_count: rows.size, rows: rows.select { |row| row[:total_returns] >= minimum_returns } }
+  end
+
+  def cumulative_return_events(family_key, transitions)
+    allowed_keys = FAMILY_COUNTER_KEYS.fetch(family_key.to_sym, [])
+    seen = Set.new
+    transitions.each_with_object([]) do |transition, events|
+      next if transition[:synthetic]
+      next unless status_role(transition[:to_status]) == :returned
+
+      code = owner_performance_return_code(transition[:from_status])
+      next unless code
+
+      key = code.to_s.sub('r', 'C').to_sym
+      next unless allowed_keys.include?(key)
+
+      detail_id = transition[:journal_detail_id]
+      next if detail_id && !seen.add?(detail_id)
+
+      events << transition.merge(counter_key: key, return_number: events.size + 1)
+    end
   end
 
   def calculate_internal_durations(periods, stage_periods)

@@ -93,10 +93,31 @@ app/controllers/ticket_journey_controller.rb
 
 | Counter | Trigger                                    | Error Type              |
 |---------|--------------------------------------------|-------------------------|
-| C1      | Feedback → In Progress (loop back)         | Function-Fail / Granular |
-| C2      | Review → In Progress (loop back)           | Code-Quality-Fail        |
-| C3      | Ready to Merge → In Progress (loop back)   | Merge-Conflict Error     |
-| C4      | Final Check → In Progress (loop back)      | E2E-Fail / Side Effect   |
+| C1      | Feedback → Returned                       | Function-Fail / Granular |
+| C2      | Review → Returned                         | Code-Quality-Fail        |
+| C3      | Ready to Merge → Returned                 | Merge-Conflict Error     |
+| C4      | Final Check → Returned                    | E2E-Fail / Side Effect   |
+| C5      | Done / Closed → Returned                  | Fail QA Pass            |
+
+### Consecutive Returns
+
+Open **Rework Analysis → Consecutive Returns** for a separate return-count table and individual event histories.
+Despite the meeting's name, this is a cumulative lifetime count: advancing through stages or completing a ticket never resets it.
+Set **Minimum returns (inclusive)** to 3 to show tickets with at least three returns, or X + 1 to show more than X.
+All qualifying stages contribute to the same total, regardless of reason. Technical tickets use C1–C5; business tasks use C1, C4, C5, matching the existing journey counters.
+Customer Support and container families have no configured return counters and are excluded.
+
+Events come directly from Redmine's existing journal tables, identified by journal-detail ID, so no duplicate storage, migration, or backfill is required.
+Only transitions into the explicit `Returned` status count; `Returned → In Progress` does not add a second event.
+The first visit includes all statuses; explicit Redmine filters and saved queries select tickets, while counts always use their full history.
+There is no top-10 or top-150 cutoff on this list. Automated alarms and KPI cards are deferred.
+
+After copying the updated plugin into Redmine, restart the Redmine application. No Ruby runner or migration command is needed for this feature.
+To run the regression tests in a Redmine development/test installation, from the **Redmine root**:
+
+```bash
+bundle exec rake redmine:plugins:test NAME=redmine_ticket_journey RAILS_ENV=test
+```
 
 ---
 

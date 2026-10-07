@@ -10,6 +10,7 @@ Rails.application.routes.draw do
     get  'ticket_journey/planning_estimation', to: 'ticket_journey#planning_estimation', as: 'ticket_journey_planning_estimation'
     get  'ticket_journey/owner_returns', to: 'ticket_journey#owner_returns', as: 'ticket_journey_owner_returns'
     get  'ticket_journey/qa_returns', to: 'ticket_journey#qa_returns', as: 'ticket_journey_qa_returns'
+    get  'ticket_journey/consecutive_returns', to: 'ticket_journey#consecutive_returns', as: 'ticket_journey_consecutive_returns'
     get  'ticket_journey/owner_workload', to: 'ticket_journey#owner_workload', as: 'ticket_journey_owner_workload'
     get  'ticket_journey/status_snapshot', to: 'ticket_journey#status_snapshot', as: 'ticket_journey_status_snapshot'
     get  'ticket_journey/time_utilization', to: 'ticket_journey#time_utilization', as: 'ticket_journey_time_utilization'

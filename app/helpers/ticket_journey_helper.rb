@@ -58,6 +58,7 @@ module TicketJourneyHelper
   def ticket_journey_report_query_params(saved_query)
     keys = %w[
       support_section stale_days ticket_owner_role_id sprint_id
+      minimum_returns
       bug_start_date bug_end_date flow_start_date flow_end_date
       time_start_date time_end_date
       owner_start_date owner_end_date owner_user_id include_locked_users
@@ -82,6 +83,7 @@ module TicketJourneyHelper
       'planning_estimation' => :ticket_journey_planning_estimation_path,
       'owner_returns' => :ticket_journey_owner_returns_path,
       'qa_returns' => :ticket_journey_qa_returns_path,
+      'consecutive_returns' => :ticket_journey_consecutive_returns_path,
       'owner_workload' => :ticket_journey_owner_workload_path,
       'status_snapshot' => :ticket_journey_status_snapshot_path,
       'time_utilization' => :ticket_journey_time_utilization_path,
@@ -402,6 +404,12 @@ module TicketJourneyHelper
 
   def qa_returns_params(query)
     query.as_params.deep_dup.deep_stringify_keys.merge(support_section_params)
+  end
+
+  def consecutive_returns_params(query)
+    query_params = qa_returns_params(query)
+    query_params['minimum_returns'] = params[:minimum_returns] if params[:minimum_returns].present?
+    query_params
   end
 
   def owner_workload_params(query)

@@ -1,0 +1,117 @@
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'ticket_journey', plugin: 'redmine_ticket_journey' %>
+<% end %>
+
+<div id="tj-wrap">
+  <div class="tj-page-header">
+    <div class="tj-page-header-left">
+      <div>
+        <h2>Consecutive Returns</h2>
+        <p class="tj-page-sub">Cumulative returns across the ticket's lifetime &mdash; <%= @project.name %></p>
+      </div>
+    </div>
+  </div>
+
+  <%= render partial: 'report_tabs', locals: { active_tab: :consecutive_returns } %>
+
+  <%= form_tag(ticket_journey_consecutive_returns_path(@project), method: :get, id: 'query_form') do %>
+    <%= hidden_field_tag :support_section, params[:support_section] if params[:support_section].present? %>
+    <%= hidden_field_tag :tj_issue_ids, params[:tj_issue_ids] if params[:tj_issue_ids].present? %>
+    <%= hidden_field_tag :sprint_issue_ids, params[:sprint_issue_ids] if params[:sprint_issue_ids].present? %>
+    <div class="tj-filter-bar">
+      <div class="tj-filter-form">
+        <div class="tj-filter-group">
+          <%= label_tag :minimum_returns, 'Minimum returns (inclusive)' %>
+          <%= number_field_tag :minimum_returns, @minimum_returns, min: 1, step: 1, class: 'tj-input' %>
+        </div>
+        <div class="tj-filter-group tj-flow-filter-note">
+          A minimum of 3 shows tickets with 3 or more returns. Click Apply below to update the list.
+        </div>
+      </div>
+    </div>
+    <%= render partial: 'queries/query_form' %>
+  <% end %>
+
+  <div class="tj-drilldown-note">
+    Returns accumulate across stages and never reset, even after completion.
+    Each recorded Feedback, Review, Ready to Merge, Final Check, or Done / Closed transition into Returned counts once,
+    according to the ticket's journey family. Returned to In Progress does not add another return.
+    Filters select tickets; their full recorded history is counted regardless of date filters.
+    All statuses are included by default; an explicit status filter or saved query is respected.
+  </div>
+
+  <% if !@query.valid? %>
+    <div class="tj-empty"><h3>Invalid filters</h3><p>Please review the Redmine query filters above.</p></div>
+  <% else %>
+    <div class="tj-card tj-card-full">
+      <div class="tj-card-title">Return Count by Ticket</div>
+      <p><%= @consecutive_return_rows.size %> of <%= @return_ticket_count %> tickets with recorded returns meet the minimum of <%= @minimum_returns %>.</p>
+      <% if @consecutive_return_rows.empty? %>
+        <div class="tj-flow-empty-note">No tickets meet this minimum. Try a lower minimum or adjust the ticket filters.</div>
+      <% else %>
+        <div class="tj-table-wrap">
+          <table class="tj-table">
+            <thead>
+              <tr>
+                <th class="tj-th-issue">Issue</th>
+                <th class="tj-th-title">Subject</th>
+                <th class="tj-th-native">Current Stage</th>
+                <th class="tj-th-counter">Feedback</th>
+                <th class="tj-th-counter">Review</th>
+                <th class="tj-th-counter">Ready to Merge</th>
+                <th class="tj-th-counter">Final Check</th>
+                <th class="tj-th-counter">Done / Closed</th>
+                <th class="tj-th-total">Total Returns</th>
+                <th class="tj-th-native">Latest Return</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% @consecutive_return_rows.each do |row| %>
+                <% issue = row[:issue] %>
+                <tr class="tj-row">
+                  <td class="tj-td-issue"><%= link_to "##{issue.id}", issue_path(issue), class: 'tj-issue-link' %></td>
+                  <td class="tj-td-title"><%= link_to issue.subject, "#return-history-#{issue.id}", title: 'Show individual return events' %></td>
+                  <td class="tj-td-native"><%= issue.status&.name || '-' %></td>
+                  <% TicketJourneyController::ALL_COUNTER_KEYS.each do |key| %>
+                    <td class="<%= counter_css_class(row[:counts][key]) %>"><%= row[:counts][key] %></td>
+                  <% end %>
+                  <td class="tj-td-total"><%= row[:total_returns] %></td>
+                  <td class="tj-td-native"><%= format_time(row[:latest_return_at]) %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% end %>
+    </div>
+
+    <% if @consecutive_return_rows.any? %>
+      <div class="tj-card tj-card-full">
+        <div class="tj-card-title">Individual Return Events</div>
+        <p>Select a ticket below to inspect its returns in chronological order.</p>
+        <% @consecutive_return_rows.each do |row| %>
+          <% issue = row[:issue] %>
+          <details id="return-history-<%= issue.id %>">
+            <summary><%= "##{issue.id} — #{issue.subject} (#{row[:total_returns]} returns)" %></summary>
+            <div class="tj-table-wrap">
+              <table class="tj-table">
+                <thead><tr><th>Return #</th><th>Date</th><th>Source Stage</th><th>Destination</th><th>History Event</th></tr></thead>
+                <tbody>
+                  <% row[:events].each do |event| %>
+                    <tr class="tj-row">
+                      <td><%= event[:return_number] %></td>
+                      <td><%= format_time(event[:changed_at]) %></td>
+                      <td><%= event[:from_status] %></td>
+                      <td><%= event[:to_status] %></td>
+                      <td><%= link_to "##{event[:journal_id]}", issue_path(issue, anchor: "change-#{event[:journal_id]}") %></td>
+                    </tr>
+                  <% end %>
+                </tbody>
+              </table>
+            </div>
+          </details>
+        <% end %>
+      </div>
+    <% end %>
+  <% end %>
+</div>

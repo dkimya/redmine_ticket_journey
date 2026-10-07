@@ -7,6 +7,7 @@
   duration_params = clean_tab_params.call(duration_report_params(@query))
   owner_params = clean_tab_params.call(owner_returns_params(@query))
   qa_params = clean_tab_params.call(qa_returns_params(@query))
+  consecutive_params = clean_tab_params.call(consecutive_returns_params(@query))
   workload_params = clean_tab_params.call(owner_workload_params(@query))
   snapshot_params = clean_tab_params.call(status_snapshot_params(@query))
   time_utilization_tab_params = clean_tab_params.call(time_utilization_params(@query))
@@ -38,6 +39,7 @@
     sprint_delivery: ['Sprint Delivery', ticket_journey_sprint_delivery_path(@project, sprint_params)],
     owner_returns: ['Team Performance', ticket_journey_owner_returns_path(@project, owner_params)],
     qa_returns: ['Rework Analysis', ticket_journey_qa_returns_path(@project, qa_params)],
+    consecutive_returns: ['Consecutive Returns', ticket_journey_consecutive_returns_path(@project, consecutive_params)],
     bug_analysis: ['Bug Analysis', ticket_journey_bug_analysis_path(@project, bug_params)],
     planning_estimation: ['Planning Quality', ticket_journey_planning_estimation_path(@project, planning_params)],
     data_quality: ['Data Quality', ticket_journey_data_quality_path(@project, data_quality_tab_params)],
@@ -95,7 +97,7 @@
     },
     qa_returns: {
       label: 'Rework Analysis',
-      keys: [:qa_returns, :flow_report, :issue_detail]
+      keys: [:qa_returns, :consecutive_returns, :flow_report, :issue_detail]
     },
     bug_analysis: {
       label: 'Bug Analysis',
@@ -129,7 +131,7 @@
         :sprint_delivery
       when :owner_returns, :owner_workload, :status_snapshot
         :owner_returns
-      when :qa_returns
+      when :qa_returns, :consecutive_returns
         :qa_returns
       when :bug_analysis
         :bug_analysis
