@@ -76,6 +76,43 @@ class TicketJourneyNativeReturnCountTest < ActiveSupport::TestCase
     assert_equal 1, IssueQuery.available_columns.count { |column| column.name == :tj_return_count }
   end
 
+  test 'filters preserve native and legacy fields without recursive initialization' do
+    query_class = Class.new do
+      def available_filters
+        initialize_available_filters unless @available_filters
+        @available_filters
+      end
+
+      def initialize_available_filters
+        add_available_filter('status_id', type: :list)
+      end
+
+      def add_available_filter(field, options)
+        (@available_filters ||= {})[field] = options
+      end
+    end
+    query_class.prepend TicketJourney::IssueQueryPatch
+
+    calls = 0
+    query_class.class_eval do
+      alias_method :initialize_available_filters_without_legacy_plugin, :initialize_available_filters
+      define_method(:initialize_available_filters) do
+        calls += 1
+        raise 'recursive filter initialization' if calls > 5
+
+        initialize_available_filters_without_legacy_plugin
+        add_available_filter('legacy_field', type: :integer)
+      end
+    end
+
+    query = query_class.new
+    2.times do
+      assert_equal %w[status_id legacy_field tj_return_count], query.available_filters.keys
+      assert_equal :integer, query.available_filters['tj_return_count'][:type]
+    end
+    assert_equal 1, calls
+  end
+
   test 'column is selectable only once and filters use lifetime counts' do
     3.times { add_transition(@issue, 'Review', 'Returned') }
     query = query_for(@issue)

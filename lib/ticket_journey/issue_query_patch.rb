@@ -1,8 +1,14 @@
 module TicketJourney
   module IssueQueryPatch
-    def initialize_available_filters
-      super
-      add_available_filter('tj_return_count', type: :integer, label: :field_tj_return_count)
+    def available_filters
+      # Let Redmine and legacy alias-based plugins finish initialization first.
+      # Wrapping initialize_available_filters with prepend can make their saved
+      # aliases call back into our wrapper indefinitely.
+      filters = super
+      unless filters.key?('tj_return_count')
+        add_available_filter('tj_return_count', type: :integer, label: :field_tj_return_count)
+      end
+      filters
     end
 
     def sql_for_tj_return_count_field(field, operator, values)
