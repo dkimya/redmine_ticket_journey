@@ -2,3 +2,37 @@
   rows.right l(:field_tj_return_count), issue.tj_return_count.to_s,
              class: 'tj-return-count', title: l(:ticket_journey_return_count_description)
 end %>
+<script>
+  (function () {
+    function placeReturnCount() {
+      var field = document.querySelector('.attributes .tj-return-count');
+      if (!field) return;
+
+      var attributes = field.closest('.attributes');
+      var originalRows = field.closest('.splitcontent');
+      var labels = attributes.querySelectorAll('.attribute .label');
+      var invoiced = Array.from(labels).find(function (label) {
+        return label.textContent.trim().replace(/:\s*$/, '').toLowerCase() === 'invoiced?';
+      });
+
+      if (invoiced) {
+        invoiced.closest('.attribute').insertAdjacentElement('afterend', field);
+      } else {
+        // Tickets without Invoiced? still show the count in the main right column.
+        var mainRows = attributes.querySelector('.splitcontent');
+        if (!mainRows || mainRows === originalRows) return;
+        var columns = mainRows.querySelectorAll('.splitcontentleft');
+        if (columns.length < 2) return;
+        columns[1].appendChild(field);
+      }
+
+      if (originalRows && !originalRows.querySelector('.attribute')) originalRows.remove();
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', placeReturnCount, { once: true });
+    } else {
+      placeReturnCount();
+    }
+  })();
+</script>
