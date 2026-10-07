@@ -131,6 +131,15 @@ A blank current due date remains missing; an older journal value is never restor
 Changing a deadline can therefore change commitment/debt totals (and dependent performance metrics) when rerunning a past report.
 This change requires only deploying the updated plugin and restarting Redmine; no migration or backfill is needed.
 
+### Carry-over criteria
+
+Sprint Delivery and Planning Quality classify a related ticket as **carry-over** when its **current due date is strictly before the selected sprint's start date**.
+A due date equal to or after the start is not carry-over. Missing ticket due dates or a missing sprint start cannot be classified as carry-over.
+Original Sprint is displayed only as reference information and does not determine carry-over, its percentages, owner totals, or flags.
+Completed tickets can count as carry-over work; Technical Debt includes only unfinished carry-over tickets.
+Current Scope is the remaining sprint scope, including tickets without due dates, which are also identified separately as missing due date.
+Editing a current due date can change the results when an earlier sprint is rerun. No migration or backfill is required.
+
 ### Navigation
 
 The Team Performance delivery table includes sortable **Committed Points** (next to Total Commitment) and **Completed Points** (next to Total Done).

@@ -165,7 +165,12 @@
       </div>
 
       <div class="tj-card">
-        <div class="tj-card-title">Original Sprint Composition</div>
+        <div class="tj-card-title">Sprint Scope by Current Due Date</div>
+        <p class="tj-owner-section-note">
+          Carry-over means the current ticket due date is before the selected sprint's start date, regardless of Original Sprint.
+          Missing due dates or a missing sprint start cannot be classified as carry-over.
+          Current Scope includes all remaining tickets. Updating due dates can change results for earlier sprints.
+        </p>
         <table class="tj-health-table">
           <tbody>
             <% report[:composition_rows].each do |row| %>

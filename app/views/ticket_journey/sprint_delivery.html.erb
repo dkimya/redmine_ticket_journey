@@ -49,6 +49,12 @@
       <p>Create or select a Sprint tracker issue in this project or its subprojects.</p>
     </div>
   <% else %>
+    <div class="tj-drilldown-note">
+      Carry-over uses the current ticket due date: a date before the selected sprint's start counts as carry-over.
+      A due date on or after the start does not. Missing due dates or a missing sprint start cannot be classified as carry-over.
+      Original Sprint is reference information. Completed tickets can count as carry-over; Technical Debt includes only unfinished carry-over tickets.
+      Changing current due dates can change the results when an earlier sprint is rerun.
+    </div>
     <% totals = @sprint_delivery_report[:totals] %>
     <% health = @sprint_delivery_report[:health] %>
     <% avg_completed_cycle = @sprint_delivery_report[:time_efficiency_rows].find { |row| row[:metric] == 'Average Cycle Time' } %>

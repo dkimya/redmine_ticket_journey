@@ -1486,18 +1486,18 @@ class TicketJourneyController < ApplicationController
     total = issues.size
     [
       {
-        item: 'Original Sprint Current',
+        item: 'Current Scope',
         count: current_scope.size,
         percent: ratio(current_scope.size, total),
         issue_ids: current_scope.map(&:id),
-        note: 'Tickets originally planned for this sprint'
+        note: 'Tickets not classified as carry-over; missing due dates remain unclassified'
       },
       {
-        item: 'Original Sprint Carried Over',
+        item: 'Carry-over by Due Date',
         count: carry_over.size,
         percent: ratio(carry_over.size, total),
         issue_ids: carry_over.map(&:id),
-        note: 'Tickets related to this sprint but originally from another sprint'
+        note: 'Tickets whose current due date is before the selected sprint start date'
       },
       {
         item: 'Total Sprint Planned Tickets',
@@ -2033,12 +2033,9 @@ class TicketJourneyController < ApplicationController
   end
 
   def carry_over_sprint_issue?(sprint, issue)
-    original_sprint = issue.custom_value_for(TICKET_ORIGINAL_SPRINT_CF_ID)&.value.to_s.strip
-    return false if original_sprint.blank?
+    return false if sprint.nil? || sprint.start_date.blank? || issue.due_date.blank?
 
-    return false if sprint_reference_matches?(sprint, original_sprint)
-
-    true
+    issue.due_date < sprint.start_date
   end
 
   def sprint_reference_matches?(sprint, original_sprint)
@@ -2215,7 +2212,7 @@ class TicketJourneyController < ApplicationController
     [
       { label: 'Sprint Status', value: sprint_status_value, tone: sprint_status_tone, help: 'Current sprint health based on completion rate.', path: :sprint_delivery },
       { label: 'Sprint Completion Rate', value: sprint_totals.empty? ? '-' : pmo_percent_value(sprint_completion_rate.to_f), tone: sprint_completion_rate.to_f >= 0.8 ? :green : (sprint_completion_rate.to_f >= 0.5 ? :orange : :red), help: 'Committed tickets completed in the current sprint.', path: :sprint_delivery },
-      { label: 'Carry-over (%)', value: sprint_totals.empty? ? '-' : pmo_percent_value(carry_over_rate.to_f), tone: carry_over_rate.to_f.positive? ? :orange : :dim, help: 'Percent of committed sprint tickets carried over from prior sprints.', path: :sprint_delivery },
+      { label: 'Carry-over (%)', value: sprint_totals.empty? ? '-' : pmo_percent_value(carry_over_rate.to_f), tone: carry_over_rate.to_f.positive? ? :orange : :dim, help: 'Percent of committed sprint tickets whose current due date is before the selected sprint start date.', path: :sprint_delivery },
       { label: 'Technical Debt', value: technical_debt, tone: technical_debt.positive? ? :orange : :dim, help: 'Open tickets that are carry-overs not yet completed.', path: :issues, scope: :total_open },
       { label: 'Blocked Tickets', value: blocked, tone: blocked.positive? ? :red : :dim, help: 'Tickets currently in Pending or On-Hold (stopped flow).', path: :issues, scope: :stopped },
       { label: 'Critical Bugs Open', value: critical_bugs_open, tone: critical_bugs_open.positive? ? :red : :dim, help: 'Open bugs with high impact rating or Urgent/Immediate priority.', path: :bug_analysis },

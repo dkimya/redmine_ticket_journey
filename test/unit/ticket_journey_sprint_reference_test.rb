@@ -12,19 +12,19 @@ class TicketJourneySprintReferenceTest < ActiveSupport::TestCase
     assert sprint_reference_matches?('FMS-26-AUG-W1')
   end
 
-  test 'different month remains a carry-over' do
+  test 'different month does not match the sprint reference' do
     assert_not sprint_reference_matches?('FMS-26-JUL-W1')
   end
 
-  test 'different week remains a carry-over' do
+  test 'different week does not match the sprint reference' do
     assert_not sprint_reference_matches?('FMS-26-AUG-W2')
   end
 
-  test 'different project prefix remains a carry-over' do
+  test 'different project prefix does not match the sprint reference' do
     assert_not sprint_reference_matches?('PMO-26-AUG-W1')
   end
 
-  test 'different year remains a carry-over' do
+  test 'different year does not match the sprint reference' do
     assert_not sprint_reference_matches?('FMS-25-AUG-W1')
   end
 
