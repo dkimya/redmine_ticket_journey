@@ -24,7 +24,7 @@ class TicketJourneyController < ApplicationController
   RETURN_REASON_CF_ID = 66
   BUG_RELATED_PAGE_CF_NAMES = ['Bug Related Page / Module', 'Related Page / Module', 'Bug Related Page', 'Related Page', 'Related to Page', 'Related to Page (FMS)', 'Related Module', 'Page / Module', 'Module / Page'].freeze
   BUG_LEAKAGE_SOURCE_KEYWORDS = ['test escape', 'coverage gap', 'requirement gap'].freeze
-  OWNER_RETURN_SORTABLE_FIELDS = %w[owner beginning_debt new_commitment total_commitment ticket_share done_committed other_done total_done returned_tickets return_rate r1 r2 r3 r4 r5 total_return_events end_debt_now_paid end_debt_still_open end_debt_total debt_ratio].freeze
+  OWNER_RETURN_SORTABLE_FIELDS = %w[owner beginning_debt new_commitment total_commitment committed_points ticket_share done_committed other_done total_done completed_points returned_tickets return_rate r1 r2 r3 r4 r5 total_return_events end_debt_now_paid end_debt_still_open end_debt_total debt_ratio].freeze
   OWNER_PERFORMANCE_TRACKER_NAMES = [
     'Bug',
     'Change Request',
@@ -5546,8 +5546,15 @@ class TicketJourneyController < ApplicationController
       global[:idle_tickets] << issue_id
     end
 
+    complexity_by_issue_id = issues.each_with_object({}) do |issue, weights|
+      weights[issue.id] = complexity_weight(issue)
+    end
     delivery_rows = rows.values.map do |row|
-      owner_performance_delivery_row(row, global[:total_commitment].size)
+      delivery_row = owner_performance_delivery_row(row, global[:total_commitment].size)
+      delivery_row.merge(
+        committed_points: owner_performance_points_metric(delivery_row[:total_commitment][:issue_ids], complexity_by_issue_id),
+        completed_points: owner_performance_points_metric(delivery_row[:total_done][:issue_ids], complexity_by_issue_id)
+      )
     end
     delivery_rows = sort_owner_performance_delivery_rows(delivery_rows)
 
@@ -5751,6 +5758,19 @@ class TicketJourneyController < ApplicationController
       end_debt_still_open: owner_performance_metric(metrics[:end_debt_still_open]),
       end_debt_total: owner_performance_metric(metrics[:end_debt_total]),
       debt_ratio: ratio(metrics[:end_debt_total].size, metrics[:total_commitment].size)
+    }
+  end
+
+  def owner_performance_points_metric(issue_ids, complexity_by_issue_id)
+    ids = owner_performance_metric(issue_ids)[:issue_ids]
+    weighted_ids, missing_ids = ids.partition do |issue_id|
+      weight = complexity_by_issue_id[issue_id].to_f
+      weight.finite? && weight.positive?
+    end
+    {
+      points: weighted_ids.sum { |issue_id| complexity_by_issue_id[issue_id].to_f },
+      issue_ids: weighted_ids,
+      missing_issue_ids: missing_ids
     }
   end
 
@@ -6042,6 +6062,7 @@ class TicketJourneyController < ApplicationController
   end
 
   def owner_performance_sort_value(row, sort_key)
+    return row.dig(sort_key.to_sym, :points).to_f if %w[committed_points completed_points].include?(sort_key)
     return row[:owner].to_s.downcase if sort_key == 'owner'
     return row[:ticket_share].to_f if sort_key == 'ticket_share'
     return row[:return_rate].to_f if sort_key == 'return_rate'

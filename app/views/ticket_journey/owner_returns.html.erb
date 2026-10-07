@@ -177,6 +177,8 @@
       Historical activity is evaluated using current ticket due dates.
       Beginning debt, new commitments, and end debt use the current due date; a blank current due date is treated as missing.
       Changing due dates can change commitment and debt totals when an earlier period is rerun.
+      Complexity points use current Complexity Weight values, summed once per ticket with the same owner attribution as the ticket counts.
+      Completed Points includes both Done Committed and Other Done. Missing or invalid weights contribute no points and are listed separately.
     </p>
 
     <%
@@ -325,10 +327,12 @@
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :beginning_debt, 'Debt at Beginning', title: 'Total beginning debt (A)') %></th>
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :new_commitment, 'New Commitment', title: 'New commitments during the report period (B)') %></th>
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :total_commitment, 'Total Commitment', title: 'Total commitment for the report period (C)') %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :committed_points, 'Committed Points', title: 'Current Complexity Weight summed once per ticket in Total Commitment') %></th>
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :ticket_share, '% of All Tickets', title: 'Owner commitment divided by all committed tickets') %></th>
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :done_committed, 'Done Committed', title: 'Committed tickets finally closed in the report period and still closed at RED') %></th>
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :other_done, 'Other Done', title: 'Other tickets finally closed in the report period and still closed at RED') %></th>
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :total_done, 'Total Done', title: 'All tickets finally closed in the report period and still closed at RED') %></th>
+              <th class="tj-th-native"><%= owner_returns_sort_link(@query, :completed_points, 'Completed Points', title: 'Current Complexity Weight summed once per ticket in Total Done, including Other Done') %></th>
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :returned_tickets, 'Returned Tickets', title: 'Distinct tickets returned during the report period') %></th>
               <th class="tj-th-native"><%= owner_returns_sort_link(@query, :return_rate, 'Return Rate', title: 'Distinct tickets returned during the report period divided by Total Done Tickets') %></th>
               <% return_definitions.each do |definition| %>
@@ -355,10 +359,12 @@
                 <td class="tj-td-native"><%= metric_link.call(row[:beginning_debt]) %></td>
                 <td class="tj-td-native"><%= metric_link.call(row[:new_commitment]) %></td>
                 <td class="tj-td-native"><%= metric_link.call(row[:total_commitment]) %></td>
+                <td class="tj-td-native"><%= render partial: 'performance_points', locals: { metric: row[:committed_points], query: @query } %></td>
                 <td class="tj-td-native"><%= format_percentage(metric_count.call(row[:total_commitment]), metric_count.call(totals[:committed])) %></td>
                 <td class="tj-td-native"><%= metric_link.call(row[:done_committed]) %></td>
                 <td class="tj-td-native"><%= metric_link.call(row[:other_done]) %></td>
                 <td class="tj-td-native"><%= metric_link.call(row[:total_done]) %></td>
+                <td class="tj-td-native"><%= render partial: 'performance_points', locals: { metric: row[:completed_points], query: @query } %></td>
                 <td class="tj-td-native"><%= metric_link.call(row[:returned_tickets]) %></td>
                 <td class="tj-td-native"><%= format_percentage(metric_count.call(row[:returned_tickets]), metric_count.call(row[:total_done])) %></td>
                 <% return_definitions.each do |definition| %>

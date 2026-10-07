@@ -133,6 +133,12 @@ This change requires only deploying the updated plugin and restarting Redmine; n
 
 ### Navigation
 
+The Team Performance delivery table includes sortable **Committed Points** (next to Total Commitment) and **Completed Points** (next to Total Done).
+They sum the **current Complexity Weight** from custom field #70, once per distinct ticket, following the same owner attribution as each ticket count.
+Completed Points includes both Done Committed and Other Done. Returns never multiply points.
+Click a points total to inspect contributing tickets; a separate missing-weight count links to tickets without a valid positive weight, which contribute no points.
+Changing Complexity Weight can change points when rerunning an earlier period. No migration or backfill is required.
+
 1. Navigate to any project
 2. Click **PMO Dashboard** in the project menu
 3. Use date / tracker / assignee filters and click **Apply**

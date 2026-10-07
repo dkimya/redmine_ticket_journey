@@ -104,6 +104,10 @@ class TicketJourneyOwnerPerformanceTest < ActiveSupport::TestCase
     @controller.stubs(:owner_performance_idle_hours).returns(0.0)
     @controller.stubs(:owner_performance_rework_rows).returns([[], []])
     @controller.stubs(:owner_performance_status_rows).returns([])
+    @controller.stubs(:complexity_weight).returns(0.0)
+    @controller.stubs(:complexity_weight).with(issues[1]).returns(5.0)
+    @controller.stubs(:complexity_weight).with(issues[2]).returns(8.0)
+    @controller.stubs(:complexity_weight).with(issues[5]).returns(21.0)
 
     report = @controller.send(:compute_ticket_owner_performance_report, start_date, end_date,
                               role_id: nil, include_locked_users: true)
@@ -115,10 +119,15 @@ class TicketJourneyOwnerPerformanceTest < ActiveSupport::TestCase
     assert_equal [106], report.dig(:completion, :done_committed, :issue_ids)
     assert_equal [106], report.dig(:completion, :total_done, :issue_ids)
     assert_equal '7', report[:delivery_rows].first[:owner_value]
+    assert_equal 34.0, report[:delivery_rows].first.dig(:committed_points, :points)
+    assert_equal [102, 103, 106], report[:delivery_rows].first.dig(:committed_points, :issue_ids)
+    assert_equal 21.0, report[:delivery_rows].first.dig(:completed_points, :points)
+    assert_equal [106], report[:delivery_rows].first.dig(:completed_points, :issue_ids)
 
     # Rerunning the same past period follows deadline edits made today.
     issues[0].due_date = Date.new(2026, 9, 8)
     issues[2].due_date = nil
+    @controller.stubs(:complexity_weight).with(issues[5]).returns(13.0)
     rerun = @controller.send(:compute_ticket_owner_performance_report, start_date, end_date,
                              role_id: nil, include_locked_users: true)
 
@@ -126,5 +135,39 @@ class TicketJourneyOwnerPerformanceTest < ActiveSupport::TestCase
     assert_equal [106], rerun.dig(:commitment, :new_commitment, :issue_ids)
     assert_equal [101, 102], rerun.dig(:completion, :end_debt_total, :issue_ids)
     assert_equal [106], rerun.dig(:completion, :total_done, :issue_ids)
+    assert_equal 18.0, rerun[:delivery_rows].first.dig(:committed_points, :points)
+    assert_equal [101], rerun[:delivery_rows].first.dig(:committed_points, :missing_issue_ids)
+    assert_equal 13.0, rerun[:delivery_rows].first.dig(:completed_points, :points)
+
+    # Other Done is part of completed points even when outside commitment.
+    issues[5].due_date = Date.new(2026, 10, 10)
+    other_done_report = @controller.send(:compute_ticket_owner_performance_report, start_date, end_date,
+                                         role_id: nil, include_locked_users: true)
+    assert_equal [106], other_done_report.dig(:completion, :other_done, :issue_ids)
+    assert_equal 5.0, other_done_report[:delivery_rows].first.dig(:committed_points, :points)
+    assert_equal 13.0, other_done_report[:delivery_rows].first.dig(:completed_points, :points)
+  end
+
+  test 'complexity points count distinct tickets once and keep missing weights separate' do
+    weights = { 101 => 5.0, 102 => 8.0, 103 => 21.0, 104 => 0.0, 105 => -1.0, 106 => Float::INFINITY }
+    result = @controller.send(:owner_performance_points_metric, [101, 102, 101, 103, 104, 105, 106, 107], weights)
+
+    assert_equal 34.0, result[:points]
+    assert_equal [101, 102, 103], result[:issue_ids]
+    assert_equal [104, 105, 106, 107], result[:missing_issue_ids]
+    assert_equal({ points: 0, issue_ids: [], missing_issue_ids: [] },
+                 @controller.send(:owner_performance_points_metric, [], weights))
+  end
+
+  test 'points columns sort by points rather than ticket count or displayed text' do
+    rows = [
+      { owner: 'Owner A', committed_points: { points: 8.0 }, completed_points: { points: 21.0 } },
+      { owner: 'Owner B', committed_points: { points: 21.0 }, completed_points: { points: 5.0 } }
+    ]
+    @controller.params = ActionController::Parameters.new(owner_sort: 'committed_points', owner_dir: 'desc')
+    assert_equal ['Owner B', 'Owner A'], @controller.send(:sort_owner_performance_delivery_rows, rows).map { |row| row[:owner] }
+
+    @controller.params = ActionController::Parameters.new(owner_sort: 'completed_points', owner_dir: 'asc')
+    assert_equal ['Owner B', 'Owner A'], @controller.send(:sort_owner_performance_delivery_rows, rows).map { |row| row[:owner] }
   end
 end

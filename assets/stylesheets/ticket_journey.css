@@ -146,6 +146,12 @@
 }
 
 /* ── Filter Bar ── */
+.tj-owner-points-missing {
+  margin-top: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 .tj-filter-bar {
   background: var(--tj-surface);
   border: 1px solid var(--tj-border);

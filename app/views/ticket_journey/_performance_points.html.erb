@@ -1,0 +1,11 @@
+<% points_label = number_with_precision(metric[:points], precision: 2, strip_insignificant_zeros: true) %>
+<% if metric[:issue_ids].any? %>
+  <%= duration_report_drilldown_link(query, metric[:issue_ids], points_label, title: 'View tickets contributing complexity points') %>
+<% else %>
+  <%= points_label %>
+<% end %>
+<% if metric[:missing_issue_ids].any? %>
+  <div class="tj-owner-points-missing">
+    <%= duration_report_drilldown_link(query, metric[:missing_issue_ids], "#{metric[:missing_issue_ids].size} missing weight", title: 'View tickets without a valid positive Complexity Weight') %>
+  </div>
+<% end %>
