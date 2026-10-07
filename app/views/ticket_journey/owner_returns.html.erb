@@ -161,7 +161,7 @@
           <div class="tj-sc-label"><%= duration_report_drilldown_link(@query, totals[:return_issue_ids], "#{Array(totals[:return_issue_ids]).uniq.size} distinct tickets", title: 'View tickets with return events') %></div>
         <% end %>
       </div>
-      <div class="tj-summary-card" title="Tickets due on or before the report end date that were still open at that date, split by their current paid/open state.">
+      <div class="tj-summary-card" title="Tickets with a current due date on or before the report end date that were still open at that date, split by their current paid/open state.">
         <div class="tj-sc-label">Debt at End of Period</div>
         <div class="tj-sc-value <%= metric_count.call(totals[:end_debt]).positive? ? 'tj-sc-red' : 'tj-sc-green' %>">
           <%= metric_link.call(totals[:end_debt]) %>
@@ -174,15 +174,18 @@
       <%= format_time(report.dig(:period, :generated_at)) %>.
       Commitment outcomes remain with the owner responsible for A/B; activity and return-audit rows use the historical owner at the event;
       end debt uses the owner at RED. Current owner is used only when no historical owner exists.
+      Historical activity is evaluated using current ticket due dates.
+      Beginning debt, new commitments, and end debt use the current due date; a blank current due date is treated as missing.
+      Changing due dates can change commitment and debt totals when an earlier period is rerun.
     </p>
 
     <%
       commitment_rows = [
-        ['A1', 'Beginning debt paid during the report period', report.dig(:commitment, :beginning_paid_in_period), 'Due on or before RSD, open at RSD, and currently closed during RSD+1 through RED.'],
-        ['A2', 'Beginning debt paid after the report period', report.dig(:commitment, :beginning_paid_after_period), 'Due on or before RSD, open at RSD, and currently closed after RED through report generation time.'],
-        ['A3', 'Beginning debt still open', report.dig(:commitment, :beginning_still_open), 'Due on or before RSD, open at RSD, and still open when this report is generated.'],
+        ['A1', 'Beginning debt paid during the report period', report.dig(:commitment, :beginning_paid_in_period), 'Current due date on or before RSD, open at RSD, and currently closed during RSD+1 through RED.'],
+        ['A2', 'Beginning debt paid after the report period', report.dig(:commitment, :beginning_paid_after_period), 'Current due date on or before RSD, open at RSD, and currently closed after RED through report generation time.'],
+        ['A3', 'Beginning debt still open', report.dig(:commitment, :beginning_still_open), 'Current due date on or before RSD, open at RSD, and still open when this report is generated.'],
         ['A', 'Total debt at beginning', report.dig(:commitment, :beginning_total), 'A1 + A2 + A3.', :subtotal, 'A1 + A2 + A3'],
-        ['B', 'New commitments during the period', report.dig(:commitment, :new_commitment), 'Tickets due from RSD+1 through RED, excluding tickets already closed at RSD.'],
+        ['B', 'New commitments during the period', report.dig(:commitment, :new_commitment), 'Tickets with a current due date from RSD+1 through RED, excluding tickets already closed at RSD.'],
         ['C', 'Total commitment', report.dig(:commitment, :total_commitment), 'Beginning debt (A) plus new commitments (B), de-duplicated.', :total, 'A + B']
       ]
       activity_rows = [
@@ -194,8 +197,8 @@
         ['H', 'Done committed tickets', report.dig(:completion, :done_committed), 'Committed tickets finally closed during RSD+1 through RED and still closed at RED.'],
         ['H+', 'Other done tickets', report.dig(:completion, :other_done), 'Tickets finally closed during the period, still closed at RED, and not in Total Commitment (C).'],
         ['T', 'Total done tickets', report.dig(:completion, :total_done), 'Done committed tickets plus other done tickets.', :subtotal, 'H + H+'],
-        ['I1', 'End debt now paid', report.dig(:completion, :end_debt_now_paid), 'Due on or before RED, open at RED, and closed after RED through report generation time.'],
-        ['I2', 'End debt still open', report.dig(:completion, :end_debt_still_open), 'Due on or before RED, open at RED, and still open when this report is generated.'],
+        ['I1', 'End debt now paid', report.dig(:completion, :end_debt_now_paid), 'Current due date on or before RED, open at RED, and closed after RED through report generation time.'],
+        ['I2', 'End debt still open', report.dig(:completion, :end_debt_still_open), 'Current due date on or before RED, open at RED, and still open when this report is generated.'],
         ['I', 'Total debt at end', report.dig(:completion, :end_debt_total), 'I1 + I2.', :total, 'I1 + I2']
       ]
     %>

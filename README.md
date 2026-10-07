@@ -123,6 +123,16 @@ bundle exec rake redmine:plugins:test NAME=redmine_ticket_journey RAILS_ENV=test
 
 ## Usage
 
+### Performance report due dates
+
+The Team Performance report reconstructs historical statuses, ownership, completion events, returns, and logged activity for the selected period.
+Due dates are an explicit exception: beginning debt, new commitments, and end debt always use each ticket's **current due date**, including when reporting an earlier period.
+A blank current due date remains missing; an older journal value is never restored.
+Changing a deadline can therefore change commitment/debt totals (and dependent performance metrics) when rerunning a past report.
+This change requires only deploying the updated plugin and restarting Redmine; no migration or backfill is needed.
+
+### Navigation
+
 1. Navigate to any project
 2. Click **PMO Dashboard** in the project menu
 3. Use date / tracker / assignee filters and click **Apply**

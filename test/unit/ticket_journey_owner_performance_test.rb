@@ -62,4 +62,69 @@ class TicketJourneyOwnerPerformanceTest < ActiveSupport::TestCase
       TicketJourneyController::OWNER_PERFORMANCE_EXCLUDED_STATUS_NAMES
     )
   end
+
+  test 'past reports use current due dates for all commitment and debt buckets' do
+    start_date = Date.new(2026, 9, 10)
+    end_date = Date.new(2026, 9, 30)
+    issue_type = Struct.new(:id, :due_date, :created_on, :status, :closed_on)
+    status_type = Struct.new(:is_closed?)
+    created_on = Time.utc(2026, 9, 1)
+    issues = [
+      issue_type.new(101, Date.new(2026, 10, 10), created_on, status_type.new(false)),
+      issue_type.new(102, Date.new(2026, 9, 5), created_on, status_type.new(false)),
+      issue_type.new(103, Date.new(2026, 9, 20), created_on, status_type.new(false)),
+      issue_type.new(104, nil, created_on, status_type.new(false)),
+      issue_type.new(105, Date.new(2026, 9, 20), created_on, status_type.new(true)),
+      issue_type.new(106, Date.new(2026, 9, 20), created_on, status_type.new(true))
+    ]
+    done_at = Time.utc(2026, 9, 25, 12)
+    transitions = { 106 => [{ synthetic: false, from_status: 'Final Check', to_status: 'Done / Closed', changed_at: done_at }] }
+
+    query = mock('query')
+    query.stubs(:valid?).returns(true)
+    @controller.instance_variable_set(:@query, query)
+    @controller.params = ActionController::Parameters.new
+    @controller.stubs(:owner_performance_issues).returns(issues)
+    @controller.stubs(:load_transitions).returns(transitions)
+    @controller.stubs(:load_attribute_changes).with(issues.map(&:id), 'status_id').returns({})
+    # Historical deadlines must not be queried, even when a current date is missing.
+    @controller.expects(:load_attribute_changes).with(issues.map(&:id), 'due_date').never
+    @controller.stubs(:load_custom_field_changes).returns({})
+    closed_statuses = mock('closed statuses')
+    closed_statuses.stubs(:pluck).with(:id).returns([9])
+    IssueStatus.stubs(:where).with(is_closed: true).returns(closed_statuses)
+    @controller.stubs(:ticket_owner_values_for_role).returns(nil)
+    @controller.stubs(:owner_performance_owner_value_at).returns('7')
+    @controller.stubs(:ticket_owner_display_name).returns('Historical Owner')
+    @controller.stubs(:historically_closed?).returns(false)
+    @controller.stubs(:historically_closed?).with(issues[4], nil, anything, Set['9']).returns(true)
+    @controller.stubs(:historically_closed?).with(issues[5], nil, end_date.end_of_day, Set['9']).returns(true)
+    @controller.stubs(:time_utilization_entries).returns([])
+    @controller.stubs(:owner_performance_period_journals).returns([])
+    @controller.stubs(:owner_performance_idle_hours).returns(0.0)
+    @controller.stubs(:owner_performance_rework_rows).returns([[], []])
+    @controller.stubs(:owner_performance_status_rows).returns([])
+
+    report = @controller.send(:compute_ticket_owner_performance_report, start_date, end_date,
+                              role_id: nil, include_locked_users: true)
+
+    assert_equal [102], report.dig(:commitment, :beginning_total, :issue_ids)
+    assert_equal [103, 106], report.dig(:commitment, :new_commitment, :issue_ids)
+    assert_equal [102, 103, 106], report.dig(:commitment, :total_commitment, :issue_ids)
+    assert_equal [102, 103], report.dig(:completion, :end_debt_total, :issue_ids)
+    assert_equal [106], report.dig(:completion, :done_committed, :issue_ids)
+    assert_equal [106], report.dig(:completion, :total_done, :issue_ids)
+    assert_equal '7', report[:delivery_rows].first[:owner_value]
+
+    # Rerunning the same past period follows deadline edits made today.
+    issues[0].due_date = Date.new(2026, 9, 8)
+    issues[2].due_date = nil
+    rerun = @controller.send(:compute_ticket_owner_performance_report, start_date, end_date,
+                             role_id: nil, include_locked_users: true)
+
+    assert_equal [101, 102], rerun.dig(:commitment, :beginning_total, :issue_ids)
+    assert_equal [106], rerun.dig(:commitment, :new_commitment, :issue_ids)
+    assert_equal [101, 102], rerun.dig(:completion, :end_debt_total, :issue_ids)
+    assert_equal [106], rerun.dig(:completion, :total_done, :issue_ids)
+  end
 end

@@ -5338,7 +5338,6 @@ class TicketJourneyController < ApplicationController
     issue_by_id = issues.index_by(&:id)
     transitions_by_issue = load_transitions(issues)
     status_changes = load_attribute_changes(issue_ids, 'status_id')
-    due_date_changes = load_attribute_changes(issue_ids, 'due_date')
     owner_changes = load_custom_field_changes(issue_ids, TICKET_OWNER_CF_ID)
     closed_status_ids = IssueStatus.where(is_closed: true).pluck(:id).map(&:to_s).to_set
     start_snapshot = start_date.end_of_day
@@ -5373,7 +5372,8 @@ class TicketJourneyController < ApplicationController
     issues.each do |issue|
       next if issue.created_on.blank? || issue.created_on > start_snapshot
 
-      due_date = owner_performance_due_date_at(issue, due_date_changes[issue.id], start_snapshot)
+      # Due dates use the current plan; status and owner remain historical.
+      due_date = issue.due_date
       next unless due_date && due_date <= start_date
       next if historically_closed?(issue, status_changes[issue.id], start_snapshot, closed_status_ids)
 
@@ -5401,7 +5401,7 @@ class TicketJourneyController < ApplicationController
       next if issue.created_on.blank? || issue.created_on >= period_end
       next if issue.created_on <= start_snapshot && historically_closed?(issue, status_changes[issue.id], start_snapshot, closed_status_ids)
 
-      due_date = owner_performance_due_date_at(issue, due_date_changes[issue.id], end_snapshot)
+      due_date = issue.due_date
       next unless due_date && due_date > start_date && due_date <= end_date
 
       owner_value = owner_performance_owner_value_at(issue, owner_changes[issue.id], due_date.end_of_day)
@@ -5451,7 +5451,7 @@ class TicketJourneyController < ApplicationController
     issues.each do |issue|
       next if issue.created_on.blank? || issue.created_on > end_snapshot
 
-      due_date = owner_performance_due_date_at(issue, due_date_changes[issue.id], end_snapshot)
+      due_date = issue.due_date
       next unless due_date && due_date <= end_date
       next if historically_closed?(issue, status_changes[issue.id], end_snapshot, closed_status_ids)
 
@@ -5675,13 +5675,6 @@ class TicketJourneyController < ApplicationController
   def owner_performance_owner_value_at(issue, changes, snapshot_time)
     current_value = issue.custom_value_for(TICKET_OWNER_CF_ID)&.value.presence
     historical_attribute_value(current_value, changes, snapshot_time).to_s.presence || current_value
-  end
-
-  def owner_performance_due_date_at(issue, changes, snapshot_time)
-    raw_value = historical_attribute_value(issue.due_date, changes, snapshot_time)
-    return raw_value if raw_value.is_a?(Date)
-
-    parse_report_date(raw_value)
   end
 
   def owner_performance_latest_closed_at(issue, transitions)
