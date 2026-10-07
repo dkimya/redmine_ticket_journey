@@ -3,10 +3,10 @@ require_relative 'lib/ticket_journey/issue_patch'
 require_relative 'lib/ticket_journey/issue_query_patch'
 require_relative 'lib/ticket_journey/hooks'
 
-Rails.application.config.to_prepare do
-  Issue.prepend TicketJourney::IssuePatch unless Issue < TicketJourney::IssuePatch
-  IssueQuery.prepend TicketJourney::IssueQueryPatch unless IssueQuery < TicketJourney::IssueQueryPatch
-end
+# Redmine's plugin loader already runs init.rb inside its to_prepare callback.
+# Apply patches here so they are available on the first boot and after reloads.
+Issue.prepend TicketJourney::IssuePatch unless Issue < TicketJourney::IssuePatch
+IssueQuery.prepend TicketJourney::IssueQueryPatch unless IssueQuery < TicketJourney::IssueQueryPatch
 
 Redmine::Plugin.register :redmine_ticket_journey do
   name        'PMO Dashboard'
