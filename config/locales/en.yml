@@ -1,4 +1,6 @@
 en:
+  field_tj_return_count: "Return Count"
+  ticket_journey_return_count_description: "Lifetime qualifying returns across stages. Never resets after completion. Calculated automatically from ticket history."
   project_module_ticket_journey: "PMO Dashboard"
   ticket_journey:
     title: "Ticket Journey Report"

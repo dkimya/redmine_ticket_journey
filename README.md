@@ -131,6 +131,16 @@ A blank current due date remains missing; an older journal value is never restor
 Changing a deadline can therefore change commitment/debt totals (and dependent performance metrics) when rerunning a past report.
 This change requires only deploying the updated plugin and restarting Redmine; no migration or backfill is needed.
 
+### Return Count on tickets and native lists
+
+The normal Redmine ticket page displays a read-only **Return Count** among its attributes.
+In standard issue lists, open **Options → Columns**, select **Return Count**, and apply or save the query.
+The column supports numeric sorting and filters such as **Return Count ≥ 3**, and is included in standard CSV exports when selected.
+It uses the same lifetime counting rules and journey families as the Consecutive Returns report; completion never resets it and tickets without returns show 0.
+All counts are derived from existing journal records, including old tickets, and refresh when the page/query is reloaded.
+No custom field, migration, backfill, or Ruby runner is required. Deploy the plugin files and restart Redmine.
+This extends standard Redmine query-based lists and the Ticket Journey report's selectable native columns; other plugins' custom lists may require their own integration.
+
 ### Carry-over criteria
 
 Sprint Delivery and Planning Quality classify a related ticket as **carry-over** when its **current due date is strictly before the selected sprint's start date**.

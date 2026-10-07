@@ -1,3 +1,13 @@
+require_relative 'lib/ticket_journey/return_count'
+require_relative 'lib/ticket_journey/issue_patch'
+require_relative 'lib/ticket_journey/issue_query_patch'
+require_relative 'lib/ticket_journey/hooks'
+
+Rails.application.config.to_prepare do
+  Issue.prepend TicketJourney::IssuePatch unless Issue < TicketJourney::IssuePatch
+  IssueQuery.prepend TicketJourney::IssueQueryPatch unless IssueQuery < TicketJourney::IssueQueryPatch
+end
+
 Redmine::Plugin.register :redmine_ticket_journey do
   name        'PMO Dashboard'
   author      'Manage Petro'

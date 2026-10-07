@@ -6473,23 +6473,7 @@ class TicketJourneyController < ApplicationController
 
   def apply_return_counters(durations, family_key, transitions)
     FAMILY_COUNTER_KEYS.fetch(family_key.to_sym, []).each { |key| durations[key] = 0 }
-
-    transitions.each do |transition|
-      next unless status_role(transition[:to_status]) == :returned
-
-      case status_role(transition[:from_status])
-      when :feedback
-        durations[:C1] += 1 if durations.key?(:C1)
-      when :review
-        durations[:C2] += 1 if durations.key?(:C2)
-      when :ready_merge
-        durations[:C3] += 1 if durations.key?(:C3)
-      when :final_check
-        durations[:C4] += 1 if durations.key?(:C4)
-      when :done
-        durations[:C5] += 1 if durations.key?(:C5)
-      end
-    end
+    cumulative_return_events(family_key, transitions).each { |event| durations[event[:counter_key]] += 1 }
 
     durations
   end
@@ -6523,23 +6507,7 @@ class TicketJourneyController < ApplicationController
   end
 
   def cumulative_return_events(family_key, transitions)
-    allowed_keys = FAMILY_COUNTER_KEYS.fetch(family_key.to_sym, [])
-    seen = Set.new
-    transitions.each_with_object([]) do |transition, events|
-      next if transition[:synthetic]
-      next unless status_role(transition[:to_status]) == :returned
-
-      code = owner_performance_return_code(transition[:from_status])
-      next unless code
-
-      key = code.to_s.sub('r', 'C').to_sym
-      next unless allowed_keys.include?(key)
-
-      detail_id = transition[:journal_detail_id]
-      next if detail_id && !seen.add?(detail_id)
-
-      events << transition.merge(counter_key: key, return_number: events.size + 1)
-    end
+    TicketJourney::ReturnCount.events(family_key, transitions)
   end
 
   def calculate_internal_durations(periods, stage_periods)
