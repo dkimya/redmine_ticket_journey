@@ -51,6 +51,31 @@ class TicketJourneyNativeReturnCountTest < ActiveSupport::TestCase
     assert_equal 3, @issue.tj_return_count
   end
 
+  test 'column discovery tolerates a legacy plugin alias installed after our patch' do
+    query_class = Class.new do
+      def available_columns
+        [:native_column]
+      end
+    end
+    query_class.prepend TicketJourney::IssueQueryPatch
+
+    # Reproduce Kanban's alias-based wrapper without modifying IssueQuery itself.
+    calls = 0
+    query_class.class_eval do
+      alias_method :available_columns_without_legacy_plugin, :available_columns
+      define_method(:available_columns) do
+        calls += 1
+        raise 'recursive column discovery' if calls > 5
+
+        available_columns_without_legacy_plugin + [:legacy_column]
+      end
+    end
+
+    assert_equal [:native_column, :legacy_column], query_class.new.available_columns
+    assert_equal 1, calls
+    assert_equal 1, IssueQuery.available_columns.count { |column| column.name == :tj_return_count }
+  end
+
   test 'column is selectable only once and filters use lifetime counts' do
     3.times { add_transition(@issue, 'Review', 'Returned') }
     query = query_for(@issue)

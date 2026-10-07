@@ -8,6 +8,15 @@ require_relative 'lib/ticket_journey/hooks'
 Issue.prepend TicketJourney::IssuePatch unless Issue < TicketJourney::IssuePatch
 IssueQuery.prepend TicketJourney::IssueQueryPatch unless IssueQuery < TicketJourney::IssueQueryPatch
 
+# Use Redmine's column registry rather than wrapping available_columns. Legacy
+# plugins that alias that method (including Kanban) can recurse into a prepend.
+unless IssueQuery.available_columns.any? { |column| column.name == :tj_return_count }
+  IssueQuery.available_columns << QueryColumn.new(
+    :tj_return_count, caption: :field_tj_return_count,
+    sortable: -> { TicketJourney::ReturnCount.sql }, default_order: 'desc'
+  )
+end
+
 Redmine::Plugin.register :redmine_ticket_journey do
   name        'PMO Dashboard'
   author      'Manage Petro'

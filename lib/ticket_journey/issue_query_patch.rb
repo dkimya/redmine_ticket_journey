@@ -1,14 +1,5 @@
 module TicketJourney
   module IssueQueryPatch
-    def available_columns
-      columns = super
-      unless columns.any? { |column| column.name == :tj_return_count }
-        columns << QueryColumn.new(:tj_return_count, caption: :field_tj_return_count,
-                                    sortable: -> { ReturnCount.sql }, default_order: 'desc')
-      end
-      columns
-    end
-
     def initialize_available_filters
       super
       add_available_filter('tj_return_count', type: :integer, label: :field_tj_return_count)
