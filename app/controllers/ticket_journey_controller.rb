@@ -5602,6 +5602,12 @@ class TicketJourneyController < ApplicationController
     total_commitment_ids = global[:total_commitment]
     total_done_ids = global[:total_done]
 
+    summary_metric = lambda do |ids|
+      owner_performance_metric(ids).merge(
+        complexity_points: owner_performance_points_metric(ids, complexity_by_issue_id)
+      )
+    end
+
     {
       period: { start: start_date, end: end_date, generated_at: Time.current },
       totals: {
@@ -5615,25 +5621,25 @@ class TicketJourneyController < ApplicationController
         end_debt: owner_performance_metric(global[:end_debt_total])
       },
       commitment: {
-        beginning_paid_in_period: owner_performance_metric(global[:beginning_paid_in_period]),
-        beginning_paid_after_period: owner_performance_metric(global[:beginning_paid_after_period]),
-        beginning_still_open: owner_performance_metric(global[:beginning_still_open]),
-        beginning_total: owner_performance_metric(beginning_total_ids),
-        new_commitment: owner_performance_metric(global[:new_commitment]),
-        total_commitment: owner_performance_metric(total_commitment_ids)
+        beginning_paid_in_period: summary_metric.call(global[:beginning_paid_in_period]),
+        beginning_paid_after_period: summary_metric.call(global[:beginning_paid_after_period]),
+        beginning_still_open: summary_metric.call(global[:beginning_still_open]),
+        beginning_total: summary_metric.call(beginning_total_ids),
+        new_commitment: summary_metric.call(global[:new_commitment]),
+        total_commitment: summary_metric.call(total_commitment_ids)
       },
       activity: {
-        spent_time_tickets: owner_performance_metric(global[:spent_time_tickets]),
-        additional_updated_tickets: owner_performance_metric(global[:additional_updated_tickets]),
-        total_worked_tickets: owner_performance_metric(global[:total_worked_tickets])
+        spent_time_tickets: summary_metric.call(global[:spent_time_tickets]),
+        additional_updated_tickets: summary_metric.call(global[:additional_updated_tickets]),
+        total_worked_tickets: summary_metric.call(global[:total_worked_tickets])
       },
       completion: {
-        done_committed: owner_performance_metric(global[:done_committed]),
-        other_done: owner_performance_metric(global[:other_done]),
-        total_done: owner_performance_metric(total_done_ids),
-        end_debt_now_paid: owner_performance_metric(global[:end_debt_now_paid]),
-        end_debt_still_open: owner_performance_metric(global[:end_debt_still_open]),
-        end_debt_total: owner_performance_metric(global[:end_debt_total])
+        done_committed: summary_metric.call(global[:done_committed]),
+        other_done: summary_metric.call(global[:other_done]),
+        total_done: summary_metric.call(total_done_ids),
+        end_debt_now_paid: summary_metric.call(global[:end_debt_now_paid]),
+        end_debt_still_open: summary_metric.call(global[:end_debt_still_open]),
+        end_debt_total: summary_metric.call(global[:end_debt_total])
       },
       delivery_rows: delivery_rows,
       status_rows: owner_performance_status_rows(total_done_ids, transitions_by_issue, period_start, period_end),

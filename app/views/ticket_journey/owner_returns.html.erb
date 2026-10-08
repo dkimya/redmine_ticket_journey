@@ -179,6 +179,8 @@
       Changing due dates can change commitment and debt totals when an earlier period is rerun.
       Complexity points use current Complexity Weight values, summed once per ticket with the same owner attribution as the ticket counts.
       Completed Points includes both Done Committed and Other Done. Missing or invalid weights contribute no points and are listed separately.
+      Summary-table Points use each row's distinct tickets, including subtotal and total rows.
+      Done Activities Points represent tickets worked on during the period, not necessarily completed tickets.
     </p>
 
     <%
@@ -229,6 +231,7 @@
                   <th class="tj-th-counter">Code</th>
                   <th class="tj-th-title">Metric</th>
                   <th class="tj-th-native">Tickets</th>
+                  <th class="tj-th-native" title="Current Complexity Weight summed once per distinct ticket in this row">Points</th>
                 </tr>
               </thead>
               <tbody>
@@ -242,6 +245,7 @@
                       <% end %>
                     </td>
                     <td class="tj-td-native"><%= metric_link.call(metric, nil, title_text) %></td>
+                    <td class="tj-td-native"><%= render partial: 'performance_points', locals: { metric: metric[:complexity_points], query: @query } %></td>
                   </tr>
                 <% end %>
               </tbody>

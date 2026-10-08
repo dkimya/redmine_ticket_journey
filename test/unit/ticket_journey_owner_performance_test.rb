@@ -99,8 +99,14 @@ class TicketJourneyOwnerPerformanceTest < ActiveSupport::TestCase
     @controller.stubs(:historically_closed?).returns(false)
     @controller.stubs(:historically_closed?).with(issues[4], nil, anything, Set['9']).returns(true)
     @controller.stubs(:historically_closed?).with(issues[5], nil, end_date.end_of_day, Set['9']).returns(true)
-    @controller.stubs(:time_utilization_entries).returns([])
-    @controller.stubs(:owner_performance_period_journals).returns([])
+    entry_type = Struct.new(:issue_id, :user_id, :spent_on)
+    journal_type = Struct.new(:id, :journalized_id, :user_id, :created_on)
+    @controller.stubs(:time_utilization_entries).returns([
+      entry_type.new(102, 7, start_date), entry_type.new(102, 7, end_date)
+    ])
+    @controller.stubs(:owner_performance_period_journals).returns([
+      journal_type.new(1, 102, 7, done_at), journal_type.new(2, 103, 7, done_at)
+    ])
     @controller.stubs(:owner_performance_idle_hours).returns(0.0)
     @controller.stubs(:owner_performance_rework_rows).returns([[], []])
     @controller.stubs(:owner_performance_status_rows).returns([])
@@ -124,6 +130,20 @@ class TicketJourneyOwnerPerformanceTest < ActiveSupport::TestCase
     assert_equal 21.0, report[:delivery_rows].first.dig(:completed_points, :points)
     assert_equal [106], report[:delivery_rows].first.dig(:completed_points, :issue_ids)
 
+    assert_equal 5.0, report.dig(:commitment, :beginning_total, :complexity_points, :points)
+    assert_equal 29.0, report.dig(:commitment, :new_commitment, :complexity_points, :points)
+    assert_equal report[:delivery_rows].first[:committed_points],
+                 report.dig(:commitment, :total_commitment, :complexity_points)
+    assert_equal 5.0, report.dig(:activity, :spent_time_tickets, :complexity_points, :points)
+    assert_equal [103], report.dig(:activity, :additional_updated_tickets, :complexity_points, :issue_ids)
+    assert_equal 13.0, report.dig(:activity, :total_worked_tickets, :complexity_points, :points)
+    assert_equal report[:delivery_rows].first[:completed_points],
+                 report.dig(:completion, :total_done, :complexity_points)
+    assert_equal 13.0, report.dig(:completion, :end_debt_total, :complexity_points, :points)
+    %i[commitment activity completion].each do |section|
+      report[section].each_value { |metric| assert metric.key?(:complexity_points) }
+    end
+
     # Rerunning the same past period follows deadline edits made today.
     issues[0].due_date = Date.new(2026, 9, 8)
     issues[2].due_date = nil
@@ -138,6 +158,8 @@ class TicketJourneyOwnerPerformanceTest < ActiveSupport::TestCase
     assert_equal 18.0, rerun[:delivery_rows].first.dig(:committed_points, :points)
     assert_equal [101], rerun[:delivery_rows].first.dig(:committed_points, :missing_issue_ids)
     assert_equal 13.0, rerun[:delivery_rows].first.dig(:completed_points, :points)
+    assert_equal [101], rerun.dig(:commitment, :beginning_total, :complexity_points, :missing_issue_ids)
+    assert_equal 5.0, rerun.dig(:completion, :end_debt_total, :complexity_points, :points)
 
     # Other Done is part of completed points even when outside commitment.
     issues[5].due_date = Date.new(2026, 10, 10)
