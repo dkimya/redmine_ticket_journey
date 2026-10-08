@@ -463,6 +463,15 @@
 .tj-owner-metric-table-wrap {
   max-height: none;
 }
+.tj-owner-metric-group + .tj-owner-metric-group {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--tj-border, #d8dee8);
+}
+.tj-owner-metric-group-title {
+  margin: 0 0 6px;
+  font-size: 13px;
+}
 .tj-table.tj-owner-metric-table {
   min-width: 520px;
 }
