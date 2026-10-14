@@ -12,7 +12,8 @@ class PerformanceDashboardController < ApplicationController
     # Project members seed the selector; calculated reports also discover former
     # owners from visible ticket history, retaining historical report links.
     if params[:owner_id].blank? && !@metric
-      @owners = @project.users.order(:lastname, :firstname).to_a
+      @owners = User.where(id: Member.where(project_id: performance_project_ids).select(:user_id))
+                    .order(:lastname, :firstname).to_a
       @owner = @owners.find { |user| user.id == User.current.id }
       @initial_load = true
       return
@@ -20,7 +21,7 @@ class PerformanceDashboardController < ApplicationController
     @settings = Setting.plugin_redmine_ticket_journey
     @start_date = configured_date(@settings['performance_start_date'])
     statuses = IssueStatus.all.index_by { |s| s.id.to_s }
-    issues = Issue.visible(User.current).where(project_id: @project.id)
+    issues = Issue.visible(User.current).where(project_id: performance_project_ids)
                   .joins(:tracker).where(trackers: { name: TicketJourneyPerformance::TRACKERS })
                   .where('issues.created_on <= ?', @date.in_time_zone.end_of_day)
                   .select(Issue.column_names.reject { |name| name == 'description' }.map { |name| "issues.#{name}" })
@@ -62,8 +63,8 @@ class PerformanceDashboardController < ApplicationController
       @page_count = [(@detail_count / 100.0).ceil, 1].max
       @page = [[params[:page].to_i, 1].max, @page_count].min
       @detail_rows = @detail_rows.slice((@page - 1) * 100, 100) || []
-      @detail_issues = Issue.visible(User.current).where(project_id: @project.id, id: @detail_rows.map { |row| row[:id] })
-                            .includes(:tracker).index_by(&:id)
+      @detail_issues = Issue.visible(User.current).where(project_id: performance_project_ids, id: @detail_rows.map { |row| row[:id] })
+                            .includes(:project, :tracker).index_by(&:id)
       # A permission change during this request must not disclose a stale row.
       @detail_rows.select! { |row| @detail_issues.key?(row[:id]) }
       render :details
@@ -73,6 +74,13 @@ class PerformanceDashboardController < ApplicationController
   end
 
   private
+
+  # Redmine's nested-set bounds include every depth, without recursively loading
+  # project objects. Visibility and Issue.visible still apply independently.
+  # A subquery avoids duplicate tickets/users belonging to multiple memberships.
+  def performance_project_ids
+    Project.visible(User.current).where('projects.lft >= ? AND projects.rgt <= ?', @project.lft, @project.rgt).select(:id)
+  end
 
   def find_project
     @project = Project.find(params[:project_id])

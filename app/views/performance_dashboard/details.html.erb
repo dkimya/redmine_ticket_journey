@@ -2,16 +2,17 @@
 <h2><%= @detail_title %></h2>
 <p><%= link_to '← Back to Performance', performance_dashboard_path(@project, owner_id: @owner.id, as_of: @date.iso8601) %></p>
 <p><strong><%= @owner.name %></strong> · As of <%= format_date(@date) %> · <%= @detail_count %> tickets · Total usable complexity weight: <%= performance_number(@detail_weight) %></p>
-<p class="info">Owner and status reflect the selected date. Subject, tracker, due date and complexity weight are current. These are the same ticket sets used by the dashboard, recalculated with your current permissions; edits since opening the dashboard may change results. Unavailable weights contribute zero to the total.</p>
+<p>Scope: Selected project and all subprojects, limited to visible projects and tickets.</p>
+<p class="info">Owner and status reflect the selected date. Project, subject, tracker, due date and complexity weight are current. These are the same ticket sets used by the dashboard, recalculated with your current permissions; edits since opening the dashboard may change results. Unavailable weights contribute zero to the total.</p>
 <% if @metric == 'delivered' %><p>Monthly contributors from <%= @start_date ? format_date(@start_date) : 'unconfigured Day 0' %> through <%= format_date(@date) %>. The dashboard divides their totals by elapsed calendar months, prorating partial months.</p><% end %>
 <% if @detail_rows.empty? %>
   <p class="nodata">No tickets match this metric.</p>
 <% else %>
   <div class="autoscroll"><table class="list issues">
-    <thead><tr><th scope="col">Ticket</th><th scope="col">Subject (current)</th><th scope="col">Tracker (current)</th><th scope="col">Ticket Owner (as of date)</th><th scope="col">Status (as of date)</th><th scope="col">Due Date (current)</th><th scope="col">Complexity Weight (current)</th><th scope="col">Last Recorded Completion by Report Date</th></tr></thead>
+    <thead><tr><th scope="col">Ticket</th><th scope="col">Project (current)</th><th scope="col">Subject (current)</th><th scope="col">Tracker (current)</th><th scope="col">Ticket Owner (as of date)</th><th scope="col">Status (as of date)</th><th scope="col">Due Date (current)</th><th scope="col">Complexity Weight (current)</th><th scope="col">Last Recorded Completion by Report Date</th></tr></thead>
     <tbody><% @detail_rows.each do |row| %>
       <% issue = @detail_issues.fetch(row[:id]) %>
-      <tr><td><%= link_to "##{issue.id}", issue_path(issue) %></td><td class="subject"><%= issue.subject %></td><td><%= issue.tracker.name %></td><td><%= @owner.name %></td><td><%= row[:status_name].presence || 'Unknown' %></td><td><%= row[:due] ? format_date(row[:due]) : 'Not set' %></td><td><%= row[:missing_weight] ? 'Unavailable' : performance_number(row[:weight]) %></td><td><%= row[:delivered_at] ? format_date(row[:delivered_at]) : 'Not recorded' %></td></tr>
+      <tr><td><%= link_to "##{issue.id}", issue_path(issue) %></td><td><%= link_to issue.project.name, project_path(issue.project) %></td><td class="subject"><%= issue.subject %></td><td><%= issue.tracker.name %></td><td><%= @owner.name %></td><td><%= row[:status_name].presence || 'Unknown' %></td><td><%= row[:due] ? format_date(row[:due]) : 'Not set' %></td><td><%= row[:missing_weight] ? 'Unavailable' : performance_number(row[:weight]) %></td><td><%= row[:delivered_at] ? format_date(row[:delivered_at]) : 'Not recorded' %></td></tr>
     <% end %></tbody>
   </table></div>
 <% end %>

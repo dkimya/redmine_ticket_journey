@@ -11,7 +11,7 @@
       <%= submit_tag 'Apply', name: nil %>
     <% end %>
   </header>
-  <p class="performance-context">This project · One owner at a time · Visible tickets only <%= performance_tip('Includes Bug, Change Request / Improvement, Feature, and Task (Business Jobs). User Story and other trackers are excluded provisionally. Status and owner are reconstructed at the selected date; current due dates and weights are used. Historical edits can change past results. Missing history falls back to current values.') %></p>
+  <p class="performance-context">Selected project and all subprojects · One owner at a time · Visible tickets only <%= performance_tip('Includes Bug, Change Request / Improvement, Feature, and Task (Business Jobs). User Story and other trackers are excluded provisionally. Status and owner are reconstructed at the selected date; current due dates and weights are used. Historical edits can change past results. Missing history falls back to current values.') %></p>
   <% if @report %>
     <% groups = @report[:groups]; total_weight = TicketJourneyPerformance.weight(groups.first) %>
     <section class="performance-section">
@@ -72,5 +72,5 @@
       <p><%= performance_detail_link(@report[:missing_due], 'missing_due') %> open tickets have no due date and are included in Not Overdue. <%= performance_detail_link(@report[:missing_weight], 'missing_weight') %> tickets have missing, hidden, or nonpositive weights; they contribute no weight but still count as tickets. <%= performance_detail_link(@report[:missing_delivery], 'missing_delivery') %> done tickets lack a recorded completion date and are excluded from monthly averages.</p>
       <p>Current issue permissions limit every result. Targets use current user field values, not historical target snapshots. One owner is supported pending agreement on target aggregation.</p>
     </details>
-  <% else %><p class="nodata"><% if @initial_load %>Select a Ticket Owner and As of Date, then click Apply. No report has been calculated yet. The initial owner list shows project members; report results also include historical owners found on visible tickets.<% else %>No matching owner was found on visible tickets in the included trackers at the selected date. Choose another owner or date and click Apply.<% end %></p><% end %>
+  <% else %><p class="nodata"><% if @initial_load %>Select a Ticket Owner and As of Date, then click Apply. No report has been calculated yet. The initial owner list shows members of visible projects in this hierarchy; report results also include historical owners found on visible tickets.<% else %>No matching owner was found on visible tickets in the included trackers at the selected date. Choose another owner or date and click Apply.<% end %></p><% end %>
 </div>

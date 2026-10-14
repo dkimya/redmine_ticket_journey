@@ -83,4 +83,47 @@ class PerformanceDashboardTest < ActionController::TestCase
     UserCustomField.expects(:find_by).with(id: 100).returns(field)
     assert_nil @controller.send(:monthly_target, '100')
   end
+
+  test 'hierarchy includes grandchildren but excludes unrelated and invisible projects' do
+    root = Project.create!(name: 'Performance root', identifier: 'performance-root', is_public: true)
+    child = Project.create!(name: 'Performance child', identifier: 'performance-child', parent: root, is_public: true)
+    grandchild = Project.create!(name: 'Performance grandchild', identifier: 'performance-grandchild', parent: child, is_public: true)
+    hidden = Project.create!(name: 'Performance hidden', identifier: 'performance-hidden', parent: root, is_public: false)
+    outsider = Project.create!(name: 'Performance outside', identifier: 'performance-outside', is_public: true)
+    @controller.instance_variable_set(:@project, root.reload)
+    User.stubs(:current).returns(User.anonymous)
+    ids = @controller.send(:performance_project_ids).pluck(:id)
+    assert_equal [root.id, child.id, grandchild.id].sort, ids.sort
+    assert_not_includes ids, hidden.id
+    assert_not_includes ids, outsider.id
+  end
+
+  test 'parent drill down includes nested project ticket and project link exactly once' do
+    child = Project.create!(name: 'Performance child', identifier: 'performance-test-child', parent: @project)
+    grandchild = Project.create!(name: 'Performance nested', identifier: 'performance-test-nested', parent: child)
+    issue = Issue.find(1)
+    issue.tracker.update!(name: 'Bug')
+    issue.update_columns(project_id: grandchild.id)
+    Issue.expects(:visible).at_least_once.returns(Issue.where(id: issue.id))
+    Issue.any_instance.stubs(:visible_custom_field_values).returns([stub(custom_field: stub(id: 57))])
+    TicketJourneyPerformance.stubs(:snapshot).returns({ id: issue.id, owner_id: '1', status_name: 'In Progress',
+      due: Date.current, open: true, done: false, started: true,
+      delivered_at: nil, weight: 5.0, missing_weight: false })
+    get :index, params: { project_id: @project.identifier, owner_id: '1', metric: 'open' }
+    assert_response :success
+    assert_select 'tbody tr', count: 1
+    assert_select 'a[href=?]', project_path(grandchild), text: grandchild.name
+    assert_select 'a[href=?]', issue_path(issue), count: 1
+  end
+
+  test 'initial selector includes a child-only member once without scanning issues' do
+    child = Project.create!(name: 'Performance member child', identifier: 'performance-member-child', parent: @project)
+    user = User.find(2)
+    Member.where(project_id: @project.id, user_id: user.id).destroy_all
+    Member.create!(project: child, principal: user, roles: [Role.find(1)])
+    Issue.expects(:visible).never
+    get :index, params: { project_id: @project.identifier }
+    assert_response :success
+    assert_select '#owner_id option[value=?]', user.id.to_s, count: 1
+  end
 end
