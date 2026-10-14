@@ -8,6 +8,15 @@ class PerformanceDashboardController < ApplicationController
     return render_404 if @metric && !TicketJourneyPerformance::DETAIL_LABELS.key?(@metric)
     @date = params[:as_of].present? ? Date.iso8601(params[:as_of]) : Date.current
     raise ArgumentError if @date > Date.current
+    # Opening the menu must not scan issues or reconstruct journal history.
+    # Project members seed the selector; calculated reports also discover former
+    # owners from visible ticket history, retaining historical report links.
+    if params[:owner_id].blank? && !@metric
+      @owners = @project.users.order(:lastname, :firstname).to_a
+      @owner = @owners.find { |user| user.id == User.current.id }
+      @initial_load = true
+      return
+    end
     @settings = Setting.plugin_redmine_ticket_journey
     @start_date = configured_date(@settings['performance_start_date'])
     statuses = IssueStatus.all.index_by { |s| s.id.to_s }

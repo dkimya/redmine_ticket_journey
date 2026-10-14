@@ -49,6 +49,8 @@ A single Export dropdown in the page header offers Ticket Journey CSV (journey d
 
 ## Performance Results — Tickets (implemented; provisional rules, server verification pending)
 
+- Initial menu navigation loads project-member owner choices only, without scanning issues or journals. Apply (an explicit owner selection) runs the report; report/drill-down URLs retaining owner/date still calculate directly. Calculated results discover additional historical owners from visible tickets. This loading optimization awaits server timing verification.
+
 - Separate project menu and permission under Dashboard. One owner, one project, visible issues only. Included trackers: Bug, Change Request / Improvement, Feature, Task (Business Jobs). All non-closed statuses count as open. User Story and containers are excluded pending clarification.
 - Status and owner are reconstructed at report-date end of day by reversing later journal changes. Missing history falls back to current values; recorded blank owners stay blank. Current due dates and visible current weights (#70) are preserved. Hidden Ticket Owner (#57) fields exclude issues from this report.
 - Open groups partition the total: Not Overdue (including missing due dates), overdue started, overdue untouched. Due date equal to report date is not overdue. Due Soon covers today through +2 calendar days. Started means current/as-of development stage or recorded earlier In Progress, Feedback, Returned, Review, Ready to Merge, Final Check, or Done / Closed; it does not require activity by the selected owner personally.

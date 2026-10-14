@@ -10,12 +10,15 @@ class PerformanceDashboardTest < ActionController::TestCase
     @project.enabled_module_names = @project.enabled_module_names | ['ticket_journey']
   end
 
-  test 'empty page renders filters without inventing owner totals' do
-    Issue.expects(:visible).returns(Issue.none)
+  test 'initial page renders filters without loading issues or calculating history' do
+    Issue.expects(:visible).never
+    TicketJourneyPerformance.expects(:snapshot).never
+    TicketJourneyPerformance.expects(:calculate).never
     get :index, params: { project_id: @project.identifier }
     assert_response :success
     assert_select '#owner_id'
     assert_select '.nodata', text: /Select a Ticket Owner/
+    assert_select '.performance-card', count: 0
   end
 
   test 'invalid dates are rejected' do

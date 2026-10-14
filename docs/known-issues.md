@@ -16,6 +16,8 @@ Reviewed 2026-10-13. **Server-confirmed** means user output/screenshots or expli
 
 ## Confirmation needed
 
+- Slow initial Performance navigation: the controller previously reconstructed all in-scope issue histories even before Apply. Added an early filters-only render using project members for the initial owner selector. No issue/history scan on initial navigation; actual report execution still reconstructs histories and may require further optimization. Local change; server latency improvement unverified.
+
 - Performance page request failed with `ActionView::SyntaxErrorInTemplate` in the user-supplied Puma trace on 2026-10-13. Fixed the missing outer array closing bracket in the monthly metric loop. The subsequent user screenshot confirms successful server rendering after the fix. The same request took about 12 seconds with 9,657 queries (mostly cached); performance needs separate investigation after rendering is restored.
 
 - Performance Section 1 was deployed by the user; its first supplied full-request trace failed during template compilation as described above. The subsequent user screenshot confirms rendering and internally consistent displayed totals; historical calculations remain unverified. Local Ruby is unavailable, so its new tests remain unexecuted. Missing Extra Tasks rules leave cumulative targets unconfigured; monthly averages require Day 0 and User target-field setup. See [setup](performance-setup.md) and [Hadi questions](performance-hadi-questions.md).
