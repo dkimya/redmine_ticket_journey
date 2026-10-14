@@ -14,7 +14,6 @@
         <span class="tj-section-toggle-icon" aria-hidden="true">-</span>
         <span data-tj-section-toggle-label>Collapse</span>
       </button>
-      <%= link_to 'Export Time CSV', ticket_journey_path(@project, duration_report_params(@query).merge(format: :csv, time_report_export: '1', time_activity_id: @ticket_time_activity&.id || 'all')), class: 'tj-btn tj-btn-export', title: 'Export all columns regardless of compact view, selected activity, and totals' %>
     </div>
   </div>
   <div id="tickets-time-report-body" data-tj-section-body>

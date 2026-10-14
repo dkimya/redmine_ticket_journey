@@ -12,9 +12,19 @@
     </div>
     <% unless @detail_view_active %>
       <div class="tj-page-header-right">
-        <%= link_to 'Export CSV',
+        <details class="tj-export-dropdown">
+          <summary class="tj-btn tj-btn-export" title="Choose the report to export as CSV">Export <span aria-hidden="true">▾</span></summary>
+          <div class="tj-export-options">
+            <%= link_to 'Ticket Journey CSV',
               ticket_journey_export_path(@project, duration_report_params(@query).merge(format: :csv)),
-              class: 'tj-btn tj-btn-export' %>
+              title: 'Export ticket journey durations and return counters for the filtered tickets' %>
+            <% if @ticket_time_report %>
+              <%= link_to 'Tickets Time CSV',
+                    ticket_journey_path(@project, duration_report_params(@query).merge(format: :csv, time_report_export: '1', time_activity_id: @ticket_time_activity&.id || 'all')),
+                    title: 'Export estimates, lifetime logged hours, ratios, selected activity hours, and totals; includes all columns regardless of compact view' %>
+            <% end %>
+          </div>
+        </details>
       </div>
     <% end %>
   </div>

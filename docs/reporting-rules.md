@@ -45,6 +45,8 @@ Totals sum each numeric column over distinct tickets. CSV includes selected stan
 
 The section starts expanded with all details. Collapse hides its body; Compact view hides selected standard fields and both estimates, retaining Issue, Subject, Time Spent, ratio, and activity hours. CSV always includes all columns. Estimates are light blue, logged time light green, activity hours light amber; ratios above 100% are amber and above 150% red (150% itself remains amber). Unavailable values are muted; totals stay shaded and bold. These display controls/colors await server visual verification.
 
+A single Export dropdown in the page header offers Ticket Journey CSV (journey durations/returns) and Tickets Time CSV (estimates/logged hours/activity/totals). The time section has no separate export button. Time CSV was an assistant suggestion approved by the user, not an explicit requirement from Hadi. This export layout awaits server visual verification.
+
 ## Future
 
 Automated return alarms, notifications, and alarm KPI cards are deferred; no implementation is claimed.

@@ -463,6 +463,39 @@
 .tj-owner-metric-table-wrap {
   max-height: none;
 }
+.tj-export-dropdown {
+  position: relative;
+}
+.tj-export-dropdown > summary {
+  cursor: pointer;
+  list-style: none;
+  gap: 8px;
+}
+.tj-export-dropdown > summary::-webkit-details-marker {
+  display: none;
+}
+.tj-export-options {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  min-width: 200px;
+  padding: 5px;
+  border: 1px solid var(--tj-border, #d8dee8);
+  border-radius: var(--tj-radius, 6px);
+  background: #fff;
+  box-shadow: var(--tj-shadow, 0 2px 8px rgba(0,0,0,.12));
+}
+.tj-export-options a {
+  display: block;
+  padding: 10px 12px;
+  white-space: nowrap;
+  border-radius: 4px;
+}
+.tj-export-options a:hover,
+.tj-export-options a:focus-visible {
+  background: #edf3fb;
+}
 #tickets-time-report tfoot th,
 #tickets-time-report tfoot td {
   border-top: 2px solid var(--tj-border, #d8dee8);
