@@ -11,6 +11,9 @@
       <%= submit_tag 'Apply', name: nil %>
     <% end %>
   </header>
+  <% if @owner && !@owner.active? %>
+    <p>Showing report for <strong><%= @owner.name %></strong> (inactive). The owner dropdown lists active users only.</p>
+  <% end %>
   <p class="performance-context">Selected project and all subprojects · One owner at a time · Visible tickets only <%= performance_tip('Includes Bug, Change Request / Improvement, Feature, and Task (Business Jobs). User Story and other trackers are excluded provisionally. Status and owner are reconstructed at the selected date; current due dates and weights are used. Historical edits can change past results. Missing history falls back to current values.') %></p>
   <% if @report %>
     <% groups = @report[:groups]; total_weight = TicketJourneyPerformance.weight(groups.first) %>
@@ -50,7 +53,7 @@
       </div>
     </section>
     <section class="performance-section">
-      <h3><span class="performance-step">2</span> Delivery Metrics (Tickets Due by Date) <%= performance_tip('Cumulative delivery uses tickets with a current due date on or before the report date. The numerator includes only those tickets in Done / Closed at that date. Archived and reopened tickets are not counted as done. No due date means excluded from both delivery ratios. Each ticket counts once.') %></h3>
+      <h3><span class="performance-step">2</span> Delivery Metrics (Tickets Due by Date) <%= performance_tip('Cumulative delivery uses tickets with a current due date on or before the report date. The numerator includes only those tickets in Done / Closed at that date. Archived and Ongoing tickets at the selected report date are excluded from all Section 2 counts and weights, including the due denominator. Reopened tickets are not counted as done. No due date means excluded from both delivery ratios. Each ticket counts once.') %></h3>
       <div class="performance-delivery">
         <div class="performance-ratios">
           <% [['Done Tickets / Due Tickets', @report[:done].size, @report[:due].size], ['Done Weight / Due Weight', TicketJourneyPerformance.weight(@report[:done]), TicketJourneyPerformance.weight(@report[:due])]].each do |label, done, due| %>
@@ -61,7 +64,7 @@
         <% [['No. of Tickets', @report[:monthly_count], @targets[0]], ['Complexity Weight', @report[:monthly_weight], @targets[1]]].each do |label, actual, target| %>
           <article class="performance-metric performance-monthly">
             <% if actual %><p><%= performance_detail_link('View contributing tickets', 'delivered') %></p><% end %>
-            <h4>Average Monthly Delivered<br>(<%= label %>) <%= performance_tip('Distinct tickets in Done / Closed at the report date whose most recent recorded completion falls from configured Day 0 through the report date. Partial months are prorated by calendar days, including the report date. Ownership is taken at the report date. These provisional rules await Hadi’s confirmation. Targets come from configured public User fields; missing or nonpositive targets are unavailable.') %></h4>
+            <h4>Average Monthly Delivered<br>(<%= label %>) <%= performance_tip('Archived and Ongoing tickets at the report date are excluded. Distinct tickets in Done / Closed at the report date whose most recent recorded completion falls from configured Day 0 through the report date. Partial months are prorated by calendar days, including the report date. Ownership is taken at the report date. These provisional rules await Hadi’s confirmation. Targets come from configured public User fields; missing or nonpositive targets are unavailable.') %></h4>
             <% if actual && target %>
               <% deviation = (actual - target) * 100 / target; scale = [actual, target].max * 1.2; actual_position = actual * 100 / scale; target_position = target * 100 / scale %>
               <p class="performance-deviation <%= deviation >= 0 ? 'performance-good' : 'performance-bad' %>"><%= '+' if deviation >= 0 %><%= performance_number(deviation) %>% vs Target <%= performance_tip('Green means at or above target; red means below target. The separate requirement allowing a shortfall below 10% awaits clarification; this color is not a final tolerance-based pass/fail result.') %></p>

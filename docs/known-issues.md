@@ -37,3 +37,7 @@ Future return alarms are documented in [reporting rules](reporting-rules.md); re
 - Hadi's Open Tickets feedback implemented locally: Not Touched now requires no In Progress evidence by report date; other development stages no longer imply Started. Stopped (On-Hold/Pending as of date) appears below Total Open Tickets with a drill-down while remaining in the existing groups. Server calculation/layout verification pending.
 
 - Hadi resolved Extra Tasks: use one shared 90% delivery target for now. Implemented configurable Delivery Target (%) with numeric 0–100 validation for both delivery indicators. Prior notes about an unconfigured Extra Tasks target are superseded. Server settings-save/render verification is pending.
+
+- Active-users-only filtering applies to both Performance dropdown paths. Per user clarification, inactive owner saved report/drill-down links remain usable with normal visibility/permission checks; the extra activity-based block was removed. Server verification pending.
+
+- Hadi's Section 2 exclusions implemented: Archived and Ongoing are removed from delivery populations using as-of status, including due denominators and drill-downs. Ongoing remains in Section 1. Unit coverage added; runtime/server verification pending.

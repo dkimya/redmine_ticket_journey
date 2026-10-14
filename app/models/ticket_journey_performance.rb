@@ -8,6 +8,7 @@ class TicketJourneyPerformance
   # Later workflow stages, logged time and comments are not substitutes.
   STARTED = ['In Progress', 'Inprogress'].freeze
   STOPPED = ['On-Hold', 'Pending'].freeze
+  DELIVERY_EXCLUDED_STATUSES = ['Archived', 'Ongoing'].freeze
   DETAIL_LABELS = {
     'open' => 'Total Open Tickets', 'not_overdue' => 'Not Overdue Open Tickets',
     'started' => 'Overdue - Already Started', 'untouched' => 'Overdue - Not Touched',
@@ -87,10 +88,13 @@ class TicketJourneyPerformance
     open = rows.select { |r| r[:open] }
     not_overdue, overdue = open.partition { |r| r[:due].nil? || r[:due] >= date }
     started, untouched = overdue.partition { |r| r[:started] }
-    due = rows.select { |r| r[:due] && r[:due] <= date }
+    # Section 2 alone excludes these as-of statuses. Do not filter the input
+    # rows globally: Ongoing still belongs to Section 1's open population.
+    delivery_rows = rows.reject { |r| DELIVERY_EXCLUDED_STATUSES.include?(r[:status_name].to_s.strip) }
+    due = delivery_rows.select { |r| r[:due] && r[:due] <= date }
     done = due.select { |r| r[:done] }
     months = month_fraction(start_date, date)
-    delivered = rows.select { |r| r[:done] && r[:delivered_at] && start_date && r[:delivered_at].between?(start_date, date) }
+    delivered = delivery_rows.select { |r| r[:done] && r[:delivered_at] && start_date && r[:delivered_at].between?(start_date, date) }
     # Both counts and drill-downs use these exact sets; never rebuild them with
     # current-status IssueQuery filters for a historical report.
     sets = {
@@ -99,7 +103,7 @@ class TicketJourneyPerformance
       'due_soon' => not_overdue.select { |r| r[:due] && (r[:due] - date).to_i < 3 },
       'missing_due' => open.select { |r| r[:due].nil? },
       'missing_weight' => rows.select { |r| r[:missing_weight] },
-      'missing_delivery' => rows.select { |r| r[:done] && r[:delivered_at].nil? },
+      'missing_delivery' => delivery_rows.select { |r| r[:done] && r[:delivered_at].nil? },
       'done' => done, 'due' => due, 'delivered' => delivered
     }
     {

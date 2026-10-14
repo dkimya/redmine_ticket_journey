@@ -26,12 +26,42 @@ class TicketJourneyPerformanceTest < ActiveSupport::TestCase
     date = Date.new(2026, 10, 13)
     rows = [row(open: false, done: true, due: date),
             row(open: false, done: true, due: date + 1),
-            row(open: false, due: date), row(due: date)]
+            row(open: false, status_name: 'Archived', due: date), row(due: date)]
     result = TicketJourneyPerformance.calculate(rows, date, nil)
-    assert_equal 3, result[:due].size
+    assert_equal 2, result[:due].size
     assert_equal 1, result[:done].size
     assert_equal result[:done], result[:detail_sets]['done']
     assert_equal result[:due], result[:detail_sets]['due']
+  end
+
+  test 'delivery excludes archived and ongoing without removing ongoing from open tickets' do
+    date = Date.new(2026, 10, 14)
+    ongoing = row(status_name: 'Ongoing', due: date, weight: 13, delivered_at: date - 1)
+    archived = row(status_name: 'Archived', open: false, due: date, weight: 21, delivered_at: date - 1)
+    completed = row(status_name: 'Done / Closed', open: false, done: true, due: date, weight: 8, delivered_at: date)
+    pending = row(status_name: 'Pending', due: date, weight: 5)
+    result = TicketJourneyPerformance.calculate([ongoing, archived, completed, pending], date, date.beginning_of_month)
+    assert_equal [ongoing, pending], result[:groups].first
+    assert_equal [completed, pending], result[:detail_sets]['due']
+    assert_equal [completed], result[:detail_sets]['done']
+    assert_equal [completed], result[:detail_sets]['delivered']
+    assert_equal 13, TicketJourneyPerformance.weight(result[:due])
+    assert_equal 8, TicketJourneyPerformance.weight(result[:done])
+    assert_in_delta 31.0 / 14, result[:monthly_count], 0.0001
+  end
+
+  test 'delivery exclusion follows report date status rather than current archived status' do
+    date = Date.new(2026, 10, 14)
+    statuses = { '5' => stub(name: 'Done / Closed', is_closed: true), '7' => stub(name: 'Archived', is_closed: true) }
+    issue = stub(id: 1, created_on: date.in_time_zone - 5.days, status_id: 7, due_date: date)
+    issue.stubs(:custom_value_for).with(57).returns(stub(value: '7'))
+    history = [TicketJourneyPerformance::HistoryJournal.new(1, (date + 1).in_time_zone, [
+      TicketJourneyPerformance::HistoryDetail.new('attr', 'status_id', '5', '7')
+    ])]
+    past = TicketJourneyPerformance.snapshot(issue, date, statuses, history: history, visible_values: [])
+    later = TicketJourneyPerformance.snapshot(issue, date + 1, statuses, history: history, visible_values: [])
+    assert_equal [past], TicketJourneyPerformance.calculate([past], date, nil)[:done]
+    assert_empty TicketJourneyPerformance.calculate([later], date + 1, nil)[:due]
   end
 
   test 'stopped is an overlapping open subset with matching drill down' do

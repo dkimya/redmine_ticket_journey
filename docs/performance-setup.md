@@ -31,3 +31,5 @@ Select a parent with child and grandchild tickets owned by the same person. Chec
 
 ## Open Tickets feedback verification
 Compare an overdue ticket that skipped In Progress, one that reached In Progress and later stopped, and one that first starts after a historical report date. Verify the Not Touched/Already Started classification uses In Progress only. Check Stopped lists only open On-Hold/Pending tickets at the selected date, including inherited subprojects, and overlaps rather than increases the total. Verify its small-font placement below Total Open Tickets and alignment with Due Soon after deployment.
+
+For Section 2, verify due counts/weights exclude Archived and Ongoing at the report date. Check a ticket archived after the selected date still qualifies under its earlier status, and an Ongoing ticket remains in Section 1. Compare drill-down IDs to both delivery figures. No migration required.

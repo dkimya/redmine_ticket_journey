@@ -26,6 +26,39 @@ class PerformanceDashboardTest < ActionController::TestCase
     assert_response 422
   end
 
+  test 'inactive project members do not appear on initial owner selector' do
+    user = User.find(2)
+    Member.create!(project: @project, principal: user, roles: [Role.find(1)]) unless Member.exists?(project_id: @project.id, user_id: user.id)
+    user.update_column(:status, Principal::STATUS_LOCKED)
+    Issue.expects(:visible).never
+    get :index, params: { project_id: @project.identifier }
+    assert_response :success
+    assert_select '#owner_id option[value=?]', user.id.to_s, count: 0
+  end
+
+  test 'inactive owner links work without adding the owner to the dropdown' do
+    user = User.find(2)
+    user.update_column(:status, Principal::STATUS_LOCKED)
+    issue = Issue.find(1)
+    issue.tracker.update!(name: 'Bug')
+    Issue.expects(:visible).at_least_once.returns(Issue.where(id: issue.id))
+    Issue.any_instance.stubs(:visible_custom_field_values).returns([stub(custom_field: stub(id: 57))])
+    TicketJourneyPerformance.stubs(:snapshot).returns({ id: issue.id, owner_id: user.id.to_s, status_name: 'In Progress',
+      due: Date.current - 30, open: true, done: false, started: true,
+      delivered_at: nil, weight: 5.0, missing_weight: false })
+    [nil, 'open'].each do |metric|
+      get :index, params: { project_id: @project.identifier, owner_id: user.id, metric: metric, as_of: (Date.current - 30).iso8601 }
+      assert_response :success
+      assert_select '#owner_id option[value=?]', user.id.to_s, count: 0
+      if metric
+        assert_select 'tbody tr', count: 1
+      else
+        assert_select '.performance-card', count: 4
+        assert_select 'p', text: /Showing report for.*inactive/
+      end
+    end
+  end
+
   test 'selected owner renders metrics and missing configuration explanations' do
     issue = Issue.find(1)
     issue.tracker.update!(name: 'Bug')

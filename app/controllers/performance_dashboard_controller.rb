@@ -12,7 +12,7 @@ class PerformanceDashboardController < ApplicationController
     # Project members seed the selector; calculated reports also discover former
     # owners from visible ticket history, retaining historical report links.
     if params[:owner_id].blank? && !@metric
-      @owners = User.where(id: Member.where(project_id: performance_project_ids).select(:user_id))
+      @owners = User.active.where(id: Member.where(project_id: performance_project_ids).select(:user_id))
                     .order(:lastname, :firstname).to_a
       @owner = @owners.find { |user| user.id == User.current.id }
       @initial_load = true
@@ -47,8 +47,10 @@ class PerformanceDashboardController < ApplicationController
         end
       end
     end
-    @owners = User.where(id: owner_ids.to_a).order(:lastname, :firstname).to_a
-    @owner = @owners.find { |u| u.id.to_s == params[:owner_id].to_s }
+    @owners = User.active.where(id: owner_ids.to_a).order(:lastname, :firstname).to_a
+    # Active-only is a dropdown rule, not an access restriction. Resolve saved
+    # links separately, but only for owners found on visible in-scope tickets.
+    @owner = User.find_by(id: params[:owner_id]) if owner_ids.include?(params[:owner_id].to_s)
     @owner ||= @owners.find { |u| u.id == User.current.id } if params[:owner_id].blank?
     unless @owner
       return render_404 if @metric
