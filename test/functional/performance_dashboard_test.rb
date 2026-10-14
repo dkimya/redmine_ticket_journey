@@ -44,6 +44,35 @@ class PerformanceDashboardTest < ActionController::TestCase
     assert_response 422
   end
 
+  test 'unknown drill down is rejected before loading issues' do
+    Issue.expects(:visible).never
+    get :index, params: { project_id: @project.identifier, metric: 'arbitrary' }
+    assert_response :not_found
+  end
+
+  test 'drill down uses snapshot status and preserves filters in return link' do
+    issue = Issue.find(1)
+    issue.tracker.update!(name: 'Bug')
+    date = Date.current - 2
+    Issue.expects(:visible).returns(Issue.where(id: issue.id))
+    Issue.any_instance.stubs(:visible_custom_field_values).returns([stub(custom_field: stub(id: 57))])
+    TicketJourneyPerformance.stubs(:snapshot).returns({ id: issue.id, owner_id: '1', status_name: 'Historical Review',
+      due: date - 1, open: true, done: false, started: true,
+      delivered_at: nil, weight: 5.0, missing_weight: false })
+    get :index, params: { project_id: @project.identifier, owner_id: '1', as_of: date.iso8601, metric: 'started' }
+    assert_response :success
+    assert_select 'tbody tr', count: 1
+    assert_select 'td', text: 'Historical Review'
+    assert_select 'a[href=?]', issue_path(issue), text: "##{issue.id}"
+    assert_select 'a[href=?]', performance_dashboard_path(@project, owner_id: 1, as_of: date.iso8601), text: /Back to Performance/
+  end
+
+  test 'drill down cannot disclose an owner without visible matching issues' do
+    Issue.expects(:visible).returns(Issue.none)
+    get :index, params: { project_id: @project.identifier, owner_id: '1', metric: 'open' }
+    assert_response :not_found
+  end
+
   test 'monthly targets reject private fields for non administrators' do
     user = User.find(2)
     User.stubs(:current).returns(user)

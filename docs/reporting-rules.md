@@ -57,6 +57,8 @@ A single Export dropdown in the page header offers Ticket Journey CSV (journey d
 - Targets use selected numeric User custom fields and current positive finite values. Non-admins see only public fields. No fields or target values are created automatically. Extra Tasks has no confirmed source, so the 80%/90% target remains unconfigured. Multiple owners and tolerance-based pass/fail are deferred. Below-target monthly deviation is red; at/above target is green.
 - Missing/hidden/nonpositive/nonfinite weights contribute no weight and are reported in notes. Monthly fields, Day 0 and web behavior require setup/verification; see [setup](performance-setup.md) and [Hadi questions](performance-hadi-questions.md).
 
+Performance drill-downs reuse the exact calculation sets for open groups, Due Soon, data-quality counts, due/done populations and monthly contributors. They run under the existing Performance permission and current issue/field visibility. Owner/date and back/pagination links retain the report context; 100 rows per page with whole-set totals. Status/owner are historical, subject/tracker/due date/weight current. Requests recalculate data, so intervening edits or permission changes can change the set. Missing weights are displayed as unavailable, never exposed from hidden fields. Implemented locally; drill-down web verification pending.
+
 ## Future work
 
 Automated return alarms, notifications, and alarm KPI cards are deferred; no implementation is claimed.

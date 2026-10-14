@@ -1,4 +1,8 @@
 module PerformanceDashboardHelper
+  def performance_detail_link(label, metric)
+    link_to label, performance_dashboard_path(@project, owner_id: @owner.id, as_of: @date.iso8601, metric: metric),
+            title: "View tickets: #{TicketJourneyPerformance::DETAIL_LABELS.fetch(metric)}", class: 'performance-detail-link'
+  end
   def performance_number(value)
     value.nil? ? 'N/A' : number_with_precision(value, precision: 1, strip_insignificant_zeros: true)
   end

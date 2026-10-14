@@ -20,3 +20,6 @@ Verify full web requests with the installed plugin set: separate role grants; de
 Visually verify desktop and narrow layouts after asset deployment, tooltip keyboard focus, donut percentages, card alignment, missing-data states and monthly bars. No full Redmine browser render has been verified locally.
 
 Business rules live in [reporting rules](reporting-rules.md). The sendable clarification list is [questions for Hadi](performance-hadi-questions.md).
+
+## Drill-down verification
+Click each open count, donut percentage/legend, Due Soon, delivery numerator/denominator, monthly contributor link, and data-quality count. Confirm the whole-set count/weight matches the dashboard for unchanged data; inspect historical status/owner against journals. Verify return/pagination links preserve owner/date, empty sets render cleanly, and inaccessible issues/hidden weights stay inaccessible. The details route uses the existing Performance permission. Drill-down changes are local and await deployed web/visual verification.

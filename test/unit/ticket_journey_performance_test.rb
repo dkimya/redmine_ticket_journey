@@ -14,6 +14,11 @@ class TicketJourneyPerformanceTest < ActiveSupport::TestCase
     assert_equal [6, 4, 1, 1], result[:groups].map(&:size)
     assert_equal 2, result[:due_soon]
     assert_equal 1, result[:missing_due]
+    assert_equal result[:groups], %w[open not_overdue started untouched].map { |key| result[:detail_sets][key] }
+    %w[due_soon missing_due missing_weight missing_delivery].each do |key|
+      assert_equal result[key.to_sym], result[:detail_sets][key].size
+    end
+    assert_equal rows[1, 2], result[:detail_sets]['due_soon']
     assert_nil result[:monthly_count]
   end
 
@@ -25,6 +30,8 @@ class TicketJourneyPerformanceTest < ActiveSupport::TestCase
     result = TicketJourneyPerformance.calculate(rows, date, nil)
     assert_equal 3, result[:due].size
     assert_equal 1, result[:done].size
+    assert_equal result[:done], result[:detail_sets]['done']
+    assert_equal result[:due], result[:detail_sets]['due']
   end
 
   test 'monthly averages prorate inclusive partial months and exclude undated completions' do

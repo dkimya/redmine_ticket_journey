@@ -2,6 +2,15 @@
 class TicketJourneyPerformance
   TRACKERS = ['Bug', 'Change Request / Improvement', 'Feature', 'Task (Business Jobs)'].freeze
   STARTED = ['In Progress', 'Inprogress', 'Feedback', 'Returned', 'Review', 'Ready to Merge', 'Final Check', 'Done / Closed'].freeze
+  DETAIL_LABELS = {
+    'open' => 'Total Open Tickets', 'not_overdue' => 'Not Overdue Open Tickets',
+    'started' => 'Overdue - Already Started', 'untouched' => 'Overdue - Not Touched',
+    'due_soon' => 'Due Soon', 'missing_due' => 'Open Tickets Without Due Dates',
+    'missing_weight' => 'Tickets Without Usable Complexity Weight',
+    'missing_delivery' => 'Done Tickets Without Recorded Completion Dates',
+    'done' => 'Done Tickets Due by Date', 'due' => 'Tickets Due by Date',
+    'delivered' => 'Monthly Delivery Contributors'
+  }.freeze
 
   def self.snapshot(issue, date, statuses)
     cutoff = date.in_time_zone.end_of_day
@@ -36,7 +45,7 @@ class TicketJourneyPerformance
     weight = weight_value.to_s.tr(',', '.').to_f
     valid_weight = weight.finite? && weight.positive?
     {
-      id: issue.id, owner_id: owner_id, due: issue.due_date,
+      id: issue.id, owner_id: owner_id, due: issue.due_date, status_name: status&.name.to_s.strip,
       open: status && !status.is_closed, done: status&.name.to_s.strip == 'Done / Closed',
       started: started, delivered_at: delivered_at,
       weight: valid_weight ? weight : 0.0, missing_weight: !valid_weight
@@ -51,11 +60,22 @@ class TicketJourneyPerformance
     done = due.select { |r| r[:done] }
     months = month_fraction(start_date, date)
     delivered = rows.select { |r| r[:done] && r[:delivered_at] && start_date && r[:delivered_at].between?(start_date, date) }
+    # Both counts and drill-downs use these exact sets; never rebuild them with
+    # current-status IssueQuery filters for a historical report.
+    sets = {
+      'open' => open, 'not_overdue' => not_overdue, 'started' => started, 'untouched' => untouched,
+      'due_soon' => not_overdue.select { |r| r[:due] && (r[:due] - date).to_i < 3 },
+      'missing_due' => open.select { |r| r[:due].nil? },
+      'missing_weight' => rows.select { |r| r[:missing_weight] },
+      'missing_delivery' => rows.select { |r| r[:done] && r[:delivered_at].nil? },
+      'done' => done, 'due' => due, 'delivered' => delivered
+    }
     {
+      detail_sets: sets,
       groups: [open, not_overdue, started, untouched], due: due, done: done,
-      due_soon: not_overdue.count { |r| r[:due] && (r[:due] - date).to_i < 3 },
-      missing_due: open.count { |r| r[:due].nil? }, missing_weight: rows.count { |r| r[:missing_weight] },
-      missing_delivery: rows.count { |r| r[:done] && r[:delivered_at].nil? },
+      due_soon: sets['due_soon'].size,
+      missing_due: sets['missing_due'].size, missing_weight: sets['missing_weight'].size,
+      missing_delivery: sets['missing_delivery'].size,
       monthly_count: months && delivered.size / months,
       monthly_weight: months && weight(delivered) / months
     }
