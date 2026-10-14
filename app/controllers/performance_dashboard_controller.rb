@@ -22,23 +22,37 @@ class PerformanceDashboardController < ApplicationController
     statuses = IssueStatus.all.index_by { |s| s.id.to_s }
     issues = Issue.visible(User.current).where(project_id: @project.id)
                   .joins(:tracker).where(trackers: { name: TicketJourneyPerformance::TRACKERS })
-                  .includes(:tracker, :custom_values, journals: :details)
+                  .where('issues.created_on <= ?', @date.in_time_zone.end_of_day)
+                  .select(Issue.column_names.reject { |name| name == 'description' }.map { |name| "issues.#{name}" })
+                  .preload(:project, :tracker, :custom_values)
     # Respect field visibility as well as issue visibility. Hidden owner data must
     # not become available through dashboard filtering or aggregates.
-    @detail_issues = {}
-    rows = issues.filter_map do |issue|
-      next unless issue.visible_custom_field_values.any? { |v| v.custom_field.id == 57 }
-      @detail_issues[issue.id] = issue if @metric
-      TicketJourneyPerformance.snapshot(issue, @date, statuses)
+    rows = []
+    owner_ids = Set.new
+    # Query caching otherwise retains the SQL results of every batch until the
+    # request ends, defeating bounded issue/history loading on large projects.
+    Issue.uncached do
+      issues.find_in_batches(batch_size: TicketJourneyPerformance::BATCH_SIZE) do |batch|
+        history = TicketJourneyPerformance.history_for(batch.map(&:id), @date)
+        batch.each do |issue|
+          visible_values = issue.visible_custom_field_values
+          next unless visible_values.any? { |v| v.custom_field.id == 57 }
+          row = TicketJourneyPerformance.snapshot(issue, @date, statuses,
+            history: history.fetch(issue.id, []), visible_values: visible_values)
+          next unless row
+          owner_ids << row[:owner_id] if row[:owner_id].present?
+          rows << row if row[:owner_id] == params[:owner_id].to_s
+        end
+      end
     end
-    @owners = User.where(id: rows.map { |r| r[:owner_id] }.reject(&:blank?).uniq).order(:lastname, :firstname).to_a
+    @owners = User.where(id: owner_ids.to_a).order(:lastname, :firstname).to_a
     @owner = @owners.find { |u| u.id.to_s == params[:owner_id].to_s }
     @owner ||= @owners.find { |u| u.id == User.current.id } if params[:owner_id].blank?
     unless @owner
       return render_404 if @metric
       return
     end
-    @report = TicketJourneyPerformance.calculate(rows.select { |r| r[:owner_id] == @owner.id.to_s }, @date, @start_date)
+    @report = TicketJourneyPerformance.calculate(rows, @date, @start_date)
     @targets = %w[count weight].map { |kind| monthly_target(@settings["performance_#{kind}_field_id"]) }
     if @metric
       @detail_title = TicketJourneyPerformance::DETAIL_LABELS.fetch(@metric)
@@ -48,6 +62,10 @@ class PerformanceDashboardController < ApplicationController
       @page_count = [(@detail_count / 100.0).ceil, 1].max
       @page = [[params[:page].to_i, 1].max, @page_count].min
       @detail_rows = @detail_rows.slice((@page - 1) * 100, 100) || []
+      @detail_issues = Issue.visible(User.current).where(project_id: @project.id, id: @detail_rows.map { |row| row[:id] })
+                            .includes(:tracker).index_by(&:id)
+      # A permission change during this request must not disclose a stale row.
+      @detail_rows.select! { |row| @detail_issues.key?(row[:id]) }
       render :details
     end
   rescue ArgumentError

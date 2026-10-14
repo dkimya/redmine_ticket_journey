@@ -29,7 +29,7 @@ class PerformanceDashboardTest < ActionController::TestCase
   test 'selected owner renders metrics and missing configuration explanations' do
     issue = Issue.find(1)
     issue.tracker.update!(name: 'Bug')
-    Issue.expects(:visible).returns(Issue.where(id: issue.id))
+    Issue.expects(:visible).at_least_once.returns(Issue.where(id: issue.id))
     Issue.any_instance.stubs(:visible_custom_field_values).returns([stub(custom_field: stub(id: 57))])
     TicketJourneyPerformance.stubs(:snapshot).returns({ id: issue.id, owner_id: '1',
       due: Date.current, open: true, done: false, started: false,
@@ -57,7 +57,7 @@ class PerformanceDashboardTest < ActionController::TestCase
     issue = Issue.find(1)
     issue.tracker.update!(name: 'Bug')
     date = Date.current - 2
-    Issue.expects(:visible).returns(Issue.where(id: issue.id))
+    Issue.expects(:visible).at_least_once.returns(Issue.where(id: issue.id))
     Issue.any_instance.stubs(:visible_custom_field_values).returns([stub(custom_field: stub(id: 57))])
     TicketJourneyPerformance.stubs(:snapshot).returns({ id: issue.id, owner_id: '1', status_name: 'Historical Review',
       due: date - 1, open: true, done: false, started: true,

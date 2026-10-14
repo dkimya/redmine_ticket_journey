@@ -68,5 +68,10 @@ class TicketJourneyPerformanceTest < ActiveSupport::TestCase
     assert_equal date - 1, result[:due]
     assert_equal 13, result[:weight]
     assert_nil result[:delivered_at]
+    # The production path supplies compact history and must not lazy-load journals.
+    history = issue.journals
+    issue.unstub(:journals)
+    issue.expects(:journals).never
+    assert_equal result, TicketJourneyPerformance.snapshot(issue, date, statuses, history: history)
   end
 end

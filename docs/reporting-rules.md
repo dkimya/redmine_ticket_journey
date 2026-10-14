@@ -49,6 +49,8 @@ A single Export dropdown in the page header offers Ticket Journey CSV (journey d
 
 ## Performance Results — Tickets (implemented; provisional rules, server verification pending)
 
+- Memory optimization: report execution scans visible in-scope issues created by the report date in batches of 100, excluding issue descriptions. It loads only scalar status changes and post-report owner changes, without journal notes or unrelated details. Query caching is disabled for the scan; only selected-owner snapshot hashes and distinct owner IDs survive batches. Drill-down records load only for the selected 100-row page. Calculation/date/visibility rules remain the same; selected-owner result memory still grows with that owner's ticket count. Server memory validation is pending.
+
 - Initial menu navigation loads project-member owner choices only, without scanning issues or journals. Apply (an explicit owner selection) runs the report; report/drill-down URLs retaining owner/date still calculate directly. Calculated results discover additional historical owners from visible tickets. This loading optimization awaits server timing verification.
 
 - Separate project menu and permission under Dashboard. One owner, one project, visible issues only. Included trackers: Bug, Change Request / Improvement, Feature, Task (Business Jobs). All non-closed statuses count as open. User Story and containers are excluded pending clarification.

@@ -1,5 +1,8 @@
 # Calculation rules for Performance Section 1. No writes or stored counters.
 class TicketJourneyPerformance
+  BATCH_SIZE = 100
+  HistoryDetail = Struct.new(:property, :prop_key, :old_value, :value)
+  HistoryJournal = Struct.new(:id, :created_on, :details)
   TRACKERS = ['Bug', 'Change Request / Improvement', 'Feature', 'Task (Business Jobs)'].freeze
   STARTED = ['In Progress', 'Inprogress', 'Feedback', 'Returned', 'Review', 'Ready to Merge', 'Final Check', 'Done / Closed'].freeze
   DETAIL_LABELS = {
@@ -12,13 +15,37 @@ class TicketJourneyPerformance
     'delivered' => 'Monthly Delivery Contributors'
   }.freeze
 
-  def self.snapshot(issue, date, statuses)
+  # Fetch scalar changes only: journal notes and unrelated fields can dwarf the
+  # report data. Future owner changes are needed to rewind reassigned tickets;
+  # all status changes are needed for started/completion and historical status.
+  def self.history_for(issue_ids, date)
+    result = Hash.new { |hash, id| hash[id] = [] }
+    journals = {}
+    JournalDetail.joins(:journal)
+      .where(journals: { journalized_type: 'Issue', journalized_id: issue_ids })
+      .where("(journal_details.property = ? AND journal_details.prop_key = ?) OR (journal_details.property = ? AND journal_details.prop_key = ? AND journals.created_on > ?)",
+             'attr', 'status_id', 'cf', '57', date.in_time_zone.end_of_day)
+      .order('journals.created_on', 'journals.id', 'journal_details.id')
+      .pluck('journals.journalized_id', 'journals.id', 'journals.created_on',
+             'journal_details.property', 'journal_details.prop_key', 'journal_details.old_value', 'journal_details.value')
+      .each do |issue_id, journal_id, created_on, property, key, old_value, value|
+        journal = journals[journal_id] ||= begin
+          entry = HistoryJournal.new(journal_id, created_on, [])
+          result[issue_id] << entry
+          entry
+        end
+        journal.details << HistoryDetail.new(property, key, old_value, value)
+      end
+    result
+  end
+
+  def self.snapshot(issue, date, statuses, history: nil, visible_values: nil)
     cutoff = date.in_time_zone.end_of_day
     return if issue.created_on > cutoff
 
     status_id = issue.status_id.to_s
     owner_id = issue.custom_value_for(57)&.value.to_s
-    changes = issue.journals.sort_by { |j| [j.created_on, j.id] }
+    changes = (history || issue.journals).sort_by { |j| [j.created_on, j.id] }
     # Reverse later changes, including explicit blank owners; only absent history
     # falls back to today's value. Due date and weight intentionally stay current.
     changes.reverse_each do |journal|
@@ -41,7 +68,7 @@ class TicketJourneyPerformance
         delivered_at = journal.created_on.in_time_zone.to_date if new_name == 'Done / Closed' && old_name != new_name
       end
     end
-    weight_value = issue.visible_custom_field_values.find { |v| v.custom_field.id == 70 }&.value
+    weight_value = (visible_values || issue.visible_custom_field_values).find { |v| v.custom_field.id == 70 }&.value
     weight = weight_value.to_s.tr(',', '.').to_f
     valid_weight = weight.finite? && weight.positive?
     {
