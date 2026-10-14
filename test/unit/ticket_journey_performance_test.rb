@@ -54,6 +54,7 @@ class TicketJourneyPerformanceTest < ActiveSupport::TestCase
     date = Date.new(2026, 10, 14)
     statuses = { '5' => stub(name: 'Done / Closed', is_closed: true), '7' => stub(name: 'Archived', is_closed: true) }
     issue = stub(id: 1, created_on: date.in_time_zone - 5.days, status_id: 7, due_date: date)
+    issue.stubs(:start_date).returns(nil)
     issue.stubs(:custom_value_for).with(57).returns(stub(value: '7'))
     history = [TicketJourneyPerformance::HistoryJournal.new(1, (date + 1).in_time_zone, [
       TicketJourneyPerformance::HistoryDetail.new('attr', 'status_id', '5', '7')
@@ -84,6 +85,7 @@ class TicketJourneyPerformanceTest < ActiveSupport::TestCase
                  '3' => status.new('Review ', false), '4' => status.new('Pending', false),
                  '5' => status.new('On-Hold', false) }
     issue = stub(id: 1, created_on: date.in_time_zone - 5.days, status_id: 3, due_date: date - 1)
+    issue.stubs(:start_date).returns(nil)
     issue.stubs(:custom_value_for).with(57).returns(stub(value: '7'))
     snapshot = lambda do |history|
       TicketJourneyPerformance.snapshot(issue, date, statuses, history: history, visible_values: [])
@@ -121,6 +123,26 @@ class TicketJourneyPerformanceTest < ActiveSupport::TestCase
     assert_nil TicketJourneyPerformance.month_fraction(date + 1, date)
   end
 
+  test 'monthly averages use separate account and eligible weighted start dates' do
+    date = Date.new(2026, 10, 31)
+    completed = row(open: false, done: true, delivered_at: date, weight: 10, start_date: Date.new(2026, 10, 1))
+    early_open = row(weight: 5, start_date: Date.new(2026, 9, 1))
+    rows = [completed, early_open,
+            row(weight: 50, start_date: Date.new(2020, 1, 1), status_name: 'Ongoing'),
+            row(weight: 50, start_date: Date.new(2020, 1, 1), status_name: 'Archived', open: false),
+            row(weight: 0, start_date: Date.new(2019, 1, 1)), row(weight: 5, start_date: date + 1)]
+    result = TicketJourneyPerformance.calculate(rows, date, Date.new(2026, 10, 1))
+    assert_equal Date.new(2026, 10, 1), result[:count_start_date]
+    assert_equal Date.new(2026, 9, 1), result[:weight_start_date]
+    assert_equal 1, result[:monthly_count]
+    assert_equal 5, result[:monthly_weight]
+    assert_equal [completed], result[:detail_sets]['delivered_weight']
+    no_start = TicketJourneyPerformance.calculate([row(done: true, delivered_at: date)], date, date + 1)
+    assert_nil no_start[:monthly_count]
+    assert_nil no_start[:monthly_weight]
+    assert_empty no_start[:detail_sets]['delivered_weight']
+  end
+
   test 'snapshot reverses later status and owner changes but preserves current due date and weight' do
     date = Date.new(2026, 10, 13)
     detail = Struct.new(:property, :prop_key, :old_value, :value)
@@ -132,6 +154,7 @@ class TicketJourneyPerformanceTest < ActiveSupport::TestCase
     issue.stubs(:created_on).returns(date.in_time_zone - 2.days)
     issue.stubs(:status_id).returns(5)
     issue.stubs(:due_date).returns(date - 1)
+    issue.stubs(:start_date).returns(nil)
     issue.stubs(:custom_value_for).with(57).returns(Struct.new(:value).new('9'))
     issue.stubs(:visible_custom_field_values).returns([Struct.new(:custom_field, :value).new(Struct.new(:id).new(70), '13')])
     issue.stubs(:journals).returns([journal.new(1, (date + 1).in_time_zone, [

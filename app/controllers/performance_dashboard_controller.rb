@@ -20,7 +20,6 @@ class PerformanceDashboardController < ApplicationController
     end
     @settings = Setting.plugin_redmine_ticket_journey
     @delivery_target = TicketJourney::PerformanceSettings.delivery_target(@settings)
-    @start_date = configured_date(@settings['performance_start_date'])
     statuses = IssueStatus.all.index_by { |s| s.id.to_s }
     issues = Issue.visible(User.current).where(project_id: performance_project_ids)
                   .joins(:tracker).where(trackers: { name: TicketJourneyPerformance::TRACKERS })
@@ -56,6 +55,7 @@ class PerformanceDashboardController < ApplicationController
       return render_404 if @metric
       return
     end
+    @start_date = @owner.created_on&.in_time_zone&.to_date
     @report = TicketJourneyPerformance.calculate(rows, @date, @start_date)
     @targets = %w[count weight].map { |kind| monthly_target(@settings["performance_#{kind}_field_id"]) }
     if @metric
@@ -87,12 +87,6 @@ class PerformanceDashboardController < ApplicationController
 
   def find_project
     @project = Project.find(params[:project_id])
-  end
-
-  def configured_date(value)
-    Date.iso8601(value.to_s)
-  rescue ArgumentError
-    nil
   end
 
   def monthly_target(id)

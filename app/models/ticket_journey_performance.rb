@@ -17,7 +17,8 @@ class TicketJourneyPerformance
     'missing_weight' => 'Tickets Without Usable Complexity Weight',
     'missing_delivery' => 'Done Tickets Without Recorded Completion Dates',
     'done' => 'Done Tickets Due by Date', 'due' => 'Tickets Due by Date',
-    'delivered' => 'Monthly Delivery Contributors'
+    'delivered' => 'Monthly Ticket Count Contributors',
+    'delivered_weight' => 'Monthly Complexity Weight Contributors'
   }.freeze
 
   # Fetch scalar changes only: journal notes and unrelated fields can dwarf the
@@ -77,7 +78,7 @@ class TicketJourneyPerformance
     weight = weight_value.to_s.tr(',', '.').to_f
     valid_weight = weight.finite? && weight.positive?
     {
-      id: issue.id, owner_id: owner_id, due: issue.due_date, status_name: status&.name.to_s.strip,
+      id: issue.id, owner_id: owner_id, due: issue.due_date, start_date: issue.start_date, status_name: status&.name.to_s.strip,
       open: status && !status.is_closed, done: status&.name.to_s.strip == 'Done / Closed',
       started: started, delivered_at: delivered_at,
       weight: valid_weight ? weight : 0.0, missing_weight: !valid_weight
@@ -95,6 +96,13 @@ class TicketJourneyPerformance
     done = due.select { |r| r[:done] }
     months = month_fraction(start_date, date)
     delivered = delivery_rows.select { |r| r[:done] && r[:delivered_at] && start_date && r[:delivered_at].between?(start_date, date) }
+    # Use current Redmine Start dates and visible positive current weights.
+    # Open eligible tickets can establish the start of weight measurement too.
+    weight_start = delivery_rows.filter_map { |r| r[:start_date] if r[:weight].positive? && r[:start_date] && r[:start_date] <= date }.min
+    weight_months = month_fraction(weight_start, date)
+    weighted_delivered = delivery_rows.select do |r|
+      r[:weight].positive? && r[:done] && r[:delivered_at] && weight_start && r[:delivered_at].between?(weight_start, date)
+    end
     # Both counts and drill-downs use these exact sets; never rebuild them with
     # current-status IssueQuery filters for a historical report.
     sets = {
@@ -104,7 +112,7 @@ class TicketJourneyPerformance
       'missing_due' => open.select { |r| r[:due].nil? },
       'missing_weight' => rows.select { |r| r[:missing_weight] },
       'missing_delivery' => delivery_rows.select { |r| r[:done] && r[:delivered_at].nil? },
-      'done' => done, 'due' => due, 'delivered' => delivered
+      'done' => done, 'due' => due, 'delivered' => delivered, 'delivered_weight' => weighted_delivered
     }
     {
       detail_sets: sets,
@@ -114,7 +122,8 @@ class TicketJourneyPerformance
       missing_due: sets['missing_due'].size, missing_weight: sets['missing_weight'].size,
       missing_delivery: sets['missing_delivery'].size,
       monthly_count: months && delivered.size / months,
-      monthly_weight: months && weight(delivered) / months
+      count_start_date: start_date, weight_start_date: weight_start,
+      monthly_weight: weight_months && weight(weighted_delivered) / weight_months
     }
   end
 

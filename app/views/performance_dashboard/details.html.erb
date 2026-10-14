@@ -4,8 +4,8 @@
 <p><strong><%= @owner.name %></strong> · As of <%= format_date(@date) %> · <%= @detail_count %> tickets · Total usable complexity weight: <%= performance_number(@detail_weight) %></p>
 <p>Scope: Selected project and all subprojects, limited to visible projects and tickets.</p>
 <p class="info">Owner and status reflect the selected date. Project, subject, tracker, due date and complexity weight are current. These are the same ticket sets used by the dashboard, recalculated with your current permissions; edits since opening the dashboard may change results. Unavailable weights contribute zero to the total.</p>
-<% if %w[due done delivered missing_delivery].include?(@metric) %><p>Section 2 excludes Archived and Ongoing tickets based on their status at the selected report date.</p><% end %>
-<% if @metric == 'delivered' %><p>Monthly contributors from <%= @start_date ? format_date(@start_date) : 'unconfigured Day 0' %> through <%= format_date(@date) %>. The dashboard divides their totals by elapsed calendar months, prorating partial months.</p><% end %>
+<% if %w[due done delivered delivered_weight missing_delivery].include?(@metric) %><p>Section 2 excludes Archived and Ongoing tickets based on their status at the selected report date.</p><% end %>
+<% if %w[delivered delivered_weight].include?(@metric) %><% day_zero = @report[@metric == 'delivered' ? :count_start_date : :weight_start_date] %><p>Monthly contributors from <%= day_zero ? format_date(day_zero) : 'unavailable Day 0' %> through <%= format_date(@date) %>. The dashboard divides their totals by elapsed calendar months, prorating partial months.</p><% end %>
 <% if @detail_rows.empty? %>
   <p class="nodata">No tickets match this metric.</p>
 <% else %>

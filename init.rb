@@ -29,7 +29,7 @@ Redmine::Plugin.register :redmine_ticket_journey do
   author_url  ''
 
   requires_redmine version_or_higher: '6.0.0'
-  settings default: { 'performance_start_date' => '', 'performance_count_field_id' => '', 'performance_weight_field_id' => '', 'performance_delivery_target' => '90' },
+  settings default: { 'performance_count_field_id' => '', 'performance_weight_field_id' => '', 'performance_delivery_target' => '90' },
            partial: 'settings/ticket_journey_performance'
 
   # Register as a project module so it appears in Settings > Modules.
