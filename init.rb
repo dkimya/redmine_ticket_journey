@@ -26,13 +26,19 @@ Redmine::Plugin.register :redmine_ticket_journey do
   author_url  ''
 
   requires_redmine version_or_higher: '6.0.0'
+  settings default: { 'performance_start_date' => '', 'performance_count_field_id' => '', 'performance_weight_field_id' => '' },
+           partial: 'settings/ticket_journey_performance'
 
   # Register as a project module so it appears in Settings > Modules.
   project_module :ticket_journey do
+    permission :view_performance_dashboard, { performance_dashboard: [:index] }, read: true
     permission :view_ticket_journey, { ticket_journey: [:index, :show, :export, :pmo_control, :executive_overview, :executive_team_performance, :executive_bug_quality_risk, :executive_technical_debt, :sprint_delivery, :planning_estimation, :owner_returns, :qa_returns, :consecutive_returns, :owner_workload, :status_snapshot, :time_utilization, :aging_risk, :priority_risk, :cycle_distribution, :flow_report, :project_health, :release_readiness, :bug_analysis, :data_quality, :original_sprint] }, read: true
   end
 
   # Add a menu item under the project menu.
+  menu :project_menu, :performance_dashboard,
+       { controller: 'performance_dashboard', action: 'index' },
+       caption: 'Performance', after: :ticket_journey, param: :project_id
   menu :project_menu,
        :ticket_journey,
        { controller: 'ticket_journey', action: 'pmo_control' },

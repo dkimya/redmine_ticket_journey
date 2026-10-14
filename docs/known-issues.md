@@ -16,6 +16,8 @@ Reviewed 2026-10-13. **Server-confirmed** means user output/screenshots or expli
 
 ## Confirmation needed
 
+- Performance Section 1 is implemented locally with provisional calculation rules; it has not been deployed or verified through full Redmine requests. Local Ruby is unavailable, so its new tests remain unexecuted. Missing Extra Tasks rules leave cumulative targets unconfigured; monthly averages require Day 0 and User target-field setup. See [setup](performance-setup.md) and [Hadi questions](performance-hadi-questions.md).
+
 - Meeting wording “more than X” differs from implemented inclusive minimum (default 3). Confirm whether to retain this threshold/wording.
 - Complexity Weight tooltip specifies 5, 8, 13, 21; plugin accepts any positive finite parsed weight. Confirm whether strict plugin-side validation is wanted.
 - “Separate table” became a report view over journals, not database storage. Confirm only if persistence was intended; no schema change is planned.

@@ -15,6 +15,8 @@ Observed host: `/opt/redmine`, plugin `/opt/redmine/plugins/redmine_ticket_journ
 
 ## Verify
 
+For the new Performance page, also follow [Performance setup and verification](performance-setup.md). It requires separate role grants and administrator configuration of existing/new User target fields and Day 0. No migration or automatic field creation is included.
+
 - Ticket page, My page, and Issues work with Kanban Block and Return Count.
 - Select Return Count under Options → Columns; check numeric filtering, sorting, saved queries, and CSV. Compare a sample against journal history/lifetime report.
 - Check current due dates, carry-over boundaries, points/missing-weight links, and completion/debt totals in affected reports.

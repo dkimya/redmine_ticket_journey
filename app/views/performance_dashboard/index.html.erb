@@ -1,0 +1,75 @@
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'performance', plugin: 'redmine_ticket_journey' %>
+<% end %>
+<% html_title 'Performance' %>
+<div class="performance-page">
+  <header class="performance-header">
+    <div><p class="performance-eyebrow">PERFORMANCE RESULTS</p><h2>Tickets</h2><p>Ticket status and delivery performance as of <%= format_date(@date) %></p></div>
+    <%= form_tag performance_dashboard_path(@project), method: :get, class: 'performance-filters' do %>
+      <div><%= label_tag :as_of, 'As of Date' %><%= date_field_tag :as_of, @date.iso8601, max: Date.current.iso8601, required: true %></div>
+      <div><%= label_tag :owner_id, 'Ticket Owner' %><%= select_tag :owner_id, options_for_select(@owners.map { |u| [u.name, u.id] }, @owner&.id), include_blank: 'Select an owner', required: true %></div>
+      <%= submit_tag 'Apply', name: nil %>
+    <% end %>
+  </header>
+  <p class="performance-context">This project · One owner at a time · Visible tickets only <%= performance_tip('Includes Bug, Change Request / Improvement, Feature, and Task (Business Jobs). User Story and other trackers are excluded provisionally. Status and owner are reconstructed at the selected date; current due dates and weights are used. Historical edits can change past results. Missing history falls back to current values.') %></p>
+  <% if @report %>
+    <% groups = @report[:groups]; total_weight = TicketJourneyPerformance.weight(groups.first) %>
+    <section class="performance-section">
+      <h3><span class="performance-step">1</span> Open Tickets <%= performance_tip('All non-closed statuses are included, including New, On-Hold, Pending, and Ongoing. Archived is closed and is not a delivery. Missing due dates are included in Not Overdue; due today is not overdue. Started means recorded development-stage history by this date, including work before reassignment.') %></h3>
+      <div class="performance-open">
+        <% percentages = groups.drop(1).map { |g| performance_percent(g.size, groups.first.size) || 0 }; first = percentages[0]; second = first + percentages[1] %>
+        <div class="performance-distribution">
+          <div class="performance-chart-wrap"><div class="performance-donut" role="img" aria-label="<%= groups.first.size %> open tickets; Not overdue <%= performance_number(percentages[0]) %>%; Already started <%= performance_number(percentages[1]) %>%; Not touched <%= performance_number(percentages[2]) %>%" style="background: <%= groups.first.empty? ? '#e7edf3' : "conic-gradient(#00bc87 0% #{first}%, #ffad38 #{first}% #{second}%, #f65362 #{second}% 100%)" %>"><div><strong><%= groups.first.size %></strong><span>Open Tickets</span></div></div>
+            <% offset = 0; percentages.each_with_index do |percent, i| %>
+              <% angle = (offset + percent / 2) * Math::PI / 50; offset += percent %>
+              <% if percent.positive? %><span class="performance-segment-label" style="left: <%= 130 + Math.sin(angle) * 112 %>px; top: <%= 130 - Math.cos(angle) * 112 %>px"><%= performance_number(percent) %>%</span><% end %>
+            <% end %>
+          </div>
+          <div class="performance-legend">
+            <% ['Not Overdue', 'Overdue - Already Started', 'Overdue - Not Touched'].each_with_index do |label, i| %>
+              <p><span class="performance-dot performance-color-<%= i %>"></span><%= label %></p>
+            <% end %>
+          </div>
+        </div>
+        <div class="performance-cards">
+          <% ['Total Open Tickets', 'Not Overdue Open Tickets', 'Overdue - Already Started', 'Overdue - Not Touched'].each_with_index do |label, i| %>
+            <article class="performance-card performance-card-<%= i %>">
+              <h4><%= label %></h4><strong class="performance-value"><%= groups[i].size %></strong>
+              <div class="performance-secondary"><% if i == 1 %>Due soon (&lt;3 days): <b><%= @report[:due_soon] %></b> <%= performance_tip('Due today, tomorrow, or the following day. Tickets without a due date are excluded from Due Soon.') %><% end %></div>
+              <p>Sum of Complexity Weight</p><div><strong class="performance-weight"><%= performance_number(TicketJourneyPerformance.weight(groups[i])) %></strong>
+              <% if i > 0 %><span>(<%= total_weight.positive? ? "#{performance_number(performance_percent(TicketJourneyPerformance.weight(groups[i]), total_weight))}%" : 'N/A' %>)</span><% end %></div>
+            </article>
+          <% end %>
+        </div>
+      </div>
+    </section>
+    <section class="performance-section">
+      <h3><span class="performance-step">2</span> Delivery Metrics (Tickets Due by Date) <%= performance_tip('Cumulative delivery uses tickets with a current due date on or before the report date. The numerator includes only those tickets in Done / Closed at that date. Archived and reopened tickets are not counted as done. No due date means excluded from both delivery ratios. Each ticket counts once.') %></h3>
+      <div class="performance-delivery">
+        <div class="performance-ratios">
+          <% [['Done Tickets / Due Tickets', @report[:done].size, @report[:due].size], ['Done Weight / Due Weight', TicketJourneyPerformance.weight(@report[:done]), TicketJourneyPerformance.weight(@report[:due])]].each do |label, done, due| %>
+            <% percent = performance_percent(done, due) %>
+            <article class="performance-metric"><h4><%= label %></h4><div class="performance-donut performance-small" style="background: conic-gradient(#008fff 0% <%= percent || 0 %>%, #e7edf3 <%= percent || 0 %>% 100%)"><div><strong><%= percent ? "#{performance_number(percent)}%" : 'N/A' %></strong><span><%= performance_number(done) %> / <%= performance_number(due) %></span></div></div><p>Target: Not configured <%= performance_tip('Required target is 90% without Extra Tasks or 80% with Extra Tasks. The source and effective dates for Extra Tasks have not been defined, so no target or pass/fail assessment is assumed.') %></p></article>
+          <% end %>
+        </div>
+        <% [['No. of Tickets', @report[:monthly_count], @targets[0]], ['Complexity Weight', @report[:monthly_weight], @targets[1]] .each do |label, actual, target| %>
+          <article class="performance-metric performance-monthly">
+            <h4>Average Monthly Delivered<br>(<%= label %>) <%= performance_tip('Distinct tickets in Done / Closed at the report date whose most recent recorded completion falls from configured Day 0 through the report date. Partial months are prorated by calendar days, including the report date. Ownership is taken at the report date. These provisional rules await Hadi’s confirmation. Targets come from configured public User fields; missing or nonpositive targets are unavailable.') %></h4>
+            <% if actual && target %>
+              <% deviation = (actual - target) * 100 / target; scale = [actual, target].max * 1.2; actual_position = actual * 100 / scale; target_position = target * 100 / scale %>
+              <p class="performance-deviation <%= deviation >= 0 ? 'performance-good' : 'performance-bad' %>"><%= '+' if deviation >= 0 %><%= performance_number(deviation) %>% vs Target <%= performance_tip('Green means at or above target; red means below target. The separate requirement allowing a shortfall below 10% awaits clarification; this color is not a final tolerance-based pass/fail result.') %></p>
+              <div class="performance-bar-area"><div class="performance-bar"><span style="width: <%= actual_position %>%; background: <%= deviation >= 0 ? '#00bc87' : '#f65362' %>"></span><b class="performance-actual" style="left: <%= actual_position %>%"><%= performance_number(actual) %></b><i style="left: <%= target_position %>%"></i><span class="performance-target" style="left: <%= target_position %>%"><%= performance_number(target) %><br>Target</span></div></div>
+            <% else %>
+              <p class="performance-unavailable"><%= actual.nil? ? 'Average: N/A — configure Day 0' : "Average: #{performance_number(actual)}" %></p><p><%= target.nil? ? 'Target: Not configured or unavailable' : "Target: #{performance_number(target)}" %></p>
+            <% end %>
+          </article>
+        <% end %>
+      </div>
+    </section>
+    <details class="performance-notes"><summary>Calculation notes and data quality</summary>
+      <p>Monthly reporting start: <%= @start_date ? format_date(@start_date) : 'Not configured' %>. Day 0 after the report date makes monthly averages unavailable. Delivery ratios include all tickets due by the report date, including older backlog.</p>
+      <p><%= @report[:missing_due] %> open tickets have no due date and are included in Not Overdue. <%= @report[:missing_weight] %> tickets have missing, hidden, or nonpositive weights; they contribute no weight but still count as tickets. <%= @report[:missing_delivery] %> done tickets lack a recorded completion date and are excluded from monthly averages.</p>
+      <p>Current issue permissions limit every result. Targets use current user field values, not historical target snapshots. One owner is supported pending agreement on target aggregation.</p>
+    </details>
+  <% else %><p class="nodata">Select a Ticket Owner to view performance. Owners appear when they have visible tickets in the included trackers at the selected date.</p><% end %>
+</div>

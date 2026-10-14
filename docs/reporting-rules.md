@@ -47,6 +47,16 @@ The section starts expanded with all details. Collapse hides its body; Compact v
 
 A single Export dropdown in the page header offers Ticket Journey CSV (journey durations/returns) and Tickets Time CSV (estimates/logged hours/activity/totals). The time section has no separate export button. Time CSV was an assistant suggestion approved by the user, not an explicit requirement from Hadi. This export layout awaits server visual verification.
 
-## Future
+## Performance Results — Tickets (implemented; provisional rules, server verification pending)
+
+- Separate project menu and permission under Dashboard. One owner, one project, visible issues only. Included trackers: Bug, Change Request / Improvement, Feature, Task (Business Jobs). All non-closed statuses count as open. User Story and containers are excluded pending clarification.
+- Status and owner are reconstructed at report-date end of day by reversing later journal changes. Missing history falls back to current values; recorded blank owners stay blank. Current due dates and visible current weights (#70) are preserved. Hidden Ticket Owner (#57) fields exclude issues from this report.
+- Open groups partition the total: Not Overdue (including missing due dates), overdue started, overdue untouched. Due date equal to report date is not overdue. Due Soon covers today through +2 calendar days. Started means current/as-of development stage or recorded earlier In Progress, Feedback, Returned, Review, Ready to Merge, Final Check, or Done / Closed; it does not require activity by the selected owner personally.
+- Due population has current due date on/before report date, including older backlog. Done numerator is the subset in Done / Closed at report date. Archived/reopened work does not qualify. Each ticket counts once; no due date excludes tickets from both ratios. Zero denominators show N/A.
+- Monthly averages require configured common Day 0. Count distinct tickets still Done / Closed whose latest recorded completion is in the inclusive Day-0-to-report-date window. Ownership is at report date. Divide by calendar months with partial months prorated by their actual day count. Missing completion dates exclude tickets from monthly averages with a note.
+- Targets use selected numeric User custom fields and current positive finite values. Non-admins see only public fields. No fields or target values are created automatically. Extra Tasks has no confirmed source, so the 80%/90% target remains unconfigured. Multiple owners and tolerance-based pass/fail are deferred. Below-target monthly deviation is red; at/above target is green.
+- Missing/hidden/nonpositive/nonfinite weights contribute no weight and are reported in notes. Monthly fields, Day 0 and web behavior require setup/verification; see [setup](performance-setup.md) and [Hadi questions](performance-hadi-questions.md).
+
+## Future work
 
 Automated return alarms, notifications, and alarm KPI cards are deferred; no implementation is claimed.
