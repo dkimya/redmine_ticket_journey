@@ -19,6 +19,7 @@ class PerformanceDashboardController < ApplicationController
       return
     end
     @settings = Setting.plugin_redmine_ticket_journey
+    @delivery_target = TicketJourney::PerformanceSettings.delivery_target(@settings)
     @start_date = configured_date(@settings['performance_start_date'])
     statuses = IssueStatus.all.index_by { |s| s.id.to_s }
     issues = Issue.visible(User.current).where(project_id: performance_project_ids)

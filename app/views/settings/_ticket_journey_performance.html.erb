@@ -1,8 +1,9 @@
 <fieldset><legend>Performance Dashboard</legend>
+  <p><label for="settings_performance_delivery_target">Delivery Target (%)</label><%= number_field_tag 'settings[performance_delivery_target]', TicketJourney::PerformanceSettings.delivery_target(settings), id: 'settings_performance_delivery_target', min: 0, max: 100, step: 'any', required: true %> Default: 90%. Shared by Done Tickets / Due Tickets and Done Weight / Due Weight for all employees and projects. Changes also apply to past report dates; actual delivery percentages are unchanged.</p>
   <p>Configure existing numeric User custom fields. Create each field only if it does not already exist. No fields are created automatically.</p>
   <p><label for="settings_performance_start_date">Day 0</label><%= date_field_tag 'settings[performance_start_date]', settings['performance_start_date'], id: 'settings_performance_start_date' %> Monthly averages remain unavailable until configured.</p>
   <% [['count', 'Expected Monthly Ticket Count'], ['weight', 'Expected Monthly Complexity Weight']].each do |key, label| %>
     <p><label for="settings_performance_<%= key %>_field_id"><%= label %></label><%= select_tag "settings[performance_#{key}_field_id]", options_for_select(UserCustomField.where(field_format: %w[int float]).order(:name).map { |f| ["#{f.name} (##{f.id})", f.id] }, settings["performance_#{key}_field_id"]), include_blank: 'Not configured', id: "settings_performance_#{key}_field_id" %></p>
   <% end %>
-  <p>Only public target fields are shown to non-administrators. Extra Tasks and combined-owner targets are pending PMO clarification.</p>
+  <p>Only public monthly target fields are shown to non-administrators. Monthly employee targets are separate from the shared delivery percentage. No Extra Tasks adjustment applies.</p>
 </fieldset>

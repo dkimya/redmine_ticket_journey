@@ -35,3 +35,5 @@ Future return alarms are documented in [reporting rules](reporting-rules.md); re
 - User confirmed the memory fix runs without error and much faster; peak memory and concurrent-load behavior remain unmeasured. Project inheritance is now implemented locally for all descendant levels and visible project members, with a Project drill-down column; deployment verification is pending.
 
 - Hadi's Open Tickets feedback implemented locally: Not Touched now requires no In Progress evidence by report date; other development stages no longer imply Started. Stopped (On-Hold/Pending as of date) appears below Total Open Tickets with a drill-down while remaining in the existing groups. Server calculation/layout verification pending.
+
+- Hadi resolved Extra Tasks: use one shared 90% delivery target for now. Implemented configurable Delivery Target (%) with numeric 0–100 validation for both delivery indicators. Prior notes about an unconfigured Extra Tasks target are superseded. Server settings-save/render verification is pending.

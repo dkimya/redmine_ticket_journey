@@ -40,8 +40,12 @@ class PerformanceDashboardTest < ActionController::TestCase
     assert_select '.performance-card', count: 4
     assert_select '.performance-card-0 .performance-secondary', text: /Stopped:/
     assert_select '.performance-card-0 a[href*="metric=stopped"]', count: 1
-    assert_select '.performance-metric', text: /Target: Not configured/
+    assert_select '.performance-ratios .performance-metric p', text: /Target: 90%/, count: 2
     assert_select '.performance-unavailable', text: /configure Day 0/, count: 2
+    Setting.plugin_redmine_ticket_journey = { 'performance_delivery_target' => '92.5' }
+    get :index, params: { project_id: @project.identifier, owner_id: '1' }
+    assert_response :success
+    assert_select '.performance-ratios .performance-metric p', text: /Target: 92.5%/, count: 2
   end
 
   test 'future dates are rejected' do

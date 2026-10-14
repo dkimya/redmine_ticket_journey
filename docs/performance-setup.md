@@ -9,7 +9,7 @@ Implemented in repository; not deployed or server-verified. Server output suppli
 3. In Administration → Plugins → PMO Dashboard → Configure, select these fields and set the approved Day 0. Leave Day 0 blank until decided; monthly averages display N/A. Missing, private, zero, or invalid targets display unavailable.
 4. Populate the two fields on each relevant user. No target values are invented or bulk populated.
 5. In Roles and permissions, **Dashboard** groups **PMO Dashboard** and **Performance Dashboard**. Grant the new permission to intended roles. Existing permission/module identifiers are retained, so PMO grants remain intact. Enable the project's existing module, now labelled Dashboard.
-6. Open project → Performance. Select one Ticket Owner and an As of Date. Extra Tasks targets remain unconfigured until the rule/source is agreed.
+6. Open project → Performance. Select one Ticket Owner and an As of Date. Both delivery indicators use the shared Delivery Target (%) under plugin Configure, defaulting to 90%. No Extra Tasks adjustment applies. Change it to any number from 0 to 100; changing it also affects targets shown for historical dates. Monthly User targets remain separate.
 
 ## Verification on a configured test Redmine installation
 
