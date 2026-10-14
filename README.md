@@ -1,187 +1,23 @@
 # redmine_ticket_journey
 
-**Ticket Journey Report** — Redmine Plugin
-Calculates D1–D7-aug durations and return counters for every issue,  
-based on the **Ticket Journey Map** by Manage Petro.
+**PMO Dashboard / Ticket Journey Report** — Redmine plugin for ticket journeys, team performance, sprint delivery, debt, returns, and related reports.
 
----
+## Documentation
 
-## Features
+- [Project guidance and checks](AGENTS.md)
+- [Reporting rules](docs/reporting-rules.md)
+- [Deployment, verification, and logs](docs/deployment.md)
+- [Known issues, evidence, and open decisions](docs/known-issues.md)
 
-- Calculates all 13 duration fields (D1, D2, D2-aug, D3, D3-aug, D4, D4-aug, D5, D5-aug, D6, D6-aug, D7-aug, D7) per issue
-- Tracks 4 return counters (C1–C4) for each error type
-- Project-level menu item under every project
-- Filters by date range, tracker, and assignee
-- Single-issue detail view with bar chart + status timeline
-- CSV export of full report
-- Client-side search/filter
+These documents distinguish implemented code, server-confirmed behavior, and deferred plans. They replace the outdated requirements and mappings in the earlier README.
 
----
+## Requirements and use
 
-## Requirements
+`init.rb` requires **Redmine 6.0+**. Use a Ruby version compatible with the host Redmine. Full database portability is not established: controller journal SQL still uses MySQL/MariaDB-style casts.
 
-- Redmine 4.0.0 or higher
-- Ruby 2.6+
-- MySQL or MariaDB (uses `CAST(... AS UNSIGNED)` for journal_details values)
-  - For PostgreSQL: change `CAST(jd.old_value AS UNSIGNED)` → `jd.old_value::integer`
-
----
-
-## Installation
-
-1. **Copy** the plugin folder into your Redmine plugins directory:
-
-```bash
-cp -r redmine_ticket_journey /path/to/redmine/plugins/
-```
-
-2. **Restart** Redmine:
-
-```bash
-cd /path/to/redmine
-bundle exec rake redmine:plugins:migrate RAILS_ENV=production
-touch tmp/restart.txt
-# or: systemctl restart redmine / passenger-config restart-app .
-```
-
-3. **Verify** the plugin appears at:
-   `Administration → Plugins`
-
----
-
-## Status Name Configuration
-
-By default the plugin maps these Redmine status names:
-
-| Role         | Default names accepted                        |
-|--------------|-----------------------------------------------|
-| New          | `New`                                         |
-| To-Do        | `To-Do`, `To Do`, `ToDo`                      |
-| In Progress  | `In Progress`                                 |
-| Feedback     | `Feedback`                                    |
-| Review       | `Review`                                      |
-| Ready to Merge | `Ready to Merge`, `Ready to merge`          |
-| Final Check  | `Final Check`                                 |
-| Done         | `Done`, `Closed`                              |
-
-To use different names, edit the `STATUS_NAMES` constant at the top of:
-```
-app/controllers/ticket_journey_controller.rb
-```
-
----
-
-## Duration Field Reference
-
-| Field   | Measures                                      | By           |
-|---------|-----------------------------------------------|--------------|
-| D1      | Time in **New** status (Planning)             | Team Lead    |
-| D2      | Time in **To-Do** — 1st visit                 | Ticket Owner |
-| D2-aug  | Time in **To-Do** — subsequent visits (sum)   | Ticket Owner |
-| D3      | Time in **In Progress** — 1st visit           | Ticket Owner |
-| D3-aug  | Time in **In Progress** — 2nd+ visits (sum)   | Ticket Owner |
-| D4      | Time in **Feedback** — 1st visit              | Assigned QA  |
-| D4-aug  | Time in **Feedback** — 2nd+ visits (sum)      | Assigned QA  |
-| D5      | Gap: last Feedback exit → first Review enter  | Assigned QA  |
-| D5-aug  | Time in **Review** — 1st visit (Code Review)  | Team Lead    |
-| D6      | Gap: last Review exit → Ready to Merge enter  | Team Lead    |
-| D6-aug  | Time in **Ready to Merge** (Integration)      | Team Lead    |
-| D7-aug  | Time in **Final Check** (Post-Int QA)         | Team Lead    |
-| D7      | Gap: last Final Check exit → Done enter       | Team Lead    |
-
-### Return Counters
-
-| Counter | Trigger                                    | Error Type              |
-|---------|--------------------------------------------|-------------------------|
-| C1      | Feedback → Returned                       | Function-Fail / Granular |
-| C2      | Review → Returned                         | Code-Quality-Fail        |
-| C3      | Ready to Merge → Returned                 | Merge-Conflict Error     |
-| C4      | Final Check → Returned                    | E2E-Fail / Side Effect   |
-| C5      | Done / Closed → Returned                  | Fail QA Pass            |
-
-### Consecutive Returns
-
-Open **Rework Analysis → Consecutive Returns** for a separate return-count table and individual event histories.
-Despite the meeting's name, this is a cumulative lifetime count: advancing through stages or completing a ticket never resets it.
-Set **Minimum returns (inclusive)** to 3 to show tickets with at least three returns, or X + 1 to show more than X.
-All qualifying stages contribute to the same total, regardless of reason. Technical tickets use C1–C5; business tasks use C1, C4, C5, matching the existing journey counters.
-Customer Support and container families have no configured return counters and are excluded.
-
-Events come directly from Redmine's existing journal tables, identified by journal-detail ID, so no duplicate storage, migration, or backfill is required.
-Only transitions into the explicit `Returned` status count; `Returned → In Progress` does not add a second event.
-The first visit includes all statuses; explicit Redmine filters and saved queries select tickets, while counts always use their full history.
-There is no top-10 or top-150 cutoff on this list. Automated alarms and KPI cards are deferred.
-
-After copying the updated plugin into Redmine, restart the Redmine application. No Ruby runner or migration command is needed for this feature.
-To run the regression tests in a Redmine development/test installation, from the **Redmine root**:
-
-```bash
-bundle exec rake redmine:plugins:test NAME=redmine_ticket_journey RAILS_ENV=test
-```
-
----
-
-## Usage
-
-### Performance report due dates
-
-The Team Performance report reconstructs historical statuses, ownership, completion events, returns, and logged activity for the selected period.
-Due dates are an explicit exception: beginning debt, new commitments, and end debt always use each ticket's **current due date**, including when reporting an earlier period.
-A blank current due date remains missing; an older journal value is never restored.
-Changing a deadline can therefore change commitment/debt totals (and dependent performance metrics) when rerunning a past report.
-This change requires only deploying the updated plugin and restarting Redmine; no migration or backfill is needed.
-
-### Return Count on tickets and native lists
-
-The normal Redmine ticket page displays a read-only **Return Count** among its attributes.
-In standard issue lists, open **Options → Columns**, select **Return Count**, and apply or save the query.
-The column supports numeric sorting and filters such as **Return Count ≥ 3**, and is included in standard CSV exports when selected.
-It uses the same lifetime counting rules and journey families as the Consecutive Returns report; completion never resets it and tickets without returns show 0.
-All counts are derived from existing journal records, including old tickets, and refresh when the page/query is reloaded.
-No custom field, migration, backfill, or Ruby runner is required. Deploy the plugin files and restart Redmine.
-This extends standard Redmine query-based lists and the Ticket Journey report's selectable native columns; other plugins' custom lists may require their own integration.
-
-### Carry-over criteria
-
-Sprint Delivery and Planning Quality classify a related ticket as **carry-over** when its **current due date is strictly before the selected sprint's start date**.
-A due date equal to or after the start is not carry-over. Missing ticket due dates or a missing sprint start cannot be classified as carry-over.
-Original Sprint is displayed only as reference information and does not determine carry-over, its percentages, owner totals, or flags.
-Completed tickets can count as carry-over work; Technical Debt includes only unfinished carry-over tickets.
-Current Scope is the remaining sprint scope, including tickets without due dates, which are also identified separately as missing due date.
-Editing a current due date can change the results when an earlier sprint is rerun. No migration or backfill is required.
-
-### Navigation
-
-The Team Performance delivery table includes sortable **Committed Points** (next to Total Commitment) and **Completed Points** (next to Total Done).
-They sum the **current Complexity Weight** from custom field #70, once per distinct ticket, following the same owner attribution as each ticket count.
-Completed Points includes both Done Committed and Other Done. Returns never multiply points.
-Click a points total to inspect contributing tickets; a separate missing-weight count links to tickets without a valid positive weight, which contribute no points.
-Changing Complexity Weight can change points when rerunning an earlier period. No migration or backfill is required.
-
-1. Navigate to any project
-2. Click **PMO Dashboard** in the project menu
-3. Use date / tracker / assignee filters and click **Apply**
-4. Click any **#issue-id** link to see the detail view with bar chart and timeline
-5. Click **Export CSV** to download the full report
-
----
-
-## PostgreSQL Notes
-
-In `app/controllers/ticket_journey_controller.rb`, replace:
-```sql
-CAST(jd.old_value AS UNSIGNED)
-CAST(jd.value AS UNSIGNED)
-```
-with:
-```sql
-CAST(jd.old_value AS INTEGER)
-CAST(jd.value AS INTEGER)
-```
-
----
+Install under the host's `plugins/redmine_ticket_journey` directory, enable the Ticket Journey project module, and grant `view_ticket_journey` as appropriate. Open **PMO Dashboard** from a project. Follow the deployment document when applying changes.
 
 ## License
 
-MIT — Free to use and modify.  
+MIT — Free to use and modify.
 Prepared by: Hadi (Harvey) Afshari — Manage Petro Project Manager
