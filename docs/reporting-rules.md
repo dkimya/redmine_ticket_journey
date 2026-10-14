@@ -33,6 +33,16 @@ Points link to contributors; missing/nonpositive/nonfinite weights add no points
 
 Done Activities Points measures tickets worked on, not necessarily completed work. End-of-Report Status separates Completed Tickets (H/H+/T) from End-of-Period Debt (I1/I2/I), with independent totals. Current weight edits can change past report points.
 
+## Tickets Time Report — implemented; server verification pending
+
+Above the journey-family sections, one row per distinct filtered ticket, with Issue/Subject plus standard columns selected in Options. Dev. Estimate uses the visible current Ticket Owner Estimation (#56); PM Estimate uses current Redmine Estimated time. Estimates are positive finite hours; missing, zero, negative, or malformed estimates show unavailable.
+
+Time Spent sums lifetime direct time entries through `TimeEntry.visible(User.current)`; issue date filters do not filter entry dates. Parent rows exclude child-ticket rollups. The activity dropdown changes only activity hours, defaults to All activities, and includes project-configured activities plus those found in visible entries. Unknown selections fall back to All activities with a warning. Selection survives report parameter links and the separate Time CSV export.
+
+Spent / PM Estimate is a percentage. The total ratio is summed spent hours divided by summed PM estimates **only for tickets with positive PM estimates and permission to view time**, not an average of row percentages. Other hours still contribute to the displayed Time Spent total; the exclusion count explains the difference. No time-view permission shows unavailable, not zero. With permission, no visible entries means zero. Other visibility restrictions may yield partial totals; all hours are explicitly labelled visible.
+
+Totals sum each numeric column over distinct tickets. CSV includes selected standard columns, selected activity in its header, totals, and exclusion/missing-value notes. UI tooltips explain fields, ratio examples, time scope, and permissions. Estimates are current, not historical snapshots. No schema changes.
+
 ## Future
 
 Automated return alarms, notifications, and alarm KPI cards are deferred; no implementation is claimed.

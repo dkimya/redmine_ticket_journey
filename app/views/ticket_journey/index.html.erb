@@ -136,6 +136,8 @@
   <% else %>
     <% native_columns = visible_native_query_columns(@query) %>
 
+    <%= render partial: 'tickets_time_report', locals: { report: @ticket_time_report, native_columns: native_columns } %>
+
     <% @report_sections.each do |section| %>
       <% family_key = section[:family_key] %>
       <% items = section[:items] %>

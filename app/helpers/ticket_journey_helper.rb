@@ -103,7 +103,7 @@ module TicketJourneyHelper
     query_params = query.as_params.deep_dup.deep_stringify_keys
 
     %w[
-      report_sort report_dir report_family sprint_id sprint_issue_ids tj_issue_ids
+      report_sort report_dir report_family sprint_id sprint_issue_ids tj_issue_ids time_activity_id
       owner_start_date owner_end_date owner_user_id ticket_owner_role_id include_locked_users
     ].each do |key|
       query_params.delete(key)

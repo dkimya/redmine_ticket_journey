@@ -463,6 +463,12 @@
 .tj-owner-metric-table-wrap {
   max-height: none;
 }
+#tickets-time-report tfoot th,
+#tickets-time-report tfoot td {
+  border-top: 2px solid var(--tj-border, #d8dee8);
+  background: #edf3f8;
+  font-weight: 700;
+}
 .tj-owner-metric-group + .tj-owner-metric-group {
   margin-top: 20px;
   padding-top: 16px;

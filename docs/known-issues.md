@@ -10,6 +10,7 @@ Reviewed 2026-10-13. **Server-confirmed** means user output/screenshots or expli
 | Return Count visually below Block | Implemented page-load relocation below literal label `Invoiced?`, otherwise main right column. New placement not explicitly server-confirmed; depends on DOM/label and JavaScript. |
 | Completion/debt looked like one sum | Implemented two labelled tables with independent totals and Tickets/Points. Split layout and new summary Points columns lack explicit server confirmation. |
 | Runtime checks | Regression tests cover dates, carry-over, points, native count/query/CSV, and legacy aliases. Local Ruby was unavailable during this work; test execution is unconfirmed. |
+| Tickets Time Report | Implemented table, activity selector, totals, tooltips, and separate CSV; unit/functional tests added. Server behavior and layout remain unconfirmed. |
 | Database portability | Native Return Count selects adapter-specific casts, but controller transition SQL still uses `CAST(... AS UNSIGNED)`. Whole-plugin PostgreSQL/SQLite support is not established. |
 
 ## Confirmation needed

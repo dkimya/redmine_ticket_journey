@@ -20,6 +20,7 @@ Observed host: `/opt/redmine`, plugin `/opt/redmine/plugins/redmine_ticket_journ
 - Check current due dates, carry-over boundaries, points/missing-weight links, and completion/debt totals in affected reports.
 - Visually check placement below Invoiced? (right-column fallback if absent), summary Points, and split end-status tables. These later layout changes lack explicit server confirmation in the conversation.
 - Runner checks supplement web checks: count/partial rendering previously passed while full issue requests failed.
+- Tickets Time Report: confirm placement before journey sections, activity changes without changing ticket population, current estimates, lifetime direct hours, total ratio exclusions, and matching Time CSV. Test a restricted time-view user and a parent/child ticket pair to check visibility and rollups.
 
 ## Logs and rollback
 

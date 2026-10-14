@@ -147,6 +147,14 @@ class TicketJourneyController < ApplicationController
     @report_sections = build_report_sections(@issues_data)
     load_issue_detail(params[:issue_id])
     @detail_view_active = params[:view].to_s == 'detail'
+    prepare_ticket_time_report if !@detail_view_active && @query.valid?
+    if params[:time_report_export] == '1' && request.format.csv?
+      return head :unprocessable_entity unless @ticket_time_report
+
+      send_data ticket_time_report_csv,
+                filename: "tickets_time_#{@project.identifier}_#{User.current.today}.csv",
+                type: 'text/csv; charset=utf-8', disposition: 'attachment'
+    end
   end
 
   # ---------------------------------------------------------------
@@ -415,6 +423,85 @@ class TicketJourneyController < ApplicationController
   end
 
   private
+
+  def prepare_ticket_time_report
+    issues = @issues_data.map { |item| item[:issue] }.uniq(&:id)
+    # Direct entries only, across all dates, restricted by Redmine's visibility.
+    grouped_hours = TimeEntry.visible(User.current).where(issue_id: issues.map(&:id))
+                             .group(:issue_id, :activity_id).sum(:hours)
+    activity_ids = @project.activities.pluck(:id) | grouped_hours.keys.map(&:last)
+    @ticket_time_activities = TimeEntryActivity.where(id: activity_ids).order(:position, :name).to_a
+    requested = params[:time_activity_id].to_s
+    @ticket_time_activity = @ticket_time_activities.find { |activity| activity.id.to_s == requested }
+    if requested.present? && requested != 'all' && !@ticket_time_activity
+      flash.now[:warning] = 'The selected activity is unavailable. Showing all activities.'
+    end
+    allowed_projects = Project.where(id: issues.map(&:project_id).uniq).select do |project|
+      User.current.allowed_to?(:view_time_entries, project)
+    end.map(&:id).to_set
+    @ticket_time_report = build_ticket_time_report(issues, grouped_hours, @ticket_time_activity&.id, allowed_projects)
+  end
+
+  def ticket_time_estimate(value)
+    return nil if value.blank?
+
+    hours = Float(value.to_s.tr(',', '.'))
+    hours if hours.finite? && hours.positive?
+  rescue ArgumentError, TypeError
+    nil
+  end
+
+  def build_ticket_time_report(issues, grouped_hours, activity_id, allowed_projects)
+    spent = Hash.new(0.0)
+    activity_spent = Hash.new(0.0)
+    grouped_hours.each do |(issue_id, entry_activity_id), hours|
+      spent[issue_id] += hours.to_f
+      activity_spent[issue_id] += hours.to_f if activity_id.nil? || entry_activity_id == activity_id
+    end
+    rows = issues.uniq(&:id).map do |issue|
+      dev_value = issue.visible_custom_field_values.find { |value| value.custom_field.id == TICKET_OWNER_ESTIMATION_CF_ID }
+      pm = ticket_time_estimate(issue.estimated_hours)
+      can_view_time = allowed_projects.include?(issue.project_id)
+      hours = spent[issue.id] if can_view_time
+      {
+        issue: issue, dev_estimate: ticket_time_estimate(dev_value&.value), pm_estimate: pm,
+        spent: hours, activity_spent: (activity_spent[issue.id] if can_view_time),
+        ratio: (hours / pm * 100.0 if pm && can_view_time)
+      }
+    end
+    eligible = rows.select { |row| row[:pm_estimate] && !row[:spent].nil? }
+    pm_total = eligible.sum { |row| row[:pm_estimate] }
+    totals = %i[dev_estimate pm_estimate spent activity_spent].to_h do |key|
+      values = rows.filter_map { |row| row[key] }
+      [key, values.any? ? values.sum : nil]
+    end
+    totals[:ratio] = eligible.sum { |row| row[:spent] } / pm_total * 100.0 if pm_total.positive?
+    {
+      rows: rows, totals: totals, ratio_excluded: rows.size - eligible.size,
+      missing_dev: rows.count { |row| row[:dev_estimate].nil? },
+      missing_pm: rows.count { |row| row[:pm_estimate].nil? },
+      hidden_time: rows.count { |row| row[:spent].nil? }
+    }
+  end
+
+  def ticket_time_report_csv
+    require 'csv'
+    columns = view_context.visible_native_query_columns(@query)
+    activity_label = @ticket_time_activity&.name || 'All activities'
+    numeric_keys = %i[dev_estimate pm_estimate spent ratio activity_spent]
+    CSV.generate(encoding: 'UTF-8') do |csv|
+      csv << ['Issue', 'Subject', *columns.map(&:caption), 'Dev. Estimate (h)', 'PM Estimate (h)',
+              'Time Spent (h; lifetime)', 'Spent / PM Estimate (%)', "Time Spent on Activity (h; lifetime): #{activity_label}"]
+      @ticket_time_report[:rows].each do |row|
+        issue = row[:issue]
+        csv << [issue.id, issue.subject, *columns.map { |column| view_context.csv_content(column, issue) },
+                *numeric_keys.map { |key| row[key]&.round(2) }]
+      end
+      csv << ['Total', nil, *Array.new(columns.size), *numeric_keys.map { |key| @ticket_time_report[:totals][key]&.round(2) }]
+      csv << ["Total ratio excludes #{@ticket_time_report[:ratio_excluded]} tickets without a positive PM estimate or permission to view time."]
+      csv << ["Missing/invalid estimates: Dev #{@ticket_time_report[:missing_dev]}, PM #{@ticket_time_report[:missing_pm]}. Time unavailable for #{@ticket_time_report[:hidden_time]} tickets."]
+    end
+  end
 
   def executive_placeholder(active_tab:, title:, subtitle:, source_reports:)
     @executive_active_tab = active_tab
