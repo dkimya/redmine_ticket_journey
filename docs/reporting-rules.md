@@ -68,3 +68,6 @@ Performance drill-downs reuse the exact calculation sets for open groups, Due So
 ## Future work
 
 Automated return alarms, notifications, and alarm KPI cards are deferred; no implementation is claimed.
+
+## Performance drill-down ordering
+Groups are ordered by current project name, then project ID. Each group shows whole-result ticket count and usable weight, plus the number on the displayed page. Within groups, open/due/stopped lists default to due date ascending, delivered lists to completion descending, and data-quality lists to ID ascending. ID, subject, historical status, current due date/weight and completion date headings toggle direction. Missing values remain last; ties use ID ascending. Sorting precedes 100-row pagination. Sort changes reset the page; pagination preserves sort, owner, date and metric. Only compact metadata is retained alongside selected-owner snapshots; full issues remain page-only. Implemented locally; server verification pending.

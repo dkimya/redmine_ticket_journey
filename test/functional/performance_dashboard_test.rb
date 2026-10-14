@@ -51,7 +51,7 @@ class PerformanceDashboardTest < ActionController::TestCase
       assert_response :success
       assert_select '#owner_id option[value=?]', user.id.to_s, count: 0
       if metric
-        assert_select 'tbody tr', count: 1
+        assert_select 'tbody tr.performance-ticket-row', count: 1
       else
         assert_select '.performance-card', count: 4
         assert_select 'p', text: /Showing report for.*inactive/
@@ -103,8 +103,10 @@ class PerformanceDashboardTest < ActionController::TestCase
       delivered_at: nil, weight: 5.0, missing_weight: false })
     get :index, params: { project_id: @project.identifier, owner_id: '1', as_of: date.iso8601, metric: 'started' }
     assert_response :success
-    assert_select 'tbody tr', count: 1
+    assert_select 'tbody tr.performance-ticket-row', count: 1
     assert_select 'td', text: 'Historical Review'
+    assert_select 'tr.group th', text: /1 tickets/
+    assert_select 'thead a[href*="sort=due"]', count: 1
     assert_select 'a[href=?]', issue_path(issue), text: "##{issue.id}"
     assert_select 'a[href=?]', performance_dashboard_path(@project, owner_id: 1, as_of: date.iso8601), text: /Back to Performance/
   end
@@ -150,7 +152,7 @@ class PerformanceDashboardTest < ActionController::TestCase
       delivered_at: nil, weight: 5.0, missing_weight: false })
     get :index, params: { project_id: @project.identifier, owner_id: '1', metric: 'open' }
     assert_response :success
-    assert_select 'tbody tr', count: 1
+    assert_select 'tbody tr.performance-ticket-row', count: 1
     assert_select 'a[href=?]', project_path(grandchild), text: grandchild.name
     assert_select 'a[href=?]', issue_path(issue), count: 1
   end

@@ -42,7 +42,11 @@ class PerformanceDashboardController < ApplicationController
             history: history.fetch(issue.id, []), visible_values: visible_values)
           next unless row
           owner_ids << row[:owner_id] if row[:owner_id].present?
-          rows << row if row[:owner_id] == params[:owner_id].to_s
+          if row[:owner_id] == params[:owner_id].to_s
+            # Only compact sorting metadata survives the batch, not Issue objects.
+            row = row.merge(project_id: issue.project_id, project_name: issue.project.name, subject: issue.subject) if @metric
+            rows << row
+          end
         end
       end
     end
@@ -60,7 +64,11 @@ class PerformanceDashboardController < ApplicationController
     @targets = %w[count weight].map { |kind| monthly_target(@settings["performance_#{kind}_field_id"]) }
     if @metric
       @detail_title = TicketJourneyPerformance::DETAIL_LABELS.fetch(@metric)
-      @detail_rows = @report[:detail_sets].fetch(@metric).sort_by { |row| row[:id] }
+      @sort, @direction = TicketJourneyPerformance.detail_sort_options(@metric, params[:sort], params[:direction])
+      @detail_rows = TicketJourneyPerformance.sort_details(@report[:detail_sets].fetch(@metric), @sort, @direction)
+      @project_totals = @detail_rows.group_by { |row| row[:project_id] }.transform_values do |group|
+        { count: group.size, weight: TicketJourneyPerformance.weight(group) }
+      end
       @detail_count = @detail_rows.size
       @detail_weight = TicketJourneyPerformance.weight(@detail_rows)
       @page_count = [(@detail_count / 100.0).ceil, 1].max

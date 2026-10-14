@@ -1,6 +1,40 @@
 # Calculation rules for Performance Section 1. No writes or stored counters.
 class TicketJourneyPerformance
   BATCH_SIZE = 100
+  DETAIL_SORT_KEYS = %w[id subject status due weight completion].freeze
+
+  def self.detail_sort_options(metric, sort, direction)
+    default = if %w[done delivered delivered_weight].include?(metric)
+                ['completion', 'desc']
+              elsif metric.start_with?('missing_')
+                ['id', 'asc']
+              else
+                ['due', 'asc']
+              end
+    return default unless DETAIL_SORT_KEYS.include?(sort)
+    [sort, %w[asc desc].include?(direction) ? direction : 'asc']
+  end
+
+  def self.sort_details(rows, key, direction)
+    field = { 'id' => :id, 'subject' => :subject, 'status' => :status_name,
+              'due' => :due, 'weight' => :weight, 'completion' => :delivered_at }.fetch(key)
+    rows.sort do |left, right|
+      group = [left[:project_name].to_s.downcase, left[:project_id]] <=> [right[:project_name].to_s.downcase, right[:project_id]]
+      next group unless group.zero?
+      a = field == :weight && left[:missing_weight] ? nil : left[field]
+      b = field == :weight && right[:missing_weight] ? nil : right[field]
+      a = a.downcase if a.is_a?(String)
+      b = b.downcase if b.is_a?(String)
+      # Missing dates/weights stay last in either direction. ID is a stable tie
+      # breaker so page boundaries do not shuffle on repeated requests.
+      comparison = if a.nil? || b.nil?
+                     (a.nil? ? 1 : 0) <=> (b.nil? ? 1 : 0)
+                   else
+                     (a <=> b) * (direction == 'desc' ? -1 : 1)
+                   end
+      comparison.zero? ? left[:id] <=> right[:id] : comparison
+    end
+  end
   HistoryDetail = Struct.new(:property, :prop_key, :old_value, :value)
   HistoryJournal = Struct.new(:id, :created_on, :details)
   TRACKERS = ['Bug', 'Change Request / Improvement', 'Feature', 'Task (Business Jobs)'].freeze

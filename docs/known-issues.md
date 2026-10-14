@@ -42,3 +42,5 @@ Future return alarms are documented in [reporting rules](reporting-rules.md); re
 
 - Hadi's Section 2 exclusions implemented: Archived and Ongoing are removed from delivery populations using as-of status, including due denominators and drill-downs. Ongoing remains in Section 1. Unit coverage added; runtime/server verification pending.
 Automatic separate Day 0 rules implemented locally: account creation for monthly ticket count and earliest eligible weighted ticket Start date for monthly weight. Separate contributor links and displayed dates added; manual setting removed from UI and ignored. No valid start means N/A. Server verification pending.
+
+- Performance drill-down project grouping and sortable headings implemented locally. Group totals span all pages, with page counts labelled. Runtime tests and deployed layout verification remain pending.

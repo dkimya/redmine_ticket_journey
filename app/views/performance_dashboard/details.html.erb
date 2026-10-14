@@ -6,18 +6,22 @@
 <p class="info">Owner and status reflect the selected date. Project, subject, tracker, due date and complexity weight are current. These are the same ticket sets used by the dashboard, recalculated with your current permissions; edits since opening the dashboard may change results. Unavailable weights contribute zero to the total.</p>
 <% if %w[due done delivered delivered_weight missing_delivery].include?(@metric) %><p>Section 2 excludes Archived and Ongoing tickets based on their status at the selected report date.</p><% end %>
 <% if %w[delivered delivered_weight].include?(@metric) %><% day_zero = @report[@metric == 'delivered' ? :count_start_date : :weight_start_date] %><p>Monthly contributors from <%= day_zero ? format_date(day_zero) : 'unavailable Day 0' %> through <%= format_date(@date) %>. The dashboard divides their totals by elapsed calendar months, prorating partial months.</p><% end %>
+<p>Grouped by project name. Click a column heading to sort within each project. Sorting applies to all results before pagination; missing values stay last. Group totals cover all pages.</p>
 <% if @detail_rows.empty? %>
   <p class="nodata">No tickets match this metric.</p>
 <% else %>
   <div class="autoscroll"><table class="list issues">
-    <thead><tr><th scope="col">Ticket</th><th scope="col">Project (current)</th><th scope="col">Subject (current)</th><th scope="col">Tracker (current)</th><th scope="col">Ticket Owner (as of date)</th><th scope="col">Status (as of date)</th><th scope="col">Due Date (current)</th><th scope="col">Complexity Weight (current)</th><th scope="col">Last Recorded Completion by Report Date</th></tr></thead>
-    <tbody><% @detail_rows.each do |row| %>
+    <thead><tr><th scope="col"><%= performance_sort_heading('Ticket', 'id') %></th><th scope="col">Project (current)</th><th scope="col"><%= performance_sort_heading('Subject (current)', 'subject') %></th><th scope="col">Tracker (current)</th><th scope="col">Ticket Owner (as of date)</th><th scope="col"><%= performance_sort_heading('Status (as of date)', 'status') %></th><th scope="col"><%= performance_sort_heading('Due Date (current)', 'due') %></th><th scope="col"><%= performance_sort_heading('Complexity Weight (current)', 'weight') %></th><th scope="col"><%= performance_sort_heading('Last Recorded Completion by Report Date', 'completion') %></th></tr></thead>
+        <tbody><% @detail_rows.group_by { |row| row[:project_id] }.each do |project_id, page_rows| %>
+      <% totals = @project_totals.fetch(project_id) %>
+      <tr class="group"><th colspan="9" scope="rowgroup"><%= page_rows.first[:project_name] %> — <%= totals[:count] %> tickets · Complexity Weight: <%= performance_number(totals[:weight]) %> (whole project group; <%= page_rows.size %> tickets on this page)</th></tr>
+      <% page_rows.each do |row| %>
       <% issue = @detail_issues.fetch(row[:id]) %>
-      <tr><td><%= link_to "##{issue.id}", issue_path(issue) %></td><td><%= link_to issue.project.name, project_path(issue.project) %></td><td class="subject"><%= issue.subject %></td><td><%= issue.tracker.name %></td><td><%= @owner.name %></td><td><%= row[:status_name].presence || 'Unknown' %></td><td><%= row[:due] ? format_date(row[:due]) : 'Not set' %></td><td><%= row[:missing_weight] ? 'Unavailable' : performance_number(row[:weight]) %></td><td><%= row[:delivered_at] ? format_date(row[:delivered_at]) : 'Not recorded' %></td></tr>
-    <% end %></tbody>
+      <tr class="performance-ticket-row"><td><%= link_to "##{issue.id}", issue_path(issue) %></td><td><%= link_to issue.project.name, project_path(issue.project) %></td><td class="subject"><%= issue.subject %></td><td><%= issue.tracker.name %></td><td><%= @owner.name %></td><td><%= row[:status_name].presence || 'Unknown' %></td><td><%= row[:due] ? format_date(row[:due]) : 'Not set' %></td><td><%= row[:missing_weight] ? 'Unavailable' : performance_number(row[:weight]) %></td><td><%= row[:delivered_at] ? format_date(row[:delivered_at]) : 'Not recorded' %></td></tr>
+    <% end %><% end %></tbody>
   </table></div>
 <% end %>
 <p>Page <%= @page %> of <%= @page_count %> · Up to 100 tickets per page
-  <% if @page > 1 %> · <%= link_to 'Previous', performance_dashboard_path(@project, owner_id: @owner.id, as_of: @date.iso8601, metric: @metric, page: @page - 1) %><% end %>
-  <% if @page < @page_count %> · <%= link_to 'Next', performance_dashboard_path(@project, owner_id: @owner.id, as_of: @date.iso8601, metric: @metric, page: @page + 1) %><% end %>
+  <% if @page > 1 %> · <%= link_to 'Previous', performance_dashboard_path(@project, owner_id: @owner.id, as_of: @date.iso8601, metric: @metric, sort: @sort, direction: @direction, page: @page - 1) %><% end %>
+  <% if @page < @page_count %> · <%= link_to 'Next', performance_dashboard_path(@project, owner_id: @owner.id, as_of: @date.iso8601, metric: @metric, sort: @sort, direction: @direction, page: @page + 1) %><% end %>
 </p>

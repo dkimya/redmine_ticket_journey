@@ -34,3 +34,5 @@ Compare an overdue ticket that skipped In Progress, one that reached In Progress
 
 For Section 2, verify due counts/weights exclude Archived and Ongoing at the report date. Check a ticket archived after the selected date still qualifies under its earlier status, and an Ongoing ticket remains in Section 1. Compare drill-down IDs to both delivery figures. No migration required.
 Verify both automatic Day 0 dates and separate contributor links, including open weighted tickets establishing weight start, missing/future Start dates, Archived/Ongoing exclusions and hidden weights. No migration is required.
+
+Verify drill-down default ordering by metric, click each sortable heading twice, check missing values remain last and groups show whole-result totals. Test a project group spanning over 100 rows and confirm Next/Previous preserve sorting and report filters. No migration required.

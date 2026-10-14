@@ -1,4 +1,12 @@
 module PerformanceDashboardHelper
+  def performance_sort_heading(label, key)
+    active = @sort == key
+    next_direction = active && @direction == 'asc' ? 'desc' : 'asc'
+    marker = active ? (@direction == 'asc' ? ' ▲' : ' ▼') : ''
+    link_to "#{label}#{marker}", performance_dashboard_path(@project, owner_id: @owner.id,
+      as_of: @date.iso8601, metric: @metric, sort: key, direction: next_direction),
+      title: "Sort #{label} #{next_direction == 'asc' ? 'ascending' : 'descending'} within each project"
+  end
   def performance_detail_link(label, metric)
     link_to label, performance_dashboard_path(@project, owner_id: @owner.id, as_of: @date.iso8601, metric: metric),
             title: "View tickets: #{TicketJourneyPerformance::DETAIL_LABELS.fetch(metric)}", class: 'performance-detail-link'
