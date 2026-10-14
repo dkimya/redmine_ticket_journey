@@ -34,6 +34,53 @@ class TicketJourneyPerformanceTest < ActiveSupport::TestCase
     assert_equal result[:due], result[:detail_sets]['due']
   end
 
+  test 'stopped is an overlapping open subset with matching drill down' do
+    date = Date.new(2026, 10, 14)
+    rows = [row(status_name: 'On-Hold', due: date - 1, started: true),
+            row(status_name: 'Pending', due: date - 1),
+            row(status_name: 'Pending', due: date + 1),
+            row(status_name: 'Ongoing'), row(status_name: 'On-Hold', open: false)]
+    result = TicketJourneyPerformance.calculate(rows, date, nil)
+    assert_equal 3, result[:stopped]
+    assert_equal rows.first(3), result[:detail_sets]['stopped']
+    assert_equal [4, 2, 1, 1], result[:groups].map(&:size)
+    assert_equal 20, TicketJourneyPerformance.weight(result[:groups].first)
+  end
+
+  test 'only In Progress history establishes started by the report date' do
+    date = Date.new(2026, 10, 14)
+    status = Struct.new(:name, :is_closed)
+    statuses = { '1' => status.new('To-Do', false), '2' => status.new('In Progress', false),
+                 '3' => status.new('Review ', false), '4' => status.new('Pending', false),
+                 '5' => status.new('On-Hold', false) }
+    issue = stub(id: 1, created_on: date.in_time_zone - 5.days, status_id: 3, due_date: date - 1)
+    issue.stubs(:custom_value_for).with(57).returns(stub(value: '7'))
+    snapshot = lambda do |history|
+      TicketJourneyPerformance.snapshot(issue, date, statuses, history: history, visible_values: [])
+    end
+    change = lambda do |id, time, from, to|
+      TicketJourneyPerformance::HistoryJournal.new(id, time, [
+        TicketJourneyPerformance::HistoryDetail.new('attr', 'status_id', from, to)
+      ])
+    end
+    assert_not snapshot.call([])[:started], 'Review alone does not imply In Progress'
+    assert_not snapshot.call([change.call(1, date.in_time_zone, '1', '3')])[:started]
+    assert snapshot.call([change.call(1, date.in_time_zone, '2', '3')])[:started]
+
+    issue.stubs(:status_id).returns(2)
+    assert snapshot.call([])[:started], 'As-of In Progress is sufficient even without a transition'
+    future_start = [change.call(1, (date + 1).in_time_zone, '1', '2')]
+    assert_not snapshot.call(future_start)[:started], 'Future start must not affect a past report'
+
+    issue.stubs(:status_id).returns(5)
+    history = [change.call(1, date.in_time_zone - 1.day, '2', '4'),
+               change.call(2, (date + 1).in_time_zone, '4', '5')]
+    historical = snapshot.call(history)
+    assert_equal 'Pending', historical[:status_name]
+    assert historical[:started], 'Stopping does not erase earlier In Progress'
+    assert_equal 1, TicketJourneyPerformance.calculate([historical], date, nil)[:stopped]
+  end
+
   test 'monthly averages prorate inclusive partial months and exclude undated completions' do
     date = Date.new(2024, 2, 29)
     rows = [row(open: false, done: true, delivered_at: date), row(open: false, done: true)]

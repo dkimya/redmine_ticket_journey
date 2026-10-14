@@ -38,6 +38,8 @@ class PerformanceDashboardTest < ActionController::TestCase
     get :index, params: { project_id: @project.identifier, owner_id: '1' }
     assert_response :success
     assert_select '.performance-card', count: 4
+    assert_select '.performance-card-0 .performance-secondary', text: /Stopped:/
+    assert_select '.performance-card-0 a[href*="metric=stopped"]', count: 1
     assert_select '.performance-metric', text: /Target: Not configured/
     assert_select '.performance-unavailable', text: /configure Day 0/, count: 2
   end

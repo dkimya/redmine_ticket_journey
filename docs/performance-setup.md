@@ -28,3 +28,6 @@ Click each open count, donut percentage/legend, Due Soon, delivery numerator/den
 
 ## Project inheritance verification
 Select a parent with child and grandchild tickets owned by the same person. Check all three levels contribute once, child-only owners appear in the initial selector, unrelated/private inaccessible projects do not contribute, and drill-down rows identify their projects. Confirm the employee target remains unchanged and pagination/back links preserve the selected parent. Current hierarchy is used for historical dates. This change needs plugin deployment and restart, with no migration; runtime tests and server verification remain pending.
+
+## Open Tickets feedback verification
+Compare an overdue ticket that skipped In Progress, one that reached In Progress and later stopped, and one that first starts after a historical report date. Verify the Not Touched/Already Started classification uses In Progress only. Check Stopped lists only open On-Hold/Pending tickets at the selected date, including inherited subprojects, and overlaps rather than increases the total. Verify its small-font placement below Total Open Tickets and alignment with Due Soon after deployment.

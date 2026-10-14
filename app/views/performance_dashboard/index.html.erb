@@ -15,7 +15,7 @@
   <% if @report %>
     <% groups = @report[:groups]; total_weight = TicketJourneyPerformance.weight(groups.first) %>
     <section class="performance-section">
-      <h3><span class="performance-step">1</span> Open Tickets <%= performance_tip('All non-closed statuses are included, including New, On-Hold, Pending, and Ongoing. Archived is closed and is not a delivery. Missing due dates are included in Not Overdue; due today is not overdue. Started means recorded development-stage history by this date, including work before reassignment.') %></h3>
+      <h3><span class="performance-step">1</span> Open Tickets <%= performance_tip('All non-closed statuses are included, including New, On-Hold, Pending, and Ongoing. Stopped means On-Hold or Pending at the report date and is a subset of Total Open Tickets. Archived is closed and is not a delivery. Missing due dates are included in Not Overdue; due today is not overdue. Not Touched means the ticket has not been In Progress by the report date. Logged time, comments, and later workflow stages alone do not establish Started. Earlier In Progress history, including before reassignment, still counts.') %></h3>
       <div class="performance-open">
         <% percentages = groups.drop(1).map { |g| performance_percent(g.size, groups.first.size) || 0 }; first = percentages[0]; second = first + percentages[1] %>
         <div class="performance-distribution">
@@ -35,7 +35,13 @@
           <% ['Total Open Tickets', 'Not Overdue Open Tickets', 'Overdue - Already Started', 'Overdue - Not Touched'].each_with_index do |label, i| %>
             <article class="performance-card performance-card-<%= i %>">
               <h4><%= label %></h4><strong class="performance-value"><%= performance_detail_link(groups[i].size, %w[open not_overdue started untouched][i]) %></strong>
-              <div class="performance-secondary"><% if i == 1 %>Due soon (&lt;3 days): <b><%= performance_detail_link(@report[:due_soon], 'due_soon') %></b> <%= performance_tip('Due today, tomorrow, or the following day. Tickets without a due date are excluded from Due Soon.') %><% end %></div>
+              <div class="performance-secondary">
+                <% if i == 0 %>
+                  Stopped: <b><%= performance_detail_link(@report[:stopped], 'stopped') %></b> <%= performance_tip('Open tickets in On-Hold or Pending at the selected report date. Already included in Total Open Tickets and the three breakdown groups; do not add this count to the total.') %>
+                <% elsif i == 1 %>
+                  Due soon (&lt;3 days): <b><%= performance_detail_link(@report[:due_soon], 'due_soon') %></b> <%= performance_tip('Due today, tomorrow, or the following day. Tickets without a due date are excluded from Due Soon.') %>
+                <% end %>
+              </div>
               <p>Sum of Complexity Weight</p><div><strong class="performance-weight"><%= performance_number(TicketJourneyPerformance.weight(groups[i])) %></strong>
               <% if i > 0 %><span>(<%= total_weight.positive? ? "#{performance_number(performance_percent(TicketJourneyPerformance.weight(groups[i]), total_weight))}%" : 'N/A' %>)</span><% end %></div>
             </article>

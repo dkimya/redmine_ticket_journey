@@ -4,10 +4,14 @@ class TicketJourneyPerformance
   HistoryDetail = Struct.new(:property, :prop_key, :old_value, :value)
   HistoryJournal = Struct.new(:id, :created_on, :details)
   TRACKERS = ['Bug', 'Change Request / Improvement', 'Feature', 'Task (Business Jobs)'].freeze
-  STARTED = ['In Progress', 'Inprogress', 'Feedback', 'Returned', 'Review', 'Ready to Merge', 'Final Check', 'Done / Closed'].freeze
+  # Hadi's rule: only having been In Progress establishes started work.
+  # Later workflow stages, logged time and comments are not substitutes.
+  STARTED = ['In Progress', 'Inprogress'].freeze
+  STOPPED = ['On-Hold', 'Pending'].freeze
   DETAIL_LABELS = {
     'open' => 'Total Open Tickets', 'not_overdue' => 'Not Overdue Open Tickets',
     'started' => 'Overdue - Already Started', 'untouched' => 'Overdue - Not Touched',
+    'stopped' => 'Stopped Open Tickets (On-Hold / Pending)',
     'due_soon' => 'Due Soon', 'missing_due' => 'Open Tickets Without Due Dates',
     'missing_weight' => 'Tickets Without Usable Complexity Weight',
     'missing_delivery' => 'Done Tickets Without Recorded Completion Dates',
@@ -91,6 +95,7 @@ class TicketJourneyPerformance
     # current-status IssueQuery filters for a historical report.
     sets = {
       'open' => open, 'not_overdue' => not_overdue, 'started' => started, 'untouched' => untouched,
+      'stopped' => open.select { |r| STOPPED.include?(r[:status_name].to_s.strip) },
       'due_soon' => not_overdue.select { |r| r[:due] && (r[:due] - date).to_i < 3 },
       'missing_due' => open.select { |r| r[:due].nil? },
       'missing_weight' => rows.select { |r| r[:missing_weight] },
@@ -101,6 +106,7 @@ class TicketJourneyPerformance
       detail_sets: sets,
       groups: [open, not_overdue, started, untouched], due: due, done: done,
       due_soon: sets['due_soon'].size,
+      stopped: sets['stopped'].size,
       missing_due: sets['missing_due'].size, missing_weight: sets['missing_weight'].size,
       missing_delivery: sets['missing_delivery'].size,
       monthly_count: months && delivered.size / months,
