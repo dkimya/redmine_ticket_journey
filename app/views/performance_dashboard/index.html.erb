@@ -52,7 +52,7 @@
             <article class="performance-metric"><h4><%= label %></h4><div class="performance-donut performance-small" style="background: conic-gradient(#008fff 0% <%= percent || 0 %>%, #e7edf3 <%= percent || 0 %>% 100%)"><div><strong><%= percent ? "#{performance_number(percent)}%" : 'N/A' %></strong><span><%= performance_number(done) %> / <%= performance_number(due) %></span></div></div><p>Target: Not configured <%= performance_tip('Required target is 90% without Extra Tasks or 80% with Extra Tasks. The source and effective dates for Extra Tasks have not been defined, so no target or pass/fail assessment is assumed.') %></p></article>
           <% end %>
         </div>
-        <% [['No. of Tickets', @report[:monthly_count], @targets[0]], ['Complexity Weight', @report[:monthly_weight], @targets[1]] .each do |label, actual, target| %>
+        <% [['No. of Tickets', @report[:monthly_count], @targets[0]], ['Complexity Weight', @report[:monthly_weight], @targets[1]]].each do |label, actual, target| %>
           <article class="performance-metric performance-monthly">
             <h4>Average Monthly Delivered<br>(<%= label %>) <%= performance_tip('Distinct tickets in Done / Closed at the report date whose most recent recorded completion falls from configured Day 0 through the report date. Partial months are prorated by calendar days, including the report date. Ownership is taken at the report date. These provisional rules await Hadi’s confirmation. Targets come from configured public User fields; missing or nonpositive targets are unavailable.') %></h4>
             <% if actual && target %>
