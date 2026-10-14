@@ -469,6 +469,82 @@
   background: #edf3f8;
   font-weight: 700;
 }
+/* Sticky cells need their own opaque fill; a row background scrolls away. */
+#tickets-time-report thead th {
+  background: #f0f2f7;
+  z-index: 5;
+}
+#tickets-time-report tfoot th {
+  position: static;
+}
+#tickets-time-report .tj-time-report-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0;
+}
+#tickets-time-report .tj-time-report-controls select {
+  width: 280px;
+  max-width: 100%;
+  min-height: 32px;
+}
+#tickets-time-report .tj-time-report-note {
+  margin: 8px 0;
+  color: #536176;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+#tickets-time-report .tj-time-report-notes {
+  margin-bottom: 14px;
+}
+#tickets-time-report .tj-td-title {
+  min-width: 260px;
+  max-width: 420px;
+  text-align: left;
+  font-family: inherit;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+#tickets-time-report.is-time-compact .tj-time-detail-col {
+  display: none;
+}
+#tickets-time-report.is-time-compact .tj-time-report-table {
+  min-width: 900px;
+}
+#tickets-time-report .tj-time-estimate {
+  background: #f0f6ff;
+}
+#tickets-time-report .tj-time-spent {
+  background: #edf8f1;
+}
+#tickets-time-report .tj-time-activity {
+  background: #fff8e9;
+}
+#tickets-time-report thead th.tj-time-estimate {
+  background: #e5effc;
+}
+#tickets-time-report thead th.tj-time-spent {
+  background: #e0f1e7;
+}
+#tickets-time-report thead th.tj-time-activity {
+  background: #fff0d0;
+}
+#tickets-time-report .tj-time-ratio.is-overrun {
+  background: #fff1d6;
+  color: #8a4b00;
+  font-weight: 700;
+}
+#tickets-time-report .tj-time-ratio.is-high-overrun {
+  background: #fde5e5;
+  color: #a12525;
+  font-weight: 700;
+}
+#tickets-time-report .is-unavailable {
+  color: #788395;
+}
 .tj-owner-metric-group + .tj-owner-metric-group {
   margin-top: 20px;
   padding-top: 16px;

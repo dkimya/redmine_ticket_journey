@@ -1,47 +1,63 @@
 <% activity_label = @ticket_time_activity&.name || 'All activities' %>
 <% hours_label = ->(value) { value.nil? ? '—' : "#{number_with_precision(value, precision: 2)} h" } %>
 <% ratio_label = ->(value) { value.nil? ? '—' : "#{number_with_precision(value, precision: 1)}%" } %>
-<div class="tj-card tj-card-full" id="tickets-time-report">
+<% ratio_class = ->(value) { value.nil? ? 'is-unavailable' : (value > 150 ? 'is-high-overrun' : (value > 100 ? 'is-overrun' : '')) } %>
+<div class="tj-card tj-card-full tj-section-card" id="tickets-time-report" data-tj-section>
   <div class="tj-section-header">
     <h3 class="tj-section-title">Tickets Time Report</h3>
-    <%= link_to 'Export Time CSV', ticket_journey_path(@project, duration_report_params(@query).merge(format: :csv, time_report_export: '1', time_activity_id: @ticket_time_activity&.id || 'all')), class: 'tj-btn tj-btn-export', title: 'Export these tickets, selected standard columns, lifetime hours, selected activity, and totals' %>
+    <div class="tj-section-actions">
+      <button type="button" class="tj-section-toggle" data-tj-time-detail-toggle aria-pressed="false" aria-controls="tickets-time-table" title="Hide estimates and selected standard fields; keep Issue, Subject, Time Spent, ratio, and activity hours">
+        <span class="tj-section-toggle-icon" aria-hidden="true">-</span>
+        <span data-tj-time-detail-label>Compact view</span>
+      </button>
+      <button type="button" class="tj-section-toggle" data-tj-section-toggle aria-expanded="true" aria-controls="tickets-time-report-body" title="Collapse or expand the Tickets Time Report">
+        <span class="tj-section-toggle-icon" aria-hidden="true">-</span>
+        <span data-tj-section-toggle-label>Collapse</span>
+      </button>
+      <%= link_to 'Export Time CSV', ticket_journey_path(@project, duration_report_params(@query).merge(format: :csv, time_report_export: '1', time_activity_id: @ticket_time_activity&.id || 'all')), class: 'tj-btn tj-btn-export', title: 'Export all columns regardless of compact view, selected activity, and totals' %>
+    </div>
   </div>
-  <p class="tj-owner-section-note">Lifetime logged time for the filtered tickets. Issue date filters select tickets; they do not limit time-entry dates. Hours include only entries you may view, logged directly against each ticket; child-ticket rollups are excluded.</p>
-  <div class="tj-detail-search-fields">
+  <div id="tickets-time-report-body" data-tj-section-body>
+  <p class="tj-time-report-note">Lifetime logged time for the filtered tickets. Issue date filters select tickets; they do not limit time-entry dates. Hours include only entries you may view, logged directly against each ticket; child-ticket rollups are excluded.</p>
+  <div class="tj-time-report-controls">
     <%= label_tag :time_activity_id, 'Specific Activity' %>
     <%= select_tag :time_activity_id, options_for_select([['All activities', 'all']] + @ticket_time_activities.map { |activity| [activity.name, activity.id] }, @ticket_time_activity&.id || 'all'), form: 'query_form', title: 'Changes only the activity-hours column. Includes configured project activities and activities used by visible time entries, including older entries.' %>
     <%= button_tag 'Apply Activity', type: 'submit', form: 'query_form', class: 'tj-mini-button' %>
   </div>
-  <p class="tj-owner-section-note">Estimates use current values. Missing or invalid estimates show “—”. Missing Dev. estimates: <%= report[:missing_dev] %>; PM estimates: <%= report[:missing_pm] %>. Time unavailable for <%= report[:hidden_time] %> tickets. Total ratio excludes <%= report[:ratio_excluded] %> tickets without a positive PM estimate or permission to view time.</p>
+  <div class="tj-time-report-notes">
+    <p class="tj-time-report-note">Estimates use current values. Missing or invalid estimates show “—”. Missing Dev. estimates: <%= report[:missing_dev] %>; PM estimates: <%= report[:missing_pm] %>. Time unavailable for <%= report[:hidden_time] %> tickets.</p>
+    <p class="tj-time-report-note">Total ratio excludes <%= report[:ratio_excluded] %> tickets without a positive PM estimate or permission to view time.</p>
+  </div>
   <div class="tj-table-wrap">
-    <table class="tj-table" aria-label="Tickets Time Report">
+    <table class="tj-table tj-time-report-table" id="tickets-time-table" aria-label="Tickets Time Report">
       <thead><tr>
         <th>Issue</th><th>Subject</th>
-        <% native_columns.each do |column| %><th><%= column.caption %></th><% end %>
-        <th title="Current Ticket Owner Estimation, custom field 56, in hours. Only visible field values are used.">Dev. Estimate</th>
-        <th title="Current Redmine Estimated time in hours. Blank, zero, negative, or invalid estimates are unavailable.">PM Estimate</th>
-        <th title="Lifetime sum of visible time entries logged directly against this ticket, across all activities.">Time Spent</th>
-        <th title="Time Spent ÷ PM Estimate × 100. 100% uses the estimate; 150% is 50% over. Unavailable without a positive PM estimate or time-view permission.">Spent / PM Estimate</th>
-        <th title="Lifetime direct logged hours for the selected activity; other activity hours remain in Time Spent.">Time Spent on Activity: <%= activity_label %></th>
+        <% native_columns.each do |column| %><th class="tj-time-detail-col"><%= column.caption %></th><% end %>
+        <th class="tj-time-detail-col tj-time-estimate" title="Current Ticket Owner Estimation, custom field 56, in hours. Only visible field values are used.">Dev. Estimate</th>
+        <th class="tj-time-detail-col tj-time-estimate" title="Current Redmine Estimated time in hours. Blank, zero, negative, or invalid estimates are unavailable.">PM Estimate</th>
+        <th class="tj-time-spent" title="Lifetime sum of visible time entries logged directly against this ticket, across all activities.">Time Spent</th>
+        <th title="Time Spent ÷ PM Estimate × 100. Above 100% is amber; above 150% is red. Unavailable without a positive PM estimate or time-view permission.">Spent / PM Estimate</th>
+        <th class="tj-time-activity" title="Lifetime direct logged hours for the selected activity; other activity hours remain in Time Spent.">Time Spent on Activity: <%= activity_label %></th>
       </tr></thead>
       <tbody>
         <% report[:rows].each do |row| %>
           <tr class="tj-row">
-            <td><%= link_to "##{row[:issue].id}", issue_path(row[:issue]), class: 'tj-issue-link' %></td>
+            <td class="tj-td-issue"><%= link_to "##{row[:issue].id}", issue_path(row[:issue]), class: 'tj-issue-link' %></td>
             <td class="tj-td-title"><%= link_to row[:issue].subject, issue_path(row[:issue]) %></td>
-            <% native_columns.each do |column| %><td class="tj-td-native"><%= column_content(column, row[:issue]) %></td><% end %>
-            <% %i[dev_estimate pm_estimate spent].each do |key| %><td class="tj-td-native"><%= hours_label.call(row[key]) %></td><% end %>
-            <td class="tj-td-native"><%= ratio_label.call(row[:ratio]) %></td>
-            <td class="tj-td-native"><%= hours_label.call(row[:activity_spent]) %></td>
+            <% native_columns.each do |column| %><td class="tj-td-native tj-time-detail-col"><%= column_content(column, row[:issue]) %></td><% end %>
+            <% %i[dev_estimate pm_estimate spent].each do |key| %><td class="tj-td-native <%= key == :spent ? 'tj-time-spent' : 'tj-time-detail-col tj-time-estimate' %> <%= 'is-unavailable' if row[key].nil? %>"><%= hours_label.call(row[key]) %></td><% end %>
+            <td class="tj-td-native tj-time-ratio <%= ratio_class.call(row[:ratio]) %>"><%= ratio_label.call(row[:ratio]) %></td>
+            <td class="tj-td-native tj-time-activity <%= 'is-unavailable' if row[:activity_spent].nil? %>"><%= hours_label.call(row[:activity_spent]) %></td>
           </tr>
         <% end %>
       </tbody>
       <tfoot><tr class="tj-owner-metric-total">
-        <th colspan="<%= 2 + native_columns.size %>">Total (<%= report[:rows].size %> tickets)</th>
-        <% %i[dev_estimate pm_estimate spent].each do |key| %><td class="tj-td-native"><%= hours_label.call(report[:totals][key]) %></td><% end %>
-        <td class="tj-td-native" title="Sum of spent hours ÷ sum of PM estimates, using only tickets with a positive PM estimate and visible time. Not an average of percentages."><%= ratio_label.call(report[:totals][:ratio]) %></td>
-        <td class="tj-td-native"><%= hours_label.call(report[:totals][:activity_spent]) %></td>
+        <th colspan="<%= 2 + native_columns.size %>" data-tj-time-total-label data-standard-columns="<%= native_columns.size %>">Total (<%= report[:rows].size %> tickets)</th>
+        <% %i[dev_estimate pm_estimate spent].each do |key| %><td class="tj-td-native <%= 'tj-time-detail-col' unless key == :spent %> <%= 'is-unavailable' if report[:totals][key].nil? %>"><%= hours_label.call(report[:totals][key]) %></td><% end %>
+        <td class="tj-td-native tj-time-ratio <%= ratio_class.call(report[:totals][:ratio]) %>" title="Sum of spent hours ÷ sum of PM estimates, using only tickets with a positive PM estimate and visible time. Not an average of percentages."><%= ratio_label.call(report[:totals][:ratio]) %></td>
+        <td class="tj-td-native <%= 'is-unavailable' if report[:totals][:activity_spent].nil? %>"><%= hours_label.call(report[:totals][:activity_spent]) %></td>
       </tr></tfoot>
     </table>
+  </div>
   </div>
 </div>

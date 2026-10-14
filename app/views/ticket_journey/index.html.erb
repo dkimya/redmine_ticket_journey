@@ -358,6 +358,19 @@
 
 <script>
   document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-tj-time-detail-toggle]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        var section = button.closest('[data-tj-section]');
+        var compact = button.getAttribute('aria-pressed') !== 'true';
+        section.classList.toggle('is-time-compact', compact);
+        button.setAttribute('aria-pressed', String(compact));
+        button.querySelector('[data-tj-time-detail-label]').textContent = compact ? 'Show all details' : 'Compact view';
+        button.querySelector('.tj-section-toggle-icon').textContent = compact ? '+' : '-';
+        var totalLabel = section.querySelector('[data-tj-time-total-label]');
+        totalLabel.colSpan = compact ? 2 : 2 + Number(totalLabel.dataset.standardColumns);
+      });
+    });
+
     document.querySelectorAll('[data-tj-section-toggle]').forEach(function (button) {
       if (button.dataset.tjToggleBound === 'true') return;
       button.dataset.tjToggleBound = 'true';

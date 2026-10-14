@@ -43,6 +43,8 @@ Spent / PM Estimate is a percentage. The total ratio is summed spent hours divid
 
 Totals sum each numeric column over distinct tickets. CSV includes selected standard columns, selected activity in its header, totals, and exclusion/missing-value notes. UI tooltips explain fields, ratio examples, time scope, and permissions. Estimates are current, not historical snapshots. No schema changes.
 
+The section starts expanded with all details. Collapse hides its body; Compact view hides selected standard fields and both estimates, retaining Issue, Subject, Time Spent, ratio, and activity hours. CSV always includes all columns. Estimates are light blue, logged time light green, activity hours light amber; ratios above 100% are amber and above 150% red (150% itself remains amber). Unavailable values are muted; totals stay shaded and bold. These display controls/colors await server visual verification.
+
 ## Future
 
 Automated return alarms, notifications, and alarm KPI cards are deferred; no implementation is claimed.
