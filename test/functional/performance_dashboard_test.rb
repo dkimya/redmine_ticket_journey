@@ -30,6 +30,36 @@ class PerformanceDashboardTest < ActionController::TestCase
     assert_response 422
   end
 
+  test 'planned returns and time tabs preserve context without calculating reports' do
+    Issue.expects(:visible).never
+    TicketJourneyPerformance.expects(:history_for).never
+    TicketJourneyPerformance.expects(:calculate).never
+    %w[returns time].each do |tab|
+      get :index, params: { project_id: @project.identifier, tab: tab,
+                            owner_ids: ['1', '2'], as_of: Date.current.iso8601 }
+      assert_response :success
+      assert_select '.performance-planned-section', text: /planned for a later implementation/
+      assert_select '.performance-tabs a[aria-current="page"]', text: /#{tab.titleize}/
+      assert_select 'input[name="tab"][value=?]', tab
+      assert_select '#owner_id option[selected]', count: 2
+      assert_select '.performance-card', count: 0
+      assert_select '.performance-tabs a', count: 3 do |links|
+        links.each do |link|
+          context = Rack::Utils.parse_nested_query(URI.parse(link['href']).query)
+          assert_equal ['1', '2'], context['owner_ids']
+          assert_equal Date.current.iso8601, context['as_of']
+          assert_nil context['metric']
+        end
+      end
+    end
+  end
+
+  test 'unknown performance tab is rejected before report scans' do
+    Issue.expects(:visible).never
+    get :index, params: { project_id: @project.identifier, tab: 'unknown' }
+    assert_response :not_found
+  end
+
   test 'inactive project members do not appear on initial owner selector' do
     user = User.find(2)
     Member.create!(project: @project, principal: user, roles: [Role.find(1)]) unless Member.exists?(project_id: @project.id, user_id: user.id)

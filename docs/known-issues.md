@@ -16,6 +16,8 @@ Reviewed 2026-10-13. **Server-confirmed** means user output/screenshots or expli
 
 ## Confirmation needed
 
+Performance Tickets/Returns/Time navigation added. Returns and Time are planned pages only; no metrics or history scans. Date/owner context is retained, using generic labels for retained IDs outside the lightweight member selector. Shared header and tabs also appear on ticket drill-downs. Ruby request tests added but not run locally; server visual/access verification pending.
+
 Combined monthly targets implemented: arithmetic mean of current usable targets across all distinct selected owners, paired with monthly per-owner actual means. Zero-delivery owners remain in both denominators. Missing/hidden/invalid/nonpositive target for any owner makes only that target/deviation unavailable, with owner names. Contributor sets remain intact. Metadata lookup is reused and selected-owner custom values are batch preloaded; drill-downs skip target lookup. Ruby tests updated but unrun locally; server verification pending.
 
 Drill-down Priority, Title / Subject, PM Estimate, and Time Spent options implemented. PM Estimate means native Estimated time; spent hours are visible lifetime direct entries, not historical totals. Defaults retain the original nine fields. Ruby display/visibility tests added/updated but not run locally; server verification pending.

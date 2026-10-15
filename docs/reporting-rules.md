@@ -67,6 +67,8 @@ Performance drill-downs reuse the exact calculation sets for open groups, Due So
 
 ## Future work
 
+Performance has Tickets (default), Returns, and Time tabs under the existing project menu and permission. Returns/Time are explicitly Planned placeholders, with shared date/owner controls and context-preserving tab links. They do not run ticket/history/target calculations or show metrics. Their selector uses active visible-project members; retained owner IDs outside that lightweight list show a generic ID label without resolving unrelated user names. Tickets still validates report ownership normally. No new metrics, time-window decisions, Trends tab, or Periodic Performance implementation is included. Navigation is implemented locally; server verification pending.
+
 Automated return alarms, notifications, and alarm KPI cards are deferred; no implementation is claimed.
 
 ## Performance drill-down ordering

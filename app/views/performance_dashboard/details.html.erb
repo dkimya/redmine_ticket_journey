@@ -4,6 +4,7 @@
   <%= javascript_include_tag 'performance_navigation', plugin: 'redmine_ticket_journey', defer: true %>
 <% end %>
 <h2><%= @detail_title %></h2>
+<%= render 'tabs' %>
 <p><%= link_to '← Back to Performance', performance_dashboard_path(@project, **performance_owner_params, as_of: @date.iso8601), data: { performance_back: true }, title: 'Return to the previous Performance report when available. Click Apply there to refresh its results.' %></p>
 <p><strong><%= @owner_label %></strong> · As of <%= format_date(@date) %> · <%= @detail_count %> tickets · Total usable complexity weight: <%= performance_number(@detail_weight) %></p>
 <p>Scope: Selected project and all subprojects, limited to visible projects and tickets.</p>

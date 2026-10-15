@@ -138,6 +138,12 @@
   }
 }
 .performance-comparison summary{cursor:pointer;font-size:18px;padding:6px 0}
+.performance-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
+.performance-tabs .performance-tab{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border:1px solid #c8d7e6;border-radius:6px;background:#f4f8fc;color:#22488d;text-decoration:none;font-weight:600}
+.performance-tabs .performance-tab.is-active{background:#e3effc;border-color:#4d8dcc;color:#153d75}
+.performance-tabs .performance-tab:focus-visible{outline:2px solid #007bd1;outline-offset:3px}
+.performance-tab-planned{font-size:11px;font-weight:400;color:#536579;background:#fff;border-radius:4px;padding:2px 5px}
+.performance-planned-section{background:#f8fbfe}
 .performance-comparison table{min-width:1100px;margin-top:14px}
 .performance-comparison th,.performance-comparison td{padding:10px 8px}
 .performance-comparison .performance-comparison-total th,.performance-comparison .performance-comparison-total td{font-weight:800;background:#e9f3ff;border-top:1px solid #bacddd;border-bottom:1px solid #bacddd}

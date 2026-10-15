@@ -1,0 +1,9 @@
+<nav class="performance-tabs" aria-label="Performance sections">
+  <% [['tickets', 'Tickets'], ['returns', 'Returns'], ['time', 'Time']].each do |key, label| %>
+    <% context = performance_owner_params.merge(as_of: @date.iso8601) %>
+    <% context[:tab] = key unless key == 'tickets' %>
+    <%= link_to performance_dashboard_path(@project, **context), class: "performance-tab#{' is-active' if @performance_tab == key}", aria: { current: (@performance_tab == key ? 'page' : nil) } do %>
+      <%= label %><% unless key == 'tickets' %><span class="performance-tab-planned">Planned</span><% end %>
+    <% end %>
+  <% end %>
+</nav>

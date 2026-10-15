@@ -1,0 +1,14 @@
+  <header class="performance-header">
+    <div><p class="performance-eyebrow">PERFORMANCE RESULTS</p><h2><%= @performance_tab.titleize %></h2><p><%= @performance_tab == 'tickets' ? 'Ticket status and delivery performance as of' : 'Planned section · Selected date:' %> <%= format_date(@date) %></p></div>
+    <%= form_tag performance_dashboard_path(@project), method: :get, class: 'performance-filters' do %>
+      <%= hidden_field_tag :tab, @performance_tab unless @performance_tab == 'tickets' %>
+      <div><%= label_tag :as_of, 'As of Date' %><%= date_field_tag :as_of, @date.iso8601, max: Date.current.iso8601, required: true %></div>
+      <% owner_options = @owners.map { |user| [user.name, user.id.to_s] } %>
+      <% if @performance_tab != 'tickets' %>
+        <% known_ids = owner_options.map(&:last) %>
+        <% (@selected_owner_ids - known_ids).each { |id| owner_options << ["Selected owner ##{id}", id] } %>
+      <% end %>
+      <div class="performance-owner-field"><%= label_tag :owner_id, 'Ticket Owner(s)', id: 'performance-owner-label' %><%= select_tag 'owner_ids[]', options_for_select(owner_options, @selected_owner_ids), id: 'owner_id', multiple: true, size: 4, required: true, data: { performance_owner_picker: true } %><small class="performance-owner-fallback">Use Ctrl/Cmd to select multiple owners.</small></div>
+      <%= submit_tag 'Apply', name: nil %>
+    <% end %>
+  </header>

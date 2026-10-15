@@ -4,12 +4,23 @@ class PerformanceDashboardController < ApplicationController
   menu_item :performance_dashboard
 
   def index
+    @performance_tab = params[:tab].presence || 'tickets'
+    return render_404 unless %w[tickets returns time].include?(@performance_tab)
     @metric = params[:metric].presence
     return render_404 if @metric && !TicketJourneyPerformance::DETAIL_LABELS.key?(@metric)
     @date = params[:as_of].present? ? Date.iso8601(params[:as_of]) : Date.current
     raise ArgumentError if @date > Date.current
     requested_owners = Array(params[:owner_ids].presence || params[:owner_id]).map(&:to_s).reject(&:blank?).uniq
     requested_set = requested_owners.to_set
+    if @performance_tab != 'tickets'
+      return render_404 unless requested_owners.all? { |id| id.match?(/\A[1-9]\d*\z/) }
+
+      # Planned tabs retain context but must not run ticket/history/target scans.
+      @owners = User.active.where(id: Member.where(project_id: performance_project_ids).select(:user_id))
+                    .order(:lastname, :firstname).to_a
+      @selected_owner_ids = requested_owners.presence || [@owners.find { |user| user.id == User.current.id }&.id].compact.map(&:to_s)
+      return render :planned
+    end
     # Opening the menu must not scan issues or reconstruct journal history.
     # Project members seed the selector; calculated reports also discover former
     # owners from visible ticket history, retaining historical report links.
