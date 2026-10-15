@@ -112,9 +112,37 @@ class PerformanceDashboardTest < ActionController::TestCase
   end
 
   test 'drill down cannot disclose an owner without visible matching issues' do
+    User.find(2).update_column(:status, Principal::STATUS_LOCKED)
     Issue.expects(:visible).returns(Issue.none)
-    get :index, params: { project_id: @project.identifier, owner_id: '1', metric: 'open' }
+    get :index, params: { project_id: @project.identifier, owner_id: '2', metric: 'open' }
     assert_response :not_found
+  end
+
+  test 'multi owner table precedes aggregated charts and combined drill down preserves owners' do
+    User.find(2).update_column(:status, Principal::STATUS_ACTIVE)
+    issues = [Issue.find(1), Issue.find(2)]
+    issues.each { |issue| issue.update_columns(project_id: @project.id, tracker_id: issues.first.tracker_id) }
+    issues.first.tracker.update!(name: 'Bug')
+    Issue.expects(:visible).at_least_once.returns(Issue.where(id: issues.map(&:id)))
+    Issue.any_instance.stubs(:visible_custom_field_values).returns([stub(custom_field: stub(id: 57))])
+    issues.each_with_index do |issue, index|
+      TicketJourneyPerformance.stubs(:snapshot).with { |candidate, *rest| candidate.id == issue.id }.returns({
+        id: issue.id, owner_id: (index + 1).to_s, status_name: 'In Progress',
+        due: Date.current + (index.zero? ? -1 : 1), open: true, done: false, started: true,
+        delivered_at: nil, weight: (index + 1) * 5.0, missing_weight: false
+      })
+    end
+    get :index, params: { project_id: @project.identifier, owner_ids: ['1', '2', '1'] }
+    assert_response :success
+    assert_select 'details.performance-comparison[open]', count: 1
+    assert_select '.performance-comparison tbody tr', count: 2
+    assert_select '.performance-comparison tfoot td:first-of-type', text: '2'
+    assert_select '.performance-card-0 .performance-value', text: '2'
+    assert_operator @response.body.index('performance-comparison'), :<, @response.body.index('Combined results for selected owners')
+    get :index, params: { project_id: @project.identifier, owner_ids: ['1', '2'], metric: 'open', sort: 'weight', direction: 'desc' }
+    assert_response :success
+    assert_select 'tr.performance-ticket-row', count: 2
+    assert_select 'a[href=?]', performance_dashboard_path(@project, owner_ids: ['1', '2'], as_of: Date.current.iso8601), text: /Back to Performance/
   end
 
   test 'monthly targets reject private fields for non administrators' do

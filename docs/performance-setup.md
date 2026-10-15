@@ -36,3 +36,5 @@ For Section 2, verify due counts/weights exclude Archived and Ongoing at the rep
 Verify both automatic Day 0 dates and separate contributor links, including open weighted tickets establishing weight start, missing/future Start dates, Archived/Ongoing exclusions and hidden weights. No migration is required.
 
 Verify drill-down default ordering by metric, click each sortable heading twice, check missing values remain last and groups show whole-result totals. Test a project group spanning over 100 rows and confirm Next/Previous preserve sorting and report filters. No migration required.
+
+Verify selecting two owners, comparison row totals matching charts, duplicate selection counted once, zero-ticket active member rows, and owner-specific versus aggregate drill-downs. Confirm collapse leaves heading/owner count visible, Total row stays last during sorting, combined drill-down pagination/back links preserve all owners, and inactive users stay out of selection. Monthly aggregates show an explanation; single-owner monthly comparisons continue to work. Deploy plugin and assets, restart and hard-refresh.

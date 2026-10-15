@@ -1,0 +1,21 @@
+<details class="performance-section performance-comparison" open>
+  <summary><strong>Developer comparison — <%= @selected_owners.size %> selected owner(s)</strong></summary>
+  <p>Click a heading to sort or a number to view contributing tickets. Stopped and Due Soon are subsets, already included in open totals.</p>
+  <div class="autoscroll"><table class="list">
+    <thead>
+      <tr><th rowspan="2"><%= performance_comparison_heading('Ticket Owner', 'owner') %></th><th colspan="4">Tickets</th><th colspan="4">Complexity Weight</th><th rowspan="2"><%= performance_comparison_heading('Stopped', 'stopped') %></th><th rowspan="2"><%= performance_comparison_heading('Due Soon', 'due_soon') %></th></tr>
+      <tr><% ['', '_weight'].each do |suffix| %><% [['Total Open', 'open'], ['Not Overdue', 'not_overdue'], ['Overdue - Already Started', 'started'], ['Overdue - Not Touched', 'untouched']].each do |label, key| %><th><%= performance_comparison_heading(label, key + suffix) %></th><% end %><% end %></tr>
+    </thead>
+    <tbody><% @comparison.each do |entry| %>
+      <% report = entry[:report]; ids = [entry[:owner].id.to_s] %>
+      <tr><td><%= entry[:owner].name %><%= ' (inactive)' unless entry[:owner].active? %></td>
+        <% [false, true].each do |weighted| %><% %w[open not_overdue started untouched].each_with_index do |metric, index| %><td><%= performance_comparison_link(weighted ? performance_number(TicketJourneyPerformance.weight(report[:groups][index])) : report[:groups][index].size, metric, ids) %></td><% end %><% end %>
+        <td><%= performance_comparison_link(report[:stopped], 'stopped', ids) %></td><td><%= performance_comparison_link(report[:due_soon], 'due_soon', ids) %></td>
+      </tr>
+    <% end %></tbody>
+    <tfoot><tr class="performance-comparison-total"><th>Total</th>
+      <% [false, true].each do |weighted| %><% %w[open not_overdue started untouched].each_with_index do |metric, index| %><td><%= performance_comparison_link(weighted ? performance_number(TicketJourneyPerformance.weight(@report[:groups][index])) : @report[:groups][index].size, metric, @selected_owner_ids) %></td><% end %><% end %>
+      <td><%= performance_comparison_link(@report[:stopped], 'stopped', @selected_owner_ids) %></td><td><%= performance_comparison_link(@report[:due_soon], 'due_soon', @selected_owner_ids) %></td>
+    </tr></tfoot>
+  </table></div>
+</details>

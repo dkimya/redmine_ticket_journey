@@ -1,7 +1,7 @@
 <% html_title 'Performance', @detail_title %>
 <h2><%= @detail_title %></h2>
-<p><%= link_to '← Back to Performance', performance_dashboard_path(@project, owner_id: @owner.id, as_of: @date.iso8601) %></p>
-<p><strong><%= @owner.name %></strong> · As of <%= format_date(@date) %> · <%= @detail_count %> tickets · Total usable complexity weight: <%= performance_number(@detail_weight) %></p>
+<p><%= link_to '← Back to Performance', performance_dashboard_path(@project, **performance_owner_params, as_of: @date.iso8601) %></p>
+<p><strong><%= @owner_label %></strong> · As of <%= format_date(@date) %> · <%= @detail_count %> tickets · Total usable complexity weight: <%= performance_number(@detail_weight) %></p>
 <p>Scope: Selected project and all subprojects, limited to visible projects and tickets.</p>
 <p class="info">Owner and status reflect the selected date. Project, subject, tracker, due date and complexity weight are current. These are the same ticket sets used by the dashboard, recalculated with your current permissions; edits since opening the dashboard may change results. Unavailable weights contribute zero to the total.</p>
 <% if %w[due done delivered delivered_weight missing_delivery].include?(@metric) %><p>Section 2 excludes Archived and Ongoing tickets based on their status at the selected report date.</p><% end %>
@@ -17,11 +17,11 @@
       <tr class="group"><th colspan="9" scope="rowgroup"><%= page_rows.first[:project_name] %> — <%= totals[:count] %> tickets · Complexity Weight: <%= performance_number(totals[:weight]) %> (whole project group; <%= page_rows.size %> tickets on this page)</th></tr>
       <% page_rows.each do |row| %>
       <% issue = @detail_issues.fetch(row[:id]) %>
-      <tr class="performance-ticket-row"><td><%= link_to "##{issue.id}", issue_path(issue) %></td><td><%= link_to issue.project.name, project_path(issue.project) %></td><td class="subject"><%= issue.subject %></td><td><%= issue.tracker.name %></td><td><%= @owner.name %></td><td><%= row[:status_name].presence || 'Unknown' %></td><td><%= row[:due] ? format_date(row[:due]) : 'Not set' %></td><td><%= row[:missing_weight] ? 'Unavailable' : performance_number(row[:weight]) %></td><td><%= row[:delivered_at] ? format_date(row[:delivered_at]) : 'Not recorded' %></td></tr>
+      <tr class="performance-ticket-row"><td><%= link_to "##{issue.id}", issue_path(issue) %></td><td><%= link_to issue.project.name, project_path(issue.project) %></td><td class="subject"><%= issue.subject %></td><td><%= issue.tracker.name %></td><td><%= @selected_owners.find { |owner| owner.id.to_s == row[:owner_id] }&.name || 'Unknown' %></td><td><%= row[:status_name].presence || 'Unknown' %></td><td><%= row[:due] ? format_date(row[:due]) : 'Not set' %></td><td><%= row[:missing_weight] ? 'Unavailable' : performance_number(row[:weight]) %></td><td><%= row[:delivered_at] ? format_date(row[:delivered_at]) : 'Not recorded' %></td></tr>
     <% end %><% end %></tbody>
   </table></div>
 <% end %>
 <p>Page <%= @page %> of <%= @page_count %> · Up to 100 tickets per page
-  <% if @page > 1 %> · <%= link_to 'Previous', performance_dashboard_path(@project, owner_id: @owner.id, as_of: @date.iso8601, metric: @metric, sort: @sort, direction: @direction, page: @page - 1) %><% end %>
-  <% if @page < @page_count %> · <%= link_to 'Next', performance_dashboard_path(@project, owner_id: @owner.id, as_of: @date.iso8601, metric: @metric, sort: @sort, direction: @direction, page: @page + 1) %><% end %>
+  <% if @page > 1 %> · <%= link_to 'Previous', performance_dashboard_path(@project, **performance_owner_params, as_of: @date.iso8601, metric: @metric, sort: @sort, direction: @direction, page: @page - 1) %><% end %>
+  <% if @page < @page_count %> · <%= link_to 'Next', performance_dashboard_path(@project, **performance_owner_params, as_of: @date.iso8601, metric: @metric, sort: @sort, direction: @direction, page: @page + 1) %><% end %>
 </p>

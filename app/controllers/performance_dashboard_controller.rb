@@ -8,13 +8,16 @@ class PerformanceDashboardController < ApplicationController
     return render_404 if @metric && !TicketJourneyPerformance::DETAIL_LABELS.key?(@metric)
     @date = params[:as_of].present? ? Date.iso8601(params[:as_of]) : Date.current
     raise ArgumentError if @date > Date.current
+    requested_owners = Array(params[:owner_ids].presence || params[:owner_id]).map(&:to_s).reject(&:blank?).uniq
+    requested_set = requested_owners.to_set
     # Opening the menu must not scan issues or reconstruct journal history.
     # Project members seed the selector; calculated reports also discover former
     # owners from visible ticket history, retaining historical report links.
-    if params[:owner_id].blank? && !@metric
+    if requested_owners.empty? && !@metric
       @owners = User.active.where(id: Member.where(project_id: performance_project_ids).select(:user_id))
                     .order(:lastname, :firstname).to_a
       @owner = @owners.find { |user| user.id == User.current.id }
+      @selected_owner_ids = [@owner&.id].compact.map(&:to_s)
       @initial_load = true
       return
     end
@@ -42,7 +45,7 @@ class PerformanceDashboardController < ApplicationController
             history: history.fetch(issue.id, []), visible_values: visible_values)
           next unless row
           owner_ids << row[:owner_id] if row[:owner_id].present?
-          if row[:owner_id] == params[:owner_id].to_s
+          if requested_set.include?(row[:owner_id])
             # Only compact sorting metadata survives the batch, not Issue objects.
             row = row.merge(project_id: issue.project_id, project_name: issue.project.name, subject: issue.subject) if @metric
             rows << row
@@ -50,11 +53,16 @@ class PerformanceDashboardController < ApplicationController
         end
       end
     end
-    @owners = User.active.where(id: owner_ids.to_a).order(:lastname, :firstname).to_a
+    member_ids = Member.where(project_id: performance_project_ids).pluck(:user_id)
+    @owners = User.active.where(id: (owner_ids.to_a + member_ids).uniq).order(:lastname, :firstname).to_a
     # Active-only is a dropdown rule, not an access restriction. Resolve saved
     # links separately, but only for owners found on visible in-scope tickets.
-    @owner = User.find_by(id: params[:owner_id]) if owner_ids.include?(params[:owner_id].to_s)
-    @owner ||= @owners.find { |u| u.id == User.current.id } if params[:owner_id].blank?
+    allowed_ids = (@owners.map { |u| u.id.to_s } + owner_ids.to_a).to_set
+    return render_404 unless requested_owners.all? { |id| allowed_ids.include?(id) }
+    @selected_owners = User.where(id: requested_owners).order(:lastname, :firstname).to_a
+    @selected_owner_ids = @selected_owners.map { |u| u.id.to_s }
+    @owner_label = @selected_owners.map(&:name).join(', ')
+    @owner = @selected_owners.first
     unless @owner
       return render_404 if @metric
       return
@@ -62,6 +70,33 @@ class PerformanceDashboardController < ApplicationController
     @start_date = @owner.created_on&.in_time_zone&.to_date
     @report = TicketJourneyPerformance.calculate(rows, @date, @start_date)
     @targets = %w[count weight].map { |kind| monthly_target(@settings["performance_#{kind}_field_id"]) }
+    @comparison = @selected_owners.map do |owner|
+      { owner: owner, report: TicketJourneyPerformance.calculate(rows.select { |r| r[:owner_id] == owner.id.to_s }, @date, owner.created_on&.in_time_zone&.to_date) }
+    end
+    @comparison_sort = %w[owner open not_overdue started untouched open_weight not_overdue_weight started_weight untouched_weight stopped due_soon].include?(params[:comparison_sort]) ? params[:comparison_sort] : 'owner'
+    @comparison_direction = params[:comparison_direction] == 'desc' ? 'desc' : 'asc'
+    @comparison.sort_by! do |entry|
+      key = @comparison_sort
+      index = %w[open not_overdue started untouched].index(key.sub(/_weight\z/, ''))
+      value = if key == 'owner'
+                entry[:owner].name.downcase
+              elsif index
+                group = entry[:report][:groups][index]
+                key.end_with?('_weight') ? TicketJourneyPerformance.weight(group) : group.size
+              else
+                entry[:report][key.to_sym]
+              end
+      [value, entry[:owner].id]
+    end
+    @comparison.reverse! if @comparison_direction == 'desc'
+    if @selected_owners.size > 1
+      # Multi-owner monthly averaging/target aggregation is not yet agreed.
+      # Open and cumulative delivery aggregation do not depend on those rules.
+      @report[:monthly_count] = @report[:monthly_weight] = nil
+      @report[:count_start_date] = @report[:weight_start_date] = nil
+      @report[:detail_sets]['delivered'] = @report[:detail_sets]['delivered_weight'] = []
+      @targets = [nil, nil]
+    end
     if @metric
       @detail_title = TicketJourneyPerformance::DETAIL_LABELS.fetch(@metric)
       @sort, @direction = TicketJourneyPerformance.detail_sort_options(@metric, params[:sort], params[:direction])
