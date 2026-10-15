@@ -38,3 +38,13 @@
 .performance-owner-empty{color:#536579;font-size:13px}
 .performance-owner-field select[hidden],.performance-owner-fallback[hidden]{display:none}
 @media(max-width:650px){.performance-owner-field{width:100%}.performance-owner-panel{width:100%;max-width:none}}
+/* Keep the filter controls aligned while owner chips/messages grow below. */
+.performance-page .performance-header{align-items:flex-start}
+.performance-page .performance-filters{display:grid;grid-template-columns:auto minmax(220px,290px) auto;align-items:start;gap:12px}
+.performance-filters>div>label{line-height:20px;min-height:20px;margin:0 0 6px}
+.performance-filters input[type="date"],.performance-owner-trigger{height:36px;min-height:36px;box-sizing:border-box}
+.performance-filters>input[type="submit"]{align-self:start;margin:26px 0 0;height:36px;min-height:36px;box-sizing:border-box}
+@media(max-width:650px){
+  .performance-page .performance-filters{grid-template-columns:minmax(0,1fr);width:100%}
+  .performance-filters>input[type="submit"]{margin-top:0;justify-self:start}
+}
