@@ -4,6 +4,8 @@ class PerformanceDashboardController < ApplicationController
   menu_item :performance_dashboard
 
   def index
+    @dashboard_type = params[:dashboard_type].presence || 'live'
+    return render_404 unless %w[live periodic].include?(@dashboard_type)
     @performance_tab = params[:tab].presence || 'tickets'
     return render_404 unless %w[tickets returns time].include?(@performance_tab)
     @metric = params[:metric].presence
@@ -12,7 +14,7 @@ class PerformanceDashboardController < ApplicationController
     raise ArgumentError if @date > Date.current
     requested_owners = Array(params[:owner_ids].presence || params[:owner_id]).map(&:to_s).reject(&:blank?).uniq
     requested_set = requested_owners.to_set
-    if @performance_tab != 'tickets'
+    if @dashboard_type == 'periodic' || @performance_tab != 'tickets'
       return render_404 unless requested_owners.all? { |id| id.match?(/\A[1-9]\d*\z/) }
 
       # Planned tabs retain context but must not run ticket/history/target scans.

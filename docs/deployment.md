@@ -15,6 +15,8 @@ Observed host: `/opt/redmine`, plugin `/opt/redmine/plugins/redmine_ticket_journ
 
 ## Verify
 
+- Performance header: dashboard type, report section, then title/filters, all inside blue header. Switch categories/sections and Apply: owners/date persist; Periodic and Returns/Time show Planned with no metrics. Existing Live Tickets and drill-downs still work. Check narrow-screen wrapping and keyboard navigation.
+
 - Combined monthly view: targets 10/20 should average to 15; actuals use combined totals ÷ 3 ÷ 2 owners. Include an owner with no deliveries. Remove one owner’s point target: only point target/deviation becomes unavailable, with its name; ticket comparison remains. Verify public/private target visibility and intact combined contributor lists.
 
 - Monthly metrics: As of 15 October 2026 must show 1 July–30 September 2026 for both metrics; totals divide by 3. Check contributor links, zero-delivery months, month/year boundaries, unchanged cumulative ratios, and per-owner actual/target means for multiple owners. No migration is required.

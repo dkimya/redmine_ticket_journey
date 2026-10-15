@@ -60,6 +60,41 @@ class PerformanceDashboardTest < ActionController::TestCase
     assert_response :not_found
   end
 
+  test 'periodic navigation is above the title and retains context without running reports' do
+    Issue.expects(:visible).never
+    TicketJourneyPerformance.expects(:calculate).never
+    get :index, params: { project_id: @project.identifier, dashboard_type: 'periodic', tab: 'time',
+                          owner_ids: ['1', '2'], as_of: Date.current.iso8601 }
+    assert_response :success
+    assert_select '.performance-header > .performance-navigation', count: 1
+    assert_select '.performance-type-tabs a[aria-current="page"]', text: /Periodic Report/
+    assert_select '.performance-header h2', text: 'Time — Periodic Report'
+    assert_select 'input[name="dashboard_type"][value="periodic"]'
+    assert_select '.performance-planned-section', text: /From \/ To date range/
+    assert_operator @response.body.index('aria-label="Dashboard type"'), :<, @response.body.index('aria-label="Report section"')
+    assert_operator @response.body.index('aria-label="Report section"'), :<, @response.body.index('<h2>')
+    assert_select '.performance-tabs a', count: 3 do |links|
+      links.each do |link|
+        context = Rack::Utils.parse_nested_query(URI.parse(link['href']).query)
+        assert_equal 'periodic', context['dashboard_type']
+        assert_equal ['1', '2'], context['owner_ids']
+        assert_equal Date.current.iso8601, context['as_of']
+      end
+    end
+    assert_select '.performance-type-tabs a', count: 2 do |links|
+      live = Rack::Utils.parse_nested_query(URI.parse(links.first['href']).query)
+      assert_nil live['dashboard_type']
+      assert_equal 'time', live['tab']
+      assert_equal ['1', '2'], live['owner_ids']
+    end
+  end
+
+  test 'unknown dashboard category is rejected before report scans' do
+    Issue.expects(:visible).never
+    get :index, params: { project_id: @project.identifier, dashboard_type: 'unknown' }
+    assert_response :not_found
+  end
+
   test 'inactive project members do not appear on initial owner selector' do
     user = User.find(2)
     Member.create!(project: @project, principal: user, roles: [Role.find(1)]) unless Member.exists?(project_id: @project.id, user_id: user.id)

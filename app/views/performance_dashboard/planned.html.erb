@@ -1,14 +1,14 @@
-<% html_title 'Performance', @performance_tab.titleize %>
+<% html_title 'Performance', (@dashboard_type == 'periodic' ? 'Periodic Report' : @performance_tab.titleize) %>
 <% content_for :header_tags do %>
   <%= stylesheet_link_tag 'performance', plugin: 'redmine_ticket_journey' %>
   <%= javascript_include_tag 'performance_owner_picker', plugin: 'redmine_ticket_journey', defer: true %>
 <% end %>
 <div class="performance-page">
   <%= render 'header' %>
-  <%= render 'tabs' %>
   <section class="performance-section performance-planned-section">
-    <h3><%= @performance_tab.titleize %> Performance — Planned</h3>
-    <p>This section is planned for a later implementation. No <%= @performance_tab %> performance metrics are calculated here yet.</p>
+    <h3><%= @dashboard_type == 'periodic' ? 'Periodic Report' : "#{@performance_tab.titleize} Performance" %> — Planned</h3>
+    <p>This section is planned for a later implementation. No <%= @dashboard_type == 'periodic' ? 'periodic report' : @performance_tab %> performance metrics are calculated here yet.</p>
     <p>Your As of Date and selected Ticket Owners are retained when switching tabs. Metric definitions and time windows will be agreed before implementation.</p>
+    <% if @dashboard_type == 'periodic' %><p>A From / To date range will be introduced when Periodic Report is implemented. The date above only preserves your Live Dashboard context.</p><% end %>
   </section>
 </div>

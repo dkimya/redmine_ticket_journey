@@ -6,7 +6,6 @@
 <% html_title 'Performance' %>
 <div class="performance-page">
   <%= render 'header' %>
-  <%= render 'tabs' %>
   <% if @owner && !@owner.active? %>
     <p>Showing report for <strong><%= @owner.name %></strong> (inactive). The owner dropdown lists active users only.</p>
   <% end %>

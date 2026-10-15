@@ -144,6 +144,15 @@
 .performance-tabs .performance-tab:focus-visible{outline:2px solid #007bd1;outline-offset:3px}
 .performance-tab-planned{font-size:11px;font-weight:400;color:#536579;background:#fff;border-radius:4px;padding:2px 5px}
 .performance-planned-section{background:#f8fbfe}
+.performance-header{display:block}
+.performance-header-content{display:flex;align-items:flex-start;justify-content:space-between;gap:24px}
+.performance-navigation{width:100%;margin-bottom:20px}
+.performance-header .performance-tabs{margin:10px 0 0}
+.performance-type-tabs{display:flex;flex-wrap:wrap;gap:10px}
+.performance-type-tabs .performance-tab{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border:1px solid #8aaed2;border-radius:6px;color:#22488d;background:#fff;text-decoration:none;font-size:15px;font-weight:700}
+.performance-type-tabs .performance-tab.is-active{background:#22488d;color:#fff;border-color:#22488d}
+.performance-type-tabs .performance-tab:focus-visible{outline:2px solid #007bd1;outline-offset:3px}
+@media(max-width:1200px){.performance-header-content{flex-direction:column}}
 .performance-comparison table{min-width:1100px;margin-top:14px}
 .performance-comparison th,.performance-comparison td{padding:10px 8px}
 .performance-comparison .performance-comparison-total th,.performance-comparison .performance-comparison-total td{font-weight:800;background:#e9f3ff;border-top:1px solid #bacddd;border-bottom:1px solid #bacddd}
