@@ -7,7 +7,7 @@
 <p><%= link_to '← Back to Performance', performance_dashboard_path(@project, **performance_owner_params, as_of: @date.iso8601), data: { performance_back: true }, title: 'Return to the previous Performance report when available. Click Apply there to refresh its results.' %></p>
 <p><strong><%= @owner_label %></strong> · As of <%= format_date(@date) %> · <%= @detail_count %> tickets · Total usable complexity weight: <%= performance_number(@detail_weight) %></p>
 <p>Scope: Selected project and all subprojects, limited to visible projects and tickets.</p>
-<p class="info">Owner and status reflect the selected date. Project, subject, tracker, due date and complexity weight are current. These are the same ticket sets used by the dashboard, recalculated with your current permissions; edits since opening the dashboard may change results. Unavailable weights contribute zero to the total.</p>
+<p class="info">Owner and status reflect the selected date. Project, title/subject, tracker, priority, PM estimate, due date and complexity weight are current. Time Spent is lifetime visible hours logged directly against the ticket, excluding child-ticket rollups; it is not limited to the report date. PM Estimate is Redmine's Estimated time in hours. These are the same ticket sets used by the dashboard, recalculated with your current permissions; edits since opening the dashboard may change results. Unavailable weights contribute zero to the total.</p>
 <% if %w[due done delivered delivered_weight missing_delivery].include?(@metric) %><p>Section 2 excludes Archived and Ongoing tickets based on their status at the selected report date.</p><% end %>
 <% if %w[delivered delivered_weight].include?(@metric) %><p>Monthly contributors from <%= format_date(@report[:monthly_start_date]) %> through <%= format_date(@report[:monthly_end_date]) %>. The dashboard divides these totals by 3, including zero-delivery months. The selected date's month is excluded; owner and status still reflect the selected date.</p><% end %>
 <details class="performance-list-options">
@@ -22,7 +22,7 @@
     <fieldset><legend>Columns</legend>
       <span>Ticket (always shown)</span>
       <% TicketJourneyPerformance::DETAIL_COLUMNS.except('id').each do |key, label| %>
-        <label><%= check_box_tag 'detail_columns[]', key, @detail_columns.include?(key), id: "detail-column-#{key}" %> <%= label %></label>
+        <label title="<%= performance_detail_column_tip(key) %>"><%= check_box_tag 'detail_columns[]', key, @detail_columns.include?(key), id: "detail-column-#{key}" %> <%= label %></label>
       <% end %>
     </fieldset>
     <%= label_tag :group_by, 'Group by' %>
@@ -38,7 +38,7 @@
   <p class="nodata">No tickets match this metric.</p>
 <% else %>
   <div class="autoscroll"><table class="list issues">
-    <thead><tr><% @detail_columns.each do |key| %><th scope="col"><%= TicketJourneyPerformance::DETAIL_SORT_KEYS.include?(key) ? performance_sort_heading(TicketJourneyPerformance::DETAIL_COLUMNS.fetch(key), key) : TicketJourneyPerformance::DETAIL_COLUMNS.fetch(key) %></th><% end %></tr></thead>
+    <thead><tr><% @detail_columns.each do |key| %><th scope="col" title="<%= performance_detail_column_tip(key) %>"><%= TicketJourneyPerformance::DETAIL_SORT_KEYS.include?(key) ? performance_sort_heading(TicketJourneyPerformance::DETAIL_COLUMNS.fetch(key), key) : TicketJourneyPerformance::DETAIL_COLUMNS.fetch(key) %></th><% end %></tr></thead>
         <tbody><% @detail_rows.group_by { |row| TicketJourneyPerformance.detail_group_key(row, @group_by) }.each do |group_key, page_rows| %>
       <% if @group_by %>
         <% totals = @group_totals.fetch(group_key) %>

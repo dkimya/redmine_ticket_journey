@@ -128,6 +128,18 @@ class PerformanceDashboardTest < ActionController::TestCase
       assert_equal ['id', 'status'], context['detail_columns']
       assert_nil context['page']
     end
+    issue.update_column(:estimated_hours, 12.5)
+    TimeEntry.expects(:visible).with { |user| user.id == 1 }.returns(TimeEntry.none)
+    get :index, params: { project_id: @project.identifier, owner_id: '1', as_of: date.iso8601,
+                          metric: 'started', detail_options: '1',
+                          detail_columns: %w[priority subject estimate spent status] }
+    assert_response :success
+    assert_select 'table.list thead th', count: 6
+    assert_select 'table.list thead th', text: 'Title / Subject (current)'
+    assert_select 'table.list tbody td', text: issue.priority.name
+    assert_select 'table.list tbody td', text: '12.50 h'
+    assert_select 'table.list tbody td', text: '0.00 h'
+    assert_select 'table.list tbody td', text: 'Historical Review'
   end
 
   test 'drill down cannot disclose an owner without visible matching issues' do

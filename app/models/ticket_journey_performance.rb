@@ -3,11 +3,14 @@ class TicketJourneyPerformance
   BATCH_SIZE = 100
   DETAIL_SORT_KEYS = %w[id subject status due weight completion].freeze
   DETAIL_COLUMNS = {
-    'id' => 'Ticket', 'project' => 'Project (current)', 'subject' => 'Subject (current)',
+    'id' => 'Ticket', 'project' => 'Project (current)', 'subject' => 'Title / Subject (current)',
     'tracker' => 'Tracker (current)', 'owner' => 'Ticket Owner (as of date)',
     'status' => 'Status (as of date)', 'due' => 'Due Date (current)',
-    'weight' => 'Complexity Weight (current)', 'completion' => 'Last Recorded Completion by Report Date'
+    'weight' => 'Complexity Weight (current)', 'completion' => 'Last Recorded Completion by Report Date',
+    'priority' => 'Priority (current)', 'estimate' => 'PM Estimate (current)',
+    'spent' => 'Time Spent (visible lifetime)'
   }.freeze
+  DEFAULT_DETAIL_COLUMNS = (DETAIL_COLUMNS.keys - %w[priority estimate spent]).freeze
   DETAIL_GROUPS = { 'project' => :project_name, 'tracker' => :tracker_name,
                     'owner' => :owner_name, 'status' => :status_name }.freeze
 

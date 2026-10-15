@@ -108,7 +108,7 @@ class PerformanceDashboardController < ApplicationController
     if @metric
       @detail_title = TicketJourneyPerformance::DETAIL_LABELS.fetch(@metric)
       @group_by = TicketJourneyPerformance::DETAIL_GROUPS.key?(params[:group_by]) ? params[:group_by] : nil
-      requested_columns = params[:detail_options] == '1' ? Array(params[:detail_columns]).map(&:to_s) : TicketJourneyPerformance::DETAIL_COLUMNS.keys
+      requested_columns = params[:detail_options] == '1' ? Array(params[:detail_columns]).map(&:to_s) : TicketJourneyPerformance::DEFAULT_DETAIL_COLUMNS
       @detail_columns = ['id'] + (TicketJourneyPerformance::DETAIL_COLUMNS.keys - ['id']).select { |key| requested_columns.include?(key) }
       @sort, @direction = TicketJourneyPerformance.detail_sort_options(@metric, params[:sort], params[:direction])
       owner_names = @selected_owners.to_h { |owner| [owner.id.to_s, owner.name] }
@@ -124,9 +124,16 @@ class PerformanceDashboardController < ApplicationController
       @page = [[params[:page].to_i, 1].max, @page_count].min
       @detail_rows = @detail_rows.slice((@page - 1) * 100, 100) || []
       @detail_issues = Issue.visible(User.current).where(project_id: performance_project_ids, id: @detail_rows.map { |row| row[:id] })
-                            .includes(:project, :tracker).index_by(&:id)
+                            .includes(:project, :tracker, :priority).index_by(&:id)
       # A permission change during this request must not disclose a stale row.
       @detail_rows.select! { |row| @detail_issues.key?(row[:id]) }
+      # One page-sized aggregate, only when selected. No child rollups or dates
+      # inferred from the historical report; native time visibility is enforced.
+      @detail_spent_hours = if @detail_columns.include?('spent')
+        TimeEntry.visible(User.current).where(issue_id: @detail_issues.keys).group(:issue_id).sum(:hours)
+      else
+        {}
+      end
       render :details
     end
   rescue ArgumentError
