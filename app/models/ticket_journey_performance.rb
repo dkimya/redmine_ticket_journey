@@ -37,6 +37,71 @@ class TicketJourneyPerformance
   end
   HistoryDetail = Struct.new(:property, :prop_key, :old_value, :value)
   HistoryJournal = Struct.new(:id, :created_on, :details)
+  FieldValue = Struct.new(:custom_field, :value)
+
+  def self.batch_field_values(batch)
+    # Standard Redmine visibility uses field availability plus visible_by?. If
+    # another plugin overrides the issue-level visibility method, keep its path
+    # instead of assuming that our two-field shortcut covers its extra rules.
+    native = batch.all? do |issue|
+      location = issue.method(:visible_custom_field_values).source_location&.first.to_s.tr('\\', '/')
+      location == Rails.root.join('app/models/issue.rb').to_s.tr('\\', '/')
+    end
+    unless native
+      ActiveRecord::Associations::Preloader.new(records: batch, associations: :custom_values).call
+      return batch.to_h { |issue| [issue.id, issue.visible_custom_field_values] }
+    end
+    raw = Hash.new { |hash, id| hash[id] = {} }
+    CustomValue.where(customized_type: 'Issue', customized_id: batch.map(&:id), custom_field_id: [57, 70])
+               .pluck(:customized_id, :custom_field_id, :value).each do |id, field_id, value|
+      raw[id][field_id] = value
+    end
+    batch.to_h do |issue|
+      fields = issue.available_custom_fields.select { |field| [57, 70].include?(field.id) && field.visible_by?(issue.project, User.current) }
+      [issue.id, fields.map { |field| FieldValue.new(field, raw[issue.id][field.id]) }]
+    end
+  end
+
+  # A broad SQL candidate set, followed by exact historical reconstruction.
+  # Current-owner-only filtering would lose tickets reassigned after report date.
+  def self.candidate_scope(scope, owner_ids)
+    scoped_ids = scope.reselect('issues.id').unscope(:order)
+    current = CustomValue.where(customized_type: 'Issue', custom_field_id: 57, value: owner_ids,
+                                customized_id: scoped_ids).select(:customized_id)
+    history = JournalDetail.joins(:journal)
+      .where(journals: { journalized_type: 'Issue', journalized_id: scoped_ids }, property: 'cf', prop_key: '57')
+      .where('journal_details.old_value IN (?) OR journal_details.value IN (?)', owner_ids, owner_ids)
+      .select('journals.journalized_id')
+    scope.where(id: current).or(scope.where(id: history))
+  end
+
+  # Restrict only by current due dates, which are also what report calculations
+  # use. Do not prefilter current status: it may differ from the as-of status.
+  def self.metric_scope(scope, metric, date)
+    case metric
+    when 'started', 'untouched'
+      scope.where('issues.due_date < ?', date)
+    when 'due', 'done'
+      scope.where('issues.due_date <= ?', date)
+    when 'due_soon'
+      scope.where(due_date: date...(date + 3))
+    when 'missing_due'
+      scope.where(due_date: nil)
+    else
+      scope
+    end
+  end
+
+  def self.owner_at(issue, changes, date, owner_value: nil)
+    value = owner_value.nil? ? issue.custom_value_for(57)&.value.to_s : owner_value
+    changes.reverse_each do |journal|
+      next unless journal.created_on > date.in_time_zone.end_of_day
+      journal.details.each do |detail|
+        value = detail.old_value.to_s if detail.property == 'cf' && detail.prop_key == '57'
+      end
+    end
+    value
+  end
   TRACKERS = ['Bug', 'Change Request / Improvement', 'Feature', 'Task (Business Jobs)'].freeze
   # Hadi's rule: only having been In Progress establishes started work.
   # Later workflow stages, logged time and comments are not substitutes.
@@ -58,14 +123,18 @@ class TicketJourneyPerformance
   # Fetch scalar changes only: journal notes and unrelated fields can dwarf the
   # report data. Future owner changes are needed to rewind reassigned tickets;
   # all status changes are needed for started/completion and historical status.
-  def self.history_for(issue_ids, date)
+  def self.history_for(issue_ids, date, owner_only: false)
     result = Hash.new { |hash, id| hash[id] = [] }
     journals = {}
-    JournalDetail.joins(:journal)
+    scope = JournalDetail.joins(:journal)
       .where(journals: { journalized_type: 'Issue', journalized_id: issue_ids })
-      .where("(journal_details.property = ? AND journal_details.prop_key = ?) OR (journal_details.property = ? AND journal_details.prop_key = ? AND journals.created_on > ?)",
-             'attr', 'status_id', 'cf', '57', date.in_time_zone.end_of_day)
-      .order('journals.created_on', 'journals.id', 'journal_details.id')
+    scope = if owner_only
+              scope.where(property: 'cf', prop_key: '57').where('journals.created_on > ?', date.in_time_zone.end_of_day)
+            else
+              scope.where("(journal_details.property = ? AND journal_details.prop_key = ?) OR (journal_details.property = ? AND journal_details.prop_key = ? AND journals.created_on > ?)",
+                          'attr', 'status_id', 'cf', '57', date.in_time_zone.end_of_day)
+            end
+    scope.order('journals.created_on', 'journals.id', 'journal_details.id')
       .pluck('journals.journalized_id', 'journals.id', 'journals.created_on',
              'journal_details.property', 'journal_details.prop_key', 'journal_details.old_value', 'journal_details.value')
       .each do |issue_id, journal_id, created_on, property, key, old_value, value|
@@ -79,12 +148,12 @@ class TicketJourneyPerformance
     result
   end
 
-  def self.snapshot(issue, date, statuses, history: nil, visible_values: nil)
+  def self.snapshot(issue, date, statuses, history: nil, visible_values: nil, owner_value: nil)
     cutoff = date.in_time_zone.end_of_day
     return if issue.created_on > cutoff
 
     status_id = issue.status_id.to_s
-    owner_id = issue.custom_value_for(57)&.value.to_s
+    owner_id = owner_value.nil? ? issue.custom_value_for(57)&.value.to_s : owner_value
     changes = (history || issue.journals).sort_by { |j| [j.created_on, j.id] }
     # Reverse later changes, including explicit blank owners; only absent history
     # falls back to today's value. Due date and weight intentionally stay current.

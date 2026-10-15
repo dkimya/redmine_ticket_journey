@@ -52,3 +52,5 @@ Automatic separate Day 0 rules implemented locally: account creation for monthly
 - Owner picker rendering confirmed by user screenshots for small and large selections. Added stable top alignment for date, owner trigger and Apply, allowing chips/errors to grow below. Narrow screens stack controls. Alignment change awaits deployed visual verification.
 
 - Back to Performance now uses browser history for tracked same-tab report-to-drill-down navigation, including skipping sort/pagination entries. The normal report URL remains the fallback for direct visits/new tabs/blocked storage. JavaScript navigation tests pass; browser back-forward cache restoration and deployed behavior still require verification.
+
+- Slow Performance scans optimized locally using SQL selected-owner candidates, owner-only dropdown discovery, safe metric due-date filters, two-field batch values with an override-aware visibility fallback, and skipped comparison calculations on details. Historical reassignment and blank owner handling remain exact. Runtime tests and measured server timings are pending; no claimed latency reduction yet.

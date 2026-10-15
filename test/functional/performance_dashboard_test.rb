@@ -8,6 +8,10 @@ class PerformanceDashboardTest < ActionController::TestCase
     @request.session[:user_id] = 1
     @project = Project.find(1)
     @project.enabled_module_names = @project.enabled_module_names | ['ticket_journey']
+    # These controller/render tests already supply synthetic snapshots. Keep
+    # candidate SQL isolated here; real database coverage lives in scan_test.
+    @controller.define_singleton_method(:candidate_issues) { |scope, owner_ids| scope }
+    @controller.stubs(:discover_owner_ids).returns(Set['1', '2'])
   end
 
   test 'initial page renders filters without loading issues or calculating history' do
@@ -42,7 +46,7 @@ class PerformanceDashboardTest < ActionController::TestCase
     issue = Issue.find(1)
     issue.tracker.update!(name: 'Bug')
     Issue.expects(:visible).at_least_once.returns(Issue.where(id: issue.id))
-    Issue.any_instance.stubs(:visible_custom_field_values).returns([stub(custom_field: stub(id: 57))])
+    Issue.any_instance.stubs(:visible_custom_field_values).returns([stub(custom_field: stub(id: 57), value: '1')])
     TicketJourneyPerformance.stubs(:snapshot).returns({ id: issue.id, owner_id: user.id.to_s, status_name: 'In Progress',
       due: Date.current - 30, open: true, done: false, started: true,
       delivered_at: nil, weight: 5.0, missing_weight: false })
@@ -63,7 +67,7 @@ class PerformanceDashboardTest < ActionController::TestCase
     issue = Issue.find(1)
     issue.tracker.update!(name: 'Bug')
     Issue.expects(:visible).at_least_once.returns(Issue.where(id: issue.id))
-    Issue.any_instance.stubs(:visible_custom_field_values).returns([stub(custom_field: stub(id: 57))])
+    Issue.any_instance.stubs(:visible_custom_field_values).returns([stub(custom_field: stub(id: 57), value: '1')])
     TicketJourneyPerformance.stubs(:snapshot).returns({ id: issue.id, owner_id: '1',
       due: Date.current, open: true, done: false, started: false,
       delivered_at: nil, weight: 5.0, missing_weight: false })
@@ -97,7 +101,7 @@ class PerformanceDashboardTest < ActionController::TestCase
     issue.tracker.update!(name: 'Bug')
     date = Date.current - 2
     Issue.expects(:visible).at_least_once.returns(Issue.where(id: issue.id))
-    Issue.any_instance.stubs(:visible_custom_field_values).returns([stub(custom_field: stub(id: 57))])
+    Issue.any_instance.stubs(:visible_custom_field_values).returns([stub(custom_field: stub(id: 57), value: '1')])
     TicketJourneyPerformance.stubs(:snapshot).returns({ id: issue.id, owner_id: '1', status_name: 'Historical Review',
       due: date - 1, open: true, done: false, started: true,
       delivered_at: nil, weight: 5.0, missing_weight: false })
@@ -112,6 +116,7 @@ class PerformanceDashboardTest < ActionController::TestCase
   end
 
   test 'drill down cannot disclose an owner without visible matching issues' do
+    @controller.stubs(:discover_owner_ids).returns(Set.new)
     User.find(2).update_column(:status, Principal::STATUS_LOCKED)
     Issue.expects(:visible).returns(Issue.none)
     get :index, params: { project_id: @project.identifier, owner_id: '2', metric: 'open' }
@@ -124,7 +129,7 @@ class PerformanceDashboardTest < ActionController::TestCase
     issues.each { |issue| issue.update_columns(project_id: @project.id, tracker_id: issues.first.tracker_id) }
     issues.first.tracker.update!(name: 'Bug')
     Issue.expects(:visible).at_least_once.returns(Issue.where(id: issues.map(&:id)))
-    Issue.any_instance.stubs(:visible_custom_field_values).returns([stub(custom_field: stub(id: 57))])
+    Issue.any_instance.stubs(:visible_custom_field_values).returns([stub(custom_field: stub(id: 57), value: '1')])
     issues.each_with_index do |issue, index|
       TicketJourneyPerformance.stubs(:snapshot).with { |candidate, *rest| candidate.id == issue.id }.returns({
         id: issue.id, owner_id: (index + 1).to_s, status_name: 'In Progress',
@@ -174,7 +179,7 @@ class PerformanceDashboardTest < ActionController::TestCase
     issue.tracker.update!(name: 'Bug')
     issue.update_columns(project_id: grandchild.id)
     Issue.expects(:visible).at_least_once.returns(Issue.where(id: issue.id))
-    Issue.any_instance.stubs(:visible_custom_field_values).returns([stub(custom_field: stub(id: 57))])
+    Issue.any_instance.stubs(:visible_custom_field_values).returns([stub(custom_field: stub(id: 57), value: '1')])
     TicketJourneyPerformance.stubs(:snapshot).returns({ id: issue.id, owner_id: '1', status_name: 'In Progress',
       due: Date.current, open: true, done: false, started: true,
       delivered_at: nil, weight: 5.0, missing_weight: false })

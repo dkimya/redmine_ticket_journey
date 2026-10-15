@@ -28,23 +28,31 @@ class PerformanceDashboardController < ApplicationController
                   .joins(:tracker).where(trackers: { name: TicketJourneyPerformance::TRACKERS })
                   .where('issues.created_on <= ?', @date.in_time_zone.end_of_day)
                   .select(Issue.column_names.reject { |name| name == 'description' }.map { |name| "issues.#{name}" })
-                  .preload(:project, :tracker, :custom_values)
+                  .preload(:project, :tracker)
+    # Dropdown discovery rewinds ownership only; it never calculates status,
+    # completion or started history for every developer's tickets.
+    candidates = candidate_issues(issues, requested_owners)
+    owner_ids = discover_owner_ids(@metric ? candidates : issues)
+    issues = TicketJourneyPerformance.metric_scope(candidates, @metric, @date)
     # Respect field visibility as well as issue visibility. Hidden owner data must
     # not become available through dashboard filtering or aggregates.
     rows = []
-    owner_ids = Set.new
+    scanned = 0
+    scan_started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     # Query caching otherwise retains the SQL results of every batch until the
     # request ends, defeating bounded issue/history loading on large projects.
     Issue.uncached do
       issues.find_in_batches(batch_size: TicketJourneyPerformance::BATCH_SIZE) do |batch|
         history = TicketJourneyPerformance.history_for(batch.map(&:id), @date)
+        field_values = TicketJourneyPerformance.batch_field_values(batch)
         batch.each do |issue|
-          visible_values = issue.visible_custom_field_values
+          scanned += 1
+          visible_values = field_values.fetch(issue.id)
           next unless visible_values.any? { |v| v.custom_field.id == 57 }
           row = TicketJourneyPerformance.snapshot(issue, @date, statuses,
-            history: history.fetch(issue.id, []), visible_values: visible_values)
+            history: history.fetch(issue.id, []), visible_values: visible_values,
+            owner_value: visible_values.find { |value| value.custom_field.id == 57 }&.value.to_s)
           next unless row
-          owner_ids << row[:owner_id] if row[:owner_id].present?
           if requested_set.include?(row[:owner_id])
             # Only compact sorting metadata survives the batch, not Issue objects.
             row = row.merge(project_id: issue.project_id, project_name: issue.project.name, subject: issue.subject) if @metric
@@ -53,6 +61,7 @@ class PerformanceDashboardController < ApplicationController
         end
       end
     end
+    Rails.logger.info("Performance candidate scan: #{scanned} tickets, #{(Process.clock_gettime(Process::CLOCK_MONOTONIC) - scan_started).round(3)}s")
     member_ids = Member.where(project_id: performance_project_ids).pluck(:user_id)
     @owners = User.active.where(id: (owner_ids.to_a + member_ids).uniq).order(:lastname, :firstname).to_a
     # Active-only is a dropdown rule, not an access restriction. Resolve saved
@@ -69,8 +78,8 @@ class PerformanceDashboardController < ApplicationController
     end
     @start_date = @owner.created_on&.in_time_zone&.to_date
     @report = TicketJourneyPerformance.calculate(rows, @date, @start_date)
-    @targets = %w[count weight].map { |kind| monthly_target(@settings["performance_#{kind}_field_id"]) }
-    @comparison = @selected_owners.map do |owner|
+    @targets = @metric ? [] : %w[count weight].map { |kind| monthly_target(@settings["performance_#{kind}_field_id"]) }
+    @comparison = @metric ? [] : @selected_owners.map do |owner|
       { owner: owner, report: TicketJourneyPerformance.calculate(rows.select { |r| r[:owner_id] == owner.id.to_s }, @date, owner.created_on&.in_time_zone&.to_date) }
     end
     @comparison_sort = %w[owner open not_overdue started untouched open_weight not_overdue_weight started_weight untouched_weight stopped due_soon].include?(params[:comparison_sort]) ? params[:comparison_sort] : 'owner'
@@ -120,6 +129,29 @@ class PerformanceDashboardController < ApplicationController
   end
 
   private
+
+  def candidate_issues(scope, owner_ids)
+    TicketJourneyPerformance.candidate_scope(scope, owner_ids)
+  end
+
+  def discover_owner_ids(scope)
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    owners = Set.new
+    Issue.uncached do
+      scope.find_in_batches(batch_size: TicketJourneyPerformance::BATCH_SIZE) do |batch|
+        changes = TicketJourneyPerformance.history_for(batch.map(&:id), @date, owner_only: true)
+        field_values = TicketJourneyPerformance.batch_field_values(batch)
+        batch.each do |issue|
+          value = field_values.fetch(issue.id).find { |entry| entry.custom_field.id == 57 }
+          next unless value
+          owner = TicketJourneyPerformance.owner_at(issue, changes.fetch(issue.id, []), @date, owner_value: value.value.to_s)
+          owners << owner if owner.present?
+        end
+      end
+    end
+    Rails.logger.info("Performance owner discovery: #{(Process.clock_gettime(Process::CLOCK_MONOTONIC) - started).round(3)}s")
+    owners
+  end
 
   # Redmine's nested-set bounds include every depth, without recursively loading
   # project objects. Visibility and Issue.visible still apply independently.
