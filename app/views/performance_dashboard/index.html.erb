@@ -1,5 +1,6 @@
 <% content_for :header_tags do %>
   <%= stylesheet_link_tag 'performance', plugin: 'redmine_ticket_journey' %>
+  <%= javascript_include_tag 'performance_owner_picker', plugin: 'redmine_ticket_journey', defer: true %>
 <% end %>
 <% html_title 'Performance' %>
 <div class="performance-page">
@@ -7,7 +8,7 @@
     <div><p class="performance-eyebrow">PERFORMANCE RESULTS</p><h2>Tickets</h2><p>Ticket status and delivery performance as of <%= format_date(@date) %></p></div>
     <%= form_tag performance_dashboard_path(@project), method: :get, class: 'performance-filters' do %>
       <div><%= label_tag :as_of, 'As of Date' %><%= date_field_tag :as_of, @date.iso8601, max: Date.current.iso8601, required: true %></div>
-      <div><%= label_tag :owner_id, 'Ticket Owner(s)' %><%= select_tag 'owner_ids[]', options_for_select(@owners.map { |u| [u.name, u.id] }, @selected_owner_ids), id: 'owner_id', multiple: true, size: 4, required: true %><small>Use Ctrl/Cmd to select multiple owners.</small></div>
+      <div class="performance-owner-field"><%= label_tag :owner_id, 'Ticket Owner(s)', id: 'performance-owner-label' %><%= select_tag 'owner_ids[]', options_for_select(@owners.map { |u| [u.name, u.id] }, @selected_owner_ids), id: 'owner_id', multiple: true, size: 4, required: true, data: { performance_owner_picker: true } %><small class="performance-owner-fallback">Use Ctrl/Cmd to select multiple owners.</small></div>
       <%= submit_tag 'Apply', name: nil %>
     <% end %>
   </header>

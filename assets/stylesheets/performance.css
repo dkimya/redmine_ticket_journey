@@ -18,3 +18,23 @@
 .performance-comparison .performance-comparison-total th,.performance-comparison .performance-comparison-total td{font-weight:800;background:#e9f3ff;border-top:3px solid #22488d;border-bottom:3px solid #22488d}
 .performance-comparison td:not(:first-child){text-align:right}
 .performance-filters small{display:block;margin-top:4px}
+.performance-owner-field{width:290px;max-width:100%}
+.performance-owner-picker{position:relative;width:100%}
+.performance-owner-trigger{cursor:pointer;box-sizing:border-box;min-height:36px;padding:8px 12px;border:1px solid #bacddd;border-radius:6px;background:#fff;font-size:14px}
+.performance-owner-trigger:focus-visible,.performance-owner-picker button:focus-visible,.performance-owner-picker input:focus-visible{outline:2px solid #007bd1;outline-offset:2px}
+.performance-owner-panel{position:absolute;z-index:100;top:42px;left:0;width:340px;max-width:calc(100vw - 48px);box-sizing:border-box;padding:12px;background:#fff;border:1px solid #bacddd;border-radius:8px;box-shadow:0 6px 20px #15295526}
+.performance-filters .performance-owner-search{width:100%;max-width:none;box-sizing:border-box;padding:8px}
+.performance-owner-actions{display:flex;gap:8px;margin:10px 0}
+.performance-owner-actions button{flex:1;cursor:pointer;min-height:34px}
+.performance-owner-options{max-height:240px;overflow:auto}
+.performance-filters .performance-owner-option{display:flex;gap:10px;align-items:center;padding:8px 4px;margin:0;cursor:pointer;overflow-wrap:anywhere}
+.performance-filters .performance-owner-option[hidden]{display:none}
+.performance-filters .performance-owner-option input{min-height:0;width:18px;height:18px;flex-shrink:0;margin:0}
+.performance-owner-chips{display:flex;flex-wrap:wrap;gap:6px;max-height:100px;overflow:auto;margin-top:8px}
+.performance-owner-chip{border:1px solid #b8d8ed;border-radius:14px;background:#e5f3ff;color:#152955;padding:5px 9px;cursor:pointer;max-width:100%;overflow-wrap:anywhere;white-space:normal}
+.performance-owner-status{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.performance-owner-error{color:#b72136;font-size:12px;margin:5px 0 0}
+.performance-owner-error:empty{display:none}
+.performance-owner-empty{color:#536579;font-size:13px}
+.performance-owner-field select[hidden],.performance-owner-fallback[hidden]{display:none}
+@media(max-width:650px){.performance-owner-field{width:100%}.performance-owner-panel{width:100%;max-width:none}}
