@@ -78,7 +78,15 @@ class PerformanceDashboardController < ApplicationController
       return
     end
     @report = TicketJourneyPerformance.calculate(rows, @date)
-    @targets = @metric ? [] : %w[count weight].map { |kind| monthly_target(@settings["performance_#{kind}_field_id"]) }
+    ActiveRecord::Associations::Preloader.new(records: @selected_owners, associations: :custom_values).call unless @metric
+    @target_details = @metric ? [] : %w[count weight].map do |kind|
+      values = @selected_owners.map { |owner| monthly_target(@settings["performance_#{kind}_field_id"], owner) }
+      {
+        value: TicketJourneyPerformance.average_targets(values),
+        missing_owners: @selected_owners.each_with_index.filter_map { |owner, index| owner.name if values[index].nil? }
+      }
+    end
+    @targets = @target_details.map { |detail| detail[:value] }
     @comparison = @metric ? [] : @selected_owners.map do |owner|
       { owner: owner, report: TicketJourneyPerformance.calculate(rows.select { |r| r[:owner_id] == owner.id.to_s }, @date) }
     end
@@ -99,11 +107,10 @@ class PerformanceDashboardController < ApplicationController
     end
     @comparison.reverse! if @comparison_direction == 'desc'
     if @selected_owners.size > 1
-      # Multi-owner monthly averaging/target aggregation is not yet agreed.
-      # Open and cumulative delivery aggregation do not depend on those rules.
-      @report[:monthly_count] = @report[:monthly_weight] = nil
-      @report[:detail_sets]['delivered'] = @report[:detail_sets]['delivered_weight'] = []
-      @targets = [nil, nil]
+      # Compare mean monthly output per owner with mean monthly target per owner.
+      # Keep zero-delivery owners in this denominator and retain contributor sets.
+      @report[:monthly_count] /= @selected_owners.size.to_f
+      @report[:monthly_weight] /= @selected_owners.size.to_f
     end
     if @metric
       @detail_title = TicketJourneyPerformance::DETAIL_LABELS.fetch(@metric)
@@ -176,12 +183,13 @@ class PerformanceDashboardController < ApplicationController
     @project = Project.find(params[:project_id])
   end
 
-  def monthly_target(id)
-    field = UserCustomField.find_by(id: id.to_i)
+  def monthly_target(id, owner = @owner)
+    fields = (@monthly_target_fields ||= {})
+    field = fields.fetch(id.to_i) { fields[id.to_i] = UserCustomField.find_by(id: id.to_i) }
     return unless field && %w[int float].include?(field.field_format)
     # Do not disclose private user fields to dashboard viewers.
     return unless User.current.admin? || field.visible?
-    value = Float(@owner.custom_value_for(field.id)&.value.to_s, exception: false)
+    value = Float(owner.custom_value_for(field.id)&.value.to_s, exception: false)
     value if value && value.finite? && value.positive?
   end
 end

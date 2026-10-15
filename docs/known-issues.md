@@ -16,6 +16,8 @@ Reviewed 2026-10-13. **Server-confirmed** means user output/screenshots or expli
 
 ## Confirmation needed
 
+Combined monthly targets implemented: arithmetic mean of current usable targets across all distinct selected owners, paired with monthly per-owner actual means. Zero-delivery owners remain in both denominators. Missing/hidden/invalid/nonpositive target for any owner makes only that target/deviation unavailable, with owner names. Contributor sets remain intact. Metadata lookup is reused and selected-owner custom values are batch preloaded; drill-downs skip target lookup. Ruby tests updated but unrun locally; server verification pending.
+
 Drill-down Priority, Title / Subject, PM Estimate, and Time Spent options implemented. PM Estimate means native Estimated time; spent hours are visible lifetime direct entries, not historical totals. Defaults retain the original nine fields. Ruby display/visibility tests added/updated but not run locally; server verification pending.
 
 Open Tickets total-card alignment: user screenshot confirmed the total-above-three layout, but Stopped sat beside complexity weight. Updated the card to two columns, with Stopped directly under the ticket count on both desktop and mobile. Complexity weight stays on the right. This alignment fix awaits server visual verification.
@@ -51,11 +53,11 @@ Future return alarms are documented in [reporting rules](reporting-rules.md); re
 - Active-users-only filtering applies to both Performance dropdown paths. Per user clarification, inactive owner saved report/drill-down links remain usable with normal visibility/permission checks; the extra activity-based block was removed. Server verification pending.
 
 - Hadi's Section 2 exclusions implemented: Archived and Ongoing are removed from delivery populations using as-of status, including due denominators and drill-downs. Ongoing remains in Section 1. Unit coverage added; runtime/server verification pending.
-Monthly Day 0 rules superseded on user approval: both metrics now use the three completed calendar months before the selected date’s month, divided by 3, with matching contributor links and displayed dates. Account creation/Start dates no longer affect the window; zero deliveries yields 0 for a single owner. Multi-owner monthly aggregation remains unavailable. Ruby regression tests updated but not run locally; server verification pending.
+Monthly Day 0 rules superseded on user approval: both metrics now use the three completed calendar months before the selected date’s month, divided by 3, with matching contributor links and displayed dates. Account creation/Start dates no longer affect the window; zero deliveries yields 0 for a single owner. Multi-owner monthly aggregation is now implemented as matching per-owner actual/target means; missing targets make that comparison unavailable. Ruby regression tests updated but not run locally; server verification pending.
 
 - Performance drill-down project grouping and sortable headings implemented locally. Group totals span all pages, with page counts labelled. Runtime tests and deployed layout verification remain pending.
 
-- Hadi's comparison-first layout implemented with an expanded collapsible table and multi-owner aggregate charts/drill-downs. Single batched history scan preserved. Multi-owner monthly averages/targets remain unavailable pending agreed aggregation; the later monthly-window change now implements the three-completed-month proposal for single-owner monthly metrics. Runtime/server verification pending.
+- Hadi's comparison-first layout implemented with an expanded collapsible table and multi-owner aggregate charts/drill-downs. Single batched history scan preserved. Multi-owner monthly averages/targets now use per-owner means on user instruction; the later monthly-window change now implements the three-completed-month proposal for single-owner monthly metrics. Runtime/server verification pending.
 
 - Performance owner selector enhanced with searchable checkbox dropdown, selected-count summary, removable chips, select-all-filtered and clear controls. Native multi-select is the no-JavaScript fallback. JS syntax check passed; deployed keyboard/mobile/visual verification pending.
 

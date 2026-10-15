@@ -15,7 +15,9 @@ Observed host: `/opt/redmine`, plugin `/opt/redmine/plugins/redmine_ticket_journ
 
 ## Verify
 
-- Monthly metrics: As of 15 October 2026 must show 1 July–30 September 2026 for both metrics; totals divide by 3. Check contributor links, zero-delivery months, month/year boundaries, unchanged cumulative ratios, and the existing multi-owner N/A behavior. No migration is required.
+- Combined monthly view: targets 10/20 should average to 15; actuals use combined totals ÷ 3 ÷ 2 owners. Include an owner with no deliveries. Remove one owner’s point target: only point target/deviation becomes unavailable, with its name; ticket comparison remains. Verify public/private target visibility and intact combined contributor lists.
+
+- Monthly metrics: As of 15 October 2026 must show 1 July–30 September 2026 for both metrics; totals divide by 3. Check contributor links, zero-delivery months, month/year boundaries, unchanged cumulative ratios, and per-owner actual/target means for multiple owners. No migration is required.
 
 - Performance drill-down: default list has no group headings. Change columns/grouping, sort, and paginate; check choices persist and totals still span all results. Compare historical Owner/Status against the native Issues link's current values. Confirm its ticket IDs include all pages and native issue visibility remains enforced.
 

@@ -252,4 +252,10 @@ class TicketJourneyPerformance
     rows.sum { |row| row[:weight] }
   end
 
+  def self.average_targets(values)
+    return nil if values.empty? || values.any? { |value| !value.is_a?(Numeric) || !value.finite? || !value.positive? }
+
+    values.sum.to_f / values.size
+  end
+
 end

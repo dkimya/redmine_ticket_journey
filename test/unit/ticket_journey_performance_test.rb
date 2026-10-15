@@ -1,6 +1,15 @@
 require File.expand_path('../test_helper', __dir__)
 
 class TicketJourneyPerformanceTest < ActiveSupport::TestCase
+  test 'mean targets require every selected owner and reject unusable values' do
+    assert_equal 15.0, TicketJourneyPerformance.average_targets([10, 20])
+    assert_equal 8.5, TicketJourneyPerformance.average_targets([8.5])
+    [nil, 0, -1, Float::INFINITY, Float::NAN, '10'].each do |invalid|
+      assert_nil TicketJourneyPerformance.average_targets([10, invalid])
+    end
+    assert_nil TicketJourneyPerformance.average_targets([])
+  end
+
   def row(**values)
     { open: true, done: false, started: false, due: nil, weight: 5.0,
       missing_weight: false, delivered_at: nil }.merge(values)

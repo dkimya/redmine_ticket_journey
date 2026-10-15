@@ -207,6 +207,57 @@ class PerformanceDashboardTest < ActionController::TestCase
     assert_nil @controller.send(:monthly_target, '100')
   end
 
+  test 'monthly targets read each owner value while reusing field metadata' do
+    field = stub(id: 100, field_format: 'float', visible?: true)
+    UserCustomField.expects(:find_by).with(id: 100).once.returns(field)
+    first = stub('first owner')
+    second = stub('second owner')
+    first.expects(:custom_value_for).with(100).returns(stub(value: '10'))
+    second.expects(:custom_value_for).with(100).returns(stub(value: '20'))
+    assert_equal 10.0, @controller.send(:monthly_target, '100', first)
+    assert_equal 20.0, @controller.send(:monthly_target, '100', second)
+  end
+
+  test 'combined monthly view compares per owner actuals with mean targets and retains contributors' do
+    User.find(2).update_column(:status, Principal::STATUS_ACTIVE)
+    owners = [User.find(1), User.find(2)]
+    issues = [Issue.find(1), Issue.find(2)]
+    issues.each { |issue| issue.update_columns(project_id: @project.id, tracker_id: issues.first.tracker_id) }
+    issues.first.tracker.update!(name: 'Bug')
+    Issue.expects(:visible).at_least_once.returns(Issue.where(id: issues.map(&:id)))
+    Issue.any_instance.stubs(:visible_custom_field_values).returns([stub(custom_field: stub(id: 57), value: '1')])
+    issues.each_with_index do |issue, index|
+      TicketJourneyPerformance.stubs(:snapshot).with { |candidate, *rest| candidate.id == issue.id }.returns({
+        id: issue.id, owner_id: '1', status_name: 'Done / Closed', due: Date.current,
+        open: false, done: true, started: true, delivered_at: Date.current.beginning_of_month - 1,
+        weight: (index + 1) * 6.0, missing_weight: false
+      })
+    end
+    # Owner 2 has zero deliveries and must still count in actual/target means.
+    Setting.plugin_redmine_ticket_journey = { 'performance_count_field_id' => '100', 'performance_weight_field_id' => '101' }
+    owners.each_with_index do |owner, index|
+      @controller.stubs(:monthly_target).with('100', owner).returns((index + 1) * 10.0)
+      @controller.stubs(:monthly_target).with('101', owner).returns((index + 1) * 8.0)
+    end
+    get :index, params: { project_id: @project.identifier, owner_ids: ['1', '2', '1'] }
+    assert_response :success
+    report = @controller.instance_variable_get(:@report)
+    assert_in_delta 1.0 / 3, report[:monthly_count], 0.0001
+    assert_equal 3.0, report[:monthly_weight]
+    assert_equal [15.0, 12.0], @controller.instance_variable_get(:@targets)
+    assert_equal 2, report[:detail_sets]['delivered'].size
+    assert_select '.performance-monthly', text: /Per owner · 2 selected owners/, count: 2
+    @controller.stubs(:monthly_target).with('101', owners.last).returns(nil)
+    get :index, params: { project_id: @project.identifier, owner_ids: ['1', '2'] }
+    assert_response :success
+    assert_equal [15.0, nil], @controller.instance_variable_get(:@targets)
+    assert_select '.performance-monthly', text: /1 selected owner\(s\).*#{Regexp.escape(owners.last.name)}/, count: 1
+    get :index, params: { project_id: @project.identifier, owner_ids: ['1', '2'], metric: 'delivered_weight' }
+    assert_response :success
+    assert_select 'tr.performance-ticket-row', count: 2
+    assert_select 'p', text: /then by 2 selected owner\(s\) for per-owner actuals/
+  end
+
   test 'hierarchy includes grandchildren but excludes unrelated and invisible projects' do
     root = Project.create!(name: 'Performance root', identifier: 'performance-root', is_public: true)
     child = Project.create!(name: 'Performance child', identifier: 'performance-child', parent: root, is_public: true)
