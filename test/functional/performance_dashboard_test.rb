@@ -109,10 +109,24 @@ class PerformanceDashboardTest < ActionController::TestCase
     assert_response :success
     assert_select 'tbody tr.performance-ticket-row', count: 1
     assert_select 'td', text: 'Historical Review'
-    assert_select 'tr.group th', text: /1 tickets/
+    assert_select 'tr.group', count: 0
+    assert_select '.performance-list-options', count: 1
     assert_select 'thead a[href*="sort=due"]', count: 1
     assert_select 'a[href=?]', issue_path(issue), text: "##{issue.id}"
     assert_select 'a[href=?]', performance_dashboard_path(@project, owner_id: 1, as_of: date.iso8601), text: /Back to Performance/
+    get :index, params: { project_id: @project.identifier, owner_id: '1', as_of: date.iso8601,
+                          metric: 'started', group_by: 'project', detail_options: '1',
+                          detail_columns: ['status', 'not_a_column'] }
+    assert_response :success
+    assert_select 'tr.group th[colspan="2"]', text: /1 tickets/
+    assert_select 'table.list thead th', count: 2
+    assert_select 'table.list thead th', text: /Status \(as of date\)/
+    assert_select 'thead a[href*="sort=status"]' do |links|
+      context = Rack::Utils.parse_nested_query(URI.parse(links.first['href']).query)
+      assert_equal 'project', context['group_by']
+      assert_equal ['id', 'status'], context['detail_columns']
+      assert_nil context['page']
+    end
   end
 
   test 'drill down cannot disclose an owner without visible matching issues' do
@@ -147,6 +161,12 @@ class PerformanceDashboardTest < ActionController::TestCase
     get :index, params: { project_id: @project.identifier, owner_ids: ['1', '2'], metric: 'open', sort: 'weight', direction: 'desc' }
     assert_response :success
     assert_select 'tr.performance-ticket-row', count: 2
+    assert_select 'a', text: 'Open matching tickets in Issues (current values)' do |links|
+      native_params = Rack::Utils.parse_nested_query(URI.parse(links.first['href']).query)
+      assert_equal issues.map(&:id).sort, native_params.dig('v', 'issue_id').first.split(',').map(&:to_i).sort
+      assert_equal '*', native_params.dig('op', 'status_id')
+      assert_equal '', native_params['group_by']
+    end
     assert_select 'a[href=?]', performance_dashboard_path(@project, owner_ids: ['1', '2'], as_of: Date.current.iso8601), text: /Back to Performance/
   end
 

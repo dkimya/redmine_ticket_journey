@@ -1,5 +1,6 @@
 <% html_title 'Performance', @detail_title %>
 <% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'performance', plugin: 'redmine_ticket_journey' %>
   <%= javascript_include_tag 'performance_navigation', plugin: 'redmine_ticket_journey', defer: true %>
 <% end %>
 <h2><%= @detail_title %></h2>
@@ -9,22 +10,47 @@
 <p class="info">Owner and status reflect the selected date. Project, subject, tracker, due date and complexity weight are current. These are the same ticket sets used by the dashboard, recalculated with your current permissions; edits since opening the dashboard may change results. Unavailable weights contribute zero to the total.</p>
 <% if %w[due done delivered delivered_weight missing_delivery].include?(@metric) %><p>Section 2 excludes Archived and Ongoing tickets based on their status at the selected report date.</p><% end %>
 <% if %w[delivered delivered_weight].include?(@metric) %><% day_zero = @report[@metric == 'delivered' ? :count_start_date : :weight_start_date] %><p>Monthly contributors from <%= day_zero ? format_date(day_zero) : 'unavailable Day 0' %> through <%= format_date(@date) %>. The dashboard divides their totals by elapsed calendar months, prorating partial months.</p><% end %>
-<p>Grouped by project name. Click a column heading to sort within each project. Sorting applies to all results before pagination; missing values stay last. Group totals cover all pages.</p>
+<details class="performance-list-options">
+  <summary>Options → Columns and grouping</summary>
+  <%= form_tag performance_dashboard_path(@project), method: :get do %>
+    <% performance_owner_params.each do |key, value| %>
+      <% Array(value).each do |owner_id| %><%= hidden_field_tag(key == :owner_ids ? 'owner_ids[]' : 'owner_id', owner_id, id: nil) %><% end %>
+    <% end %>
+    <%= hidden_field_tag :as_of, @date.iso8601 %><%= hidden_field_tag :metric, @metric %>
+    <%= hidden_field_tag :sort, @sort %><%= hidden_field_tag :direction, @direction %>
+    <%= hidden_field_tag :detail_options, '1' %>
+    <fieldset><legend>Columns</legend>
+      <span>Ticket (always shown)</span>
+      <% TicketJourneyPerformance::DETAIL_COLUMNS.except('id').each do |key, label| %>
+        <label><%= check_box_tag 'detail_columns[]', key, @detail_columns.include?(key), id: "detail-column-#{key}" %> <%= label %></label>
+      <% end %>
+    </fieldset>
+    <%= label_tag :group_by, 'Group by' %>
+    <%= select_tag :group_by, options_for_select([['None', ''], ['Project', 'project'], ['Tracker', 'tracker'], ['Ticket Owner (as of date)', 'owner'], ['Status (as of date)', 'status']], @group_by) %>
+    <%= submit_tag 'Apply Options', name: nil %>
+  <% end %>
+</details>
+<p>Click a sortable column heading to sort <%= @group_by ? 'within the selected groups' : 'across the whole list' %>. Sorting and grouping apply before pagination; missing values stay last. Group totals, when enabled, cover all pages.</p>
+<% if @matching_issue_ids.any? %>
+  <p><%= link_to 'Open matching tickets in Issues (current values)', performance_current_issues_path, title: 'Open all matching ticket IDs in the standard Redmine Issues list. Owner, status, and other fields show current values. You can change columns, grouping, and save the query there.' %></p>
+<% end %>
 <% if @detail_rows.empty? %>
   <p class="nodata">No tickets match this metric.</p>
 <% else %>
   <div class="autoscroll"><table class="list issues">
-    <thead><tr><th scope="col"><%= performance_sort_heading('Ticket', 'id') %></th><th scope="col">Project (current)</th><th scope="col"><%= performance_sort_heading('Subject (current)', 'subject') %></th><th scope="col">Tracker (current)</th><th scope="col">Ticket Owner (as of date)</th><th scope="col"><%= performance_sort_heading('Status (as of date)', 'status') %></th><th scope="col"><%= performance_sort_heading('Due Date (current)', 'due') %></th><th scope="col"><%= performance_sort_heading('Complexity Weight (current)', 'weight') %></th><th scope="col"><%= performance_sort_heading('Last Recorded Completion by Report Date', 'completion') %></th></tr></thead>
-        <tbody><% @detail_rows.group_by { |row| row[:project_id] }.each do |project_id, page_rows| %>
-      <% totals = @project_totals.fetch(project_id) %>
-      <tr class="group"><th colspan="9" scope="rowgroup"><%= page_rows.first[:project_name] %> — <%= totals[:count] %> tickets · Complexity Weight: <%= performance_number(totals[:weight]) %> (whole project group; <%= page_rows.size %> tickets on this page)</th></tr>
+    <thead><tr><% @detail_columns.each do |key| %><th scope="col"><%= TicketJourneyPerformance::DETAIL_SORT_KEYS.include?(key) ? performance_sort_heading(TicketJourneyPerformance::DETAIL_COLUMNS.fetch(key), key) : TicketJourneyPerformance::DETAIL_COLUMNS.fetch(key) %></th><% end %></tr></thead>
+        <tbody><% @detail_rows.group_by { |row| TicketJourneyPerformance.detail_group_key(row, @group_by) }.each do |group_key, page_rows| %>
+      <% if @group_by %>
+        <% totals = @group_totals.fetch(group_key) %>
+        <tr class="group"><th colspan="<%= @detail_columns.size %>" scope="rowgroup"><%= page_rows.first[TicketJourneyPerformance::DETAIL_GROUPS.fetch(@group_by)].presence || 'Unknown' %> — <%= totals[:count] %> tickets · Complexity Weight: <%= performance_number(totals[:weight]) %> (whole group; <%= page_rows.size %> tickets on this page)</th></tr>
+      <% end %>
       <% page_rows.each do |row| %>
       <% issue = @detail_issues.fetch(row[:id]) %>
-      <tr class="performance-ticket-row"><td><%= link_to "##{issue.id}", issue_path(issue) %></td><td><%= link_to issue.project.name, project_path(issue.project) %></td><td class="subject"><%= issue.subject %></td><td><%= issue.tracker.name %></td><td><%= @selected_owners.find { |owner| owner.id.to_s == row[:owner_id] }&.name || 'Unknown' %></td><td><%= row[:status_name].presence || 'Unknown' %></td><td><%= row[:due] ? format_date(row[:due]) : 'Not set' %></td><td><%= row[:missing_weight] ? 'Unavailable' : performance_number(row[:weight]) %></td><td><%= row[:delivered_at] ? format_date(row[:delivered_at]) : 'Not recorded' %></td></tr>
+      <tr class="performance-ticket-row"><% @detail_columns.each do |key| %><td class="<%= 'subject' if key == 'subject' %>"><%= performance_detail_cell(key, row, issue) %></td><% end %></tr>
     <% end %><% end %></tbody>
   </table></div>
 <% end %>
 <p>Page <%= @page %> of <%= @page_count %> · Up to 100 tickets per page
-  <% if @page > 1 %> · <%= link_to 'Previous', performance_dashboard_path(@project, **performance_owner_params, as_of: @date.iso8601, metric: @metric, sort: @sort, direction: @direction, page: @page - 1) %><% end %>
-  <% if @page < @page_count %> · <%= link_to 'Next', performance_dashboard_path(@project, **performance_owner_params, as_of: @date.iso8601, metric: @metric, sort: @sort, direction: @direction, page: @page + 1) %><% end %>
+  <% if @page > 1 %> · <%= link_to 'Previous', performance_dashboard_path(@project, **performance_detail_params(page: @page - 1)) %><% end %>
+  <% if @page < @page_count %> · <%= link_to 'Next', performance_dashboard_path(@project, **performance_detail_params(page: @page + 1)) %><% end %>
 </p>

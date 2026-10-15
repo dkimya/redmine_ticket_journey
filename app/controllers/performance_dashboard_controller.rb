@@ -55,7 +55,8 @@ class PerformanceDashboardController < ApplicationController
           next unless row
           if requested_set.include?(row[:owner_id])
             # Only compact sorting metadata survives the batch, not Issue objects.
-            row = row.merge(project_id: issue.project_id, project_name: issue.project.name, subject: issue.subject) if @metric
+            row = row.merge(project_id: issue.project_id, project_name: issue.project.name,
+                            subject: issue.subject, tracker_name: issue.tracker.name) if @metric
             rows << row
           end
         end
@@ -108,9 +109,15 @@ class PerformanceDashboardController < ApplicationController
     end
     if @metric
       @detail_title = TicketJourneyPerformance::DETAIL_LABELS.fetch(@metric)
+      @group_by = TicketJourneyPerformance::DETAIL_GROUPS.key?(params[:group_by]) ? params[:group_by] : nil
+      requested_columns = params[:detail_options] == '1' ? Array(params[:detail_columns]).map(&:to_s) : TicketJourneyPerformance::DETAIL_COLUMNS.keys
+      @detail_columns = ['id'] + (TicketJourneyPerformance::DETAIL_COLUMNS.keys - ['id']).select { |key| requested_columns.include?(key) }
       @sort, @direction = TicketJourneyPerformance.detail_sort_options(@metric, params[:sort], params[:direction])
-      @detail_rows = TicketJourneyPerformance.sort_details(@report[:detail_sets].fetch(@metric), @sort, @direction)
-      @project_totals = @detail_rows.group_by { |row| row[:project_id] }.transform_values do |group|
+      owner_names = @selected_owners.to_h { |owner| [owner.id.to_s, owner.name] }
+      detail_set = @report[:detail_sets].fetch(@metric).map { |row| row.merge(owner_name: owner_names[row[:owner_id]] || 'Unknown') }
+      @detail_rows = TicketJourneyPerformance.sort_details(detail_set, @sort, @direction, group_by: @group_by)
+      @matching_issue_ids = @detail_rows.map { |row| row[:id] }.uniq
+      @group_totals = @detail_rows.group_by { |row| TicketJourneyPerformance.detail_group_key(row, @group_by) }.transform_values do |group|
         { count: group.size, weight: TicketJourneyPerformance.weight(group) }
       end
       @detail_count = @detail_rows.size

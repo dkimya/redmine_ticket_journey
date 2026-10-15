@@ -2,6 +2,14 @@
 class TicketJourneyPerformance
   BATCH_SIZE = 100
   DETAIL_SORT_KEYS = %w[id subject status due weight completion].freeze
+  DETAIL_COLUMNS = {
+    'id' => 'Ticket', 'project' => 'Project (current)', 'subject' => 'Subject (current)',
+    'tracker' => 'Tracker (current)', 'owner' => 'Ticket Owner (as of date)',
+    'status' => 'Status (as of date)', 'due' => 'Due Date (current)',
+    'weight' => 'Complexity Weight (current)', 'completion' => 'Last Recorded Completion by Report Date'
+  }.freeze
+  DETAIL_GROUPS = { 'project' => :project_name, 'tracker' => :tracker_name,
+                    'owner' => :owner_name, 'status' => :status_name }.freeze
 
   def self.detail_sort_options(metric, sort, direction)
     default = if %w[done delivered delivered_weight].include?(metric)
@@ -15,12 +23,14 @@ class TicketJourneyPerformance
     [sort, %w[asc desc].include?(direction) ? direction : 'asc']
   end
 
-  def self.sort_details(rows, key, direction)
+  def self.sort_details(rows, key, direction, group_by: nil)
     field = { 'id' => :id, 'subject' => :subject, 'status' => :status_name,
               'due' => :due, 'weight' => :weight, 'completion' => :delivered_at }.fetch(key)
     rows.sort do |left, right|
-      group = [left[:project_name].to_s.downcase, left[:project_id]] <=> [right[:project_name].to_s.downcase, right[:project_id]]
-      next group unless group.zero?
+      if DETAIL_GROUPS.key?(group_by)
+        group = detail_group_key(left, group_by) <=> detail_group_key(right, group_by)
+        next group unless group.zero?
+      end
       a = field == :weight && left[:missing_weight] ? nil : left[field]
       b = field == :weight && right[:missing_weight] ? nil : right[field]
       a = a.downcase if a.is_a?(String)
@@ -34,6 +44,13 @@ class TicketJourneyPerformance
                    end
       comparison.zero? ? left[:id] <=> right[:id] : comparison
     end
+  end
+
+  def self.detail_group_key(row, group_by)
+    field = DETAIL_GROUPS[group_by]
+    return nil unless field
+
+    [row[field].to_s.downcase, group_by == 'project' ? row[:project_id] : row[field].to_s]
   end
   HistoryDetail = Struct.new(:property, :prop_key, :old_value, :value)
   HistoryJournal = Struct.new(:id, :created_on, :details)

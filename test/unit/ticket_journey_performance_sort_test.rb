@@ -18,8 +18,23 @@ class TicketJourneyPerformanceSortTest < ActiveSupport::TestCase
       { id: 3, project_id: 1, project_name: 'Alpha', due: date },
       { id: 5, project_id: 1, project_name: 'Alpha', due: date - 1 }
     ]
-    assert_equal [5, 3, 4, 2, 1], TicketJourneyPerformance.sort_details(rows, 'due', 'asc').map { |r| r[:id] }
-    assert_equal [3, 4, 5, 2, 1], TicketJourneyPerformance.sort_details(rows, 'due', 'desc').map { |r| r[:id] }
+    assert_equal [5, 3, 4, 2, 1], TicketJourneyPerformance.sort_details(rows, 'due', 'asc', group_by: 'project').map { |r| r[:id] }
+    assert_equal [3, 4, 5, 2, 1], TicketJourneyPerformance.sort_details(rows, 'due', 'desc', group_by: 'project').map { |r| r[:id] }
+    # With no grouping, project boundaries must not override the selected sort.
+    assert_equal [1, 5, 3, 4, 2], TicketJourneyPerformance.sort_details(rows, 'due', 'asc').map { |r| r[:id] }
+    assert_equal [3, 4, 5, 1, 2], TicketJourneyPerformance.sort_details(rows, 'due', 'desc').map { |r| r[:id] }
+  end
+
+  test 'optional historical status groups stay contiguous before pagination' do
+    rows = (1..105).map do |id|
+      { id: id, status_name: id.odd? ? 'Review' : 'Pending', project_id: id % 3, weight: id }
+    end
+    grouped = TicketJourneyPerformance.sort_details(rows, 'weight', 'desc', group_by: 'status')
+    assert_equal 104, grouped.first[:id]
+    assert_equal 'Pending', grouped[51][:status_name]
+    assert_equal 'Review', grouped[52][:status_name]
+    assert_equal [9, 7, 5, 3, 1], grouped.slice(100, 100).map { |row| row[:id] }
+    assert_nil TicketJourneyPerformance.detail_group_key(rows.first, 'invalid')
   end
 
   test 'all rows are sorted before a page is selected' do

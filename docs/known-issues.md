@@ -16,6 +16,8 @@ Reviewed 2026-10-13. **Server-confirmed** means user output/screenshots or expli
 
 ## Confirmation needed
 
+Performance drill-down list options: implemented ungrouped default, selectable existing report columns, optional Project/Tracker/historical Owner/Status groups, context-preserving sort/pagination, and a full-set native Issues link labelled current values. No host templates/model patches added. Native handoff encodes ticket IDs in the URL; very large sets may hit browser/proxy URL limits (no truncation is applied). Standard native Issues columns/grouping are available there; the historical list's columns are its nine defined report fields. Ruby tests updated but not run locally; server verification pending.
+
 Open Tickets visual layout: implemented a larger responsive donut (about 320px at full size), labelled Ticket distribution, beside compact 2×2 number cards. Desktop split is approximately 40% chart / 60% cards; narrower screens stack chart above cards. Total Open Tickets outline is now 1px. Percentage-label positions scale with the chart; drill-down links/calculations are unchanged. Server visual verification pending, including small screens and adjacent small segments.
 
 Developer comparison styling: Hadi requested stronger Tickets/Complexity Weight separation and lighter Total-row borders. Implemented a 3px divider before weights, 2px after weights, distinct pale group headings, and 1px horizontal total borders retaining bold numbers/shading. All boundaries span both headers, owner rows, and totals. Server visual verification pending.

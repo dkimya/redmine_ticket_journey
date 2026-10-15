@@ -103,6 +103,11 @@
 .performance-comparison .performance-group-tickets{background:#eaf2fb}
 .performance-comparison .performance-group-weight{background:#edf5f1}
 .performance-comparison td:not(:first-child){text-align:right}
+.performance-list-options{margin:16px 0;padding:12px;border:1px solid #d4e0eb;border-radius:6px;background:#f7faff}
+.performance-list-options summary{cursor:pointer;font-weight:600}
+.performance-list-options fieldset{display:flex;flex-wrap:wrap;gap:10px 18px;margin:12px 0}
+.performance-list-options fieldset label{white-space:normal}
+.performance-list-options select{margin:0 12px 0 6px}
 .performance-filters small{display:block;margin-top:4px}
 .performance-owner-field{width:290px;max-width:100%}
 .performance-owner-picker{position:relative;width:100%}
