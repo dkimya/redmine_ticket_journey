@@ -26,10 +26,11 @@
       <div class="performance-open">
         <% percentages = groups.drop(1).map { |g| performance_percent(g.size, groups.first.size) || 0 }; first = percentages[0]; second = first + percentages[1] %>
         <div class="performance-distribution">
+          <h4 class="performance-distribution-title">Ticket distribution</h4>
           <div class="performance-chart-wrap"><div class="performance-donut" role="img" aria-label="<%= groups.first.size %> open tickets; Not overdue <%= performance_number(percentages[0]) %>%; Already started <%= performance_number(percentages[1]) %>%; Not touched <%= performance_number(percentages[2]) %>%" style="background: <%= groups.first.empty? ? '#e7edf3' : "conic-gradient(#00bc87 0% #{first}%, #ffad38 #{first}% #{second}%, #f65362 #{second}% 100%)" %>"><div><strong><%= groups.first.size %></strong><span>Open Tickets</span></div></div>
             <% offset = 0; percentages.each_with_index do |percent, i| %>
               <% angle = (offset + percent / 2) * Math::PI / 50; offset += percent %>
-              <% if percent.positive? %><span class="performance-segment-label" style="left: <%= 130 + Math.sin(angle) * 112 %>px; top: <%= 130 - Math.cos(angle) * 112 %>px"><%= performance_detail_link("#{performance_number(percent)}%", %w[not_overdue started untouched][i]) %></span><% end %>
+              <% if percent.positive? %><span class="performance-segment-label" style="left: <%= 50 + Math.sin(angle) * 46 %>%; top: <%= 50 - Math.cos(angle) * 46 %>%"><%= performance_detail_link("#{performance_number(percent)}%", %w[not_overdue started untouched][i]) %></span><% end %>
             <% end %>
           </div>
           <div class="performance-legend">

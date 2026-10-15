@@ -16,6 +16,8 @@ Reviewed 2026-10-13. **Server-confirmed** means user output/screenshots or expli
 
 ## Confirmation needed
 
+Open Tickets visual layout: implemented a larger responsive donut (about 320px at full size), labelled Ticket distribution, beside compact 2×2 number cards. Desktop split is approximately 40% chart / 60% cards; narrower screens stack chart above cards. Total Open Tickets outline is now 1px. Percentage-label positions scale with the chart; drill-down links/calculations are unchanged. Server visual verification pending, including small screens and adjacent small segments.
+
 Developer comparison styling: Hadi requested stronger Tickets/Complexity Weight separation and lighter Total-row borders. Implemented a 3px divider before weights, 2px after weights, distinct pale group headings, and 1px horizontal total borders retaining bold numbers/shading. All boundaries span both headers, owner rows, and totals. Server visual verification pending.
 
 - User kernel output confirms global OOM killed a Redmine `bundle` process using about 2.3 GiB resident memory on the 3.7 GiB/no-swap host. This is consistent with the reported 502, but does not measure the request's incremental memory alone. Removed whole-project journal/detail eager loading: batches of 100 issues, compact status/owner history, uncached scan, selected-owner snapshot retention, and page-only drill-down Issue loading. Implemented locally; no claim of measured memory reduction or resolved server OOM until deployed verification.
