@@ -1,6 +1,9 @@
 <% html_title 'Performance', @detail_title %>
+<% content_for :header_tags do %>
+  <%= javascript_include_tag 'performance_navigation', plugin: 'redmine_ticket_journey', defer: true %>
+<% end %>
 <h2><%= @detail_title %></h2>
-<p><%= link_to '← Back to Performance', performance_dashboard_path(@project, **performance_owner_params, as_of: @date.iso8601) %></p>
+<p><%= link_to '← Back to Performance', performance_dashboard_path(@project, **performance_owner_params, as_of: @date.iso8601), data: { performance_back: true }, title: 'Return to the previous Performance report when available. Click Apply there to refresh its results.' %></p>
 <p><strong><%= @owner_label %></strong> · As of <%= format_date(@date) %> · <%= @detail_count %> tickets · Total usable complexity weight: <%= performance_number(@detail_weight) %></p>
 <p>Scope: Selected project and all subprojects, limited to visible projects and tickets.</p>
 <p class="info">Owner and status reflect the selected date. Project, subject, tracker, due date and complexity weight are current. These are the same ticket sets used by the dashboard, recalculated with your current permissions; edits since opening the dashboard may change results. Unavailable weights contribute zero to the total.</p>

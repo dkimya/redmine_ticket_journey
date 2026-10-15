@@ -41,3 +41,5 @@ Verify selecting two owners, comparison row totals matching charts, duplicate se
 
 ## Owner picker verification
 Deploy the new performance_owner_picker.js asset together with performance.css and the updated view, restart through the normal process, and hard-refresh. Test search, ordinary checkbox clicks, select-all-filtered preserving other selections, clear, chip removal, empty-selection validation, Tab/Space/arrows/Escape, outside-click close, narrow screens and selected values after Apply. Selection changes must not run a report until Apply. Verify native multi-select fallback with JavaScript disabled.
+
+Deploy performance_navigation.js and both dashboard/detail views. Verify report → drill-down → Back restores the report; repeat after sorting/pagination and with multi-owner selection. Directly opened/bookmarked and new-tab drill-downs must use the fallback report URL. Ctrl/Cmd-click should retain normal link behavior. Restored results may be cached; Apply refreshes. Browser cache policy determines whether returning requires a network request.
