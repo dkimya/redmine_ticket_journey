@@ -15,7 +15,12 @@
 .performance-comparison summary{cursor:pointer;font-size:18px;padding:6px 0}
 .performance-comparison table{min-width:1100px;margin-top:14px}
 .performance-comparison th,.performance-comparison td{padding:10px 8px}
-.performance-comparison .performance-comparison-total th,.performance-comparison .performance-comparison-total td{font-weight:800;background:#e9f3ff;border-top:3px solid #22488d;border-bottom:3px solid #22488d}
+.performance-comparison .performance-comparison-total th,.performance-comparison .performance-comparison-total td{font-weight:800;background:#e9f3ff;border-top:1px solid #bacddd;border-bottom:1px solid #bacddd}
+/* Keep vertical group boundaries continuous through both headers and totals. */
+.performance-comparison .performance-weight-start{border-left:3px solid #8a9cb3}
+.performance-comparison .performance-weight-end{border-right:2px solid #a6b5c7}
+.performance-comparison .performance-group-tickets{background:#eaf2fb}
+.performance-comparison .performance-group-weight{background:#edf5f1}
 .performance-comparison td:not(:first-child){text-align:right}
 .performance-filters small{display:block;margin-top:4px}
 .performance-owner-field{width:290px;max-width:100%}
