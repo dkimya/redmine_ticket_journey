@@ -15,9 +15,11 @@ Observed host: `/opt/redmine`, plugin `/opt/redmine/plugins/redmine_ticket_journ
 
 ## Verify
 
+- Monthly metrics: As of 15 October 2026 must show 1 July–30 September 2026 for both metrics; totals divide by 3. Check contributor links, zero-delivery months, month/year boundaries, unchanged cumulative ratios, and the existing multi-owner N/A behavior. No migration is required.
+
 - Performance drill-down: default list has no group headings. Change columns/grouping, sort, and paginate; check choices persist and totals still span all results. Compare historical Owner/Status against the native Issues link's current values. Confirm its ticket IDs include all pages and native issue visibility remains enforced.
 
-For the new Performance page, also follow [Performance setup and verification](performance-setup.md). It requires separate role grants and administrator configuration of existing/new User target fields and Day 0. No migration or automatic field creation is included.
+For the new Performance page, also follow [Performance setup and verification](performance-setup.md). It requires separate role grants and administrator configuration of existing/new User target fields. Monthly windows require no Day 0 setup. No migration or automatic field creation is included.
 
 - Ticket page, My page, and Issues work with Kanban Block and Return Count.
 - Select Return Count under Options → Columns; check numeric filtering, sorting, saved queries, and CSV. Compare a sample against journal history/lifetime report.

@@ -9,7 +9,7 @@
 <p>Scope: Selected project and all subprojects, limited to visible projects and tickets.</p>
 <p class="info">Owner and status reflect the selected date. Project, subject, tracker, due date and complexity weight are current. These are the same ticket sets used by the dashboard, recalculated with your current permissions; edits since opening the dashboard may change results. Unavailable weights contribute zero to the total.</p>
 <% if %w[due done delivered delivered_weight missing_delivery].include?(@metric) %><p>Section 2 excludes Archived and Ongoing tickets based on their status at the selected report date.</p><% end %>
-<% if %w[delivered delivered_weight].include?(@metric) %><% day_zero = @report[@metric == 'delivered' ? :count_start_date : :weight_start_date] %><p>Monthly contributors from <%= day_zero ? format_date(day_zero) : 'unavailable Day 0' %> through <%= format_date(@date) %>. The dashboard divides their totals by elapsed calendar months, prorating partial months.</p><% end %>
+<% if %w[delivered delivered_weight].include?(@metric) %><p>Monthly contributors from <%= format_date(@report[:monthly_start_date]) %> through <%= format_date(@report[:monthly_end_date]) %>. The dashboard divides these totals by 3, including zero-delivery months. The selected date's month is excluded; owner and status still reflect the selected date.</p><% end %>
 <details class="performance-list-options">
   <summary>Options → Columns and grouping</summary>
   <%= form_tag performance_dashboard_path(@project), method: :get do %>

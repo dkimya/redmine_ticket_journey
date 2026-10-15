@@ -77,11 +77,10 @@ class PerformanceDashboardController < ApplicationController
       return render_404 if @metric
       return
     end
-    @start_date = @owner.created_on&.in_time_zone&.to_date
-    @report = TicketJourneyPerformance.calculate(rows, @date, @start_date)
+    @report = TicketJourneyPerformance.calculate(rows, @date)
     @targets = @metric ? [] : %w[count weight].map { |kind| monthly_target(@settings["performance_#{kind}_field_id"]) }
     @comparison = @metric ? [] : @selected_owners.map do |owner|
-      { owner: owner, report: TicketJourneyPerformance.calculate(rows.select { |r| r[:owner_id] == owner.id.to_s }, @date, owner.created_on&.in_time_zone&.to_date) }
+      { owner: owner, report: TicketJourneyPerformance.calculate(rows.select { |r| r[:owner_id] == owner.id.to_s }, @date) }
     end
     @comparison_sort = %w[owner open not_overdue started untouched open_weight not_overdue_weight started_weight untouched_weight stopped due_soon].include?(params[:comparison_sort]) ? params[:comparison_sort] : 'owner'
     @comparison_direction = params[:comparison_direction] == 'desc' ? 'desc' : 'asc'
@@ -103,7 +102,6 @@ class PerformanceDashboardController < ApplicationController
       # Multi-owner monthly averaging/target aggregation is not yet agreed.
       # Open and cumulative delivery aggregation do not depend on those rules.
       @report[:monthly_count] = @report[:monthly_weight] = nil
-      @report[:count_start_date] = @report[:weight_start_date] = nil
       @report[:detail_sets]['delivered'] = @report[:detail_sets]['delivered_weight'] = []
       @targets = [nil, nil]
     end

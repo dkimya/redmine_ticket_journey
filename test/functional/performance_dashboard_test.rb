@@ -78,7 +78,8 @@ class PerformanceDashboardTest < ActionController::TestCase
     assert_select '.performance-card-0 .performance-secondary', text: /Stopped:/
     assert_select '.performance-card-0 a[href*="metric=stopped"]', count: 1
     assert_select '.performance-ratios .performance-metric p', text: /Target: 90%/, count: 2
-    assert_select '.performance-unavailable', text: /no eligible Day 0/, count: 1
+    assert_select '.performance-unavailable', text: /Average: 0/, count: 2
+    assert_select '.performance-monthly p', text: /Last 3 completed months:/, count: 2
     Setting.plugin_redmine_ticket_journey = { 'performance_delivery_target' => '92.5' }
     get :index, params: { project_id: @project.identifier, owner_id: '1' }
     assert_response :success
@@ -135,6 +136,22 @@ class PerformanceDashboardTest < ActionController::TestCase
     Issue.expects(:visible).returns(Issue.none)
     get :index, params: { project_id: @project.identifier, owner_id: '2', metric: 'open' }
     assert_response :not_found
+  end
+
+  test 'monthly contributor drill down displays the fixed completed-month range' do
+    date = Date.current
+    issue = Issue.find(1)
+    issue.tracker.update!(name: 'Bug')
+    Issue.expects(:visible).at_least_once.returns(Issue.where(id: issue.id))
+    Issue.any_instance.stubs(:visible_custom_field_values).returns([stub(custom_field: stub(id: 57), value: '1')])
+    TicketJourneyPerformance.stubs(:snapshot).returns({ id: issue.id, owner_id: '1',
+      status_name: 'Done / Closed', due: date, open: false, done: true, started: true,
+      delivered_at: date.beginning_of_month - 1, weight: 9.0, missing_weight: false })
+    get :index, params: { project_id: @project.identifier, owner_id: '1', as_of: date.iso8601, metric: 'delivered_weight' }
+    assert_response :success
+    assert_select 'tbody tr.performance-ticket-row', count: 1
+    assert_select 'p', text: /Monthly contributors from #{Regexp.escape(@controller.view_context.format_date(date.beginning_of_month << 3))} through #{Regexp.escape(@controller.view_context.format_date(date.beginning_of_month - 1))}/
+    assert_select 'p', text: /divides these totals by 3, including zero-delivery months/
   end
 
   test 'multi owner table precedes aggregated charts and combined drill down preserves owners' do

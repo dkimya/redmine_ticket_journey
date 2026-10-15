@@ -19,7 +19,7 @@ class TicketJourneyPerformanceTest < ActiveSupport::TestCase
       assert_equal result[key.to_sym], result[:detail_sets][key].size
     end
     assert_equal rows[1, 2], result[:detail_sets]['due_soon']
-    assert_nil result[:monthly_count]
+    assert_equal 0.0, result[:monthly_count]
   end
 
   test 'delivery numerator excludes future due work archived work and reopened tickets' do
@@ -38,7 +38,7 @@ class TicketJourneyPerformanceTest < ActiveSupport::TestCase
     date = Date.new(2026, 10, 14)
     ongoing = row(status_name: 'Ongoing', due: date, weight: 13, delivered_at: date - 1)
     archived = row(status_name: 'Archived', open: false, due: date, weight: 21, delivered_at: date - 1)
-    completed = row(status_name: 'Done / Closed', open: false, done: true, due: date, weight: 8, delivered_at: date)
+    completed = row(status_name: 'Done / Closed', open: false, done: true, due: date, weight: 8, delivered_at: date.beginning_of_month - 1)
     pending = row(status_name: 'Pending', due: date, weight: 5)
     result = TicketJourneyPerformance.calculate([ongoing, archived, completed, pending], date, date.beginning_of_month)
     assert_equal [ongoing, pending], result[:groups].first
@@ -47,7 +47,7 @@ class TicketJourneyPerformanceTest < ActiveSupport::TestCase
     assert_equal [completed], result[:detail_sets]['delivered']
     assert_equal 13, TicketJourneyPerformance.weight(result[:due])
     assert_equal 8, TicketJourneyPerformance.weight(result[:done])
-    assert_in_delta 31.0 / 14, result[:monthly_count], 0.0001
+    assert_in_delta 1.0 / 3, result[:monthly_count], 0.0001
   end
 
   test 'delivery exclusion follows report date status rather than current archived status' do
@@ -113,34 +113,42 @@ class TicketJourneyPerformanceTest < ActiveSupport::TestCase
     assert_equal 1, TicketJourneyPerformance.calculate([historical], date, nil)[:stopped]
   end
 
-  test 'monthly averages prorate inclusive partial months and exclude undated completions' do
-    date = Date.new(2024, 2, 29)
-    rows = [row(open: false, done: true, delivered_at: date), row(open: false, done: true)]
-    result = TicketJourneyPerformance.calculate(rows, date, Date.new(2024, 2, 15))
-    assert_in_delta 15.0 / 29, TicketJourneyPerformance.month_fraction(Date.new(2024, 2, 15), date), 0.0001
-    assert_in_delta 29.0 / 15, result[:monthly_count], 0.0001
+  test 'monthly window includes complete boundary months and zero delivery months only' do
+    date = Date.new(2026, 10, 15)
+    first = row(open: false, done: true, delivered_at: Date.new(2026, 7, 1), weight: 6, start_date: nil)
+    no_weight = row(open: false, done: true, delivered_at: Date.new(2026, 7, 31), weight: 0, missing_weight: true)
+    last = row(open: false, done: true, delivered_at: Date.new(2026, 9, 30), weight: 9, start_date: date + 1)
+    rows = [first, no_weight, last,
+      row(open: false, done: true, delivered_at: Date.new(2026, 6, 30)),
+      row(open: false, done: true, delivered_at: Date.new(2026, 10, 1)),
+      row(open: false, done: true),
+      row(done: false, delivered_at: Date.new(2026, 9, 29)),
+      row(done: true, status_name: 'Archived', delivered_at: Date.new(2026, 9, 29)),
+      row(done: true, status_name: 'Ongoing', delivered_at: Date.new(2026, 9, 29))]
+    result = TicketJourneyPerformance.calculate(rows, date)
+    assert_equal Date.new(2026, 7, 1), result[:monthly_start_date]
+    assert_equal Date.new(2026, 9, 30), result[:monthly_end_date]
+    assert_equal [first, no_weight, last], result[:detail_sets]['delivered']
+    assert_equal [first, last], result[:detail_sets]['delivered_weight']
+    assert_equal 1.0, result[:monthly_count] # August has no deliveries; still / 3.
+    assert_equal 5.0, result[:monthly_weight]
     assert_equal 1, result[:missing_delivery]
-    assert_nil TicketJourneyPerformance.month_fraction(date + 1, date)
+    assert_equal result, TicketJourneyPerformance.calculate(rows, date, date + 1)
+    assert_equal result, TicketJourneyPerformance.calculate(rows, date, nil)
+    first[:weight] = 12
+    assert_equal 7.0, TicketJourneyPerformance.calculate(rows, date)[:monthly_weight]
   end
 
-  test 'monthly averages use separate account and eligible weighted start dates' do
-    date = Date.new(2026, 10, 31)
-    completed = row(open: false, done: true, delivered_at: date, weight: 10, start_date: Date.new(2026, 10, 1))
-    early_open = row(weight: 5, start_date: Date.new(2026, 9, 1))
-    rows = [completed, early_open,
-            row(weight: 50, start_date: Date.new(2020, 1, 1), status_name: 'Ongoing'),
-            row(weight: 50, start_date: Date.new(2020, 1, 1), status_name: 'Archived', open: false),
-            row(weight: 0, start_date: Date.new(2019, 1, 1)), row(weight: 5, start_date: date + 1)]
-    result = TicketJourneyPerformance.calculate(rows, date, Date.new(2026, 10, 1))
-    assert_equal Date.new(2026, 10, 1), result[:count_start_date]
-    assert_equal Date.new(2026, 9, 1), result[:weight_start_date]
-    assert_equal 1, result[:monthly_count]
-    assert_equal 5, result[:monthly_weight]
-    assert_equal [completed], result[:detail_sets]['delivered_weight']
-    no_start = TicketJourneyPerformance.calculate([row(done: true, delivered_at: date)], date, date + 1)
-    assert_nil no_start[:monthly_count]
-    assert_nil no_start[:monthly_weight]
-    assert_empty no_start[:detail_sets]['delivered_weight']
+  test 'monthly calendar window handles leap years year boundaries and dates within the month' do
+    [[Date.new(2024, 3, 1), Date.new(2023, 12, 1), Date.new(2024, 2, 29)],
+     [Date.new(2024, 3, 31), Date.new(2023, 12, 1), Date.new(2024, 2, 29)],
+     [Date.new(2026, 1, 15), Date.new(2025, 10, 1), Date.new(2025, 12, 31)]].each do |date, first, last|
+      result = TicketJourneyPerformance.calculate([], date)
+      assert_equal first, result[:monthly_start_date]
+      assert_equal last, result[:monthly_end_date]
+      assert_equal 0.0, result[:monthly_count]
+      assert_equal 0.0, result[:monthly_weight]
+    end
   end
 
   test 'snapshot reverses later status and owner changes but preserves current due date and weight' do

@@ -6,8 +6,8 @@ We are implementing Performance Results — Tickets first, using the supplied de
 
 Please confirm these calculation and scope decisions:
 
-1. **Day 0:** What date should reporting start? Is it company-wide, project-specific, or each employee's start date? Should cumulative delivery exclude tickets due before Day 0, or include the older backlog? Current provisional ratios include all tickets due by the report date; monthly averages require a configured common Day 0.
-2. **Monthly average:** Should partial months be prorated by calendar days, or should we use completed months only? The provisional implementation prorates partial months, includes the report date, and includes zero-delivery months.
+1. **Day 0 replacement:** Resolved by user approval: monthly metrics use the last three completed calendar months before the selected date’s month. Account creation and ticket Start dates are no longer window boundaries. Cumulative delivery still includes older backlog due by the report date.
+2. **Monthly average:** Resolved by user approval: divide both qualifying ticket count and usable complexity weights by 3, including zero-delivery months. Exclude the report month; no partial-month proration.
 3. **Extra Tasks:** Resolved: Hadi requested one target of 90% for now. A shared Delivery Target (%) plugin setting applies to both delivery ratios; there is no Extra Tasks adjustment.
 4. **Multiple owners:** Can the first release use one owner at a time? Later, should monthly employee targets be summed? The delivery percentage target is now shared.
 5. **Ticket scope:** Proposed included trackers: Bug, Change Request / Improvement, Feature, and Task (Business Jobs). Should User Story or Customer Support also count? Sprint, EPIC, and Milestones are currently excluded. Confirmed by Hadi: include the selected project and all nested subprojects, subject to visibility. Unrelated projects are excluded; employee targets count once.
@@ -21,4 +21,4 @@ Please confirm these calculation and scope decisions:
 13. **Tolerance and colors:** Should a shortfall smaller than 10% be green, amber, or red? The specification says negative deviations are red, while also allowing a shortfall below 10%. Is exactly -10% a failure? Currently green means at/above target and red means below; tolerance-based pass/fail is deferred.
 14. **Targets and access:** Who maintains Expected Monthly Ticket Count and Expected Monthly Complexity Weight? Who may view other employees' performance and targets? Currently the role permission permits reporting on visible tickets for any selectable owner; there is no separate self-only permission.
 
-Please also provide the approved Day 0, initial monthly target values per employee, and representative tickets for checking started/not-started, reassignment, reopening, and archiving.
+Please also provide initial monthly target values per employee, and representative tickets for checking started/not-started, reassignment, reopening, and archiving.

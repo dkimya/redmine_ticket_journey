@@ -205,7 +205,7 @@ class TicketJourneyPerformance
     }
   end
 
-  def self.calculate(rows, date, start_date)
+  def self.calculate(rows, date, _legacy_start_date = nil)
     open = rows.select { |r| r[:open] }
     not_overdue, overdue = open.partition { |r| r[:due].nil? || r[:due] >= date }
     started, untouched = overdue.partition { |r| r[:started] }
@@ -214,15 +214,13 @@ class TicketJourneyPerformance
     delivery_rows = rows.reject { |r| DELIVERY_EXCLUDED_STATUSES.include?(r[:status_name].to_s.strip) }
     due = delivery_rows.select { |r| r[:due] && r[:due] <= date }
     done = due.select { |r| r[:done] }
-    months = month_fraction(start_date, date)
-    delivered = delivery_rows.select { |r| r[:done] && r[:delivered_at] && start_date && r[:delivered_at].between?(start_date, date) }
-    # Use current Redmine Start dates and visible positive current weights.
-    # Open eligible tickets can establish the start of weight measurement too.
-    weight_start = delivery_rows.filter_map { |r| r[:start_date] if r[:weight].positive? && r[:start_date] && r[:start_date] <= date }.min
-    weight_months = month_fraction(weight_start, date)
-    weighted_delivered = delivery_rows.select do |r|
-      r[:weight].positive? && r[:done] && r[:delivered_at] && weight_start && r[:delivered_at].between?(weight_start, date)
-    end
+    # Same three complete calendar months for both monthly metrics. The report
+    # month is excluded; zero-delivery months still count in the denominator.
+    # The legacy third argument is intentionally ignored for old callers.
+    monthly_end = date.beginning_of_month - 1
+    monthly_start = date.beginning_of_month << 3
+    delivered = delivery_rows.select { |r| r[:done] && r[:delivered_at] && r[:delivered_at].between?(monthly_start, monthly_end) }
+    weighted_delivered = delivered.select { |r| r[:weight].positive? }
     # Both counts and drill-downs use these exact sets; never rebuild them with
     # current-status IssueQuery filters for a historical report.
     sets = {
@@ -241,9 +239,9 @@ class TicketJourneyPerformance
       stopped: sets['stopped'].size,
       missing_due: sets['missing_due'].size, missing_weight: sets['missing_weight'].size,
       missing_delivery: sets['missing_delivery'].size,
-      monthly_count: months && delivered.size / months,
-      count_start_date: start_date, weight_start_date: weight_start,
-      monthly_weight: weight_months && weight(weighted_delivered) / weight_months
+      monthly_count: delivered.size / 3.0,
+      monthly_start_date: monthly_start, monthly_end_date: monthly_end,
+      monthly_weight: weight(weighted_delivered) / 3.0
     }
   end
 
@@ -251,16 +249,4 @@ class TicketJourneyPerformance
     rows.sum { |row| row[:weight] }
   end
 
-  # Inclusive calendar days, with each partial month divided by its own length.
-  def self.month_fraction(first, last)
-    return unless first && first <= last
-    total = 0.0
-    cursor = first
-    while cursor <= last
-      boundary = [cursor.end_of_month, last].min
-      total += ((boundary - cursor).to_i + 1).to_f / cursor.end_of_month.day
-      cursor = boundary + 1
-    end
-    total
-  end
 end
