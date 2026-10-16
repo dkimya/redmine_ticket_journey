@@ -151,6 +151,35 @@ class PerformanceDashboardTest < ActionController::TestCase
     assert_select '.performance-ratios .performance-metric p', text: /Target: 92.5%/, count: 2
   end
 
+  test 'new and on hold are absent from dashboard open totals and matching drill downs' do
+    issues = [Issue.find(1), Issue.find(2), Issue.find(3)]
+    issues.each { |issue| issue.update_columns(project_id: @project.id, tracker_id: issues.first.tracker_id) }
+    issues.first.tracker.update!(name: 'Bug')
+    Issue.expects(:visible).at_least_once.returns(Issue.where(id: issues.map(&:id)))
+    Issue.any_instance.stubs(:visible_custom_field_values).returns([stub(custom_field: stub(id: 57), value: '1')])
+    issues.each_with_index do |issue, index|
+      TicketJourneyPerformance.stubs(:snapshot).with { |candidate, *rest| candidate.id == issue.id }.returns({
+        id: issue.id, owner_id: '1', status_name: %w[New On-Hold Pending][index], due: Date.current,
+        open: true, done: false, started: false, delivered_at: nil,
+        weight: [100.0, 200.0, 8.0][index], missing_weight: false
+      })
+    end
+    get :index, params: { project_id: @project.identifier, owner_id: '1' }
+    assert_response :success
+    assert_select '.performance-card-0 .performance-value', text: '1'
+    assert_select '.performance-card-0 .performance-weight', text: '8'
+    assert_select '.performance-card-0 .performance-secondary', text: /Stopped: 1/
+    %w[open stopped due_soon].each do |metric|
+      get :index, params: { project_id: @project.identifier, owner_id: '1', metric: metric }
+      assert_response :success
+      assert_select 'tr.performance-ticket-row', count: 1
+      assert_select 'tr.performance-ticket-row a[href=?]', issue_path(issues.last), text: "##{issues.last.id}"
+    end
+    get :index, params: { project_id: @project.identifier, owner_id: '1', metric: 'due' }
+    assert_response :success
+    assert_select 'tr.performance-ticket-row', count: 3
+  end
+
   test 'future dates are rejected' do
     get :index, params: { project_id: @project.identifier, as_of: (Date.current + 1).iso8601 }
     assert_response 422

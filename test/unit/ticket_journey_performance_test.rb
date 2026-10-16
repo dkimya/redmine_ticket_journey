@@ -81,10 +81,47 @@ class TicketJourneyPerformanceTest < ActiveSupport::TestCase
             row(status_name: 'Pending', due: date + 1),
             row(status_name: 'Ongoing'), row(status_name: 'On-Hold', open: false)]
     result = TicketJourneyPerformance.calculate(rows, date, nil)
-    assert_equal 3, result[:stopped]
-    assert_equal rows.first(3), result[:detail_sets]['stopped']
-    assert_equal [4, 2, 1, 1], result[:groups].map(&:size)
-    assert_equal 20, TicketJourneyPerformance.weight(result[:groups].first)
+    assert_equal 2, result[:stopped]
+    assert_equal rows[1, 2], result[:detail_sets]['stopped']
+    assert_equal [3, 2, 0, 1], result[:groups].map(&:size)
+    assert_equal 15, TicketJourneyPerformance.weight(result[:groups].first)
+  end
+
+  test 'new and on hold are excluded consistently from open sets but not cumulative delivery scope' do
+    date = Date.new(2026, 10, 16)
+    excluded = [row(status_name: 'New', due: date, weight: 100),
+                row(status_name: 'On-Hold', due: date - 1, started: true, weight: 200),
+                row(status_name: 'On-Hold', weight: 300)]
+    included = [row(status_name: 'Pending', due: date, weight: 8),
+                row(status_name: 'In Progress', due: date - 1, started: true, weight: 13),
+                row(status_name: 'To-Do', due: date - 1, weight: 5),
+                row(status_name: 'Ongoing', weight: 3)]
+    report = TicketJourneyPerformance.calculate(excluded + included, date)
+    assert_equal [4, 2, 1, 1], report[:groups].map(&:size)
+    assert_equal 29, TicketJourneyPerformance.weight(report[:groups].first)
+    assert_equal included, report[:detail_sets]['open']
+    assert_equal [included.first], report[:detail_sets]['due_soon']
+    assert_equal [included.first], report[:detail_sets]['stopped']
+    assert_equal [included.last], report[:detail_sets]['missing_due']
+    assert_includes report[:due], excluded.first
+    assert_includes report[:due], excluded[1]
+    assert_equal report[:groups].first.size, report[:groups].drop(1).sum(&:size)
+  end
+
+  test 'current on hold ticket remains in a past open report when historical status was in progress' do
+    date = Date.new(2026, 10, 16)
+    statuses = { '2' => stub(name: 'In Progress', is_closed: false),
+                 '5' => stub(name: 'On-Hold', is_closed: false) }
+    issue = stub(id: 1, created_on: date.in_time_zone - 5.days, status_id: 5,
+                 due_date: date - 1, start_date: nil)
+    issue.stubs(:custom_value_for).with(57).returns(stub(value: '7'))
+    history = [TicketJourneyPerformance::HistoryJournal.new(1, (date + 1).in_time_zone, [
+      TicketJourneyPerformance::HistoryDetail.new('attr', 'status_id', '2', '5')
+    ])]
+    past = TicketJourneyPerformance.snapshot(issue, date, statuses, history: history, visible_values: [])
+    later = TicketJourneyPerformance.snapshot(issue, date + 1, statuses, history: history, visible_values: [])
+    assert_equal [past], TicketJourneyPerformance.calculate([past], date)[:detail_sets]['open']
+    assert_empty TicketJourneyPerformance.calculate([later], date + 1)[:detail_sets]['open']
   end
 
   test 'only In Progress history establishes started by the report date' do

@@ -16,6 +16,8 @@ Reviewed 2026-10-13. **Server-confirmed** means user output/screenshots or expli
 
 ## Confirmation needed
 
+Hadi’s latest open-ticket rule implemented: New and On-Hold excluded as of the selected date, including Section 1 counts, weights, groups, Due Soon, and drill-downs. Stopped is Pending only. Earlier notes including On-Hold/New are superseded. Historical-status and dashboard/drill-down regression tests added; Ruby tests unrun locally, server verification pending. Cumulative delivery/monthly rules unchanged.
+
 Navigation hierarchy implemented: blue header contains Live Dashboard / Periodic Report, then Tickets / Returns / Time, above page title and filters. Periodic and unimplemented sections are Planned placeholders without report scans. Category/section links and Apply preserve date/owners; Live Dashboard remains a selected-date snapshot. Drill-down headers share the hierarchy without replacing their historical data. Ruby request tests added but not run locally; server visual/mobile/access verification pending.
 
 Performance Tickets/Returns/Time navigation added. Returns and Time are planned pages only; no metrics or history scans. Date/owner context is retained, using generic labels for retained IDs outside the lightweight member selector. Shared header and tabs also appear on ticket drill-downs. Ruby request tests added but not run locally; server visual/access verification pending.
@@ -50,7 +52,7 @@ Future return alarms are documented in [reporting rules](reporting-rules.md); re
 
 - User confirmed the memory fix runs without error and much faster; peak memory and concurrent-load behavior remain unmeasured. Project inheritance is now implemented locally for all descendant levels and visible project members, with a Project drill-down column; deployment verification is pending.
 
-- Hadi's Open Tickets feedback implemented locally: Not Touched now requires no In Progress evidence by report date; other development stages no longer imply Started. Stopped (On-Hold/Pending as of date) appears below Total Open Tickets with a drill-down while remaining in the existing groups. Server calculation/layout verification pending.
+- Hadi's Open Tickets feedback implemented locally: Not Touched now requires no In Progress evidence by report date; other development stages no longer imply Started. Stopped (now Pending only, superseding the earlier On-Hold/Pending rule) appears below Total Open Tickets with a drill-down while remaining in the existing groups. Server calculation/layout verification pending.
 
 - Hadi resolved Extra Tasks: use one shared 90% delivery target for now. Implemented configurable Delivery Target (%) with numeric 0–100 validation for both delivery indicators. Prior notes about an unconfigured Extra Tasks target are superseded. Server settings-save/render verification is pending.
 

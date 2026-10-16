@@ -126,12 +126,14 @@ class TicketJourneyPerformance
   # Hadi's rule: only having been In Progress establishes started work.
   # Later workflow stages, logged time and comments are not substitutes.
   STARTED = ['In Progress', 'Inprogress'].freeze
-  STOPPED = ['On-Hold', 'Pending'].freeze
+  # Hadi's latest rule excludes these from Section 1 only, using as-of status.
+  OPEN_EXCLUDED_STATUSES = ['New', 'On-Hold'].freeze
+  STOPPED = ['Pending'].freeze
   DELIVERY_EXCLUDED_STATUSES = ['Archived', 'Ongoing'].freeze
   DETAIL_LABELS = {
     'open' => 'Total Open Tickets', 'not_overdue' => 'Not Overdue Open Tickets',
     'started' => 'Overdue - Already Started', 'untouched' => 'Overdue - Not Touched',
-    'stopped' => 'Stopped Open Tickets (On-Hold / Pending)',
+    'stopped' => 'Stopped Open Tickets (Pending)',
     'due_soon' => 'Due Soon', 'missing_due' => 'Open Tickets Without Due Dates',
     'missing_weight' => 'Tickets Without Usable Complexity Weight',
     'missing_delivery' => 'Done Tickets Without Recorded Completion Dates',
@@ -209,7 +211,7 @@ class TicketJourneyPerformance
   end
 
   def self.calculate(rows, date, _legacy_start_date = nil)
-    open = rows.select { |r| r[:open] }
+    open = rows.select { |r| r[:open] && !OPEN_EXCLUDED_STATUSES.include?(r[:status_name].to_s.strip) }
     not_overdue, overdue = open.partition { |r| r[:due].nil? || r[:due] >= date }
     started, untouched = overdue.partition { |r| r[:started] }
     # Section 2 alone excludes these as-of statuses. Do not filter the input

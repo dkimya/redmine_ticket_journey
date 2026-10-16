@@ -1,6 +1,6 @@
 <details class="performance-section performance-comparison" open>
   <summary><strong>Developer comparison — <%= @selected_owners.size %> selected owner(s)</strong></summary>
-  <p>Click a heading to sort or a number to view contributing tickets. Stopped and Due Soon are subsets, already included in open totals.</p>
+  <p>Click a heading to sort or a number to view contributing tickets. New and On-Hold at the selected date are excluded from open totals. Stopped (Pending only) and Due Soon are subsets, already included in open totals.</p>
   <div class="autoscroll"><table class="list">
     <thead>
       <tr><th rowspan="2"><%= performance_comparison_heading('Ticket Owner', 'owner') %></th><th colspan="4" class="performance-group-tickets">Tickets</th><th colspan="4" class="performance-group-weight performance-weight-start performance-weight-end">Complexity Weight</th><th rowspan="2"><%= performance_comparison_heading('Stopped', 'stopped') %></th><th rowspan="2"><%= performance_comparison_heading('Due Soon', 'due_soon') %></th></tr>

@@ -15,6 +15,8 @@ Observed host: `/opt/redmine`, plugin `/opt/redmine/plugins/redmine_ticket_journ
 
 ## Verify
 
+- Open Tickets: New and On-Hold at the selected date must be absent from counts, weights, donut breakdowns, Due Soon, and open drill-downs. Stopped lists Pending only. Compare a currently On-Hold ticket against an earlier In Progress snapshot. Verify group counts sum to Total Open and Section 2 retains existing totals.
+
 - Performance header: dashboard type, report section, then title/filters, all inside blue header. Switch categories/sections and Apply: owners/date persist; Periodic and Returns/Time show Planned with no metrics. Existing Live Tickets and drill-downs still work. Check narrow-screen wrapping and keyboard navigation.
 
 - Combined monthly view: targets 10/20 should average to 15; actuals use combined totals ÷ 3 ÷ 2 owners. Include an owner with no deliveries. Remove one owner’s point target: only point target/deviation becomes unavailable, with its name; ticket comparison remains. Verify public/private target visibility and intact combined contributor lists.
