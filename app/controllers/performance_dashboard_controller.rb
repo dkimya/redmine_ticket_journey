@@ -20,8 +20,7 @@ class PerformanceDashboardController < ApplicationController
       return render_404 unless requested_owners.all? { |id| id.match?(/\A[1-9]\d*\z/) }
 
       # Planned tabs retain context but must not run ticket/history/target scans.
-      @owners = User.active.where(id: Member.where(project_id: performance_project_ids).select(:user_id))
-                    .order(:lastname, :firstname).to_a
+      @owners = alphabetical_owners(User.active.where(id: Member.where(project_id: performance_project_ids).select(:user_id)))
       @selected_owner_ids = requested_owners.presence || [@owners.find { |user| user.id == User.current.id }&.id].compact.map(&:to_s)
       return render :planned
     end
@@ -29,8 +28,7 @@ class PerformanceDashboardController < ApplicationController
     # Project members seed the selector; calculated reports also discover former
     # owners from visible ticket history, retaining historical report links.
     if requested_owners.empty? && !@metric
-      @owners = User.active.where(id: Member.where(project_id: performance_project_ids).select(:user_id))
-                    .order(:lastname, :firstname).to_a
+      @owners = alphabetical_owners(User.active.where(id: Member.where(project_id: performance_project_ids).select(:user_id)))
       @owner = @owners.find { |user| user.id == User.current.id }
       @selected_owner_ids = [@owner&.id].compact.map(&:to_s)
       @initial_load = true
@@ -132,12 +130,12 @@ class PerformanceDashboardController < ApplicationController
     TicketJourneyPerformanceReturns.finish_trend!(@return_trend) if @return_trend
     TicketJourneyPerformance.finish_delivery_trend!(@delivery_trend) if @delivery_trend
     member_ids = Member.where(project_id: performance_project_ids).pluck(:user_id)
-    @owners = User.active.where(id: (owner_ids.to_a + member_ids).uniq).order(:lastname, :firstname).to_a
+    @owners = alphabetical_owners(User.active.where(id: (owner_ids.to_a + member_ids).uniq))
     # Active-only is a dropdown rule, not an access restriction. Resolve saved
     # links separately, but only for owners found on visible in-scope tickets.
     allowed_ids = (@owners.map { |u| u.id.to_s } + owner_ids.to_a).to_set
     return render_404 unless requested_owners.all? { |id| allowed_ids.include?(id) }
-    @selected_owners = User.where(id: requested_owners).order(:lastname, :firstname).to_a
+    @selected_owners = alphabetical_owners(User.where(id: requested_owners))
     @selected_owner_ids = @selected_owners.map { |u| u.id.to_s }
     @owner_label = @selected_owners.map(&:name).join(', ')
     @owner = @selected_owners.first
@@ -230,6 +228,10 @@ class PerformanceDashboardController < ApplicationController
   end
 
   private
+
+  def alphabetical_owners(users)
+    users.to_a.sort_by { |user| [user.name.to_s.downcase, user.id] }
+  end
 
   def render_owner_changes
     @owner_change_rows.sort_by! { |row| [-row[:changes].map { |change| change[:at].to_f }.max, row[:id]] }
