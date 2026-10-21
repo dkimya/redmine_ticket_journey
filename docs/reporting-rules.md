@@ -12,7 +12,7 @@ Owner changes are always accessible: Performance Tickets and Returns show their 
 
 ## Historical reporting and due dates — implemented
 
-Performance Open Tickets weight cards show missing-weight counts and usable-ticket coverage when incomplete. Each count links to the missing-weight tickets in that exact open/status group; hidden, missing and nonpositive weights remain excluded from sums. Weight percentages use only usable recorded weights across the open population. Implemented locally; deployed rendering remains to be verified.
+Performance Open Tickets weight cards show missing-weight counts and usable-ticket coverage when incomplete. Each count links to the missing-weight tickets in that exact open/status group; hidden, missing and nonpositive weights remain excluded from sums. Ongoing status at the report date requires no complexity weight and is excluded from all Performance missing-weight counts/lists, while remaining in open totals. A clickable Ongoing count beside Stopped shows that open subset. Existing usable recorded Ongoing weights still contribute to Section 1 sums; weight percentages use only usable recorded weights across the open population. Implemented locally; deployed rendering remains to be verified.
 
 - Team Performance reconstructs status/owner history, completion events, returns, and dated activity. It is not an immutable snapshot of every field.
 - Beginning debt A: created by and open at report start (RSD), with **current due date on/before RSD**; snapshot is RSD end of day.

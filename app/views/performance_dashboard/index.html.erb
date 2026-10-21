@@ -41,6 +41,7 @@
               <div class="performance-secondary">
                 <% if i == 0 %>
                   Stopped: <b><%= performance_detail_link(@report[:stopped], 'stopped') %></b> <%= performance_tip('Open tickets in Pending at the selected report date. New and On-Hold are excluded. Already included in Total Open Tickets and the three breakdown groups; do not add this count to the total.') %>
+                  · Ongoing: <b><%= performance_detail_link(@report[:ongoing], 'ongoing') %></b> <%= performance_tip('Open tickets in Ongoing at the selected report date. Already included in Total Open Tickets. Complexity weight is not required, so these tickets are excluded from missing-weight warnings and lists.') %>
                 <% elsif i == 1 %>
                   Due soon (&lt;3 days): <b><%= performance_detail_link(@report[:due_soon], 'due_soon') %></b> <%= performance_tip('Due today, tomorrow, or the following day. Tickets without a due date are excluded from Due Soon.') %>
                 <% end %>
@@ -51,15 +52,15 @@
               <% if missing_count.positive? %>
                 <div class="performance-weight-note">
                   <%= performance_detail_link(pluralize(missing_count, 'ticket'), missing_metric) %> <%= missing_count == 1 ? 'has' : 'have' %> no usable complexity weight.
-                  Total includes <%= groups[i].size - missing_count %> of <%= pluralize(groups[i].size, 'ticket') %>.
-                  <%= performance_tip('Missing, hidden, invalid, zero or negative complexity weights are excluded from the sum. These tickets still count as tickets. Weight percentages use only usable recorded weights across all open tickets.') %>
+                  Sum uses recorded weights from <%= pluralize(groups[i].count { |row| !row[:missing_weight] }, 'ticket') %>.
+                  <%= performance_tip('Missing, hidden, invalid, zero or negative complexity weights are excluded from the sum. Ongoing tickets do not require complexity weight and are excluded from missing-weight counts. All still count as tickets. Weight percentages use only usable recorded weights across all open tickets.') %>
                 </div>
               <% end %>
             </article>
           <% end %>
         </div>
       </div>
-      <p class="performance-weight-note">Weight percentages use only usable recorded weights across all open tickets.</p>
+      <p class="performance-weight-note">Weight percentages use only usable recorded weights across all open tickets. Ongoing tickets do not require complexity weight and are excluded from missing-weight counts.</p>
     </section>
     <section class="performance-section">
       <h3><span class="performance-step">2</span> Delivery Metrics (All Tickets Due by Date) <%= performance_tip('Cumulative delivery uses tickets with a current due date on or before the report date. The numerator includes only those tickets in Done / Closed at that date. Archived and Ongoing tickets at the selected report date are excluded from all Section 2 counts and weights, including the due denominator. Reopened tickets are not counted as done. No due date means excluded from both delivery ratios. Each ticket counts once.') %></h3>

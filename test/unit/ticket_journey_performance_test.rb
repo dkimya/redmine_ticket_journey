@@ -109,9 +109,15 @@ class TicketJourneyPerformanceTest < ActiveSupport::TestCase
     rows = [row(id: 1, weight: 8), row(id: 2, weight: 0, missing_weight: true),
       row(id: 3, due: date - 1, started: true, weight: 0, missing_weight: true),
       row(id: 4, due: date - 1, weight: 0, missing_weight: true),
-      row(id: 5, open: false, weight: 0, missing_weight: true)]
+      row(id: 5, open: false, weight: 0, missing_weight: true),
+      row(id: 6, status_name: 'Ongoing', weight: 0, missing_weight: true),
+      row(id: 7, status_name: 'Ongoing', due: date - 1, started: true, weight: 0, missing_weight: true)]
     report = TicketJourneyPerformance.calculate(rows, date)
     assert_equal 8, TicketJourneyPerformance.weight(report[:groups].first)
+    assert_equal 6, report[:groups].first.size
+    assert_equal 2, report[:ongoing]
+    assert_equal [6, 7], report[:detail_sets].fetch('ongoing').map { |ticket| ticket[:id] }
+    assert_equal [2, 3, 4, 5], report[:detail_sets].fetch('missing_weight').map { |ticket| ticket[:id] }
     { 'open' => [2, 3, 4], 'not_overdue' => [2], 'started' => [3], 'untouched' => [4] }.each do |group, ids|
       assert_equal ids, report[:detail_sets].fetch("#{group}_missing_weight").map { |ticket| ticket[:id] }
     end

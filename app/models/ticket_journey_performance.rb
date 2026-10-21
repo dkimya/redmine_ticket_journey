@@ -206,6 +206,7 @@ class TicketJourneyPerformance
     'open' => 'Total Open Tickets', 'not_overdue' => 'Not Overdue Open Tickets',
     'started' => 'Overdue - Already Started', 'untouched' => 'Overdue - Not Touched',
     'stopped' => 'Stopped Open Tickets (Pending)',
+    'ongoing' => 'Ongoing Open Tickets',
     'due_soon' => 'Due Soon', 'missing_due' => 'Open Tickets Without Due Dates',
     'missing_weight' => 'Tickets Without Usable Complexity Weight',
     'open_missing_weight' => 'Open Tickets Without Usable Complexity Weight',
@@ -309,20 +310,22 @@ class TicketJourneyPerformance
     sets = {
       'open' => open, 'not_overdue' => not_overdue, 'started' => started, 'untouched' => untouched,
       'stopped' => open.select { |r| STOPPED.include?(r[:status_name].to_s.strip) },
+      'ongoing' => open.select { |r| r[:status_name].to_s.strip == 'Ongoing' },
       'due_soon' => not_overdue.select { |r| r[:due] && (r[:due] - date).to_i < 3 },
       'missing_due' => open.select { |r| r[:due].nil? },
-      'missing_weight' => rows.select { |r| r[:missing_weight] },
+      'missing_weight' => rows.select { |r| missing_required_weight?(r) },
       'missing_delivery' => delivery_rows.select { |r| r[:done] && r[:delivered_at].nil? },
       'done' => done, 'due' => due, 'delivered' => delivered, 'delivered_weight' => weighted_delivered
     }
     %w[open not_overdue started untouched].each do |group|
-      sets["#{group}_missing_weight"] = sets.fetch(group).select { |row| row[:missing_weight] }
+      sets["#{group}_missing_weight"] = sets.fetch(group).select { |row| missing_required_weight?(row) }
     end
     {
       detail_sets: sets,
       groups: [open, not_overdue, started, untouched], due: due, done: done,
       due_soon: sets['due_soon'].size,
       stopped: sets['stopped'].size,
+      ongoing: sets['ongoing'].size,
       missing_due: sets['missing_due'].size, missing_weight: sets['missing_weight'].size,
       missing_delivery: sets['missing_delivery'].size,
       monthly_count: delivered.size / 3.0,
@@ -333,6 +336,10 @@ class TicketJourneyPerformance
 
   def self.weight(rows)
     rows.sum { |row| row[:weight] }
+  end
+
+  def self.missing_required_weight?(row)
+    row[:missing_weight] && row[:status_name].to_s.strip != 'Ongoing'
   end
 
   def self.average_targets(values)
