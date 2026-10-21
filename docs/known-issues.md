@@ -96,3 +96,5 @@ Monthly Day 0 rules superseded on user approval: both metrics now use the three 
 - Returns comparison row fills now explicitly cover both header and data cells: odd developer rows white, even rows very light blue. This overrides the host's gray Ticket Owner row-header background; the Total footer remains blue and bold. CSS change implemented locally; deployed visual verification pending.
 
 - Returns comparison developer rows now highlight every cell pale yellow (#fff8dc) on hover. The rule applies only to the table body, preserving the blue Total footer. Deployed hover verification pending.
+
+- Both Returns ratio cards now use shared green/orange/red thresholds (<10%, 10%-50% inclusive, >50%) and gray for N/A, with a shared legend. Thresholds use unrounded ratios. Helper boundary tests added but not run without local Ruby; deployed color/contrast verification pending.

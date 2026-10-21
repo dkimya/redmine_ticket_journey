@@ -28,9 +28,16 @@
     <section class="performance-section">
       <h3><span class="performance-step">3</span> Open Tickets Return Metric <%= performance_tip('Return incidents divided by open tickets, displayed as a percentage. This is not the percentage of tickets returned and can exceed 100%. One ticket can contribute many incidents. Values use ordinary rounding to one decimal place.') %></h3>
       <div class="performance-return-ratios">
-        <article class="performance-metric performance-return-warning"><h4>Return Incidents per Open Ticket</h4><strong class="performance-return-value"><%= @returns[:ratio].nil? ? 'N/A' : "#{performance_number(@returns[:ratio])}%" %></strong><p><%= performance_return_link(@returns[:incidents], 'return_incidents') %> total return incidents</p><p><%= performance_return_link(@returns[:open], 'returns_open') %> open tickets</p></article>
-        <article class="performance-metric performance-return-negative"><h4>Return Incidents (excl. Merge Conflict) per Open Ticket</h4><strong class="performance-return-value"><%= @returns[:adjusted_ratio].nil? ? 'N/A' : "#{performance_number(@returns[:adjusted_ratio])}%" %></strong><p><%= performance_return_link(@returns[:non_merge], 'non_merge_incidents') %> known non-merge return incidents</p><p><%= performance_return_link(@returns[:open], 'returns_open') %> open tickets</p><% if @returns[:unknown].positive? %><p>Adjusted ratio unavailable: <%= @returns[:unknown] %> incidents have missing or hidden Return Reason history. Known non-merge incidents are a partial count.</p><% end %></article>
+        <article class="performance-metric <%= performance_return_ratio_class(@returns[:ratio]) %>"><h4>Return Incidents per Open Ticket</h4><strong class="performance-return-value"><%= @returns[:ratio].nil? ? 'N/A' : "#{performance_number(@returns[:ratio])}%" %></strong><p><%= performance_return_link(@returns[:incidents], 'return_incidents') %> total return incidents</p><p><%= performance_return_link(@returns[:open], 'returns_open') %> open tickets</p></article>
+        <article class="performance-metric <%= performance_return_ratio_class(@returns[:adjusted_ratio]) %>"><h4>Return Incidents (excl. Merge Conflict) per Open Ticket</h4><strong class="performance-return-value"><%= @returns[:adjusted_ratio].nil? ? 'N/A' : "#{performance_number(@returns[:adjusted_ratio])}%" %></strong><p><%= performance_return_link(@returns[:non_merge], 'non_merge_incidents') %> known non-merge return incidents</p><p><%= performance_return_link(@returns[:open], 'returns_open') %> open tickets</p><% if @returns[:unknown].positive? %><p>Adjusted ratio unavailable: <%= @returns[:unknown] %> incidents have missing or hidden Return Reason history. Known non-merge incidents are a partial count.</p><% end %></article>
       </div>
+      <ul class="performance-return-legend" aria-label="Return ratio color thresholds">
+        <li><span class="performance-return-status-dot" aria-hidden="true"></span>Green: below 10%</li>
+        <li><span class="performance-return-status-dot warning" aria-hidden="true"></span>Orange: 10%–50% (inclusive)</li>
+        <li><span class="performance-return-status-dot negative" aria-hidden="true"></span>Red: above 50%</li>
+        <li><span class="performance-return-status-dot unavailable" aria-hidden="true"></span>Gray: N/A</li>
+      </ul>
+      <%= performance_tip('Both cards use the same thresholds, applied to the unrounded ratio. Displayed percentages are rounded to one decimal place.') %>
       <%= render 'return_trend', points: @return_trend if @return_trend %>
     </section>
     <details class="performance-notes"><summary>Calculation notes</summary>

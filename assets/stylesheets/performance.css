@@ -210,6 +210,18 @@
 .performance-return-value{font-size:44px;font-weight:800;display:block;margin:18px 0}
 .performance-return-warning{background:#fff5e9;border-color:#f3cda6}
 .performance-return-negative{background:#fff0f2;border-color:#f0bdc5}
+.performance-return-positive{background:#eefaf3;border-color:#b4ddc5}
+.performance-return-unavailable{background:#f3f5f7;border-color:#d2d9e0}
+.performance-return-positive .performance-return-value{color:#17653c}
+.performance-return-warning .performance-return-value{color:#985000}
+.performance-return-negative .performance-return-value{color:#b42336}
+.performance-return-unavailable .performance-return-value{color:#596777}
+.performance-return-legend{display:flex;flex-wrap:wrap;gap:10px 24px;list-style:none;margin:16px 0;padding:0;font-size:13px}
+.performance-return-legend li{display:flex;align-items:center;gap:7px}
+.performance-return-status-dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#17653c}
+.performance-return-status-dot.warning{background:#985000}
+.performance-return-status-dot.negative{background:#b42336}
+.performance-return-status-dot.unavailable{background:#596777}
 .performance-return-comparison td{text-align:right}
 .performance-return-ticket details{min-width:230px;max-width:500px}
 .performance-return-ticket li{padding:4px 0}

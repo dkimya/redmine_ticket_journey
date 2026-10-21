@@ -1,4 +1,11 @@
 module PerformanceDashboardHelper
+  def performance_return_ratio_class(value)
+    return 'performance-return-unavailable' if value.nil?
+    return 'performance-return-positive' if value < 10
+
+    value <= 50 ? 'performance-return-warning' : 'performance-return-negative'
+  end
+
   def performance_return_trend_geometry(points)
     values = points.flat_map { |point| [point[:ratio], point[:adjusted_ratio]] }.compact
     # A zero baseline, with a scale that also supports incident ratios over 100%.

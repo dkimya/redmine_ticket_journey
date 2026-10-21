@@ -3,6 +3,16 @@ require File.expand_path('../test_helper', __dir__)
 class PerformanceDashboardHelperTest < ActiveSupport::TestCase
   include PerformanceDashboardHelper
 
+  test 'return ratio colors share inclusive orange thresholds and neutral missing values' do
+    assert_equal 'performance-return-positive', performance_return_ratio_class(0)
+    assert_equal 'performance-return-positive', performance_return_ratio_class(9.6)
+    assert_equal 'performance-return-warning', performance_return_ratio_class(10)
+    assert_equal 'performance-return-warning', performance_return_ratio_class(50)
+    assert_equal 'performance-return-negative', performance_return_ratio_class(50.01)
+    assert_equal 'performance-return-negative', performance_return_ratio_class(200)
+    assert_equal 'performance-return-unavailable', performance_return_ratio_class(nil)
+  end
+
   test 'return trend scale has a zero baseline and accommodates ratios above 100 percent' do
     points = [{ ratio: 0.0, adjusted_ratio: 0.0 }, { ratio: 125.0, adjusted_ratio: 100.0 },
               { ratio: 350.0, adjusted_ratio: nil }]
