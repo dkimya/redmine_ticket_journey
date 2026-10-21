@@ -60,6 +60,78 @@ class TicketJourneyPerformanceReturnsTest < ActiveSupport::TestCase
       events: Array.new(count) { { merge_conflict: unknown ? nil : false } } }
   end
 
+  test 'trend uses three completed calendar month ends across years and leap years' do
+    assert_equal [Date.new(2025, 10, 31), Date.new(2025, 11, 30), Date.new(2025, 12, 31)],
+      TicketJourneyPerformanceReturns.trend_points(Date.new(2026, 1, 15)).map { |point| point[:date] }
+    assert_equal [Date.new(2023, 12, 31), Date.new(2024, 1, 31), Date.new(2024, 2, 29)],
+      TicketJourneyPerformanceReturns.trend_points(Date.new(2024, 3, 1)).map { |point| point[:date] }
+  end
+
+  test 'trend reconstructs closed reassigned tickets independently at each month end' do
+    date = Date.new(2026, 10, 21)
+    ticket = stub(id: 1, tracker: stub(name: 'Bug'), created_on: Date.new(2026, 7, 1).in_time_zone,
+      status_id: 3, due_date: nil, start_date: nil)
+    states = { '1' => stub(name: 'Feedback', is_closed: false),
+      '2' => stub(name: 'Returned', is_closed: false), '3' => stub(name: 'Done / Closed', is_closed: true) }
+    history = [change(1, Date.new(2026, 7, 10), '1'), change(2, Date.new(2026, 8, 10), '1'),
+      TicketJourneyPerformance::HistoryJournal.new(3, Date.new(2026, 9, 5).in_time_zone, [
+        TicketJourneyPerformance::HistoryDetail.new('cf', '57', '10', '20', 3)
+      ]),
+      TicketJourneyPerformance::HistoryJournal.new(4, Date.new(2026, 10, 5).in_time_zone, [
+        TicketJourneyPerformance::HistoryDetail.new('attr', 'status_id', '2', '3', 4)
+      ])]
+    values = [TicketJourneyPerformance::FieldValue.new(stub(id: 57), '20'),
+      TicketJourneyPerformance::FieldValue.new(stub(id: 66), 'Bug')]
+    points = TicketJourneyPerformanceReturns.trend_points(date)
+    TicketJourneyPerformanceReturns.accumulate_trend!(points, ticket, history, states, date, values, Set['10'])
+    TicketJourneyPerformanceReturns.finish_trend!(points)
+    assert_equal [1, 1, 0], points.map { |point| point[:open] }
+    assert_equal [1, 2, 0], points.map { |point| point[:incidents] }
+    assert_equal [100.0, 200.0, nil], points.map { |point| point[:ratio] }
+    assert_equal [100.0, 200.0, nil], points.map { |point| point[:adjusted_ratio] }
+    combined = TicketJourneyPerformanceReturns.trend_points(date)
+    TicketJourneyPerformanceReturns.accumulate_trend!(combined, ticket, history, states, date, values, Set['10', '20'])
+    assert_equal [1, 1, 1], combined.map { |point| point[:open] }
+    assert_equal [1, 2, 2], combined.map { |point| point[:incidents] }
+  end
+
+  test 'trend excludes tickets before creation and marks hidden reasons unavailable' do
+    date = Date.new(2026, 10, 21)
+    ticket = stub(id: 1, tracker: stub(name: 'Bug'), created_on: Date.new(2026, 8, 1).in_time_zone,
+      status_id: 2, due_date: nil, start_date: nil)
+    states = { '1' => stub(name: 'Feedback', is_closed: false), '2' => stub(name: 'Returned', is_closed: false) }
+    values = [TicketJourneyPerformance::FieldValue.new(stub(id: 57), '10')]
+    points = TicketJourneyPerformanceReturns.trend_points(date)
+    TicketJourneyPerformanceReturns.accumulate_trend!(points, ticket, [change(1, Date.new(2026, 8, 15), '1')], states, date, values, Set['10'])
+    TicketJourneyPerformanceReturns.finish_trend!(points)
+    assert_equal [0, 1, 1], points.map { |point| point[:open] }
+    assert_equal [nil, 100.0, 100.0], points.map { |point| point[:ratio] }
+    assert_equal [nil, nil, nil], points.map { |point| point[:adjusted_ratio] }
+    assert_equal [0, 1, 1], points.map { |point| point[:unknown] }
+  end
+
+  test 'trend applies merge exclusion and sums counts before calculating multi owner ratios' do
+    date = Date.new(2026, 10, 21)
+    points = TicketJourneyPerformanceReturns.trend_points(date)
+    states = { '1' => stub(name: 'Feedback', is_closed: false), '2' => stub(name: 'Returned', is_closed: false) }
+    [0, 1, 2].each do |index|
+      ticket = stub(id: index + 1, tracker: stub(name: 'Bug'), created_on: Date.new(2026, 6, 1).in_time_zone,
+        status_id: 2, due_date: nil, start_date: nil)
+      values = [TicketJourneyPerformance::FieldValue.new(stub(id: 57), index.zero? ? '10' : '20'),
+        TicketJourneyPerformance::FieldValue.new(stub(id: 66), index.zero? ? 'Merge Conflict' : 'Bug')]
+      history = index < 2 ? [change(index + 1, Date.new(2026, 7, 15), '1')] : []
+      TicketJourneyPerformanceReturns.accumulate_trend!(points, ticket, history, states, date, values, Set['10', '20'])
+    end
+    TicketJourneyPerformanceReturns.finish_trend!(points)
+    points.each do |point|
+      assert_equal 3, point[:open]
+      assert_equal 2, point[:incidents]
+      assert_equal 1, point[:non_merge]
+      assert_in_delta 200.0 / 3, point[:ratio], 0.001
+      assert_in_delta 100.0 / 3, point[:adjusted_ratio], 0.001
+    end
+  end
+
   test 'distributions partition distinct eligible tickets and ratios may exceed 100 percent' do
     rows = [row(1, 0), row(2, 1), row(3, 2, 1), row(4, 3, 2), row(5, 4, 3)]
     report = TicketJourneyPerformanceReturns.calculate(rows + ['New', 'On-Hold', 'Archived', 'Done / Closed'].map { |status| row(6, 4, 3, status) })

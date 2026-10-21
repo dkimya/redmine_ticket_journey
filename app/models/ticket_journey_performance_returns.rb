@@ -15,6 +15,49 @@ class TicketJourneyPerformanceReturns
   }.freeze
   COLORS = ['#00bc87', '#008fff', '#ffbd36', '#ff8b2d', '#f65362'].freeze
 
+  def self.trend_points(date)
+    3.downto(1).map do |months|
+      { date: (date.beginning_of_month << (months - 1)) - 1,
+        open: 0, incidents: 0, non_merge: 0, unknown: 0 }
+    end
+  end
+
+  # Reuse each candidate's loaded scalar history. Retain only three aggregates,
+  # including tickets closed or reassigned by the main report date.
+  def self.accumulate_trend!(points, issue, history, statuses, date, visible_values, owner_ids)
+    owner_value = visible_values.find { |value| value.custom_field.id == 57 }&.value.to_s
+    snapshots = points.map do |point|
+      row = TicketJourneyPerformance.snapshot(issue, point[:date], statuses,
+        history: history, visible_values: visible_values, owner_value: owner_value)
+      row if row && owner_ids.include?(row[:owner_id]) && eligible?(row)
+    end
+    return unless snapshots.any?
+
+    reason = visible_values.find { |value| value.custom_field.id == 66 }
+    events = events_for(issue, history, statuses, date, reason_value: reason&.value, reason_visible: !reason.nil?)
+    points.each_with_index do |point, index|
+      next unless snapshots[index]
+
+      cutoff = point[:date].in_time_zone.end_of_day
+      point[:open] += 1
+      events.each do |event|
+        next if event[:at] > cutoff
+
+        point[:incidents] += 1
+        point[:non_merge] += 1 if event[:merge_conflict] == false
+        point[:unknown] += 1 if event[:merge_conflict].nil?
+      end
+    end
+    events
+  end
+
+  def self.finish_trend!(points)
+    points.each do |point|
+      point[:ratio] = point[:open].positive? ? point[:incidents] * 100.0 / point[:open] : nil
+      point[:adjusted_ratio] = point[:open].positive? && point[:unknown].zero? ? point[:non_merge] * 100.0 / point[:open] : nil
+    end
+  end
+
   def self.eligible?(row)
     row[:open] && !EXCLUDED.include?(row[:status_name].to_s.strip)
   end

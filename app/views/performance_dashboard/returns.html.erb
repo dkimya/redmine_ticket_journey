@@ -31,6 +31,7 @@
         <article class="performance-metric performance-return-warning"><h4>Return Incidents per Open Ticket</h4><strong class="performance-return-value"><%= @returns[:ratio].nil? ? 'N/A' : "#{performance_number(@returns[:ratio])}%" %></strong><p><%= performance_return_link(@returns[:incidents], 'return_incidents') %> total return incidents</p><p><%= performance_return_link(@returns[:open], 'returns_open') %> open tickets</p></article>
         <article class="performance-metric performance-return-negative"><h4>Return Incidents (excl. Merge Conflict) per Open Ticket</h4><strong class="performance-return-value"><%= @returns[:adjusted_ratio].nil? ? 'N/A' : "#{performance_number(@returns[:adjusted_ratio])}%" %></strong><p><%= performance_return_link(@returns[:non_merge], 'non_merge_incidents') %> known non-merge return incidents</p><p><%= performance_return_link(@returns[:open], 'returns_open') %> open tickets</p><% if @returns[:unknown].positive? %><p>Adjusted ratio unavailable: <%= @returns[:unknown] %> incidents have missing or hidden Return Reason history. Known non-merge incidents are a partial count.</p><% end %></article>
       </div>
+      <%= render 'return_trend', points: @return_trend if @return_trend %>
     </section>
     <details class="performance-notes"><summary>Calculation notes</summary>
       <p>Returns are qualifying transitions into explicit Returned, using the existing tracker/stage mappings. Counts stop at the selected date. Lifetime native Return Count may include newer incidents; it is unchanged.</p>

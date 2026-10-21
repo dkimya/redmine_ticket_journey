@@ -261,3 +261,19 @@
 .performance-page .performance-return-comparison thead tr:last-child th{
   border-bottom:1px solid #b8c8db;
 }
+.performance-return-trend{margin-top:24px;padding-top:18px;border-top:1px solid #dce6f0}
+.performance-return-trend h4{margin:0 0 8px;font-size:17px}
+.performance-return-trend p{color:#536780;font-size:13px}
+.performance-trend-legend{display:flex;flex-wrap:wrap;gap:10px 24px;list-style:none;margin:16px 0;padding:0}
+.performance-trend-swatch{display:inline-block;width:28px;border-top:3px solid #007bd1;vertical-align:middle;margin-right:8px}
+.performance-trend-swatch.performance-trend-adjusted{border-top:3px dashed #b44f25}
+.performance-trend-chart{display:block;width:100%;min-width:500px;max-height:330px}
+.performance-trend-chart text{fill:#425875;font-size:13px}
+.performance-trend-grid{stroke:#dce6f0;stroke-width:1}
+.performance-trend-series{stroke:#007bd1;stroke-width:3;fill:#007bd1}
+.performance-trend-series.performance-trend-adjusted{stroke:#b44f25;fill:white}
+.performance-trend-adjusted line{stroke-dasharray:7 5}
+.performance-trend-series circle:focus{outline:2px solid #17365d;outline-offset:4px}
+.performance-trend-values summary{cursor:pointer;color:#0073b7}
+.performance-trend-values table{margin-top:12px}
+.performance-trend-values th,.performance-trend-values td{padding:8px;white-space:normal}

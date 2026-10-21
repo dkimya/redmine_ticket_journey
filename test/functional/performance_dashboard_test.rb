@@ -75,15 +75,23 @@ class PerformanceDashboardTest < ActionController::TestCase
       { journal_id: index + 1, at: Time.current - index.hours, from_status: 'Feedback', reason: 'Bug', repeat: repeat, merge_conflict: false }
     end
     TicketJourneyPerformanceReturns.stubs(:events_for).returns(events)
+    first_month_end = TicketJourneyPerformanceReturns.trend_points(Date.current).first[:date]
+    TicketJourneyPerformance.expects(:history_for).with([issue.id], first_month_end, include_return_reason: true).returns({})
     get :index, params: { project_id: @project.identifier, tab: 'returns', owner_id: '1' }
     assert_response :success
     assert_select '.performance-return-owner-row', count: 1
     assert_select '.performance-return-distributions .performance-donut', count: 2
     assert_select '.performance-return-value', text: '300%', count: 2
+    assert_select '.performance-return-trend svg', count: 1
+    assert_select '.performance-trend-values tbody tr', count: 3
+    assert_operator @response.body.index('performance-return-ratios'), :<, @response.body.index('performance-return-trend')
     assert_operator @response.body.index('Developer comparison'), :<, @response.body.index('Combined results')
+    TicketJourneyPerformance.expects(:history_for).with([issue.id], Date.current, include_return_reason: true).returns({})
+    TicketJourneyPerformanceReturns.expects(:accumulate_trend!).never
     get :index, params: { project_id: @project.identifier, tab: 'returns', owner_id: '1', metric: 'repeats_2' }
     assert_response :success
     assert_select '.performance-return-ticket', count: 1
+    assert_select '.performance-return-trend', count: 0
     assert_select 'li', text: /Consecutive repeat/, count: 2
     assert_select 'a[href=?]', performance_dashboard_path(@project, owner_id: '1', as_of: Date.current.iso8601, tab: 'returns'), text: /Back to Performance Returns/
   end

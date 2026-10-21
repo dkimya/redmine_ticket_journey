@@ -89,4 +89,6 @@ Monthly Day 0 rules superseded on user approval: both metrics now use the three 
 
 - Returns comparison header/body separator now matches distribution tables (1px #b8c8db), including two-row-spanning headers. Other horizontal rules remain light; Total retains its double separator. Deployed visual verification pending.
 
-- Added a shared consecutive-return definition tooltip to the Returns comparison heading, distribution heading and drill-down column. It explains same-stage successive incidents, intermediate workflow steps, accumulated repeats across stages and an example. Deployed tooltip verification pending.
+- Added a shared consecutive-return definition tooltip to the Returns comparison heading, distribution heading and drill-down column. Uses the user's approved concise wording explaining same-stage repeats and accumulation, with Feedback → Feedback → Final Check → Final Check = 2 as the example. Detailed workflow rules remain in Calculation notes. Deployed tooltip verification pending.
+
+- Returns Section 3 now includes both ratios over the preceding three completed month-end snapshots, with hover counts, a monthly-values table and gaps for unavailable values. It reuses the batched scan and historical events; three extra in-memory snapshots per candidate still add CPU work. Unit/request coverage added; local Ruby/host Redmine are unavailable, so tests, full web rendering, deployed visual verification and before/after latency/memory measurement remain pending.

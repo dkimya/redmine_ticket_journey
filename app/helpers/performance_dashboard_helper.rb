@@ -1,6 +1,22 @@
 module PerformanceDashboardHelper
+  def performance_return_trend_geometry(points)
+    values = points.flat_map { |point| [point[:ratio], point[:adjusted_ratio]] }.compact
+    # A zero baseline, with a scale that also supports incident ratios over 100%.
+    peak = [values.max.to_f, 10.0].max
+    step = 10.0 ** Math.log10(peak / 4.0).floor
+    step *= [1, 2, 5, 10].find { |factor| factor * step >= peak / 4.0 }
+    maximum = step * 4
+    series = [:ratio, :adjusted_ratio].map do |key|
+      points.each_with_index.map do |point, index|
+        value = point[key]
+        { x: 90 + index * 340, y: value.nil? ? nil : 235 - value / maximum * 200, index: index }
+      end
+    end
+    { maximum: maximum, step: step, series: series }
+  end
+
   def performance_consecutive_returns_definition
-    'A consecutive return is counted when two successive qualifying return incidents come from the same stage (for example, Feedback → Returned twice adds 1). In Progress and other workflow steps between those incidents do not break the sequence. A return from a different stage breaks the sequence, but accumulated repeats are kept. Example: three returns from Feedback add 2, then two from Final Check add 1, giving 3 consecutive returns in total. Counts stop at the selected report date.'
+    'Each return from the same stage as the previous return adds 1 consecutive return. Counts accumulate across stages. Example: Feedback → Feedback → Final Check → Final Check = 2 consecutive returns.'
   end
 
   def performance_return_params(overrides = {})

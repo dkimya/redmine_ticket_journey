@@ -53,18 +53,24 @@ class PerformanceDashboardController < ApplicationController
     # Respect field visibility as well as issue visibility. Hidden owner data must
     # not become available through dashboard filtering or aggregates.
     rows = []
+    @return_trend = @return_mode && !@metric ? TicketJourneyPerformanceReturns.trend_points(@date) : nil
     scanned = 0
     scan_started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     # Query caching otherwise retains the SQL results of every batch until the
     # request ends, defeating bounded issue/history loading on large projects.
     Issue.uncached do
       issues.find_in_batches(batch_size: TicketJourneyPerformance::BATCH_SIZE) do |batch|
-        history = TicketJourneyPerformance.history_for(batch.map(&:id), @date, include_return_reason: @return_mode)
+        # Earlier owner changes are necessary for exact month-end attribution.
+        history = TicketJourneyPerformance.history_for(batch.map(&:id), @return_trend ? @return_trend.first[:date] : @date, include_return_reason: @return_mode)
         field_values = TicketJourneyPerformance.batch_field_values(batch, field_ids: @return_mode ? [57, 66, 70] : [57, 70])
         batch.each do |issue|
           scanned += 1
           visible_values = field_values.fetch(issue.id)
           next unless visible_values.any? { |v| v.custom_field.id == 57 }
+          trend_events = if @return_trend
+            TicketJourneyPerformanceReturns.accumulate_trend!(@return_trend, issue,
+              history.fetch(issue.id, []), statuses, @date, visible_values, requested_set)
+          end
           row = TicketJourneyPerformance.snapshot(issue, @date, statuses,
             history: history.fetch(issue.id, []), visible_values: visible_values,
             owner_value: visible_values.find { |value| value.custom_field.id == 57 }&.value.to_s)
@@ -73,7 +79,7 @@ class PerformanceDashboardController < ApplicationController
             if @return_mode
               next unless TicketJourneyPerformanceReturns.eligible?(row)
               reason = visible_values.find { |value| value.custom_field.id == 66 }
-              events = TicketJourneyPerformanceReturns.events_for(issue, history.fetch(issue.id, []), statuses, @date,
+              events = trend_events || TicketJourneyPerformanceReturns.events_for(issue, history.fetch(issue.id, []), statuses, @date,
                 reason_value: reason&.value, reason_visible: !reason.nil?)
               row = row.merge(events: events, return_count: events.size, repeat_count: events.count { |event| event[:repeat] })
             end
@@ -86,6 +92,7 @@ class PerformanceDashboardController < ApplicationController
       end
     end
     Rails.logger.info("Performance candidate scan: #{scanned} tickets, #{(Process.clock_gettime(Process::CLOCK_MONOTONIC) - scan_started).round(3)}s")
+    TicketJourneyPerformanceReturns.finish_trend!(@return_trend) if @return_trend
     member_ids = Member.where(project_id: performance_project_ids).pluck(:user_id)
     @owners = User.active.where(id: (owner_ids.to_a + member_ids).uniq).order(:lastname, :firstname).to_a
     # Active-only is a dropdown rule, not an access restriction. Resolve saved

@@ -1,0 +1,47 @@
+<div class="performance-return-trend">
+  <h4>Return ratio trend — last 3 completed months <%= performance_tip('Each point uses tickets open at that month-end, owned by the selected owners at that date, and their qualifying return incidents recorded up to that date. This is a month-end snapshot, not returns occurring only during that month. Current project hierarchy, tracker mappings and visibility apply. Missing Return Reason makes the adjusted point unavailable; zero open tickets makes both points unavailable.') %></h4>
+  <p>Month-end snapshots · Same selected owners · Cards above show <%= format_date(@date) %></p>
+  <ul class="performance-trend-legend"><li><span class="performance-trend-swatch"></span>All return incidents / open tickets</li><li><span class="performance-trend-swatch performance-trend-adjusted"></span>Excluding Merge Conflict / open tickets</li></ul>
+  <% geometry = performance_return_trend_geometry(points) %>
+  <div class="autoscroll">
+    <svg class="performance-trend-chart" viewBox="0 0 860 285" role="img" aria-labelledby="return-trend-title return-trend-description">
+      <title id="return-trend-title">Return ratios at the last three month ends</title>
+      <desc id="return-trend-description">Percentages may exceed 100%. Missing points are not joined. Exact values and counts are available in the table below.</desc>
+      <% 0.upto(4) do |index| %>
+        <% y = 235 - index * 50 %>
+        <line class="performance-trend-grid" x1="90" x2="770" y1="<%= y %>" y2="<%= y %>" />
+        <text x="78" y="<%= y + 5 %>" text-anchor="end"><%= performance_number(index * geometry[:step]) %>%</text>
+      <% end %>
+      <% points.each_with_index do |point, index| %>
+        <text x="<%= 90 + index * 340 %>" y="268" text-anchor="middle"><%= format_date(point[:date]) %></text>
+      <% end %>
+      <% geometry[:series].each_with_index do |series, series_index| %>
+        <% key = series_index.zero? ? :ratio : :adjusted_ratio %>
+        <% label = series_index.zero? ? 'All return incidents' : 'Excluding Merge Conflict' %>
+        <g class="performance-trend-series <%= 'performance-trend-adjusted' if series_index == 1 %>">
+          <% series.each_cons(2) do |left, right| %>
+            <% if left[:y] && right[:y] %><line x1="<%= left[:x] %>" y1="<%= left[:y] %>" x2="<%= right[:x] %>" y2="<%= right[:y] %>" /><% end %>
+          <% end %>
+          <% series.each do |coordinate| %>
+            <% next unless coordinate[:y] %>
+            <% point = points[coordinate[:index]]; count = point[series_index.zero? ? :incidents : :non_merge] %>
+            <% description = "#{format_date(point[:date])}: #{label}, #{performance_number(point[key])}%; #{count} incidents / #{point[:open]} open tickets" %>
+            <circle cx="<%= coordinate[:x] %>" cy="<%= coordinate[:y] %>" r="<%= series_index.zero? ? 7 : 4 %>" tabindex="0" role="img" aria-label="<%= description %>"><title><%= description %></title></circle>
+          <% end %>
+        </g>
+      <% end %>
+    </svg>
+  </div>
+  <details class="performance-trend-values"><summary>View monthly values and counts</summary>
+    <div class="autoscroll"><table class="list">
+      <thead><tr><th>Month end</th><th>Open Tickets</th><th>Total Return Incidents</th><th>All Incidents / Open Tickets</th><th>Non-Merge Incidents</th><th>Excl. Merge Conflict / Open Tickets</th></tr></thead>
+      <tbody><% points.each do |point| %><tr>
+        <th><%= format_date(point[:date]) %></th><td><%= point[:open] %></td><td><%= point[:incidents] %></td>
+        <td><%= point[:ratio].nil? ? 'N/A — no open tickets' : "#{performance_number(point[:ratio])}%" %></td>
+        <td><%= point[:unknown].positive? ? "#{point[:non_merge]} known; #{point[:unknown]} reasons unavailable" : point[:non_merge] %></td>
+        <td><%= point[:adjusted_ratio].nil? ? (point[:open].zero? ? 'N/A — no open tickets' : 'N/A — missing or hidden Return Reason') : "#{performance_number(point[:adjusted_ratio])}%" %></td>
+      </tr><% end %></tbody>
+    </table></div>
+  </details>
+  <p class="performance-trend-note">Each point includes all recorded returns through that month-end for its open-ticket population. Gaps mean unavailable data, not zero.</p>
+</div>
