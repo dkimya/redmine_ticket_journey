@@ -1,15 +1,34 @@
 require File.expand_path('../test_helper', __dir__)
 
 class TicketJourneyPerformanceTest < ActiveSupport::TestCase
-  test 'output trends use inclusive rolling windows independent of due dates and divide by every owner' do
+  test 'ownership audit includes real selected-owner changes within inclusive period only' do
+    first_day, last_day = Date.new(2026, 5, 1), Date.new(2026, 9, 30)
+    build = lambda do |id, at, old_id, new_id|
+      TicketJourneyPerformance::HistoryJournal.new(id, at, [
+        TicketJourneyPerformance::HistoryDetail.new('cf', '57', old_id, new_id, id)
+      ])
+    end
+    history = [build.call(1, first_day.in_time_zone, '1', '2'),
+      build.call(2, last_day.in_time_zone.end_of_day, '2', '1'),
+      build.call(3, (first_day - 1).in_time_zone.end_of_day, '1', '2'),
+      build.call(4, (last_day + 1).in_time_zone, '1', '2'),
+      build.call(5, first_day.in_time_zone, '1', '1'),
+      build.call(6, first_day.in_time_zone, '3', '4'),
+      build.call(7, first_day.in_time_zone, '1', '')]
+    changes = TicketJourneyPerformance.owner_changes_in(history, first_day, last_day, Set['1'])
+    assert_equal [1, 2, 7], changes.map { |change| change[:journal_id] }
+    assert_equal '', changes.last[:new_id]
+  end
+
+  test 'output trends show actual calendar month totals independent of due dates and divide by every owner' do
     points = TicketJourneyPerformance.delivery_trend_points(Date.new(2026, 10, 21))
-    assert_equal Date.new(2026, 3, 1), points.first[:window_start]
+    assert_equal Date.new(2026, 5, 1), points.first[:window_start]
     point = points.last
-    assert_equal Date.new(2026, 7, 1), point[:window_start]
-    rows = [row(done: true, delivered_at: Date.new(2026, 7, 1), weight: 6.0),
+    assert_equal Date.new(2026, 9, 1), point[:window_start]
+    rows = [row(done: true, delivered_at: Date.new(2026, 9, 1), weight: 6.0),
       row(done: true, delivered_at: Date.new(2026, 9, 30), weight: 6.0),
-      row(done: true, delivered_at: Date.new(2026, 8, 1), weight: 0.0, missing_weight: true),
-      row(done: true, delivered_at: Date.new(2026, 6, 30), weight: 99.0),
+      row(done: true, delivered_at: Date.new(2026, 9, 15), weight: 0.0, missing_weight: true),
+      row(done: true, delivered_at: Date.new(2026, 8, 31), weight: 99.0),
       row(done: true, delivered_at: Date.new(2026, 10, 1), weight: 99.0),
       row(done: false, delivered_at: Date.new(2026, 8, 1), weight: 99.0),
       row(done: true, delivered_at: Date.new(2026, 8, 1), status_name: 'Archived'),
@@ -20,13 +39,13 @@ class TicketJourneyPerformanceTest < ActiveSupport::TestCase
     assert_equal 0, point[:due]
     assert_equal 3, point[:delivered_count]
     assert_equal 12.0, point[:delivered_weight]
-    assert_equal 0.5, point[:monthly_count]
-    assert_equal 2.0, point[:monthly_weight]
+    assert_equal 1.5, point[:monthly_count]
+    assert_equal 6.0, point[:monthly_weight]
     assert_equal 1, point[:missing_completion]
-    # With identical snapshot rows, the next month's card has this same window.
+    # The upper cards intentionally retain a separate three-month average.
     card = TicketJourneyPerformance.calculate(rows, Date.new(2026, 10, 1))
-    assert_equal card[:monthly_count] / 2, point[:monthly_count]
-    assert_equal card[:monthly_weight] / 2, point[:monthly_weight]
+    assert_not_equal card[:monthly_count] / 2, point[:monthly_count]
+    assert_not_equal card[:monthly_weight] / 2, point[:monthly_weight]
     assert_equal 0.0, points.first[:monthly_count]
   end
 

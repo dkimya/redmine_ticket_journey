@@ -304,4 +304,5 @@
 .performance-output-chart p{margin:4px 0}
 .performance-output-svg{max-height:220px}
 .performance-output-weight .performance-trend-series{stroke:#00865e;fill:#00865e}
+.performance-owner-change-note{padding:12px 16px;background:#fff8e6;border:1px solid #e5d5a6;border-radius:8px}
 @media(max-width:1100px){.performance-ticket-trends{grid-template-columns:1fr}}

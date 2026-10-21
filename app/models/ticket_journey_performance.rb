@@ -9,7 +9,7 @@ class TicketJourneyPerformance
 
   def self.delivery_trend_points(date)
     completed_month_ends(date).map do |day|
-      { date: day, window_start: day.beginning_of_month << 2,
+      { date: day, window_start: day.beginning_of_month,
         due: 0, done: 0, due_weight: 0.0, done_weight: 0.0,
         delivered_count: 0, delivered_weight: 0.0, missing_completion: 0 }
     end
@@ -41,8 +41,24 @@ class TicketJourneyPerformance
 
   def self.finish_output_trend!(points, owner_count)
     points.each do |point|
-      point[:monthly_count] = point[:delivered_count] / 3.0 / owner_count
-      point[:monthly_weight] = point[:delivered_weight] / 3.0 / owner_count
+      point[:monthly_count] = point[:delivered_count] / owner_count.to_f
+      point[:monthly_weight] = point[:delivered_weight] / owner_count.to_f
+    end
+  end
+
+  def self.owner_changes_in(history, first_day, last_day, selected_ids)
+    first_at = first_day.in_time_zone.beginning_of_day
+    last_at = last_day.in_time_zone.end_of_day
+    history.flat_map do |journal|
+      next [] unless journal.created_on.between?(first_at, last_at)
+
+      journal.details.filter_map do |detail|
+        next unless detail.property == 'cf' && detail.prop_key == '57'
+        old_id, new_id = detail.old_value.to_s, detail.value.to_s
+        next if old_id == new_id || !(selected_ids.include?(old_id) || selected_ids.include?(new_id))
+
+        { at: journal.created_on, journal_id: journal.id, old_id: old_id, new_id: new_id }
+      end
     end
   end
 
@@ -190,6 +206,7 @@ class TicketJourneyPerformance
   STOPPED = ['Pending'].freeze
   DELIVERY_EXCLUDED_STATUSES = ['Archived', 'Ongoing'].freeze
   DETAIL_LABELS = {
+    'owner_changes' => 'Ticket Owner Changes During Trend Period',
     'open' => 'Total Open Tickets', 'not_overdue' => 'Not Overdue Open Tickets',
     'started' => 'Overdue - Already Started', 'untouched' => 'Overdue - Not Touched',
     'stopped' => 'Stopped Open Tickets (Pending)',

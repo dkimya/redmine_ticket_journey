@@ -70,7 +70,7 @@ class PerformanceDashboardTest < ActionController::TestCase
       TicketJourneyPerformance.stubs(:snapshot).with { |_candidate, at, *rest| at == day }.returns(snapshot)
     end
     TicketJourneyPerformance.stubs(:snapshot).with { |_candidate, at, *rest| at == date }.returns(base)
-    TicketJourneyPerformance.expects(:history_for).with([issue.id], dates.first, include_return_reason: false).returns({})
+    TicketJourneyPerformance.expects(:history_for).with([issue.id], dates.first.beginning_of_month - 1, include_return_reason: false).returns({})
     get :index, params: { project_id: @project.identifier, owner_id: '1', as_of: date.iso8601 }
     assert_response :success
     trend = @controller.instance_variable_get(:@delivery_trend)
@@ -80,8 +80,8 @@ class PerformanceDashboardTest < ActionController::TestCase
     assert_select '.performance-delivery-trend .performance-trend-target-line', count: 1
     assert_select '.performance-monthly-delivery-trend svg', count: 2
     assert_select '.performance-monthly-delivery-trend tbody tr', count: 5
-    assert_in_delta 1.0 / 3, trend[1][:monthly_count], 0.0001
-    assert_in_delta 8.0 / 3, trend[1][:monthly_weight], 0.0001
+    assert_in_delta 1.0, trend[1][:monthly_count], 0.0001
+    assert_in_delta 8.0, trend[1][:monthly_weight], 0.0001
     assert_select '.performance-delivery-trend tbody tr', count: 5
     TicketJourneyPerformance.expects(:history_for).with([issue.id], date, include_return_reason: false).returns({})
     TicketJourneyPerformance.expects(:add_delivery_trend_row!).never
@@ -90,6 +90,31 @@ class PerformanceDashboardTest < ActionController::TestCase
     assert_select '.performance-delivery-trend', count: 0
     assert_select '.performance-monthly-delivery-trend', count: 0
     assert_nil @controller.instance_variable_get(:@delivery_trend)
+  end
+
+  test 'owner change note counts distinct tickets and audit shows changes rather than current-owner matches' do
+    issue = Issue.find(1)
+    issue.tracker.update!(name: 'Bug')
+    date = Date.new(2026, 10, 21)
+    Issue.expects(:visible).at_least_once.returns(Issue.where(id: issue.id))
+    Issue.any_instance.stubs(:visible_custom_field_values).returns([stub(custom_field: stub(id: 57), value: '1')])
+    TicketJourneyPerformance.stubs(:snapshot).returns({ id: issue.id, owner_id: '2', status_name: 'In Progress',
+      open: true, done: false, due: nil, weight: 5.0, missing_weight: false, delivered_at: nil, started: true })
+    history = [1, 2].map do |id|
+      TicketJourneyPerformance::HistoryJournal.new(id, Date.new(2026, 5, 15).in_time_zone + id.hours, [
+        TicketJourneyPerformance::HistoryDetail.new('cf', '57', id == 1 ? '1' : '2', id == 1 ? '2' : '1', id)
+      ])
+    end
+    TicketJourneyPerformance.stubs(:history_for).returns({ issue.id => history })
+    get :index, params: { project_id: @project.identifier, owner_id: '1', as_of: date.iso8601 }
+    assert_response :success
+    assert_select '.performance-owner-change-note', text: /1 ticket\(s\) had Ticket Owner changes/
+    TicketJourneyPerformance.expects(:snapshot).never
+    get :index, params: { project_id: @project.identifier, owner_id: '1', as_of: date.iso8601, metric: 'owner_changes' }
+    assert_response :success
+    assert_select 'tbody tr', count: 1
+    assert_select 'tbody li', count: 2
+    assert_select 'a[href=?]', issue_path(issue.id), text: "##{issue.id}"
   end
 
   test 'Returns initial page is live without scanning issues before Apply' do

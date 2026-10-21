@@ -1,6 +1,6 @@
 <div class="performance-monthly-delivery-trend">
-  <h4>Average Monthly Delivery Trend <%= performance_tip('Each point is a three-month average ending at that month-end: completed ticket count or visible current complexity weight divided by 3. Tickets must be Done / Closed at that point, with their latest recorded completion inside the window; Archived, Ongoing, reopened tickets and missing completion dates are excluded. Ownership is reconstructed at each point. With multiple owners, divide again by all selected owners, including zero-delivery owners. Current weights and current employee targets apply. Each target requires a usable value for every selected owner. These are rolling averages, not single-month output.') %></h4>
-  <p>3-month average · <%= points.size %> month-end points<%= ' · Per owner' if @selected_owners.size > 1 %></p>
+  <h4>Monthly Delivery Trend <%= performance_tip('Each point shows tickets and visible current complexity points delivered during that calendar month. Tickets must be Done / Closed at that point, with their latest recorded completion inside the window; Archived, Ongoing, reopened tickets and missing completion dates are excluded. Ownership is reconstructed at each point. With multiple owners, divide by all selected owners, including zero-delivery owners. Current weights and current employee targets apply. Each target requires a usable value for every selected owner. Each point is actual output for one month, not a rolling average. The cards above retain their three-month averages; later reopening or reassignment can cause differences.') %></h4>
+  <p>Actual monthly delivery · <%= points.size %> month-end points<%= ' · Per owner' if @selected_owners.size > 1 %></p>
   <% [[:monthly_count, 'Tickets', @targets[0]], [:monthly_weight, 'Complexity Points', @targets[1]]].each_with_index do |(key, label, target), metric_index| %>
     <div class="performance-output-chart <%= 'performance-output-weight' if metric_index == 1 %>">
       <h5><%= label %> delivered per month<%= ' per owner' if @selected_owners.size > 1 %></h5>
@@ -8,8 +8,8 @@
       <% geometry = performance_return_trend_geometry(points, keys: [key], scale_values: [target], minimum: 1.0) %>
       <div class="autoscroll">
         <svg class="performance-trend-chart performance-output-svg" viewBox="0 0 860 285" role="img" aria-labelledby="output-title-<%= metric_index %> output-description-<%= metric_index %>">
-          <title id="output-title-<%= metric_index %>">3-month average: <%= label %> delivered per month</title>
-          <desc id="output-description-<%= metric_index %>">Five month-end rolling averages. Dashed line shows the current monthly target when available. Exact windows, totals and averages are in the table below.</desc>
+          <title id="output-title-<%= metric_index %>">Monthly delivery: <%= label %> delivered per month</title>
+          <desc id="output-description-<%= metric_index %>">Five months of actual delivery. Dashed line shows the current monthly target when available. Exact months, totals and per-owner values are in the table below.</desc>
           <% 0.upto(4) do |index| %>
             <% y = 235 - index * 50 %>
             <line class="performance-trend-grid" x1="90" x2="770" y1="<%= y %>" y2="<%= y %>" />
@@ -25,7 +25,7 @@
             <% series.each_cons(2) do |left, right| %><line x1="<%= left[:x] %>" y1="<%= left[:y] %>" x2="<%= right[:x] %>" y2="<%= right[:y] %>" /><% end %>
             <% series.each do |coordinate| %>
               <% point = points[coordinate[:index]]; total = point[metric_index.zero? ? :delivered_count : :delivered_weight] %>
-              <% description = "#{format_date(point[:window_start])} – #{format_date(point[:date])}: #{performance_number(point[key])} #{label.downcase} per month#{' per owner' if @selected_owners.size > 1}; total #{performance_number(total)} ÷ 3 ÷ #{@selected_owners.size} owner(s)" %>
+              <% description = "#{format_date(point[:window_start])} – #{format_date(point[:date])}: #{performance_number(point[key])} #{label.downcase} per month#{' per owner' if @selected_owners.size > 1}; total #{performance_number(total)} ÷ #{@selected_owners.size} owner(s)" %>
               <circle cx="<%= coordinate[:x] %>" cy="<%= coordinate[:y] %>" r="6" tabindex="0" role="img" aria-label="<%= description %>"><title><%= description %></title></circle>
             <% end %>
           </g>
@@ -33,9 +33,9 @@
       </div>
     </div>
   <% end %>
-  <p>Solid lines: actual 3-month averages. Dashed lines: current monthly targets. Each chart has its own scale.</p>
-  <details class="performance-trend-values"><summary>View windows, totals and averages</summary>
-    <div class="autoscroll"><table class="list"><thead><tr><th>3-month window</th><th>Delivered Tickets</th><th>Monthly Tickets<%= ' per Owner' if @selected_owners.size > 1 %></th><th>Delivered Points</th><th>Monthly Points<%= ' per Owner' if @selected_owners.size > 1 %></th><th>Missing Completion Dates</th></tr></thead>
+  <p>Solid lines: actual monthly delivery. Dashed lines: current monthly targets. Each chart has its own scale.</p>
+  <details class="performance-trend-values"><summary>View monthly totals and values</summary>
+    <div class="autoscroll"><table class="list"><thead><tr><th>Month</th><th>Delivered Tickets</th><th>Monthly Tickets<%= ' per Owner' if @selected_owners.size > 1 %></th><th>Delivered Points</th><th>Monthly Points<%= ' per Owner' if @selected_owners.size > 1 %></th><th>Missing Completion Dates</th></tr></thead>
       <tbody><% points.each do |point| %><tr><th><%= format_date(point[:window_start]) %> – <%= format_date(point[:date]) %></th><td><%= point[:delivered_count] %></td><td><%= performance_number(point[:monthly_count]) %></td><td><%= performance_number(point[:delivered_weight]) %></td><td><%= performance_number(point[:monthly_weight]) %></td><td><%= point[:missing_completion] %></td></tr><% end %></tbody>
     </table></div>
   </details>

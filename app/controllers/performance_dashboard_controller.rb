@@ -56,6 +56,14 @@ class PerformanceDashboardController < ApplicationController
     @return_trend = @return_mode && !@metric ? TicketJourneyPerformanceReturns.trend_points(@date) : nil
     @delivery_trend = !@return_mode && !@metric ? TicketJourneyPerformance.delivery_trend_points(@date) : nil
     trend_start = (@return_trend || @delivery_trend)&.first&.fetch(:date)
+    @owner_change_rows = nil
+    if !@return_mode && (!@metric || @metric == 'owner_changes')
+      trend_dates = TicketJourneyPerformance.completed_month_ends(@date)
+      @owner_change_start, @owner_change_end = trend_dates.first.beginning_of_month, trend_dates.last
+      @owner_change_rows = []
+      # Include owner changes during the first plotted month as well.
+      trend_start = @owner_change_start - 1
+    end
     scanned = 0
     scan_started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     # Query caching otherwise retains the SQL results of every batch until the
@@ -69,6 +77,13 @@ class PerformanceDashboardController < ApplicationController
           scanned += 1
           visible_values = field_values.fetch(issue.id)
           next unless visible_values.any? { |v| v.custom_field.id == 57 }
+          if @owner_change_rows
+            changes = TicketJourneyPerformance.owner_changes_in(history.fetch(issue.id, []), @owner_change_start, @owner_change_end, requested_set)
+            if changes.any?
+              @owner_change_rows << { id: issue.id, subject: issue.subject, changes: changes }
+            end
+          end
+          next if @metric == 'owner_changes'
           # Snapshot each month independently, including tickets since reassigned
           # away from a selected owner. Only aggregate totals survive the batch.
           if @delivery_trend
@@ -123,6 +138,7 @@ class PerformanceDashboardController < ApplicationController
       return
     end
     return render_returns(rows) if @return_mode
+    return render_owner_changes if @metric == 'owner_changes'
     @report = TicketJourneyPerformance.calculate(rows, @date)
     ActiveRecord::Associations::Preloader.new(records: @selected_owners, associations: :custom_values).call unless @metric
     @target_details = @metric ? [] : %w[count weight].map do |kind|
@@ -195,6 +211,19 @@ class PerformanceDashboardController < ApplicationController
   end
 
   private
+
+  def render_owner_changes
+    @owner_change_rows.sort_by! { |row| [-row[:changes].map { |change| change[:at].to_f }.max, row[:id]] }
+    @detail_count = @owner_change_rows.size
+    @page_count = [(@detail_count / 100.0).ceil, 1].max
+    @page = [[params[:page].to_i, 1].max, @page_count].min
+    @owner_change_rows = @owner_change_rows.slice((@page - 1) * 100, 100) || []
+    visible_ids = Issue.visible(User.current).where(project_id: performance_project_ids, id: @owner_change_rows.map { |row| row[:id] }).pluck(:id).to_set
+    @owner_change_rows.select! { |row| visible_ids.include?(row[:id]) }
+    user_ids = @owner_change_rows.flat_map { |row| row[:changes].flat_map { |change| [change[:old_id], change[:new_id]] } }.reject(&:blank?).uniq
+    @change_owner_names = User.where(id: user_ids).to_h { |user| [user.id.to_s, user.name] }
+    render :owner_changes
+  end
 
   def render_returns(rows)
     @returns = TicketJourneyPerformanceReturns.calculate(rows)
