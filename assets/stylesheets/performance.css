@@ -243,6 +243,8 @@
 .performance-page .performance-return-comparison tfoot tr>td{text-align:center}
 .performance-page .performance-return-comparison tbody tr>td:last-child,
 .performance-page .performance-return-comparison tfoot tr>td:last-child{text-align:right}
+/* Explicitly include row-header cells, overriding the host's gray th fill. */
+.performance-page .performance-return-comparison tbody tr:nth-child(odd)>*{background:#fff}
 .performance-page .performance-return-comparison tbody tr:nth-child(even)>*{background:#f8fbff}
 /* Consistent distribution grids, including every Total-row cell. */
 .performance-page .performance-return-distribution table{border-collapse:collapse}
