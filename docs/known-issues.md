@@ -110,3 +110,7 @@ Monthly Day 0 rules superseded on user approval: both metrics now use the three 
 - Tickets now shows delivery ratios on the left and two stacked rolling monthly-output charts on the right. Five month-end points each use a 3-month average, with per-owner means and current monthly targets; snapshots/scans are reused. Expanded values table includes windows/totals/missing completions. Unit/request/geometry coverage added but not run without Ruby/host Redmine; deployed visual and performance checks pending.
 
 - Monthly output charts now show each month's actual deliveries (per owner for multiple selection), superseding rolling trend averages; upper 3-month cards are unchanged. Added a conditional distinct-ticket owner-change note and paginated audit of selected-owner changes within the five full months. Owner history expands to the first month's start in the same scan. Unit/request tests updated but unrun without Ruby/host Redmine. Deployed calculations, audit visibility/navigation, layout and performance remain unverified.
+
+- User screenshot confirms owner-change audit renders but its owner selector fell back to native multi-select. Added the missing shared performance_owner_picker script on that page. Deployed searchable-picker/chip verification pending.
+
+- Owner-change note/audit now exclude initial No owner to owner assignments, including bulk ownership backfills. Existing-owner reassignments and removals still count. Tooltip/audit wording and blank/nil regression cases updated. Local Ruby tests and deployed count verification pending.

@@ -55,6 +55,8 @@ class TicketJourneyPerformance
       journal.details.filter_map do |detail|
         next unless detail.property == 'cf' && detail.prop_key == '57'
         old_id, new_id = detail.old_value.to_s, detail.value.to_s
+        # Populating an unassigned ticket is an initial assignment, not a change.
+        next if old_id.blank?
         next if old_id == new_id || !(selected_ids.include?(old_id) || selected_ids.include?(new_id))
 
         { at: journal.created_on, journal_id: journal.id, old_id: old_id, new_id: new_id }

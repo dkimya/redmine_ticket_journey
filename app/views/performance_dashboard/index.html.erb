@@ -84,7 +84,7 @@
       </div>
       <% if @owner_change_rows&.any? %>
         <p class="performance-owner-change-note"><%= performance_detail_link("During these 5 months, #{@owner_change_rows.size} ticket(s) had Ticket Owner changes. View tickets", 'owner_changes') %>
-          <%= performance_tip("#{format_date(@owner_change_start)} – #{format_date(@owner_change_end)}. Each visible in-scope ticket counts once when a recorded Ticket Owner change involves a selected owner, including assignment to or from no owner. The audit does not change delivery attribution.") %></p>
+          <%= performance_tip("#{format_date(@owner_change_start)} – #{format_date(@owner_change_end)}. Each visible in-scope ticket counts once when an existing Ticket Owner is changed or removed and a selected owner is involved. Initial assignments from no owner are excluded. The audit does not change delivery attribution.") %></p>
       <% end %>
     <% end %>
     <details class="performance-notes"><summary>Calculation notes and data quality</summary>

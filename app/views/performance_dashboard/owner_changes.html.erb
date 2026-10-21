@@ -1,5 +1,6 @@
 <% content_for :header_tags do %>
   <%= stylesheet_link_tag 'performance', plugin: 'redmine_ticket_journey' %>
+  <%= javascript_include_tag 'performance_owner_picker', plugin: 'redmine_ticket_journey', defer: true %>
   <%= javascript_include_tag 'performance_navigation', plugin: 'redmine_ticket_journey', defer: true %>
 <% end %>
 <% html_title 'Ticket Owner Changes' %>
@@ -7,7 +8,7 @@
   <%= render 'header', page_title: 'Ticket Owner Changes' %>
   <p><%= link_to '← Back to Performance', performance_dashboard_path(@project, **performance_owner_params, as_of: @date.iso8601), data: { performance_back: true } %></p>
   <p><strong><%= @owner_label %></strong> · <%= format_date(@owner_change_start) %> – <%= format_date(@owner_change_end) %> · <%= @detail_count %> affected ticket(s)</p>
-  <p>Each ticket appears once. Recorded changes involving a selected owner are shown, including assignment to or from no owner. Current project, tracker, ticket and Ticket Owner field visibility apply. Delivery attribution is unchanged.</p>
+  <p>Each ticket appears once. Changes from an existing owner to another owner, or removal of an existing owner, are shown when a selected owner is involved. Initial assignments from no owner are excluded. Current project, tracker, ticket and Ticket Owner field visibility apply. Delivery attribution is unchanged.</p>
   <div class="autoscroll"><table class="list"><thead><tr><th>Ticket</th><th>Subject (current)</th><th>Change date · Previous owner → New owner</th></tr></thead>
     <tbody><% @owner_change_rows.each do |row| %><tr><td><%= link_to "##{row[:id]}", issue_path(row[:id]) %></td><td><%= row[:subject] %></td><td>
       <ul><% row[:changes].sort_by { |change| [change[:at], change[:journal_id]] }.each do |change| %>

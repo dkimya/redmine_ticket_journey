@@ -14,10 +14,13 @@ class TicketJourneyPerformanceTest < ActiveSupport::TestCase
       build.call(4, (last_day + 1).in_time_zone, '1', '2'),
       build.call(5, first_day.in_time_zone, '1', '1'),
       build.call(6, first_day.in_time_zone, '3', '4'),
-      build.call(7, first_day.in_time_zone, '1', '')]
+      build.call(7, first_day.in_time_zone, '1', ''),
+      build.call(8, first_day.in_time_zone, '', '1'),
+      build.call(9, first_day.in_time_zone, nil, '1')]
     changes = TicketJourneyPerformance.owner_changes_in(history, first_day, last_day, Set['1'])
     assert_equal [1, 2, 7], changes.map { |change| change[:journal_id] }
     assert_equal '', changes.last[:new_id]
+    assert_empty TicketJourneyPerformance.owner_changes_in(history.last(2), first_day, last_day, Set['1'])
   end
 
   test 'output trends show actual calendar month totals independent of due dates and divide by every owner' do
