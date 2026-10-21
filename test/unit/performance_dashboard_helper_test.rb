@@ -3,6 +3,14 @@ require File.expand_path('../test_helper', __dir__)
 class PerformanceDashboardHelperTest < ActiveSupport::TestCase
   include PerformanceDashboardHelper
 
+  test 'five month trend evenly spaces all points across the chart' do
+    points = Array.new(5) { { ratio: 50.0, adjusted_ratio: nil } }
+    geometry = performance_return_trend_geometry(points)
+    assert_equal [90, 260, 430, 600, 770], geometry[:series].first.map { |point| point[:x] }
+    assert_equal 5, geometry[:series].last.size
+    assert geometry[:series].last.all? { |point| point[:y].nil? }
+  end
+
   test 'delivery trend uses a fixed 0 to 100 percent axis' do
     points = [{ count_ratio: 0.0, weight_ratio: nil }, { count_ratio: 50.0, weight_ratio: 80.0 },
       { count_ratio: 100.0, weight_ratio: 100.0 }]

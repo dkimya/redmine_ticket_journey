@@ -20,7 +20,8 @@ module PerformanceDashboardHelper
     series = keys.map do |key|
       points.each_with_index.map do |point, index|
         value = point[key]
-        { x: 90 + index * 340, y: value.nil? ? nil : 235 - value / maximum * 200, index: index }
+        { x: 90 + index * 680.0 / [points.size - 1, 1].max,
+          y: value.nil? ? nil : 235 - value / maximum * 200, index: index }
       end
     end
     { maximum: maximum, step: step, series: series }

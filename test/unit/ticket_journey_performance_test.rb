@@ -4,13 +4,13 @@ class TicketJourneyPerformanceTest < ActiveSupport::TestCase
   test 'delivery trend points match Returns completed month ends' do
     date = Date.new(2026, 1, 15)
     points = TicketJourneyPerformance.delivery_trend_points(date)
-    assert_equal [Date.new(2025, 10, 31), Date.new(2025, 11, 30), Date.new(2025, 12, 31)], points.map { |point| point[:date] }
+    assert_equal [Date.new(2025, 8, 31), Date.new(2025, 9, 30), Date.new(2025, 10, 31), Date.new(2025, 11, 30), Date.new(2025, 12, 31)], points.map { |point| point[:date] }
     assert_equal TicketJourneyPerformanceReturns.trend_points(date).map { |point| point[:date] }, points.map { |point| point[:date] }
   end
 
   test 'delivery trend uses dashboard due sets and sums weights without averaging owner ratios' do
     date = Date.new(2026, 10, 21)
-    points = TicketJourneyPerformance.delivery_trend_points(date)
+    points = TicketJourneyPerformance.delivery_trend_points(date).last(3)
     rows = [row(done: true, open: false, status_name: 'Done / Closed', due: Date.new(2026, 7, 31), weight: 8.0),
       row(due: Date.new(2026, 7, 1), weight: 2.0), row(due: Date.new(2026, 8, 1), weight: 10.0),
       row(done: true, due: Date.new(2026, 7, 1), status_name: 'Archived', weight: 99.0),
@@ -30,7 +30,7 @@ class TicketJourneyPerformanceTest < ActiveSupport::TestCase
   end
 
   test 'delivery trend distinguishes zero delivery from missing denominators and ignores nil snapshots' do
-    points = TicketJourneyPerformance.delivery_trend_points(Date.new(2026, 10, 21))
+    points = TicketJourneyPerformance.delivery_trend_points(Date.new(2026, 10, 21)).last(3)
     TicketJourneyPerformance.add_delivery_trend_row!(points[0], nil)
     TicketJourneyPerformance.add_delivery_trend_row!(points[1], row(due: Date.new(2026, 7, 1), weight: 0.0))
     TicketJourneyPerformance.add_delivery_trend_row!(points[2], row(due: Date.new(2026, 7, 1), weight: 5.0))

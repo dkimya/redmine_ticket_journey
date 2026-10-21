@@ -73,11 +73,11 @@ class PerformanceDashboardTest < ActionController::TestCase
     get :index, params: { project_id: @project.identifier, owner_id: '1', as_of: date.iso8601 }
     assert_response :success
     trend = @controller.instance_variable_get(:@delivery_trend)
-    assert_equal [1, 1, 0], trend.map { |point| point[:due] }
-    assert_equal [0.0, 100.0, nil], trend.map { |point| point[:count_ratio] }
+    assert_equal [1, 1, 0, 1, 1], trend.map { |point| point[:due] }
+    assert_equal [0.0, 100.0, nil, 0.0, 0.0], trend.map { |point| point[:count_ratio] }
     assert_select '.performance-delivery-trend svg', count: 1
     assert_select '.performance-trend-target-line', count: 1
-    assert_select '.performance-delivery-trend tbody tr', count: 3
+    assert_select '.performance-delivery-trend tbody tr', count: 5
     TicketJourneyPerformance.expects(:history_for).with([issue.id], date, include_return_reason: false).returns({})
     TicketJourneyPerformance.expects(:add_delivery_trend_row!).never
     get :index, params: { project_id: @project.identifier, owner_id: '1', as_of: date.iso8601, metric: 'due' }
@@ -115,7 +115,7 @@ class PerformanceDashboardTest < ActionController::TestCase
     assert_select '.performance-return-distributions .performance-donut', count: 2
     assert_select '.performance-return-value', text: '300%', count: 2
     assert_select '.performance-return-trend svg', count: 1
-    assert_select '.performance-trend-values tbody tr', count: 3
+    assert_select '.performance-trend-values tbody tr', count: 5
     assert_operator @response.body.index('performance-return-ratios'), :<, @response.body.index('performance-return-trend')
     assert_operator @response.body.index('Developer comparison'), :<, @response.body.index('Combined results')
     TicketJourneyPerformance.expects(:history_for).with([issue.id], Date.current, include_return_reason: true).returns({})

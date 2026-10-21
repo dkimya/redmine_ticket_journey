@@ -1,11 +1,11 @@
 <div class="performance-return-trend">
-  <h4>Return ratio trend — last 3 completed months <%= performance_tip('Each point uses tickets open at that month-end, owned by the selected owners at that date, and their qualifying return incidents recorded up to that date. This is a month-end snapshot, not returns occurring only during that month. Current project hierarchy, tracker mappings and visibility apply. Missing Return Reason makes the adjusted point unavailable; zero open tickets makes both points unavailable.') %></h4>
+  <h4>Return ratio trend — last <%= points.size %> completed months <%= performance_tip('Each point uses tickets open at that month-end, owned by the selected owners at that date, and their qualifying return incidents recorded up to that date. This is a month-end snapshot, not returns occurring only during that month. Current project hierarchy, tracker mappings and visibility apply. Missing Return Reason makes the adjusted point unavailable; zero open tickets makes both points unavailable.') %></h4>
   <p>Month-end snapshots · Same selected owners · Cards above show <%= format_date(@date) %></p>
   <ul class="performance-trend-legend"><li><span class="performance-trend-swatch"></span>All return incidents / open tickets</li><li><span class="performance-trend-swatch performance-trend-adjusted"></span>Excluding Merge Conflict / open tickets</li></ul>
   <% geometry = performance_return_trend_geometry(points) %>
   <div class="autoscroll">
     <svg class="performance-trend-chart" viewBox="0 0 860 285" role="img" aria-labelledby="return-trend-title return-trend-description">
-      <title id="return-trend-title">Return ratios at the last three month ends</title>
+      <title id="return-trend-title">Return ratios at the last five month ends</title>
       <desc id="return-trend-description">Percentages may exceed 100%. Missing points are not joined. Exact values and counts are available in the table below.</desc>
       <% 0.upto(4) do |index| %>
         <% y = 235 - index * 50 %>
@@ -13,7 +13,7 @@
         <text x="78" y="<%= y + 5 %>" text-anchor="end"><%= performance_number(index * geometry[:step]) %>%</text>
       <% end %>
       <% points.each_with_index do |point, index| %>
-        <text x="<%= 90 + index * 340 %>" y="268" text-anchor="middle"><%= format_date(point[:date]) %></text>
+        <text x="<%= geometry[:series].first[index][:x] %>" y="268" text-anchor="middle"><%= format_date(point[:date]) %></text>
       <% end %>
       <% geometry[:series].each_with_index do |series, series_index| %>
         <% key = series_index.zero? ? :ratio : :adjusted_ratio %>

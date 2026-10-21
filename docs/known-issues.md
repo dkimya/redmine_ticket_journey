@@ -104,3 +104,5 @@ Monthly Day 0 rules superseded on user approval: both metrics now use the three 
 - Consecutive-return donut center now reads Tickets with Consecutive Returns instead of With Repeats, with constrained centered wrapping inside the donut. Deployed visual verification pending.
 
 - Tickets delivery-ratio trend implemented below Section 2, using three completed month-end snapshots, count/weight lines and the configured target. Shared due/exclusion rules and batched history are reused. Unit/request/geometry tests added but unrun without local Ruby/Redmine. Full web rendering, deployed visuals and latency/memory impact remain unverified.
+
+- Both Tickets and Returns trends now use five completed months, superseding earlier three-month trend notes. Dates share TREND_MONTHS=5, graph points/labels are evenly spaced dynamically, and owner-history loading extends to the first month-end in the same batched scan. Monthly output averages remain three months. Date/geometry/request coverage updated; Ruby tests and deployed visual/timing/memory checks remain pending.

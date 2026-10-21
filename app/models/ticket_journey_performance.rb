@@ -1,9 +1,10 @@
 # Calculation rules for Performance Section 1. No writes or stored counters.
 class TicketJourneyPerformance
   BATCH_SIZE = 100
+  TREND_MONTHS = 5
 
   def self.completed_month_ends(date)
-    3.downto(1).map { |months| (date.beginning_of_month << (months - 1)) - 1 }
+    TREND_MONTHS.downto(1).map { |months| (date.beginning_of_month << (months - 1)) - 1 }
   end
 
   def self.delivery_trend_points(date)

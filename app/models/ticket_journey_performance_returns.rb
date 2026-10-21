@@ -22,7 +22,7 @@ class TicketJourneyPerformanceReturns
     end
   end
 
-  # Reuse each candidate's loaded scalar history. Retain only three aggregates,
+  # Reuse each candidate's loaded scalar history. Retain only monthly aggregates,
   # including tickets closed or reassigned by the main report date.
   def self.accumulate_trend!(points, issue, history, statuses, date, visible_values, owner_ids)
     owner_value = visible_values.find { |value| value.custom_field.id == 57 }&.value.to_s

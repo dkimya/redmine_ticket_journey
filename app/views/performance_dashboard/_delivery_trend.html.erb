@@ -1,5 +1,5 @@
 <div class="performance-return-trend performance-delivery-trend">
-  <h4>Delivery ratio trend — last 3 completed months <%= performance_tip('Each point reconstructs the selected owners and ticket statuses at that month-end. Includes all tickets with a current due date on or before that date; Done / Closed is the numerator. Archived and Ongoing are excluded. Current due dates and visible current complexity weights are used, so later edits can change historical results. Combined ratios use summed counts or weights, not averages of employee percentages. This is cumulative delivery, not output during that month. The target is the current configured delivery target.') %></h4>
+  <h4>Delivery ratio trend — last <%= points.size %> completed months <%= performance_tip('Each point reconstructs the selected owners and ticket statuses at that month-end. Includes all tickets with a current due date on or before that date; Done / Closed is the numerator. Archived and Ongoing are excluded. Current due dates and visible current complexity weights are used, so later edits can change historical results. Combined ratios use summed counts or weights, not averages of employee percentages. This is cumulative delivery, not output during that month. The target is the current configured delivery target.') %></h4>
   <p>Month-end snapshots · Same selected owners · Cards above show <%= format_date(@date) %></p>
   <ul class="performance-trend-legend">
     <li><span class="performance-trend-swatch"></span>Done Tickets / All Tickets Due</li>
@@ -9,7 +9,7 @@
   <% keys = [:count_ratio, :weight_ratio]; geometry = performance_return_trend_geometry(points, keys: keys, maximum: 100.0) %>
   <div class="autoscroll">
     <svg class="performance-trend-chart" viewBox="0 0 860 285" role="img" aria-labelledby="delivery-trend-title delivery-trend-description">
-      <title id="delivery-trend-title">Delivery ratios at the last three month ends</title>
+      <title id="delivery-trend-title">Delivery ratios at the last five month ends</title>
       <desc id="delivery-trend-description">Ticket and complexity-weight delivery percentages with the configured target. Missing points are not joined. Exact numerators and denominators are available in the table below.</desc>
       <% 0.upto(4) do |index| %>
         <% y = 235 - index * 50 %>
@@ -19,7 +19,7 @@
       <% target_y = 235 - @delivery_target * 2 %>
       <line class="performance-trend-target-line" x1="90" x2="770" y1="<%= target_y %>" y2="<%= target_y %>"><title>Configured target: <%= performance_number(@delivery_target) %>%</title></line>
       <% points.each_with_index do |point, index| %>
-        <text x="<%= 90 + index * 340 %>" y="268" text-anchor="middle"><%= format_date(point[:date]) %></text>
+        <text x="<%= geometry[:series].first[index][:x] %>" y="268" text-anchor="middle"><%= format_date(point[:date]) %></text>
       <% end %>
       <% geometry[:series].each_with_index do |series, series_index| %>
         <% label = series_index.zero? ? 'Done Tickets / All Tickets Due' : 'Done Weight / All Weight Due' %>
