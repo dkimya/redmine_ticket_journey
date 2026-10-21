@@ -100,3 +100,5 @@ Monthly Day 0 rules superseded on user approval: both metrics now use the three 
 - Both Returns ratio cards now use shared green/orange/red thresholds (<10%, 10%-50% inclusive, >50%) and gray for N/A, with a shared legend. Thresholds use unrounded ratios. Helper boundary tests added but not run without local Ruby; deployed color/contrast verification pending.
 
 - User screenshot confirms both 31.3% cards use orange as intended. The orange legend marker was oversized; replaced generic warning/negative/unavailable marker classes with plugin-specific names to avoid host style collisions. Marker fix awaits deployed visual verification.
+
+- Consecutive-return donut center now reads Tickets with Consecutive Returns instead of With Repeats, with constrained centered wrapping inside the donut. Deployed visual verification pending.

@@ -203,6 +203,7 @@
 .performance-return-distributions h3{font-size:19px;line-height:1.5}
 .performance-return-distribution{display:flex;align-items:center;gap:22px;flex-wrap:wrap}
 .performance-return-distribution .performance-donut{flex:0 0 180px}
+.performance-return-distribution .performance-donut>div>span{max-width:115px;text-align:center;white-space:normal;line-height:1.25;font-size:13px}
 .performance-return-distribution table{flex:1;min-width:240px}
 .performance-return-distribution th,.performance-return-distribution td{padding:9px 6px}
 .performance-return-distribution tfoot{font-weight:800;background:#eef6ff}
