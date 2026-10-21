@@ -33,9 +33,9 @@
       </div>
       <ul class="performance-return-legend" aria-label="Return ratio color thresholds">
         <li><span class="performance-return-status-dot" aria-hidden="true"></span>Green: below 10%</li>
-        <li><span class="performance-return-status-dot warning" aria-hidden="true"></span>Orange: 10%–50% (inclusive)</li>
-        <li><span class="performance-return-status-dot negative" aria-hidden="true"></span>Red: above 50%</li>
-        <li><span class="performance-return-status-dot unavailable" aria-hidden="true"></span>Gray: N/A</li>
+        <li><span class="performance-return-status-dot performance-return-status-warning" aria-hidden="true"></span>Orange: 10%–50% (inclusive)</li>
+        <li><span class="performance-return-status-dot performance-return-status-negative" aria-hidden="true"></span>Red: above 50%</li>
+        <li><span class="performance-return-status-dot performance-return-status-unavailable" aria-hidden="true"></span>Gray: N/A</li>
       </ul>
       <%= performance_tip('Both cards use the same thresholds, applied to the unrounded ratio. Displayed percentages are rounded to one decimal place.') %>
       <%= render 'return_trend', points: @return_trend if @return_trend %>
