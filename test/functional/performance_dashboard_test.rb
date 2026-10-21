@@ -162,6 +162,9 @@ class PerformanceDashboardTest < ActionController::TestCase
     Issue.expects(:visible).at_least_once.returns(Issue.where(id: issues.map(&:id)))
     Issue.any_instance.stubs(:visible_custom_field_values).returns([stub(custom_field: stub(id: 57), value: '1')])
     TicketJourneyPerformance.stubs(:history_for).returns({})
+    Setting.plugin_redmine_ticket_journey = { 'performance_weight_field_id' => '101' }
+    @controller.stubs(:monthly_target).with('101', User.find(1)).returns(160.0)
+    @controller.stubs(:monthly_target).with('101', User.find(2)).returns(200.0)
     rows = issues.each_with_index.map do |issue, index|
       row = { id: issue.id, owner_id: (index + 1).to_s, status_name: 'Done / Closed', open: false, done: true,
         due: nil, weight: (index + 1) * 5.0, missing_weight: false, started: true,
@@ -177,10 +180,21 @@ class PerformanceDashboardTest < ActionController::TestCase
     entries = @controller.instance_variable_get(:@leaderboard_entries).to_h { |entry| [entry[:owner].id, entry[:points]] }
     assert_equal 5.0, entries[1].last[:delivered_weight]
     assert_equal 10.0, entries[2].last[:delivered_weight]
+    assert_select '[data-leaderboard-series="1"] [data-owner-target="1"]', count: 1
+    assert_select '[data-leaderboard-series="2"] [data-owner-target="2"]', count: 1
+    assert_select '.performance-leaderboard-owner-label small', text: 'Target: 160', count: 1
+    assert_select '.performance-leaderboard-owner-label small', text: 'Target: 200', count: 1
+    assert_select '.performance-leaderboard-threshold', count: 0
     assert_equal entries.values.sum { |points| points.last[:delivered_weight] }, @controller.instance_variable_get(:@delivery_trend).last[:delivered_weight]
     assert_operator @response.body.index('performance-comparison'), :<, @response.body.index('performance-leaderboard')
     assert_operator @response.body.index('performance-leaderboard'), :<, @response.body.index('Combined Results for selected owners (team)')
     styles = css_select('[data-leaderboard-series]').map { |element| [element['data-leaderboard-series'], element['style']] }.to_h
+    @controller.stubs(:monthly_target).with('101', User.find(2)).returns(nil)
+    get :index, params: { project_id: @project.identifier, owner_ids: ['1', '2'] }
+    assert_response :success
+    assert_select '[data-owner-target="1"]', count: 1
+    assert_select '[data-owner-target="2"]', count: 0
+    assert_select '.performance-leaderboard-owner-label small', text: 'Target not configured or unavailable', count: 1
     issues.each_with_index do |issue, index|
       TicketJourneyPerformance.stubs(:snapshot).with { |candidate, *rest| candidate.id == issue.id }.returns(rows[index].merge(open: true, done: false, status_name: 'In Progress'))
       events = Array.new(index.zero? ? 2 : 1) { |n| { at: (Date.current.beginning_of_month << 5).in_time_zone, repeat: false, merge_conflict: n == 1 } }
@@ -194,6 +208,9 @@ class PerformanceDashboardTest < ActionController::TestCase
     assert_equal 150.0, @controller.instance_variable_get(:@return_trend).last[:ratio]
     assert_equal styles, css_select('[data-leaderboard-series]').map { |element| [element['data-leaderboard-series'], element['style']] }.to_h
     assert_select '.performance-leaderboard tbody tr', count: 10
+    assert_select '.performance-leaderboard-threshold[data-threshold="10"]', count: 1
+    assert_select '.performance-leaderboard-threshold[data-threshold="50"]', count: 1
+    assert_select '.performance-leaderboard-target', count: 0
   end
 
   test 'Returns comparison chart and audit drill down share exact historical population' do

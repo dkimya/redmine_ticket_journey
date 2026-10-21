@@ -314,5 +314,10 @@
 .performance-leaderboard-swatch{display:inline-block;width:24px;border-top:3px solid;flex-shrink:0}
 .performance-leaderboard .is-hidden{display:none}
 .performance-leaderboard-chart{min-width:500px}
+.performance-leaderboard-target{stroke-width:2;stroke-dasharray:8 5;fill:none}
+.performance-leaderboard-threshold{stroke:#627386;stroke-width:2;stroke-dasharray:4 4}
+.performance-leaderboard-threshold-label{fill:#536579;font-size:12px}
+.performance-leaderboard-owner-label{min-width:0}
+.performance-leaderboard-owner-label small{display:block;margin-top:3px;font-size:12px}
 @media(max-width:950px){.performance-leaderboard-layout{grid-template-columns:minmax(0,1fr);gap:14px}}
 @media(max-width:1100px){.performance-ticket-trends{grid-template-columns:1fr}}

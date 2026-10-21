@@ -160,10 +160,14 @@ class PerformanceDashboardController < ApplicationController
       values = @selected_owners.map { |owner| monthly_target(@settings["performance_#{kind}_field_id"], owner) }
       {
         value: TicketJourneyPerformance.average_targets(values),
+        owner_values: @selected_owners.each_with_index.to_h { |owner, index| [owner.id.to_s, values[index]] },
         missing_owners: @selected_owners.each_with_index.filter_map { |owner, index| owner.name if values[index].nil? }
       }
     end
     @targets = @target_details.map { |detail| detail[:value] }
+    if @leaderboard_entries
+      @leaderboard_entries.each { |entry| entry[:target] = @target_details[1][:owner_values][entry[:owner].id.to_s] }
+    end
     TicketJourneyPerformance.finish_output_trend!(@delivery_trend, @selected_owners.size) if @delivery_trend
     @comparison = @metric ? [] : @selected_owners.map do |owner|
       { owner: owner, report: TicketJourneyPerformance.calculate(rows.select { |r| r[:owner_id] == owner.id.to_s }, @date) }

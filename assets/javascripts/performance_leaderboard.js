@@ -8,7 +8,7 @@
         button.addEventListener('click', function () {
           var visible = button.getAttribute('aria-pressed') !== 'true';
           button.setAttribute('aria-pressed', String(visible));
-          button.setAttribute('aria-label', (visible ? 'Hide ' : 'Show ') + button.dataset.ownerName + ' line');
+          button.setAttribute('aria-label', (visible ? 'Hide ' : 'Show ') + button.dataset.ownerName + ' ' + (button.dataset.lineDescription || 'line'));
           root.querySelectorAll('[data-leaderboard-series]').forEach(function (series) {
             if (series.dataset.leaderboardSeries === button.dataset.leaderboardToggle) {
               series.classList.toggle('is-hidden', !visible);

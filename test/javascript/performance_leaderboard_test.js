@@ -53,3 +53,12 @@ test('initialization waits for the DOM and avoids duplicate listeners', () => {
 test('single-owner and initial pages without leaderboards initialize safely', () => {
   assert.doesNotThrow(() => page(false, true));
 });
+
+test('owner toggle announces the grouped delivery and target lines', () => {
+  const p = page();
+  p.buttons[0].dataset.lineDescription = 'delivery and target lines';
+  p.buttons[0].listeners[0]();
+  assert.equal(p.series[0].hidden, true);
+  assert.equal(p.series[1].hidden, false);
+  assert.equal(p.buttons[0].attributes['aria-label'], 'Show Owner 1 delivery and target lines');
+});
