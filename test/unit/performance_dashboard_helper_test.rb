@@ -3,6 +3,15 @@ require File.expand_path('../test_helper', __dir__)
 class PerformanceDashboardHelperTest < ActiveSupport::TestCase
   include PerformanceDashboardHelper
 
+  test 'delivery trend uses a fixed 0 to 100 percent axis' do
+    points = [{ count_ratio: 0.0, weight_ratio: nil }, { count_ratio: 50.0, weight_ratio: 80.0 },
+      { count_ratio: 100.0, weight_ratio: 100.0 }]
+    geometry = performance_return_trend_geometry(points, keys: [:count_ratio, :weight_ratio], maximum: 100.0)
+    assert_equal 25.0, geometry[:step]
+    assert_equal [235.0, 135.0, 35.0], geometry[:series].first.map { |point| point[:y] }
+    assert_nil geometry[:series].last.first[:y]
+  end
+
   test 'return ratio colors share inclusive orange thresholds and neutral missing values' do
     assert_equal 'performance-return-positive', performance_return_ratio_class(0)
     assert_equal 'performance-return-positive', performance_return_ratio_class(9.6)

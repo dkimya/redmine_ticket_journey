@@ -54,6 +54,38 @@ class PerformanceDashboardTest < ActionController::TestCase
     end
   end
 
+  test 'Tickets trend rewinds ownership per month end and skips trend work on drill down' do
+    issue = Issue.find(1)
+    issue.tracker.update!(name: 'Bug')
+    date = Date.new(2026, 10, 21)
+    dates = TicketJourneyPerformance.completed_month_ends(date)
+    Issue.expects(:visible).at_least_once.returns(Issue.where(id: issue.id))
+    Issue.any_instance.stubs(:visible_custom_field_values).returns([stub(custom_field: stub(id: 57), value: '1')])
+    base = { id: issue.id, owner_id: '1', status_name: 'In Progress', open: true, done: false,
+      due: dates.first, weight: 8.0, missing_weight: false, delivered_at: nil, started: true }
+    dates.each_with_index do |day, index|
+      snapshot = base.merge(owner_id: index == 2 ? '2' : '1', done: index == 1,
+        status_name: index == 1 ? 'Done / Closed' : 'In Progress')
+      TicketJourneyPerformance.stubs(:snapshot).with { |_candidate, at, *rest| at == day }.returns(snapshot)
+    end
+    TicketJourneyPerformance.stubs(:snapshot).with { |_candidate, at, *rest| at == date }.returns(base)
+    TicketJourneyPerformance.expects(:history_for).with([issue.id], dates.first, include_return_reason: false).returns({})
+    get :index, params: { project_id: @project.identifier, owner_id: '1', as_of: date.iso8601 }
+    assert_response :success
+    trend = @controller.instance_variable_get(:@delivery_trend)
+    assert_equal [1, 1, 0], trend.map { |point| point[:due] }
+    assert_equal [0.0, 100.0, nil], trend.map { |point| point[:count_ratio] }
+    assert_select '.performance-delivery-trend svg', count: 1
+    assert_select '.performance-trend-target-line', count: 1
+    assert_select '.performance-delivery-trend tbody tr', count: 3
+    TicketJourneyPerformance.expects(:history_for).with([issue.id], date, include_return_reason: false).returns({})
+    TicketJourneyPerformance.expects(:add_delivery_trend_row!).never
+    get :index, params: { project_id: @project.identifier, owner_id: '1', as_of: date.iso8601, metric: 'due' }
+    assert_response :success
+    assert_select '.performance-delivery-trend', count: 0
+    assert_nil @controller.instance_variable_get(:@delivery_trend)
+  end
+
   test 'Returns initial page is live without scanning issues before Apply' do
     Issue.expects(:visible).never
     get :index, params: { project_id: @project.identifier, tab: 'returns' }

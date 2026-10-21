@@ -283,6 +283,9 @@
 .performance-trend-legend{display:flex;flex-wrap:wrap;gap:10px 24px;list-style:none;margin:16px 0;padding:0}
 .performance-trend-swatch{display:inline-block;width:28px;border-top:3px solid #007bd1;vertical-align:middle;margin-right:8px}
 .performance-trend-swatch.performance-trend-adjusted{border-top:3px dashed #b44f25}
+.performance-trend-swatch.performance-trend-target-swatch{border-top:2px dashed #526577}
+.performance-trend-target-line{stroke:#526577;stroke-width:2;stroke-dasharray:10 5}
+.performance-delivery-trend{margin-top:0;padding-top:0;border-top:0}
 .performance-trend-chart{display:block;width:100%;min-width:500px;max-height:330px}
 .performance-trend-chart text{fill:#425875;font-size:13px}
 .performance-trend-grid{stroke:#dce6f0;stroke-width:1}

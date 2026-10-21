@@ -16,8 +16,8 @@ class TicketJourneyPerformanceReturns
   COLORS = ['#00bc87', '#008fff', '#ffbd36', '#ff8b2d', '#f65362'].freeze
 
   def self.trend_points(date)
-    3.downto(1).map do |months|
-      { date: (date.beginning_of_month << (months - 1)) - 1,
+    TicketJourneyPerformance.completed_month_ends(date).map do |day|
+      { date: day,
         open: 0, incidents: 0, non_merge: 0, unknown: 0 }
     end
   end

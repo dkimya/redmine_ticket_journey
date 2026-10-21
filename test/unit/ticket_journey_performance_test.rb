@@ -1,6 +1,44 @@
 require File.expand_path('../test_helper', __dir__)
 
 class TicketJourneyPerformanceTest < ActiveSupport::TestCase
+  test 'delivery trend points match Returns completed month ends' do
+    date = Date.new(2026, 1, 15)
+    points = TicketJourneyPerformance.delivery_trend_points(date)
+    assert_equal [Date.new(2025, 10, 31), Date.new(2025, 11, 30), Date.new(2025, 12, 31)], points.map { |point| point[:date] }
+    assert_equal TicketJourneyPerformanceReturns.trend_points(date).map { |point| point[:date] }, points.map { |point| point[:date] }
+  end
+
+  test 'delivery trend uses dashboard due sets and sums weights without averaging owner ratios' do
+    date = Date.new(2026, 10, 21)
+    points = TicketJourneyPerformance.delivery_trend_points(date)
+    rows = [row(done: true, open: false, status_name: 'Done / Closed', due: Date.new(2026, 7, 31), weight: 8.0),
+      row(due: Date.new(2026, 7, 1), weight: 2.0), row(due: Date.new(2026, 8, 1), weight: 10.0),
+      row(done: true, due: Date.new(2026, 7, 1), status_name: 'Archived', weight: 99.0),
+      row(due: Date.new(2026, 7, 1), status_name: 'Ongoing', weight: 99.0), row(due: nil),
+      row(done: true, due: Date.new(2026, 10, 1), weight: 99.0)]
+    points.each do |point|
+      rows.each { |candidate| TicketJourneyPerformance.add_delivery_trend_row!(point, candidate) }
+      report = TicketJourneyPerformance.calculate(rows, point[:date])
+      assert_equal report[:due].size, point[:due]
+      assert_equal report[:done].size, point[:done]
+      assert_equal TicketJourneyPerformance.weight(report[:due]), point[:due_weight]
+      assert_equal TicketJourneyPerformance.weight(report[:done]), point[:done_weight]
+    end
+    TicketJourneyPerformance.finish_delivery_trend!(points)
+    assert_equal [50.0, 100.0 / 3, 100.0 / 3], points.map { |point| point[:count_ratio] }
+    assert_equal [80.0, 40.0, 40.0], points.map { |point| point[:weight_ratio] }
+  end
+
+  test 'delivery trend distinguishes zero delivery from missing denominators and ignores nil snapshots' do
+    points = TicketJourneyPerformance.delivery_trend_points(Date.new(2026, 10, 21))
+    TicketJourneyPerformance.add_delivery_trend_row!(points[0], nil)
+    TicketJourneyPerformance.add_delivery_trend_row!(points[1], row(due: Date.new(2026, 7, 1), weight: 0.0))
+    TicketJourneyPerformance.add_delivery_trend_row!(points[2], row(due: Date.new(2026, 7, 1), weight: 5.0))
+    TicketJourneyPerformance.finish_delivery_trend!(points)
+    assert_equal [nil, 0.0, 0.0], points.map { |point| point[:count_ratio] }
+    assert_equal [nil, nil, 0.0], points.map { |point| point[:weight_ratio] }
+  end
+
   test 'mean targets require every selected owner and reject unusable values' do
     assert_equal 15.0, TicketJourneyPerformance.average_targets([10, 20])
     assert_equal 8.5, TicketJourneyPerformance.average_targets([8.5])

@@ -54,6 +54,8 @@ class PerformanceDashboardController < ApplicationController
     # not become available through dashboard filtering or aggregates.
     rows = []
     @return_trend = @return_mode && !@metric ? TicketJourneyPerformanceReturns.trend_points(@date) : nil
+    @delivery_trend = !@return_mode && !@metric ? TicketJourneyPerformance.delivery_trend_points(@date) : nil
+    trend_start = (@return_trend || @delivery_trend)&.first&.fetch(:date)
     scanned = 0
     scan_started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     # Query caching otherwise retains the SQL results of every batch until the
@@ -61,12 +63,24 @@ class PerformanceDashboardController < ApplicationController
     Issue.uncached do
       issues.find_in_batches(batch_size: TicketJourneyPerformance::BATCH_SIZE) do |batch|
         # Earlier owner changes are necessary for exact month-end attribution.
-        history = TicketJourneyPerformance.history_for(batch.map(&:id), @return_trend ? @return_trend.first[:date] : @date, include_return_reason: @return_mode)
+        history = TicketJourneyPerformance.history_for(batch.map(&:id), trend_start || @date, include_return_reason: @return_mode)
         field_values = TicketJourneyPerformance.batch_field_values(batch, field_ids: @return_mode ? [57, 66, 70] : [57, 70])
         batch.each do |issue|
           scanned += 1
           visible_values = field_values.fetch(issue.id)
           next unless visible_values.any? { |v| v.custom_field.id == 57 }
+          # Snapshot each month independently, including tickets since reassigned
+          # away from a selected owner. Only aggregate totals survive the batch.
+          if @delivery_trend
+            @delivery_trend.each do |point|
+              historical_row = TicketJourneyPerformance.snapshot(issue, point[:date], statuses,
+                history: history.fetch(issue.id, []), visible_values: visible_values,
+                owner_value: visible_values.find { |value| value.custom_field.id == 57 }&.value.to_s)
+              if historical_row && requested_set.include?(historical_row[:owner_id])
+                TicketJourneyPerformance.add_delivery_trend_row!(point, historical_row)
+              end
+            end
+          end
           trend_events = if @return_trend
             TicketJourneyPerformanceReturns.accumulate_trend!(@return_trend, issue,
               history.fetch(issue.id, []), statuses, @date, visible_values, requested_set)
@@ -93,6 +107,7 @@ class PerformanceDashboardController < ApplicationController
     end
     Rails.logger.info("Performance candidate scan: #{scanned} tickets, #{(Process.clock_gettime(Process::CLOCK_MONOTONIC) - scan_started).round(3)}s")
     TicketJourneyPerformanceReturns.finish_trend!(@return_trend) if @return_trend
+    TicketJourneyPerformance.finish_delivery_trend!(@delivery_trend) if @delivery_trend
     member_ids = Member.where(project_id: performance_project_ids).pluck(:user_id)
     @owners = User.active.where(id: (owner_ids.to_a + member_ids).uniq).order(:lastname, :firstname).to_a
     # Active-only is a dropdown rule, not an access restriction. Resolve saved

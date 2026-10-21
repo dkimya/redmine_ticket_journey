@@ -77,6 +77,7 @@
         <% end %>
       </div>
     </section>
+    <% if @delivery_trend %><section class="performance-section"><%= render 'delivery_trend', points: @delivery_trend %></section><% end %>
     <details class="performance-notes"><summary>Calculation notes and data quality</summary>
       <p>Both monthly metrics use <%= format_date(@report[:monthly_start_date]) %> through <%= format_date(@report[:monthly_end_date]) %>, the three completed calendar months before the selected date's month. Totals are divided by 3 even when a month has no deliveries, then by <%= @selected_owners.size %> selected owner(s) for per-owner actuals. Account creation and ticket Start dates are not used. Open-ticket and cumulative delivery ratios retain their existing date rules, including older backlog due by the report date.</p>
       <p><%= performance_detail_link(@report[:missing_due], 'missing_due') %> open tickets have no due date and are included in Not Overdue. <%= performance_detail_link(@report[:missing_weight], 'missing_weight') %> tickets have missing, hidden, or nonpositive weights; they contribute no weight but still count as tickets. <%= performance_detail_link(@report[:missing_delivery], 'missing_delivery') %> done tickets lack a recorded completion date and are excluded from monthly averages.</p>

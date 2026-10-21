@@ -102,3 +102,5 @@ Monthly Day 0 rules superseded on user approval: both metrics now use the three 
 - User screenshot confirms both 31.3% cards use orange as intended. The orange legend marker was oversized; replaced generic warning/negative/unavailable marker classes with plugin-specific names to avoid host style collisions. Marker fix awaits deployed visual verification.
 
 - Consecutive-return donut center now reads Tickets with Consecutive Returns instead of With Repeats, with constrained centered wrapping inside the donut. Deployed visual verification pending.
+
+- Tickets delivery-ratio trend implemented below Section 2, using three completed month-end snapshots, count/weight lines and the configured target. Shared due/exclusion rules and batched history are reused. Unit/request/geometry tests added but unrun without local Ruby/Redmine. Full web rendering, deployed visuals and latency/memory impact remain unverified.

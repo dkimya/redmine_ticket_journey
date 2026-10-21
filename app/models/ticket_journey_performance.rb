@@ -1,6 +1,40 @@
 # Calculation rules for Performance Section 1. No writes or stored counters.
 class TicketJourneyPerformance
   BATCH_SIZE = 100
+
+  def self.completed_month_ends(date)
+    3.downto(1).map { |months| (date.beginning_of_month << (months - 1)) - 1 }
+  end
+
+  def self.delivery_trend_points(date)
+    completed_month_ends(date).map { |day| { date: day, due: 0, done: 0, due_weight: 0.0, done_weight: 0.0 } }
+  end
+
+  def self.add_delivery_trend_row!(point, row)
+    return unless delivery_due?(row, point[:date])
+
+    point[:due] += 1
+    point[:due_weight] += row[:weight]
+    if row[:done]
+      point[:done] += 1
+      point[:done_weight] += row[:weight]
+    end
+  end
+
+  def self.delivery_eligible?(row)
+    row && !DELIVERY_EXCLUDED_STATUSES.include?(row[:status_name].to_s.strip)
+  end
+
+  def self.delivery_due?(row, date)
+    delivery_eligible?(row) && row[:due] && row[:due] <= date
+  end
+
+  def self.finish_delivery_trend!(points)
+    points.each do |point|
+      point[:count_ratio] = point[:due].positive? ? point[:done] * 100.0 / point[:due] : nil
+      point[:weight_ratio] = point[:due_weight].positive? ? point[:done_weight] * 100.0 / point[:due_weight] : nil
+    end
+  end
   DETAIL_SORT_KEYS = %w[id subject status due weight completion].freeze
   DETAIL_COLUMNS = {
     'id' => 'Ticket', 'project' => 'Project (current)', 'subject' => 'Title / Subject (current)',
@@ -220,8 +254,8 @@ class TicketJourneyPerformance
     started, untouched = overdue.partition { |r| r[:started] }
     # Section 2 alone excludes these as-of statuses. Do not filter the input
     # rows globally: Ongoing still belongs to Section 1's open population.
-    delivery_rows = rows.reject { |r| DELIVERY_EXCLUDED_STATUSES.include?(r[:status_name].to_s.strip) }
-    due = delivery_rows.select { |r| r[:due] && r[:due] <= date }
+    delivery_rows = rows.select { |r| delivery_eligible?(r) }
+    due = delivery_rows.select { |r| delivery_due?(r, date) }
     done = due.select { |r| r[:done] }
     # Same three complete calendar months for both monthly metrics. The report
     # month is excluded; zero-delivery months still count in the denominator.
