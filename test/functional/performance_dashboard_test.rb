@@ -54,7 +54,7 @@ class PerformanceDashboardTest < ActionController::TestCase
     end
   end
 
-  test 'Tickets trend rewinds ownership per month end and skips trend work on drill down' do
+  test 'Tickets trend uses current owner at each month end and skips trend work on drill down' do
     issue = Issue.find(1)
     issue.tracker.update!(name: 'Bug')
     date = Date.new(2026, 10, 21)
@@ -64,7 +64,7 @@ class PerformanceDashboardTest < ActionController::TestCase
     base = { id: issue.id, owner_id: '1', status_name: 'In Progress', open: true, done: false,
       due: dates.first, weight: 8.0, missing_weight: false, delivered_at: nil, started: true }
     dates.each_with_index do |day, index|
-      snapshot = base.merge(owner_id: index == 2 ? '2' : '1', done: index == 1,
+      snapshot = base.merge(owner_id: '1', done: index == 1,
         delivered_at: index == 1 ? day.beginning_of_month : nil,
         status_name: index == 1 ? 'Done / Closed' : 'In Progress')
       TicketJourneyPerformance.stubs(:snapshot).with { |_candidate, at, *rest| at == day }.returns(snapshot)
@@ -74,8 +74,8 @@ class PerformanceDashboardTest < ActionController::TestCase
     get :index, params: { project_id: @project.identifier, owner_id: '1', as_of: date.iso8601 }
     assert_response :success
     trend = @controller.instance_variable_get(:@delivery_trend)
-    assert_equal [1, 1, 0, 1, 1], trend.map { |point| point[:due] }
-    assert_equal [0.0, 100.0, nil, 0.0, 0.0], trend.map { |point| point[:count_ratio] }
+    assert_equal [1, 1, 1, 1, 1], trend.map { |point| point[:due] }
+    assert_equal [0.0, 100.0, 0.0, 0.0, 0.0], trend.map { |point| point[:count_ratio] }
     assert_select '.performance-delivery-trend svg', count: 1
     assert_select '.performance-delivery-trend .performance-trend-target-line', count: 1
     assert_select '.performance-monthly-delivery-trend svg', count: 2
@@ -109,12 +109,38 @@ class PerformanceDashboardTest < ActionController::TestCase
     get :index, params: { project_id: @project.identifier, owner_id: '1', as_of: date.iso8601 }
     assert_response :success
     assert_select '.performance-owner-change-note', text: /1 ticket\(s\) had Ticket Owner changes/
+    get :index, params: { project_id: @project.identifier, owner_id: '1', as_of: date.iso8601, tab: 'returns' }
+    assert_response :success
+    assert_select '.performance-owner-change-note', text: /1 ticket\(s\) had Ticket Owner changes/
     TicketJourneyPerformance.expects(:snapshot).never
     get :index, params: { project_id: @project.identifier, owner_id: '1', as_of: date.iso8601, metric: 'owner_changes' }
     assert_response :success
     assert_select 'tbody tr', count: 1
     assert_select 'tbody li', count: 2
     assert_select 'a[href=?]', issue_path(issue.id), text: "##{issue.id}"
+    get :index, params: { project_id: @project.identifier, owner_id: '1', as_of: date.iso8601, metric: 'owner_changes', tab: 'returns' }
+    assert_response :success
+    assert_select 'tbody li', count: 2
+    assert_select 'a[href=?]', performance_dashboard_path(@project, owner_id: '1', as_of: date.iso8601, tab: 'returns'), text: /Back to Performance/
+  end
+
+  test 'owner change audit remains available with explicit zero count on both dashboards' do
+    issue = Issue.find(1)
+    issue.tracker.update!(name: 'Bug')
+    Issue.expects(:visible).at_least_once.returns(Issue.where(id: issue.id))
+    Issue.any_instance.stubs(:visible_custom_field_values).returns([stub(custom_field: stub(id: 57), value: '1')])
+    TicketJourneyPerformance.stubs(:history_for).returns({})
+    TicketJourneyPerformance.stubs(:snapshot).returns({ id: issue.id, owner_id: '1', status_name: 'In Progress',
+      open: true, done: false, due: nil, weight: 5.0, missing_weight: false, delivered_at: nil, started: true })
+    %w[tickets returns].each do |tab|
+      get :index, params: { project_id: @project.identifier, owner_id: '1', tab: tab }
+      assert_response :success
+      assert_select '.performance-owner-change-note', text: /0 ticket\(s\) had Ticket Owner changes/
+      assert_select '.performance-owner-change-note a[href=?]', performance_dashboard_path(@project, owner_id: '1', as_of: Date.current.iso8601, tab: tab, metric: 'owner_changes')
+      get :index, params: { project_id: @project.identifier, owner_id: '1', tab: tab, metric: 'owner_changes' }
+      assert_response :success
+      assert_select '.nodata', text: 'No matching owner changes.'
+    end
   end
 
   test 'Returns initial page is live without scanning issues before Apply' do
@@ -139,7 +165,7 @@ class PerformanceDashboardTest < ActionController::TestCase
     end
     TicketJourneyPerformanceReturns.stubs(:events_for).returns(events)
     first_month_end = TicketJourneyPerformanceReturns.trend_points(Date.current).first[:date]
-    TicketJourneyPerformance.expects(:history_for).with([issue.id], first_month_end, include_return_reason: true).returns({})
+    TicketJourneyPerformance.expects(:history_for).with([issue.id], first_month_end.beginning_of_month - 1, include_return_reason: true).returns({})
     get :index, params: { project_id: @project.identifier, tab: 'returns', owner_id: '1' }
     assert_response :success
     assert_select '.performance-return-owner-row', count: 1

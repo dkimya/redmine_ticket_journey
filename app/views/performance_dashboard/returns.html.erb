@@ -7,7 +7,7 @@
 <div class="performance-page">
   <%= render 'header', page_title: 'Performance Results — Returns' %>
   <p class="performance-context">Selected project and all subprojects · Visible tickets only · Open as of <%= format_date(@date) %>
-    <%= performance_tip('Uses the Tickets tracker scope and historical owner/status reconstruction. Returns uses the same open population as Tickets: New, On-Hold, and closed statuses are excluded; Ongoing is included in all return populations and ratio denominators. Only recorded qualifying transitions into Returned through this date count. Current tracker mappings apply. All qualifying incidents belong to the ticket owner at the report date, including incidents before reassignment. No time window or Day 0 applies.') %></p>
+    <%= performance_tip('Uses the Tickets tracker scope and current-owner attribution and historical status reconstruction. Returns uses the same open population as Tickets: New, On-Hold, and closed statuses are excluded; Ongoing is included in all return populations and ratio denominators. Only recorded qualifying transitions into Returned through this date count. Current tracker mappings apply. All qualifying incidents belong to the current Ticket Owner, including incidents before reassignment. No time window or Day 0 applies.') %></p>
   <% if @returns %>
     <details class="performance-section performance-comparison" open>
       <summary><strong>Developer comparison — <%= @selected_owners.size %> selected owner(s)</strong></summary>
@@ -40,6 +40,7 @@
       <%= performance_tip('Both cards use the same thresholds, applied to the unrounded ratio. Displayed percentages are rounded to one decimal place.') %>
       <%= render 'return_trend', points: @return_trend if @return_trend %>
     </section>
+    <%= render 'owner_change_note' %>
     <details class="performance-notes"><summary>Calculation notes</summary>
       <p>Returns are qualifying transitions into explicit Returned, using the existing tracker/stage mappings. Counts stop at the selected date. Lifetime native Return Count may include newer incidents; it is unchanged.</p>
       <p>Feedback, Feedback gives 1 consecutive repeat; Feedback, Feedback, Feedback gives 2; Feedback, Feedback, Review, Review gives 2. Each repeat after the first at the same stage adds one, accumulating across stages without resetting. Tickets with no repeats are excluded only from the consecutive-distribution denominator.</p>

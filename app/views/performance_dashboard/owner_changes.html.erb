@@ -6,7 +6,7 @@
 <% html_title 'Ticket Owner Changes' %>
 <div class="performance-page">
   <%= render 'header', page_title: 'Ticket Owner Changes' %>
-  <p><%= link_to '← Back to Performance', performance_dashboard_path(@project, **performance_owner_params, as_of: @date.iso8601), data: { performance_back: true } %></p>
+  <p><%= link_to '← Back to Performance', performance_dashboard_path(@project, **performance_owner_params, as_of: @date.iso8601, tab: @performance_tab), data: { performance_back: true } %></p>
   <p><strong><%= @owner_label %></strong> · <%= format_date(@owner_change_start) %> – <%= format_date(@owner_change_end) %> · <%= @detail_count %> affected ticket(s)</p>
   <p>Each ticket appears once. Changes from an existing owner to another owner, or removal of an existing owner, are shown when a selected owner is involved. Initial assignments from no owner are excluded. Current project, tracker, ticket and Ticket Owner field visibility apply. Delivery attribution is unchanged.</p>
   <div class="autoscroll"><table class="list"><thead><tr><th>Ticket</th><th>Subject (current)</th><th>Change date · Previous owner → New owner</th></tr></thead>
@@ -18,6 +18,6 @@
   </table></div>
   <% if @owner_change_rows.empty? %><p class="nodata">No matching owner changes.</p><% end %>
   <p>Page <%= @page %> of <%= @page_count %> · Up to 100 tickets per page</p>
-  <% if @page > 1 %><%= link_to 'Previous', performance_dashboard_path(@project, **performance_owner_params, as_of: @date.iso8601, metric: 'owner_changes', page: @page - 1) %><% end %>
-  <% if @page < @page_count %><%= link_to 'Next', performance_dashboard_path(@project, **performance_owner_params, as_of: @date.iso8601, metric: 'owner_changes', page: @page + 1) %><% end %>
+  <% if @page > 1 %><%= link_to 'Previous', performance_dashboard_path(@project, **performance_owner_params, as_of: @date.iso8601, tab: @performance_tab, metric: 'owner_changes', page: @page - 1) %><% end %>
+  <% if @page < @page_count %><%= link_to 'Next', performance_dashboard_path(@project, **performance_owner_params, as_of: @date.iso8601, tab: @performance_tab, metric: 'owner_changes', page: @page + 1) %><% end %>
 </div>

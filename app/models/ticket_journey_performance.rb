@@ -81,7 +81,7 @@ class TicketJourneyPerformance
   DETAIL_SORT_KEYS = %w[id subject status due weight completion].freeze
   DETAIL_COLUMNS = {
     'id' => 'Ticket', 'project' => 'Project (current)', 'subject' => 'Title / Subject (current)',
-    'tracker' => 'Tracker (current)', 'owner' => 'Ticket Owner (as of date)',
+    'tracker' => 'Tracker (current)', 'owner' => 'Ticket Owner (current)',
     'status' => 'Status (as of date)', 'due' => 'Due Date (current)',
     'weight' => 'Complexity Weight (current)', 'completion' => 'Last Recorded Completion by Report Date',
     'priority' => 'Priority (current)', 'estimate' => 'PM Estimate (current)',
@@ -189,15 +189,9 @@ class TicketJourneyPerformance
     end
   end
 
-  def self.owner_at(issue, changes, date, owner_value: nil)
-    value = owner_value.nil? ? issue.custom_value_for(57)&.value.to_s : owner_value
-    changes.reverse_each do |journal|
-      next unless journal.created_on > date.in_time_zone.end_of_day
-      journal.details.each do |detail|
-        value = detail.old_value.to_s if detail.property == 'cf' && detail.prop_key == '57'
-      end
-    end
-    value
+  def self.owner_at(issue, _changes, _date, owner_value: nil)
+    # Current Ticket Owner governs attribution even for historical reports.
+    owner_value.nil? ? issue.custom_value_for(57)&.value.to_s : owner_value
   end
   TRACKERS = ['Bug', 'Change Request / Improvement', 'Feature', 'Task (Business Jobs)'].freeze
   # Hadi's rule: only having been In Progress establishes started work.
@@ -257,15 +251,13 @@ class TicketJourneyPerformance
     return if issue.created_on > cutoff
 
     status_id = issue.status_id.to_s
-    owner_id = owner_value.nil? ? issue.custom_value_for(57)&.value.to_s : owner_value
+    owner_id = owner_at(issue, [], date, owner_value: owner_value)
     changes = (history || issue.journals).sort_by { |j| [j.created_on, j.id] }
-    # Reverse later changes, including explicit blank owners; only absent history
-    # falls back to today's value. Due date and weight intentionally stay current.
+    # Rewind status only. Ownership, due dates and weights intentionally stay current.
     changes.reverse_each do |journal|
       next unless journal.created_on > cutoff
       journal.details.each do |detail|
         status_id = detail.old_value.to_s if detail.property == 'attr' && detail.prop_key == 'status_id'
-        owner_id = detail.old_value.to_s if detail.property == 'cf' && detail.prop_key == '57'
       end
     end
     status = statuses[status_id]

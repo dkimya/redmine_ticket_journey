@@ -286,7 +286,7 @@ class TicketJourneyPerformanceTest < ActiveSupport::TestCase
     end
   end
 
-  test 'snapshot reverses later status and owner changes but preserves current due date and weight' do
+  test 'snapshot reverses status while preserving current owner due date and weight' do
     date = Date.new(2026, 10, 13)
     detail = Struct.new(:property, :prop_key, :old_value, :value)
     journal = Struct.new(:id, :created_on, :details)
@@ -304,7 +304,7 @@ class TicketJourneyPerformanceTest < ActiveSupport::TestCase
       detail.new('attr', 'status_id', '2', '5'), detail.new('cf', '57', '', '9')
     ])])
     result = TicketJourneyPerformance.snapshot(issue, date, statuses)
-    assert_equal '', result[:owner_id]
+    assert_equal '9', result[:owner_id]
     assert result[:open]
     assert result[:started]
     assert_not result[:done]
@@ -316,5 +316,7 @@ class TicketJourneyPerformanceTest < ActiveSupport::TestCase
     issue.unstub(:journals)
     issue.expects(:journals).never
     assert_equal result, TicketJourneyPerformance.snapshot(issue, date, statuses, history: history)
+    issue.stubs(:custom_value_for).with(57).returns(Struct.new(:value).new(''))
+    assert_equal '', TicketJourneyPerformance.snapshot(issue, date, statuses, history: history)[:owner_id]
   end
 end

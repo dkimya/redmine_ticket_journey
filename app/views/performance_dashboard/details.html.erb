@@ -7,10 +7,10 @@
 <p><%= link_to '← Back to Performance', performance_dashboard_path(@project, **performance_owner_params, as_of: @date.iso8601), data: { performance_back: true }, title: 'Return to the previous Performance report when available. Click Apply there to refresh its results.' %></p>
 <p><strong><%= @owner_label %></strong> · As of <%= format_date(@date) %> · <%= @detail_count %> tickets · Total usable complexity weight: <%= performance_number(@detail_weight) %></p>
 <p>Scope: Selected project and all subprojects, limited to visible projects and tickets.</p>
-<p class="info">Owner and status reflect the selected date. Project, title/subject, tracker, priority, PM estimate, due date and complexity weight are current. Time Spent is lifetime visible hours logged directly against the ticket, excluding child-ticket rollups; it is not limited to the report date. PM Estimate is Redmine's Estimated time in hours. These are the same ticket sets used by the dashboard, recalculated with your current permissions; edits since opening the dashboard may change results. Unavailable weights contribute zero to the total.</p>
+<p class="info">Current Ticket Owner is used; status reflects the selected date. Project, title/subject, tracker, priority, PM estimate, due date and complexity weight are current. Time Spent is lifetime visible hours logged directly against the ticket, excluding child-ticket rollups; it is not limited to the report date. PM Estimate is Redmine's Estimated time in hours. These are the same ticket sets used by the dashboard, recalculated with your current permissions; edits since opening the dashboard may change results. Unavailable weights contribute zero to the total.</p>
 <% if %w[open not_overdue started untouched stopped due_soon missing_due].include?(@metric) %><p>Open-ticket metrics exclude New and On-Hold based on status at the selected report date. Stopped includes Pending only.</p><% end %>
 <% if %w[due done delivered delivered_weight missing_delivery].include?(@metric) %><p>Section 2 excludes Archived and Ongoing tickets based on their status at the selected report date.</p><% end %>
-<% if %w[delivered delivered_weight].include?(@metric) %><p>Monthly contributors from <%= format_date(@report[:monthly_start_date]) %> through <%= format_date(@report[:monthly_end_date]) %>. The dashboard divides these totals by 3, including zero-delivery months, then by <%= @selected_owners.size %> selected owner(s) for per-owner actuals. This list contains all contributors. The selected date's month is excluded; owner and status still reflect the selected date.</p><% end %>
+<% if %w[delivered delivered_weight].include?(@metric) %><p>Monthly contributors from <%= format_date(@report[:monthly_start_date]) %> through <%= format_date(@report[:monthly_end_date]) %>. The dashboard divides these totals by 3, including zero-delivery months, then by <%= @selected_owners.size %> selected owner(s) for per-owner actuals. This list contains all contributors. The selected date's month is excluded; current owner is used; status still reflects the selected date.</p><% end %>
 <details class="performance-list-options">
   <summary>Options → Columns and grouping</summary>
   <%= form_tag performance_dashboard_path(@project), method: :get do %>
@@ -27,7 +27,7 @@
       <% end %>
     </fieldset>
     <%= label_tag :group_by, 'Group by' %>
-    <%= select_tag :group_by, options_for_select([['None', ''], ['Project', 'project'], ['Tracker', 'tracker'], ['Ticket Owner (as of date)', 'owner'], ['Status (as of date)', 'status']], @group_by) %>
+    <%= select_tag :group_by, options_for_select([['None', ''], ['Project', 'project'], ['Tracker', 'tracker'], ['Ticket Owner (current)', 'owner'], ['Status (as of date)', 'status']], @group_by) %>
     <%= submit_tag 'Apply Options', name: nil %>
   <% end %>
 </details>

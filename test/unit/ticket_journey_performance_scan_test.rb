@@ -38,7 +38,7 @@ class TicketJourneyPerformanceScanTest < ActiveSupport::TestCase
     statuses = IssueStatus.all.index_by { |status| status.id.to_s }
     snapshot = TicketJourneyPerformance.snapshot(issue, @date, statuses, history: full.fetch(issue.id), visible_values: [])
     assert_equal snapshot[:owner_id], TicketJourneyPerformance.owner_at(issue, compact.fetch(issue.id), @date)
-    assert_equal '', snapshot[:owner_id]
+    assert_equal '2', snapshot[:owner_id]
   end
 
   test 'metric prefilters preserve date boundaries and leave weight contributors unfiltered' do

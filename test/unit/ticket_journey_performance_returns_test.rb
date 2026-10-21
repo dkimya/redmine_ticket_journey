@@ -67,7 +67,7 @@ class TicketJourneyPerformanceReturnsTest < ActiveSupport::TestCase
       TicketJourneyPerformanceReturns.trend_points(Date.new(2024, 3, 1)).map { |point| point[:date] }
   end
 
-  test 'trend reconstructs closed reassigned tickets independently at each month end' do
+  test 'trend reconstructs closed status while attributing every month to current owner' do
     date = Date.new(2026, 10, 21)
     ticket = stub(id: 1, tracker: stub(name: 'Bug'), created_on: Date.new(2026, 7, 1).in_time_zone,
       status_id: 3, due_date: nil, start_date: nil)
@@ -83,16 +83,19 @@ class TicketJourneyPerformanceReturnsTest < ActiveSupport::TestCase
     values = [TicketJourneyPerformance::FieldValue.new(stub(id: 57), '20'),
       TicketJourneyPerformance::FieldValue.new(stub(id: 66), 'Bug')]
     points = TicketJourneyPerformanceReturns.trend_points(date).last(3)
-    TicketJourneyPerformanceReturns.accumulate_trend!(points, ticket, history, states, date, values, Set['10'])
+    TicketJourneyPerformanceReturns.accumulate_trend!(points, ticket, history, states, date, values, Set['20'])
     TicketJourneyPerformanceReturns.finish_trend!(points)
-    assert_equal [1, 1, 0], points.map { |point| point[:open] }
-    assert_equal [1, 2, 0], points.map { |point| point[:incidents] }
-    assert_equal [100.0, 200.0, nil], points.map { |point| point[:ratio] }
-    assert_equal [100.0, 200.0, nil], points.map { |point| point[:adjusted_ratio] }
+    assert_equal [1, 1, 1], points.map { |point| point[:open] }
+    assert_equal [1, 2, 2], points.map { |point| point[:incidents] }
+    assert_equal [100.0, 200.0, 200.0], points.map { |point| point[:ratio] }
+    assert_equal [100.0, 200.0, 200.0], points.map { |point| point[:adjusted_ratio] }
     combined = TicketJourneyPerformanceReturns.trend_points(date).last(3)
     TicketJourneyPerformanceReturns.accumulate_trend!(combined, ticket, history, states, date, values, Set['10', '20'])
     assert_equal [1, 1, 1], combined.map { |point| point[:open] }
     assert_equal [1, 2, 2], combined.map { |point| point[:incidents] }
+    previous_owner = TicketJourneyPerformanceReturns.trend_points(date).last(3)
+    TicketJourneyPerformanceReturns.accumulate_trend!(previous_owner, ticket, history, states, date, values, Set['10'])
+    assert previous_owner.all? { |point| point[:open].zero? }
   end
 
   test 'trend excludes tickets before creation and marks hidden reasons unavailable' do

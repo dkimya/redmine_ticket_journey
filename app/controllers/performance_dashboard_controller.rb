@@ -11,7 +11,7 @@ class PerformanceDashboardController < ApplicationController
     @metric = params[:metric].presence
     @return_mode = @dashboard_type == 'live' && @performance_tab == 'returns'
     labels = @return_mode ? TicketJourneyPerformanceReturns::LABELS : TicketJourneyPerformance::DETAIL_LABELS
-    return render_404 if @metric && !labels.key?(@metric)
+    return render_404 if @metric && @metric != 'owner_changes' && !labels.key?(@metric)
     @date = params[:as_of].present? ? Date.iso8601(params[:as_of]) : Date.current
     raise ArgumentError if @date > Date.current
     requested_owners = Array(params[:owner_ids].presence || params[:owner_id]).map(&:to_s).reject(&:blank?).uniq
@@ -45,8 +45,7 @@ class PerformanceDashboardController < ApplicationController
                   .where('issues.created_on <= ?', @date.in_time_zone.end_of_day)
                   .select(Issue.column_names.reject { |name| name == 'description' }.map { |name| "issues.#{name}" })
                   .preload(:project, :tracker)
-    # Dropdown discovery rewinds ownership only; it never calculates status,
-    # completion or started history for every developer's tickets.
+    # Current Ticket Owner governs attribution; history is retained for audit.
     candidates = candidate_issues(issues, requested_owners)
     owner_ids = discover_owner_ids(@metric ? candidates : issues)
     issues = TicketJourneyPerformance.metric_scope(candidates, @metric, @date)
@@ -57,7 +56,7 @@ class PerformanceDashboardController < ApplicationController
     @delivery_trend = !@return_mode && !@metric ? TicketJourneyPerformance.delivery_trend_points(@date) : nil
     trend_start = (@return_trend || @delivery_trend)&.first&.fetch(:date)
     @owner_change_rows = nil
-    if !@return_mode && (!@metric || @metric == 'owner_changes')
+    if !@metric || @metric == 'owner_changes'
       trend_dates = TicketJourneyPerformance.completed_month_ends(@date)
       @owner_change_start, @owner_change_end = trend_dates.first.beginning_of_month, trend_dates.last
       @owner_change_rows = []
@@ -137,8 +136,8 @@ class PerformanceDashboardController < ApplicationController
       return render_404 if @metric
       return
     end
-    return render_returns(rows) if @return_mode
     return render_owner_changes if @metric == 'owner_changes'
+    return render_returns(rows) if @return_mode
     @report = TicketJourneyPerformance.calculate(rows, @date)
     ActiveRecord::Associations::Preloader.new(records: @selected_owners, associations: :custom_values).call unless @metric
     @target_details = @metric ? [] : %w[count weight].map do |kind|
@@ -274,12 +273,11 @@ class PerformanceDashboardController < ApplicationController
     owners = Set.new
     Issue.uncached do
       scope.find_in_batches(batch_size: TicketJourneyPerformance::BATCH_SIZE) do |batch|
-        changes = TicketJourneyPerformance.history_for(batch.map(&:id), @date, owner_only: true)
         field_values = TicketJourneyPerformance.batch_field_values(batch)
         batch.each do |issue|
           value = field_values.fetch(issue.id).find { |entry| entry.custom_field.id == 57 }
           next unless value
-          owner = TicketJourneyPerformance.owner_at(issue, changes.fetch(issue.id, []), @date, owner_value: value.value.to_s)
+          owner = TicketJourneyPerformance.owner_at(issue, [], @date, owner_value: value.value.to_s)
           owners << owner if owner.present?
         end
       end

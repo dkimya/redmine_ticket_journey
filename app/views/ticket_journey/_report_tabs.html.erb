@@ -173,3 +173,6 @@
 </div>
 
 <%= render partial: 'report_query_links' %>
+<p class="tj-owner-section-note">Ticket attribution uses current Ticket Owner, including past report periods.
+  <%= link_to 'View Ticket Owner changes', ticket_journey_owner_returns_path(@project, owner_params.merge(anchor: 'owner-change-audit')), title: 'Open the owner-change audit in Ticket Owner Performance. Its selected report period and filters apply.' %>
+</p>

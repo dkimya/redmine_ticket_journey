@@ -5,6 +5,31 @@ class TicketJourneyOwnerPerformanceTest < ActiveSupport::TestCase
     @controller = TicketJourneyController.new
   end
 
+  test 'all historical owner lookups use current value and preserve unassigned' do
+    issue = stub(custom_value_for: stub(value: '9'))
+    @controller.expects(:historical_attribute_value).never
+    [Date.new(2026, 1, 1), Date.new(2026, 9, 30)].each do |date|
+      assert_equal '9', @controller.send(:owner_performance_owner_value_at, issue, [stub(old_value: '7')], date.end_of_day)
+    end
+    issue.stubs(:custom_value_for).returns(stub(value: ''))
+    assert_nil @controller.send(:owner_performance_owner_value_at, issue, [stub(old_value: '7')], Time.current)
+  end
+
+  test 'owner change audit retains selected-owner reassignments but respects field visibility' do
+    issue = stub(id: 1, visible_custom_field_values: [stub(custom_field: stub(id: 57))])
+    hidden = stub(id: 2, visible_custom_field_values: [])
+    start_at = Date.new(2026, 9, 1).beginning_of_day
+    end_at = Date.new(2026, 10, 1).beginning_of_day
+    change = stub(changed_at: start_at, old_value: '7', value: '9')
+    initial = stub(changed_at: start_at, old_value: '', value: '9')
+    @controller.stubs(:ticket_owner_display_name).with('7').returns('Previous Owner')
+    @controller.stubs(:ticket_owner_display_name).with('9').returns('Current Owner')
+    rows = @controller.send(:owner_performance_change_rows, [issue, hidden], { 1 => [change, initial], 2 => [change] }, start_at, end_at, ->(id) { id == '9' })
+    assert_equal [issue], rows.map { |row| row[:issue] }
+    assert_equal 1, rows.first[:changes].size
+    assert_equal 'Previous Owner', rows.first[:changes].first[:old_owner]
+  end
+
   test 'delivery row includes period returns for tickets outside total done' do
     row = {
       owner_id: 7,
@@ -143,6 +168,16 @@ class TicketJourneyOwnerPerformanceTest < ActiveSupport::TestCase
     %i[commitment activity completion].each do |section|
       report[section].each_value { |metric| assert metric.key?(:complexity_points) }
     end
+
+    # Reassignment moves every historical commitment/debt/activity to the new owner.
+    @controller.stubs(:owner_performance_owner_value_at).returns('9')
+    reassigned = @controller.send(:compute_ticket_owner_performance_report, start_date, end_date,
+                                 role_id: nil, include_locked_users: true)
+    assert_equal ['9'], reassigned[:delivery_rows].map { |row| row[:owner_value] }
+    assert_equal report[:commitment], reassigned[:commitment]
+    assert_equal report[:completion], reassigned[:completion]
+    assert_equal report[:activity], reassigned[:activity]
+    @controller.stubs(:owner_performance_owner_value_at).returns('7')
 
     # Rerunning the same past period follows deadline edits made today.
     issues[0].due_date = Date.new(2026, 9, 8)

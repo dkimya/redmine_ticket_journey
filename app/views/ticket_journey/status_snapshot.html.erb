@@ -25,7 +25,7 @@
           <%= text_field_tag :snapshot_at, @snapshot_at_input, type: 'datetime-local', class: 'tj-input tj-snapshot-input' %>
         </div>
         <div class="tj-filter-group tj-flow-filter-note">
-          <span>Uses the Redmine filters above, then reconstructs Ticket Owner and Status at the selected time.</span>
+          <span>Uses the Redmine filters above, then uses the current Ticket Owner and reconstructs Status at the selected time.</span>
         </div>
         <div class="tj-filter-actions">
           <%= submit_tag 'Apply', class: 'button' %>

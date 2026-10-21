@@ -4142,14 +4142,13 @@ class TicketJourneyController < ApplicationController
 
     issue_ids = issues.map(&:id)
     status_changes = load_attribute_changes(issue_ids, 'status_id')
-    owner_changes = load_custom_field_changes(issue_ids, TICKET_OWNER_CF_ID)
     status_names = IssueStatus.pluck(:id, :name).to_h.transform_keys(&:to_s)
 
     rows = issues.map do |issue|
       status_id = historical_attribute_value(issue.status_id, status_changes[issue.id], snapshot_time)
       status_name = status_names[status_id.to_s] || issue.status&.name || '-'
       current_owner_value, = ticket_owner_info(issue)
-      owner_value = historical_attribute_value(current_owner_value, owner_changes[issue.id], snapshot_time)
+      owner_value = current_owner_value
       owner_name = ticket_owner_display_name(owner_value)
 
       {
@@ -5456,7 +5455,7 @@ class TicketJourneyController < ApplicationController
     issues.each do |issue|
       next if issue.created_on.blank? || issue.created_on > start_snapshot
 
-      # Due dates use the current plan; status and owner remain historical.
+      # Current due dates and Ticket Owner; status remains historical.
       due_date = issue.due_date
       next unless due_date && due_date <= start_date
       next if historically_closed?(issue, status_changes[issue.id], start_snapshot, closed_status_ids)
@@ -5556,9 +5555,8 @@ class TicketJourneyController < ApplicationController
       issue = issue_by_id[entry.issue_id]
       next unless issue && entry.user_id
 
-      owner_value = entry.user_id.to_s
-      historical_owner = owner_performance_owner_value_at(issue, owner_changes[issue.id], entry.spent_on.end_of_day)
-      next unless owner_value == historical_owner.to_s && owner_allowed.call(owner_value)
+      owner_value = owner_performance_owner_value_at(issue, owner_changes[issue.id], entry.spent_on.end_of_day)
+      next unless owner_allowed.call(owner_value)
 
       row = row_for.call(owner_value)
       owner_performance_add_metric(row, :spent_time_tickets, issue.id)
@@ -5570,9 +5568,8 @@ class TicketJourneyController < ApplicationController
       issue = issue_by_id[journal.journalized_id.to_i]
       next unless issue && journal.user_id
 
-      owner_value = journal.user_id.to_s
-      historical_owner = owner_performance_owner_value_at(issue, owner_changes[issue.id], journal.created_on)
-      next unless owner_value == historical_owner.to_s && owner_allowed.call(owner_value)
+      owner_value = owner_performance_owner_value_at(issue, owner_changes[issue.id], journal.created_on)
+      next unless owner_allowed.call(owner_value)
 
       row = row_for.call(owner_value)
       owner_performance_add_metric(row, :updated_tickets, issue.id)
@@ -5697,6 +5694,7 @@ class TicketJourneyController < ApplicationController
 
     {
       period: { start: start_date, end: end_date, generated_at: Time.current },
+      owner_change_rows: owner_performance_change_rows(issues, owner_changes, period_start, period_end, owner_allowed),
       totals: {
         owner_count: delivery_rows.size,
         committed: owner_performance_metric(total_commitment_ids),
@@ -5769,9 +5767,25 @@ class TicketJourneyController < ApplicationController
            .to_a
   end
 
-  def owner_performance_owner_value_at(issue, changes, snapshot_time)
-    current_value = issue.custom_value_for(TICKET_OWNER_CF_ID)&.value.presence
-    historical_attribute_value(current_value, changes, snapshot_time).to_s.presence || current_value
+  def owner_performance_change_rows(issues, changes, period_start, period_end, owner_allowed)
+    issues.filter_map do |issue|
+      next unless issue.respond_to?(:visible_custom_field_values)
+      next unless issue.visible_custom_field_values.any? { |value| value.custom_field.id == TICKET_OWNER_CF_ID }
+
+      events = Array(changes[issue.id]).filter_map do |change|
+        old_value, new_value = change.old_value.to_s, change.value.to_s
+        next if old_value.blank? || old_value == new_value
+        next unless change.changed_at >= period_start && change.changed_at < period_end
+        next unless owner_allowed.call(old_value) || owner_allowed.call(new_value)
+
+        { at: change.changed_at, old_owner: ticket_owner_display_name(old_value), new_owner: ticket_owner_display_name(new_value) }
+      end
+      { issue: issue, changes: events } if events.any?
+    end
+  end
+
+  def owner_performance_owner_value_at(issue, _changes, _snapshot_time)
+    issue.custom_value_for(TICKET_OWNER_CF_ID)&.value.to_s.presence
   end
 
   def owner_performance_latest_closed_at(issue, transitions)
@@ -5916,7 +5930,7 @@ class TicketJourneyController < ApplicationController
       owner_value = delivery_row[:owner_value].to_s
       done_ids = source[:metrics][:done_committed]
       owner_entries = entries.select do |entry|
-        entry.user_id.to_s == owner_value && done_ids.include?(entry.issue_id.to_i)
+        done_ids.include?(entry.issue_id.to_i)
       end
       total_logged_hours = owner_entries.sum { |entry| entry.hours.to_f }
       estimated_rework_hours = 0.0

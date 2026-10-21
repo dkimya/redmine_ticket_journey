@@ -105,9 +105,9 @@
           <span>
             Defaults: all statuses except New, On-Hold, Ongoing and Archived; Bug, Change Request, Feature,
             Task and User Story; Ticket Owner = All; Role = Developer. Saved and explicitly selected status filters are respected.
-            Historical ownership is used when available, with the current owner as fallback.
+            Current Ticket Owner is used for every period, including RSD/RED debt and past activity.
             Role membership is current; choose All roles to include former owners in aggregate results.
-            Use this Ticket Owner selector for historical reporting; Redmine's custom-field filter uses only the current owner.
+            Changing the current owner transfers historical ticket attribution to that owner.
           </span>
         </div>
       </div>
@@ -172,8 +172,8 @@
       Report period: <%= format_date(report.dig(:period, :start)) %> through <%= format_date(report.dig(:period, :end)) %>.
       "Paid after period" and "still open" debt classifications are evaluated at
       <%= format_time(report.dig(:period, :generated_at)) %>.
-      Commitment outcomes remain with the owner responsible for A/B; activity and return-audit rows use the historical owner at the event;
-      end debt uses the owner at RED. Current owner is used only when no historical owner exists.
+      Current Ticket Owner is used for all commitments, activity, return events and debt at RSD/RED.
+      Reassignment updates historical attribution; blank current owners remain unassigned. Recorded time-entry users and journal authors are unchanged.
       Historical activity is evaluated using current ticket due dates.
       Beginning debt, new commitments, and end debt use the current due date; a blank current due date is treated as missing.
       Changing due dates can change commitment and debt totals when an earlier period is rerun.
@@ -182,6 +182,17 @@
       Summary-table Points use each row's distinct tickets, including subtotal and total rows.
       Done Activities Points represent tickets worked on during the period, not necessarily completed tickets.
     </p>
+    <% owner_change_rows = Array(report[:owner_change_rows]) %>
+      <details class="tj-card tj-card-full tj-report-section" id="owner-change-audit">
+        <summary class="tj-card-title">During this period, <%= owner_change_rows.size %> ticket(s) had Ticket Owner changes. View tickets</summary>
+        <p>Initial assignments from no owner are excluded. The list is informational; report metrics use current owners.</p>
+        <div class="tj-table-wrap"><table class="tj-table"><thead><tr><th>Ticket</th><th>Owner changes</th></tr></thead><tbody>
+          <% owner_change_rows.each do |entry| %><tr><td><%= link_to "##{entry[:issue].id}", issue_path(entry[:issue]) %></td><td>
+            <ul><% entry[:changes].each do |change| %><li><%= format_time(change[:at]) %> · <%= change[:old_owner] %> → <%= change[:new_owner] %></li><% end %></ul>
+          </td></tr><% end %>
+        </tbody></table></div>
+        <% if owner_change_rows.empty? %><p>No matching owner changes during this period.</p><% end %>
+      </details>
 
     <%
       commitment_rows = [
@@ -193,8 +204,8 @@
         ['C', 'Total commitment', report.dig(:commitment, :total_commitment), 'Beginning debt (A) plus new commitments (B), de-duplicated.', :total, 'A + B']
       ]
       activity_rows = [
-        ['D', 'Tickets based on Spent Time', report.dig(:activity, :spent_time_tickets), 'Distinct tickets with time logged by the Ticket Owner during RSD through RED.'],
-        ['E', 'Additional tickets updated by owner', report.dig(:activity, :additional_updated_tickets), 'Tickets updated by the Ticket Owner during the period that are not already in D.'],
+        ['D', 'Tickets based on Spent Time', report.dig(:activity, :spent_time_tickets), 'Distinct tickets with visible time logged during RSD through RED, attributed to the current Ticket Owner.'],
+        ['E', 'Additional updated tickets', report.dig(:activity, :additional_updated_tickets), 'Tickets updated during the period that are not already in D, attributed to the current Ticket Owner.'],
         ['F', 'Total tickets worked', report.dig(:activity, :total_worked_tickets), 'Distinct union of D and E.', :total, 'D + E']
       ]
       completion_rows = [
@@ -303,7 +314,7 @@
           <span>Return Event Audit</span>
           <span class="tj-report-section-count"><%= pluralize(Array(report[:return_event_rows]).size, 'event') %></span>
         </summary>
-        <p class="tj-owner-section-note">One row per R1-R5 transition. Responsible Owner is used in the delivery table; Ticket Owner at Return preserves the historical event attribution.</p>
+        <p class="tj-owner-section-note">One row per R1-R5 transition. Both owner columns use the current Ticket Owner; event dates and transitions remain historical.</p>
         <div class="tj-table-wrap">
           <table class="tj-table tj-flow-table" aria-label="Return event audit">
             <thead>
@@ -311,7 +322,7 @@
                 <th class="tj-th-native">Event</th>
                 <th class="tj-th-native">Returned At</th>
                 <th class="tj-th-title">Responsible Owner</th>
-                <th class="tj-th-title">Ticket Owner at Return</th>
+                <th class="tj-th-title">Current Ticket Owner</th>
                 <th class="tj-th-native">Ticket</th>
                 <th class="tj-th-counter">Class</th>
                 <th class="tj-th-title">Transition</th>
@@ -516,7 +527,7 @@
       </summary>
       <div class="tj-drilldown-note">
         <strong>Estimated Rework Logged Time:</strong>
-        time entries logged by the Ticket Owner on dates that overlap augmented Ticket Journey periods for the same ticket.
+        visible time entries on dates that overlap augmented Ticket Journey periods for the same ticket, attributed to the current Ticket Owner.
         Redmine records the work date but not the exact work interval, so normal and rework hours logged on the same day cannot always be separated.
         Each time entry is counted at most once even if multiple augmented periods overlap its date.
       </div>
