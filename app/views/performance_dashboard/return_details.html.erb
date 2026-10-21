@@ -17,7 +17,7 @@
     <%= label_tag :group_by, 'Group by' %><%= select_tag :group_by, options_for_select([['None', ''], ['Project', 'project'], ['Tracker', 'tracker'], ['Owner', 'owner'], ['Status', 'status']], @group_by) %><%= submit_tag 'Apply options', name: nil %>
   <% end %>
   <% if @detail_rows.empty? %><p class="nodata">No tickets match this metric.</p><% else %>
-    <div class="autoscroll"><table class="list"><thead><tr><th>Ticket</th><th>Subject</th><th>Project</th><th>Tracker</th><th>Owner (as of date)</th><th>Status (as of date)</th><th>Total Returns</th><th>Consecutive Returns</th><th>Return Audit</th></tr></thead><tbody>
+    <div class="autoscroll"><table class="list"><thead><tr><th>Ticket</th><th>Subject</th><th>Project</th><th>Tracker</th><th>Owner (as of date)</th><th>Status (as of date)</th><th>Total Returns</th><th>Consecutive Returns <%= performance_tip(performance_consecutive_returns_definition) %></th><th>Return Audit</th></tr></thead><tbody>
       <% previous_group = nil; @detail_rows.each do |row| %>
         <% issue = @detail_issues.fetch(row[:id]); group = TicketJourneyPerformance.detail_group_key(row, @group_by) %>
         <% if @group_by && group != previous_group %><tr class="group"><th colspan="9"><%= row[TicketJourneyPerformance::DETAIL_GROUPS[@group_by]] %></th></tr><% previous_group = group %><% end %>

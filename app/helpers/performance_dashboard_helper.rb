@@ -1,4 +1,8 @@
 module PerformanceDashboardHelper
+  def performance_consecutive_returns_definition
+    'A consecutive return is counted when two successive qualifying return incidents come from the same stage (for example, Feedback → Returned twice adds 1). In Progress and other workflow steps between those incidents do not break the sequence. A return from a different stage breaks the sequence, but accumulated repeats are kept. Example: three returns from Feedback add 2, then two from Final Check add 1, giving 3 consecutive returns in total. Counts stop at the selected report date.'
+  end
+
   def performance_return_params(overrides = {})
     performance_owner_params.merge(tab: 'returns', as_of: @date.iso8601).merge(overrides)
   end

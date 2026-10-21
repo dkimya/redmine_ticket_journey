@@ -256,3 +256,8 @@
   border-bottom:2px solid #7897bb;
   font-weight:800;
 }
+/* Match distribution tables at the comparison header/body boundary. */
+.performance-page .performance-return-comparison thead th[rowspan],
+.performance-page .performance-return-comparison thead tr:last-child th{
+  border-bottom:1px solid #b8c8db;
+}
