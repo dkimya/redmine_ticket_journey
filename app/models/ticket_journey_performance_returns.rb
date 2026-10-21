@@ -1,0 +1,74 @@
+# Performance Returns uses dated journal events, never the native lifetime cache.
+# Consecutive repeats are a separate accumulated measure, not a resettable streak.
+class TicketJourneyPerformanceReturns
+  EXCLUDED = (TicketJourneyPerformance::OPEN_EXCLUDED_STATUSES + ['Ongoing']).freeze
+  LABELS = {
+    'returns_open' => 'All Open Tickets — Returns',
+    'returns_0' => '0 Return', 'returns_1' => '1 Return', 'returns_2' => '2 Returns',
+    'returns_3' => '3 Returns', 'returns_4' => '3+ Returns (4 or more)',
+    'repeats_all' => 'Tickets with Consecutive Returns',
+    'repeats_1' => '1 Consecutive Return', 'repeats_2' => '2 Consecutive Returns',
+    'repeats_3' => '2+ Consecutive Returns (3 or more)',
+    'return_incidents' => 'Return Incidents per Open Ticket — Contributors',
+    'non_merge_incidents' => 'Non-Merge Return Incidents — Contributors'
+  }.freeze
+  COLORS = ['#00bc87', '#008fff', '#ffbd36', '#ff8b2d', '#f65362'].freeze
+
+  def self.eligible?(row)
+    row[:open] && !EXCLUDED.include?(row[:status_name].to_s.strip)
+  end
+
+  def self.events_for(issue, history, statuses, date, reason_value:, reason_visible:)
+    family = TicketJourneyController::TRACKER_FAMILY_DEFINITIONS.find do |_key, definition|
+      definition[:tracker_names].include?(issue.tracker.name)
+    end&.first || :internal
+    cutoff = date.in_time_zone.end_of_day
+    reason = reason_value
+    transitions = []
+    # At a journal timestamp the reason is its post-edit value (also when the
+    # status and reason changed together). Undo it only after recording events.
+    history.sort_by { |entry| [entry.created_on, entry.id] }.reverse_each do |journal|
+      if journal.created_on <= cutoff
+        journal.details.each do |detail|
+          next unless detail.property == 'attr' && detail.prop_key == 'status_id'
+          transitions << {
+            journal_detail_id: detail.id, journal_id: journal.id, at: journal.created_on,
+            from_status: statuses[detail.old_value.to_s]&.name.to_s.strip,
+            to_status: statuses[detail.value.to_s]&.name.to_s.strip,
+            reason: reason_visible ? reason.to_s.presence : nil
+          }
+        end
+      end
+      journal.details.reverse_each do |detail|
+        reason = detail.old_value if detail.property == 'cf' && detail.prop_key == '66'
+      end
+    end
+    events = TicketJourney::ReturnCount.events(family, transitions.sort_by { |event| [event[:at], event[:journal_id], event[:journal_detail_id] || 0] })
+    previous = nil
+    events.each do |event|
+      event[:repeat] = event[:counter_key] == previous
+      previous = event[:counter_key]
+      event[:merge_conflict] = event[:reason] ? !!event[:reason].match(/\bmerge[\s_-]*conflicts?\b/i) : nil
+    end
+    events
+  end
+
+  def self.calculate(rows)
+    open = rows.select { |row| eligible?(row) }
+    sets = { 'returns_open' => open }
+    0.upto(4) { |i| sets["returns_#{i}"] = open.select { |row| [row[:return_count], 4].min == i } }
+    sets['repeats_all'] = open.select { |row| row[:repeat_count].positive? }
+    1.upto(3) { |i| sets["repeats_#{i}"] = open.select { |row| [row[:repeat_count], 3].min == i } }
+    sets['return_incidents'] = open.select { |row| row[:return_count].positive? }
+    sets['non_merge_incidents'] = open.select { |row| row[:events].any? { |event| event[:merge_conflict] == false } }
+    incidents = open.sum { |row| row[:return_count] }
+    unknown = open.sum { |row| row[:events].count { |event| event[:merge_conflict].nil? } }
+    non_merge = open.sum { |row| row[:events].count { |event| event[:merge_conflict] == false } }
+    {
+      open: open.size, incidents: incidents, repeats: open.sum { |row| row[:repeat_count] },
+      with_repeats: sets['repeats_all'].size, non_merge: non_merge, unknown: unknown, sets: sets,
+      ratio: open.any? ? incidents * 100.0 / open.size : nil,
+      adjusted_ratio: open.any? && unknown.zero? ? non_merge * 100.0 / open.size : nil
+    }
+  end
+end

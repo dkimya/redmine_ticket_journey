@@ -55,11 +55,11 @@ class TicketJourneyPerformance
 
     [row[field].to_s.downcase, group_by == 'project' ? row[:project_id] : row[field].to_s]
   end
-  HistoryDetail = Struct.new(:property, :prop_key, :old_value, :value)
+  HistoryDetail = Struct.new(:property, :prop_key, :old_value, :value, :id)
   HistoryJournal = Struct.new(:id, :created_on, :details)
   FieldValue = Struct.new(:custom_field, :value)
 
-  def self.batch_field_values(batch)
+  def self.batch_field_values(batch, field_ids: [57, 70])
     # Standard Redmine visibility uses field availability plus visible_by?. If
     # another plugin overrides the issue-level visibility method, keep its path
     # instead of assuming that our two-field shortcut covers its extra rules.
@@ -72,12 +72,12 @@ class TicketJourneyPerformance
       return batch.to_h { |issue| [issue.id, issue.visible_custom_field_values] }
     end
     raw = Hash.new { |hash, id| hash[id] = {} }
-    CustomValue.where(customized_type: 'Issue', customized_id: batch.map(&:id), custom_field_id: [57, 70])
+    CustomValue.where(customized_type: 'Issue', customized_id: batch.map(&:id), custom_field_id: field_ids)
                .pluck(:customized_id, :custom_field_id, :value).each do |id, field_id, value|
       raw[id][field_id] = value
     end
     batch.to_h do |issue|
-      fields = issue.available_custom_fields.select { |field| [57, 70].include?(field.id) && field.visible_by?(issue.project, User.current) }
+      fields = issue.available_custom_fields.select { |field| field_ids.include?(field.id) && field.visible_by?(issue.project, User.current) }
       [issue.id, fields.map { |field| FieldValue.new(field, raw[issue.id][field.id]) }]
     end
   end
@@ -145,7 +145,7 @@ class TicketJourneyPerformance
   # Fetch scalar changes only: journal notes and unrelated fields can dwarf the
   # report data. Future owner changes are needed to rewind reassigned tickets;
   # all status changes are needed for started/completion and historical status.
-  def self.history_for(issue_ids, date, owner_only: false)
+  def self.history_for(issue_ids, date, owner_only: false, include_return_reason: false)
     result = Hash.new { |hash, id| hash[id] = [] }
     journals = {}
     scope = JournalDetail.joins(:journal)
@@ -156,16 +156,20 @@ class TicketJourneyPerformance
               scope.where("(journal_details.property = ? AND journal_details.prop_key = ?) OR (journal_details.property = ? AND journal_details.prop_key = ? AND journals.created_on > ?)",
                           'attr', 'status_id', 'cf', '57', date.in_time_zone.end_of_day)
             end
+    if include_return_reason && !owner_only
+      reason_scope = JournalDetail.joins(:journal).where(journals: { journalized_type: 'Issue', journalized_id: issue_ids }, property: 'cf', prop_key: '66')
+      scope = scope.or(reason_scope)
+    end
     scope.order('journals.created_on', 'journals.id', 'journal_details.id')
       .pluck('journals.journalized_id', 'journals.id', 'journals.created_on',
-             'journal_details.property', 'journal_details.prop_key', 'journal_details.old_value', 'journal_details.value')
-      .each do |issue_id, journal_id, created_on, property, key, old_value, value|
+             'journal_details.property', 'journal_details.prop_key', 'journal_details.old_value', 'journal_details.value', 'journal_details.id')
+      .each do |issue_id, journal_id, created_on, property, key, old_value, value, detail_id|
         journal = journals[journal_id] ||= begin
           entry = HistoryJournal.new(journal_id, created_on, [])
           result[issue_id] << entry
           entry
         end
-        journal.details << HistoryDetail.new(property, key, old_value, value)
+        journal.details << HistoryDetail.new(property, key, old_value, value, detail_id)
       end
     result
   end

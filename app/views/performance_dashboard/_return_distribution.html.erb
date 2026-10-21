@@ -1,0 +1,10 @@
+<section class="performance-section">
+  <h3><span class="performance-step"><%= number %></span> <%= title %> <%= performance_tip(number == 1 ? 'All open tickets partition into 0, 1, 2, 3, and 4-or-more qualifying returns by report date. The approved 3+ label means more than 3.' : 'Only open tickets with at least one accumulated same-stage repeat are included. Buckets are 1, 2, and 3-or-more repeats. The approved 2+ label means more than 2.') %></h3>
+  <div class="performance-return-distribution">
+    <div class="performance-donut" role="img" aria-label="<%= title %>, <%= denominator %> tickets; exact distribution in adjacent table" style="background:<%= performance_return_gradient(keys, @returns, denominator) %>"><div><strong><%= performance_return_link(denominator, total_metric) %></strong><span><%= number == 1 ? 'Open Tickets' : 'With Repeats' %></span></div></div>
+    <table class="list"><thead><tr><th><%= number == 1 ? 'Return Count' : 'Consecutive Return Count' %></th><th>No. of Tickets</th><th>Percentage</th></tr></thead>
+      <tbody><% keys.each_with_index do |key, index| %><tr><td><span class="performance-dot" style="background:<%= keys.size == 3 ? ['#00bc87', '#008fff', '#f65362'][index] : TicketJourneyPerformanceReturns::COLORS[index] %>"></span> <%= performance_return_link(labels[index], key) %></td><td><%= performance_return_link(@returns[:sets][key].size, key) %></td><td><%= denominator.zero? ? 'N/A' : "#{performance_number(@returns[:sets][key].size * 100.0 / denominator)}%" %></td></tr><% end %></tbody>
+      <tfoot><tr><th><%= total_label %></th><td><%= performance_return_link(denominator, total_metric) %></td><td><%= denominator.zero? ? 'N/A' : '100%' %></td></tr></tfoot>
+    </table>
+  </div>
+</section>

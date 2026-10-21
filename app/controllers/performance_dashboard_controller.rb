@@ -9,12 +9,14 @@ class PerformanceDashboardController < ApplicationController
     @performance_tab = params[:tab].presence || 'tickets'
     return render_404 unless %w[tickets returns time].include?(@performance_tab)
     @metric = params[:metric].presence
-    return render_404 if @metric && !TicketJourneyPerformance::DETAIL_LABELS.key?(@metric)
+    @return_mode = @dashboard_type == 'live' && @performance_tab == 'returns'
+    labels = @return_mode ? TicketJourneyPerformanceReturns::LABELS : TicketJourneyPerformance::DETAIL_LABELS
+    return render_404 if @metric && !labels.key?(@metric)
     @date = params[:as_of].present? ? Date.iso8601(params[:as_of]) : Date.current
     raise ArgumentError if @date > Date.current
     requested_owners = Array(params[:owner_ids].presence || params[:owner_id]).map(&:to_s).reject(&:blank?).uniq
     requested_set = requested_owners.to_set
-    if @dashboard_type == 'periodic' || @performance_tab != 'tickets'
+    if @dashboard_type == 'periodic' || @performance_tab == 'time'
       return render_404 unless requested_owners.all? { |id| id.match?(/\A[1-9]\d*\z/) }
 
       # Planned tabs retain context but must not run ticket/history/target scans.
@@ -32,6 +34,7 @@ class PerformanceDashboardController < ApplicationController
       @owner = @owners.find { |user| user.id == User.current.id }
       @selected_owner_ids = [@owner&.id].compact.map(&:to_s)
       @initial_load = true
+      return render(:returns) if @return_mode
       return
     end
     @settings = Setting.plugin_redmine_ticket_journey
@@ -56,8 +59,8 @@ class PerformanceDashboardController < ApplicationController
     # request ends, defeating bounded issue/history loading on large projects.
     Issue.uncached do
       issues.find_in_batches(batch_size: TicketJourneyPerformance::BATCH_SIZE) do |batch|
-        history = TicketJourneyPerformance.history_for(batch.map(&:id), @date)
-        field_values = TicketJourneyPerformance.batch_field_values(batch)
+        history = TicketJourneyPerformance.history_for(batch.map(&:id), @date, include_return_reason: @return_mode)
+        field_values = TicketJourneyPerformance.batch_field_values(batch, field_ids: @return_mode ? [57, 66, 70] : [57, 70])
         batch.each do |issue|
           scanned += 1
           visible_values = field_values.fetch(issue.id)
@@ -67,6 +70,13 @@ class PerformanceDashboardController < ApplicationController
             owner_value: visible_values.find { |value| value.custom_field.id == 57 }&.value.to_s)
           next unless row
           if requested_set.include?(row[:owner_id])
+            if @return_mode
+              next unless TicketJourneyPerformanceReturns.eligible?(row)
+              reason = visible_values.find { |value| value.custom_field.id == 66 }
+              events = TicketJourneyPerformanceReturns.events_for(issue, history.fetch(issue.id, []), statuses, @date,
+                reason_value: reason&.value, reason_visible: !reason.nil?)
+              row = row.merge(events: events, return_count: events.size, repeat_count: events.count { |event| event[:repeat] })
+            end
             # Only compact sorting metadata survives the batch, not Issue objects.
             row = row.merge(project_id: issue.project_id, project_name: issue.project.name,
                             subject: issue.subject, tracker_name: issue.tracker.name) if @metric
@@ -90,6 +100,7 @@ class PerformanceDashboardController < ApplicationController
       return render_404 if @metric
       return
     end
+    return render_returns(rows) if @return_mode
     @report = TicketJourneyPerformance.calculate(rows, @date)
     ActiveRecord::Associations::Preloader.new(records: @selected_owners, associations: :custom_values).call unless @metric
     @target_details = @metric ? [] : %w[count weight].map do |kind|
@@ -161,6 +172,46 @@ class PerformanceDashboardController < ApplicationController
   end
 
   private
+
+  def render_returns(rows)
+    @returns = TicketJourneyPerformanceReturns.calculate(rows)
+    @return_comparison = @selected_owners.map do |owner|
+      { owner: owner, report: TicketJourneyPerformanceReturns.calculate(rows.select { |row| row[:owner_id] == owner.id.to_s }) }
+    end
+    allowed = %w[owner open incidents with_repeats repeats ratio adjusted_ratio]
+    @return_sort = allowed.include?(params[:return_sort]) ? params[:return_sort] : 'owner'
+    @return_direction = params[:return_direction] == 'desc' ? 'desc' : 'asc'
+    @return_comparison.sort! do |a, b|
+      x = @return_sort == 'owner' ? a[:owner].name.downcase : a[:report][@return_sort.to_sym]
+      y = @return_sort == 'owner' ? b[:owner].name.downcase : b[:report][@return_sort.to_sym]
+      if x.nil? || y.nil?
+        (x.nil? ? 1 : 0) <=> (y.nil? ? 1 : 0)
+      else
+        comparison = (x <=> y) * (@return_direction == 'desc' ? -1 : 1)
+        comparison.zero? ? a[:owner].id <=> b[:owner].id : comparison
+      end
+    end
+    return render(:returns) unless @metric
+
+    @detail_title = TicketJourneyPerformanceReturns::LABELS.fetch(@metric)
+    @return_detail_sort = %w[id return_count repeat_count].include?(params[:sort]) ? params[:sort] : 'return_count'
+    @direction = params[:direction] == 'asc' ? 'asc' : 'desc'
+    @group_by = TicketJourneyPerformance::DETAIL_GROUPS.key?(params[:group_by]) ? params[:group_by] : nil
+    names = @selected_owners.to_h { |owner| [owner.id.to_s, owner.name] }
+    @detail_rows = @returns[:sets].fetch(@metric).map { |row| row.merge(owner_name: names[row[:owner_id]]) }
+    @detail_rows.sort_by! { |row| [row[@return_detail_sort.to_sym] * (@direction == 'asc' ? 1 : -1), row[:id]] }
+    if @group_by
+      @detail_rows = @detail_rows.each_with_index.sort_by { |row, index| [TicketJourneyPerformance.detail_group_key(row, @group_by), index] }.map(&:first)
+    end
+    @detail_count = @detail_rows.size
+    @page_count = [(@detail_count / 100.0).ceil, 1].max
+    @page = [[params[:page].to_i, 1].max, @page_count].min
+    @matching_issue_ids = @detail_rows.map { |row| row[:id] }
+    @detail_rows = @detail_rows.slice((@page - 1) * 100, 100) || []
+    @detail_issues = Issue.visible(User.current).where(project_id: performance_project_ids, id: @detail_rows.map { |row| row[:id] }).includes(:project, :tracker).index_by(&:id)
+    @detail_rows.select! { |row| @detail_issues.key?(row[:id]) }
+    render :return_details
+  end
 
   def candidate_issues(scope, owner_ids)
     TicketJourneyPerformance.candidate_scope(scope, owner_ids)

@@ -30,11 +30,11 @@ class PerformanceDashboardTest < ActionController::TestCase
     assert_response 422
   end
 
-  test 'planned returns and time tabs preserve context without calculating reports' do
+  test 'planned time tab preserves context without calculating reports' do
     Issue.expects(:visible).never
     TicketJourneyPerformance.expects(:history_for).never
     TicketJourneyPerformance.expects(:calculate).never
-    %w[returns time].each do |tab|
+    %w[time].each do |tab|
       get :index, params: { project_id: @project.identifier, tab: tab,
                             owner_ids: ['1', '2'], as_of: Date.current.iso8601 }
       assert_response :success
@@ -52,6 +52,53 @@ class PerformanceDashboardTest < ActionController::TestCase
         end
       end
     end
+  end
+
+  test 'Returns initial page is live without scanning issues before Apply' do
+    Issue.expects(:visible).never
+    get :index, params: { project_id: @project.identifier, tab: 'returns' }
+    assert_response :success
+    assert_select '.performance-header h2', text: 'Performance Results — Returns'
+    assert_select '.performance-planned-section', count: 0
+    assert_select '.nodata', text: /No return report has been calculated/
+    assert_select 'input[name="tab"][value="returns"]'
+  end
+
+  test 'Returns comparison chart and audit drill down share exact historical population' do
+    issue = Issue.find(1)
+    issue.tracker.update!(name: 'Bug')
+    Issue.expects(:visible).at_least_once.returns(Issue.where(id: issue.id))
+    Issue.any_instance.stubs(:visible_custom_field_values).returns([stub(custom_field: stub(id: 57), value: '1')])
+    TicketJourneyPerformance.stubs(:snapshot).returns({ id: issue.id, owner_id: '1', status_name: 'Pending',
+      open: true, due: nil, weight: 5.0, missing_weight: false })
+    events = [false, true, true].each_with_index.map do |repeat, index|
+      { journal_id: index + 1, at: Time.current - index.hours, from_status: 'Feedback', reason: 'Bug', repeat: repeat, merge_conflict: false }
+    end
+    TicketJourneyPerformanceReturns.stubs(:events_for).returns(events)
+    get :index, params: { project_id: @project.identifier, tab: 'returns', owner_id: '1' }
+    assert_response :success
+    assert_select '.performance-return-owner-row', count: 1
+    assert_select '.performance-return-distributions .performance-donut', count: 2
+    assert_select '.performance-return-value', text: '300%', count: 2
+    assert_operator @response.body.index('Developer comparison'), :<, @response.body.index('Combined results')
+    get :index, params: { project_id: @project.identifier, tab: 'returns', owner_id: '1', metric: 'repeats_2' }
+    assert_response :success
+    assert_select '.performance-return-ticket', count: 1
+    assert_select 'li', text: /Consecutive repeat/, count: 2
+    assert_select 'a[href=?]', performance_dashboard_path(@project, owner_id: '1', as_of: Date.current.iso8601, tab: 'returns'), text: /Back to Performance Returns/
+  end
+
+  test 'Returns has separate metric whitelist and uses existing dashboard authorization' do
+    Issue.expects(:visible).never
+    get :index, params: { project_id: @project.identifier, tab: 'returns', metric: 'done' }
+    assert_response :not_found
+    @request.session[:user_id] = 2
+    Role.all.each do |role|
+      role.permissions = role.permissions - [:view_performance_dashboard]
+      role.save!
+    end
+    get :index, params: { project_id: @project.identifier, tab: 'returns' }
+    assert_response :forbidden
   end
 
   test 'unknown performance tab is rejected before report scans' do

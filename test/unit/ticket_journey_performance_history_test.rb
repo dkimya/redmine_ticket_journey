@@ -14,6 +14,7 @@ class TicketJourneyPerformanceHistoryTest < ActiveSupport::TestCase
     after = Journal.create!(journalized: issue, user: User.find(1), created_on: (date + 1).in_time_zone)
     after.details.create!(property: 'cf', prop_key: '57', old_value: '', value: '3')
     after.details.create!(property: 'attr', prop_key: 'status_id', old_value: '2', value: '5')
+    after.details.create!(property: 'cf', prop_key: '66', old_value: 'Bug', value: 'Merge Conflict')
     other = Journal.create!(journalized: Issue.find(2), user: User.find(1), created_on: date.in_time_zone)
     other.details.create!(property: 'attr', prop_key: 'status_id', old_value: '1', value: '2')
 
@@ -25,5 +26,8 @@ class TicketJourneyPerformanceHistoryTest < ActiveSupport::TestCase
     assert_equal ['57', 'status_id'], selected.last.details.map(&:prop_key)
     assert_equal '', selected.last.details.first.old_value
     assert selected.none? { |entry| entry.respond_to?(:notes) }
+    return_history = TicketJourneyPerformance.history_for([issue.id], date, include_return_reason: true)
+    assert_equal 1, return_history.fetch(issue.id).flat_map(&:details).count { |detail| detail.prop_key == '66' }
+    assert return_history.fetch(issue.id).flat_map(&:details).all? { |detail| detail.id.present? }
   end
 end

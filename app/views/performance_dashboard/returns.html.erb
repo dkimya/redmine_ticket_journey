@@ -1,0 +1,41 @@
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'performance', plugin: 'redmine_ticket_journey' %>
+  <%= javascript_include_tag 'performance_owner_picker', plugin: 'redmine_ticket_journey', defer: true %>
+  <%= javascript_include_tag 'performance_navigation', plugin: 'redmine_ticket_journey', defer: true %>
+<% end %>
+<% html_title 'Performance Results — Returns' %>
+<div class="performance-page">
+  <%= render 'header', page_title: 'Performance Results — Returns' %>
+  <p class="performance-context">Selected project and all subprojects · Visible tickets only · Open as of <%= format_date(@date) %>
+    <%= performance_tip('Uses the Tickets tracker scope and historical owner/status reconstruction. Returns excludes New, On-Hold, Ongoing, and closed statuses. Only recorded qualifying transitions into Returned through this date count. Current tracker mappings apply. All qualifying incidents belong to the ticket owner at the report date, including incidents before reassignment. No time window or Day 0 applies.') %></p>
+  <% if @returns %>
+    <details class="performance-section performance-comparison" open>
+      <summary><strong>Developer comparison — <%= @selected_owners.size %> selected owner(s)</strong></summary>
+      <p>Counts are tickets in each bucket. Consecutive counts accumulate repeats of the same source stage across successive qualifying return incidents; intermediate workflow transitions do not reset them.</p>
+      <div class="autoscroll"><table class="list performance-return-comparison">
+        <thead><tr><th rowspan="2"><%= performance_return_heading('Ticket Owner', 'owner') %></th><th rowspan="2"><%= performance_return_heading('Open Tickets', 'open') %></th><th colspan="5">Return Count Distribution</th><th colspan="3">Consecutive Return Distribution</th><th rowspan="2"><%= performance_return_heading('Return Incidents / Open Ticket', 'ratio') %></th><th rowspan="2"><%= performance_return_heading('Excl. Merge Conflict / Open Ticket', 'adjusted_ratio') %></th></tr>
+          <tr><% ['0', '1', '2', '3', '3+ (4 or more)', '1', '2', '2+ (3 or more)'].each do |label| %><th><%= label %></th><% end %></tr></thead>
+        <tbody><% @return_comparison.each do |entry| %><%= render 'return_comparison_row', report: entry[:report], ids: [entry[:owner].id.to_s], label: entry[:owner].name, total: false %><% end %></tbody>
+        <tfoot><%= render 'return_comparison_row', report: @returns, ids: @selected_owner_ids, label: 'Total', total: true %></tfoot>
+      </table></div>
+    </details>
+    <h3>Combined results for selected owners</h3>
+    <div class="performance-return-distributions">
+      <%= render 'return_distribution', number: 1, title: 'Return Count Distribution (Open Tickets)', keys: %w[returns_0 returns_1 returns_2 returns_3 returns_4], labels: ['0 Return', '1 Return', '2 Returns', '3 Returns', '3+ Returns'], denominator: @returns[:open], total_metric: 'returns_open', total_label: 'Total Open Tickets' %>
+      <%= render 'return_distribution', number: 2, title: 'Consecutive Return Distribution (Open Tickets)', keys: %w[repeats_1 repeats_2 repeats_3], labels: ['1 Consecutive Return', '2 Consecutive Returns', '2+ Consecutive Returns'], denominator: @returns[:with_repeats], total_metric: 'repeats_all', total_label: 'Tickets with Consecutive Returns' %>
+    </div>
+    <section class="performance-section">
+      <h3><span class="performance-step">3</span> Open Tickets Return Metric <%= performance_tip('Return incidents divided by open tickets, displayed as a percentage. This is not the percentage of tickets returned and can exceed 100%. One ticket can contribute many incidents. Values use ordinary rounding to one decimal place.') %></h3>
+      <div class="performance-return-ratios">
+        <article class="performance-metric performance-return-warning"><h4>Return Incidents per Open Ticket</h4><strong class="performance-return-value"><%= @returns[:ratio].nil? ? 'N/A' : "#{performance_number(@returns[:ratio])}%" %></strong><p><%= performance_return_link(@returns[:incidents], 'return_incidents') %> total return incidents</p><p><%= performance_return_link(@returns[:open], 'returns_open') %> open tickets</p></article>
+        <article class="performance-metric performance-return-negative"><h4>Return Incidents (excl. Merge Conflict) per Open Ticket</h4><strong class="performance-return-value"><%= @returns[:adjusted_ratio].nil? ? 'N/A' : "#{performance_number(@returns[:adjusted_ratio])}%" %></strong><p><%= performance_return_link(@returns[:non_merge], 'non_merge_incidents') %> known non-merge return incidents</p><p><%= performance_return_link(@returns[:open], 'returns_open') %> open tickets</p><% if @returns[:unknown].positive? %><p>Adjusted ratio unavailable: <%= @returns[:unknown] %> incidents have missing or hidden Return Reason history. Known non-merge incidents are a partial count.</p><% end %></article>
+      </div>
+    </section>
+    <details class="performance-notes"><summary>Calculation notes</summary>
+      <p>Returns are qualifying transitions into explicit Returned, using the existing tracker/stage mappings. Counts stop at the selected date. Lifetime native Return Count may include newer incidents; it is unchanged.</p>
+      <p>Feedback, Feedback gives 1 consecutive repeat; Feedback, Feedback, Feedback gives 2; Feedback, Feedback, Review, Review gives 2. Each repeat after the first at the same stage adds one, accumulating across stages without resetting. Tickets with no repeats are excluded only from the consecutive-distribution denominator.</p>
+      <p>“3+ Returns” means 4 or more, and “2+ Consecutive Returns” means 3 or more. Merge Conflict remains in both distributions and the total ratio, and is excluded only from the adjusted ratio. No two-week exemption applies. The reason at each incident is reconstructed from field 66 history; missing history falls back to current reason when available. Hidden/missing reasons are not assumed non-merge.</p>
+      <p>Totals are calculated from distinct tickets and recorded events. Zero-ticket ratios are N/A. Rounding may make displayed distribution percentages differ slightly from 100%.</p>
+    </details>
+  <% else %><p class="nodata">Select Ticket Owner(s) and As of Date, then click Apply. No return report has been calculated yet.</p><% end %>
+</div>

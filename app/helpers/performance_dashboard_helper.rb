@@ -1,4 +1,29 @@
 module PerformanceDashboardHelper
+  def performance_return_params(overrides = {})
+    performance_owner_params.merge(tab: 'returns', as_of: @date.iso8601).merge(overrides)
+  end
+
+  def performance_return_link(label, metric, ids = @selected_owner_ids)
+    link_to label, performance_dashboard_path(@project, **performance_owner_params(ids), tab: 'returns', as_of: @date.iso8601, metric: metric)
+  end
+
+  def performance_return_heading(label, key)
+    direction = @return_sort == key && @return_direction == 'asc' ? 'desc' : 'asc'
+    marker = @return_sort == key ? (@return_direction == 'asc' ? ' ▲' : ' ▼') : ''
+    link_to "#{label}#{marker}", performance_dashboard_path(@project, **performance_return_params(return_sort: key, return_direction: direction))
+  end
+
+  def performance_return_gradient(keys, report, denominator)
+    return '#e7edf3' if denominator.zero?
+    offset = 0.0
+    stops = keys.each_with_index.map do |key, index|
+      first = offset
+      offset += report[:sets].fetch(key).size * 100.0 / denominator
+      color = keys.size == 3 ? ['#00bc87', '#008fff', '#f65362'][index] : TicketJourneyPerformanceReturns::COLORS[index]
+      "#{color} #{first}% #{offset}%"
+    end
+    "conic-gradient(#{stops.join(', ')})"
+  end
   def performance_owner_params(ids = @selected_owner_ids)
     ids.size == 1 ? { owner_id: ids.first } : { owner_ids: ids }
   end

@@ -1,14 +1,14 @@
   <header class="performance-header">
     <%= render 'tabs' %>
     <div class="performance-header-content">
-    <div><p class="performance-eyebrow">PERFORMANCE · <%= @dashboard_type == 'periodic' ? 'PERIODIC REPORT' : 'LIVE DASHBOARD' %></p><h2><%= local_assigns[:page_title] || (@dashboard_type == 'periodic' ? "#{@performance_tab.titleize} — Periodic Report" : @performance_tab.titleize) %></h2><p><%= @dashboard_type == 'live' && @performance_tab == 'tickets' ? 'Ticket status and delivery performance as of' : 'Planned report · Selected date:' %> <%= format_date(@date) %></p></div>
+    <div><p class="performance-eyebrow">PERFORMANCE · <%= @dashboard_type == 'periodic' ? 'PERIODIC REPORT' : 'LIVE DASHBOARD' %></p><h2><%= local_assigns[:page_title] || (@dashboard_type == 'periodic' ? "#{@performance_tab.titleize} — Periodic Report" : @performance_tab.titleize) %></h2><p><%= @dashboard_type == 'live' && @performance_tab == 'returns' ? 'Open tickets return analysis as of' : (@dashboard_type == 'live' && @performance_tab == 'tickets' ? 'Ticket status and delivery performance as of' : 'Planned report · Selected date:') %> <%= format_date(@date) %></p></div>
     <% if local_assigns.fetch(:show_filters, true) %>
     <%= form_tag performance_dashboard_path(@project), method: :get, class: 'performance-filters' do %>
       <%= hidden_field_tag :dashboard_type, @dashboard_type if @dashboard_type == 'periodic' %>
       <%= hidden_field_tag :tab, @performance_tab unless @performance_tab == 'tickets' %>
       <div><%= label_tag :as_of, 'As of Date' %><%= date_field_tag :as_of, @date.iso8601, max: Date.current.iso8601, required: true %></div>
       <% owner_options = @owners.map { |user| [user.name, user.id.to_s] } %>
-      <% if @dashboard_type == 'periodic' || @performance_tab != 'tickets' %>
+      <% if @dashboard_type == 'periodic' || @performance_tab == 'time' %>
         <% known_ids = owner_options.map(&:last) %>
         <% (@selected_owner_ids - known_ids).each { |id| owner_options << ["Selected owner ##{id}", id] } %>
       <% end %>
