@@ -1,9 +1,9 @@
 <div class="performance-monthly-delivery-trend">
   <h4>Monthly Delivery Trend <%= performance_tip('Each point shows tickets and visible current complexity points delivered during that calendar month. Tickets must be Done / Closed at that point, with their latest recorded completion inside the window; Archived, Ongoing, reopened tickets and missing completion dates are excluded. Current Ticket Owner is used at every point; reassignment updates historical results. With multiple owners, divide by all selected owners, including zero-delivery owners. Current weights and current employee targets apply. Each target requires a usable value for every selected owner. Each point is actual output for one month, not a rolling average. The cards above retain their three-month averages; later reopening can cause differences.') %></h4>
-  <p>Actual monthly delivery · <%= points.size %> month-end points<%= ' · Per owner' if @selected_owners.size > 1 %></p>
+  <p>Actual monthly delivery · <%= points.size %> month-end points<%= ' · Average of selected owners' if @selected_owners.size > 1 %></p>
   <% [[:monthly_count, 'Tickets', @targets[0]], [:monthly_weight, 'Complexity Points', @targets[1]]].each_with_index do |(key, label, target), metric_index| %>
     <div class="performance-output-chart <%= 'performance-output-weight' if metric_index == 1 %>">
-      <h5><%= label %> delivered per month<%= ' per owner' if @selected_owners.size > 1 %></h5>
+      <h5><%= label %> delivered per month<%= ' (average of selected owners)' if @selected_owners.size > 1 %></h5>
       <p><%= target.nil? ? 'Target unavailable — a selected owner has a missing, hidden or invalid target.' : "Current monthly target: #{performance_number(target)}" %></p>
       <% geometry = performance_return_trend_geometry(points, keys: [key], scale_values: [target], minimum: 1.0) %>
       <div class="autoscroll">

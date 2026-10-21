@@ -130,3 +130,7 @@ Monthly Day 0 rules superseded on user approval: both metrics now use the three 
 - User screenshot shows two-line owner/target legend text overflowing the host-sized buttons. Set automatic button height, a 52px minimum, explicit line height and block label to contain wrapped text. Deployed visual verification pending.
 
 - Leaderboard point targets now deduplicate by numeric value into thin gray dashed lines; target visibility follows whether any associated owner remains visible. Legend target values are small muted parentheses and the diagram title is bold. Four JavaScript tests pass, including shared-target hide/restore; Ruby equal/missing-target request checks updated but unrun. Deployed visual verification pending.
+
+- Team monthly delivery trend headings/subtitle now say average of selected owners for multi-owner reports, replacing the less explicit per owner wording. Calculations and single-owner labels are unchanged. Deployed visual verification pending.
+
+- Replaced ID-hashed leaderboard hues after a screenshot showed near-identical brown lines. Selected owners now get distinct qualitative palette slots, consistent across both tabs and row sorting for the same selection, with extra hues beyond 12 owners. Targets/10%-50% thresholds and calculations are unchanged. Helper coverage added but Ruby tests unrun locally; deployed visual verification pending.

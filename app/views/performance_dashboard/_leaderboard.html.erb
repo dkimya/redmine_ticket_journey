@@ -54,7 +54,7 @@
   <div class="performance-leaderboard-legend" aria-label="Selected owner lines">
     <% entries.each do |entry| %>
       <% owner = entry[:owner] %>
-      <button type="button" data-leaderboard-toggle="<%= owner.id %>" aria-pressed="true" aria-label="Hide <%= owner.name %> line" data-owner-name="<%= owner.name %>"><span class="performance-leaderboard-swatch" style="border-color:<%= performance_owner_color(owner.id) %>" aria-hidden="true"></span><span class="performance-leaderboard-owner-label"><%= owner.name %><% unless @return_mode %><small title="<%= entry[:target].nil? ? 'Target not configured or unavailable' : 'Current monthly complexity-point target' %>"><%= entry[:target].nil? ? '(target unavailable)' : "(#{performance_number(entry[:target])})" %></small><% end %></span></button>
+      <button type="button" data-leaderboard-toggle="<%= owner.id %>" aria-pressed="true" aria-label="Hide <%= owner.name %> line" data-owner-name="<%= owner.name %>"><span class="performance-leaderboard-swatch" style="border-color:<%= performance_owner_color(owner.id) %>" aria-hidden="true"></span><span class="performance-leaderboard-owner-label"><%= owner.name %><% unless @return_mode %><small title="<%= entry[:target].nil? ? 'Target not configured or unavailable' : 'Current monthly complexity-point target' %>"><%= entry[:target].nil? ? '(target unavailable)' : "(target: #{performance_number(entry[:target])})" %></small><% end %></span></button>
     <% end %>
   </div>
   </div>

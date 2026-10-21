@@ -1,6 +1,11 @@
 module PerformanceDashboardHelper
   def performance_owner_color(owner_id)
-    "hsl(#{(owner_id.to_i * 137.508 % 360).round(2)}, 65%, 35%)"
+    # Use distinct palette slots within the selection instead of hashing user IDs
+    # to hues, which can put two selected developers in almost the same color.
+    palette = %w[#0072B2 #D55E00 #009E73 #7B2CBF #C62828 #00838F #A63A79 #6B5B00 #34495E #8B4513 #5151C7 #7B8D00]
+    ids = Array(@selected_owner_ids).map(&:to_s).uniq.sort_by(&:to_i)
+    index = ids.index(owner_id.to_s) || owner_id.to_i % palette.size
+    palette[index] || "hsl(#{((index - palette.size) * 137.508 + 25) % 360}, 65%, 35%)"
   end
 
   def performance_return_ratio_class(value)

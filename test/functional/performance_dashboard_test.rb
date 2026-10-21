@@ -182,8 +182,8 @@ class PerformanceDashboardTest < ActionController::TestCase
     assert_equal 10.0, entries[2].last[:delivered_weight]
     assert_select '[data-target-value="160"]', count: 1
     assert_select '[data-target-value="200"]', count: 1
-    assert_select '.performance-leaderboard-owner-label small', text: '(160)', count: 1
-    assert_select '.performance-leaderboard-owner-label small', text: '(200)', count: 1
+    assert_select '.performance-leaderboard-owner-label small', text: '(target: 160)', count: 1
+    assert_select '.performance-leaderboard-owner-label small', text: '(target: 200)', count: 1
     assert_select '.performance-leaderboard-threshold', count: 0
     assert_equal entries.values.sum { |points| points.last[:delivered_weight] }, @controller.instance_variable_get(:@delivery_trend).last[:delivered_weight]
     assert_operator @response.body.index('performance-comparison'), :<, @response.body.index('performance-leaderboard')

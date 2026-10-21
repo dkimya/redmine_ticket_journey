@@ -6,7 +6,16 @@ class PerformanceDashboardHelperTest < ActiveSupport::TestCase
   test 'owner colors are stable across tabs and independent of selection order' do
     assert_equal performance_owner_color(1393), performance_owner_color('1393')
     assert_not_equal performance_owner_color(1393), performance_owner_color(1394)
-    assert_match(/\Ahsl\([\d.]+, 65%, 35%\)\z/, performance_owner_color(1393))
+    assert_match(/\A#[0-9A-F]{6}\z/, performance_owner_color(1393))
+  end
+
+  test 'selected owners get distinct palette colors even when old ID hashes were similar' do
+    @selected_owner_ids = %w[1393 70 1414 1373 1500]
+    colors = @selected_owner_ids.to_h { |id| [id, performance_owner_color(id)] }
+    assert_equal 5, colors.values.uniq.size
+    assert_equal %w[#0072B2 #D55E00 #009E73 #7B2CBF #C62828].sort, colors.values.sort
+    @selected_owner_ids = @selected_owner_ids.reverse
+    assert_equal colors, @selected_owner_ids.to_h { |id| [id, performance_owner_color(id)] }
   end
 
   test 'monthly output geometry includes target on its numeric scale without percent units' do

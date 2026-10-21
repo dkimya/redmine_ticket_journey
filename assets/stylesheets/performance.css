@@ -316,7 +316,7 @@
 .performance-leaderboard-chart{min-width:500px}
 .performance-leaderboard-target{stroke:#627386;stroke-width:1;stroke-dasharray:6 5;fill:none}
 .performance-leaderboard-target-label{fill:#536579;font-size:12px}
-.performance-leaderboard h4{font-weight:700}
+.performance-page .performance-leaderboard h4{font-weight:700}
 .performance-leaderboard-threshold{stroke:#627386;stroke-width:2;stroke-dasharray:4 4}
 .performance-leaderboard-threshold-label{fill:#536579;font-size:12px}
 .performance-leaderboard-owner-label{display:block;min-width:0;line-height:1.4}
