@@ -114,3 +114,5 @@ Monthly Day 0 rules superseded on user approval: both metrics now use the three 
 - User screenshot confirms owner-change audit renders but its owner selector fell back to native multi-select. Added the missing shared performance_owner_picker script on that page. Deployed searchable-picker/chip verification pending.
 
 - Owner-change note/audit now exclude initial No owner to owner assignments, including bulk ownership backfills. Existing-owner reassignments and removals still count. Tooltip/audit wording and blank/nil regression cases updated. Local Ruby tests and deployed count verification pending.
+
+- Monthly delivery trend table headings now explicitly distinguish Total Delivered Tickets/Points from Avg. Delivered Tickets/Points per Owner, including single-owner reports. Labels only; deployed visual verification pending.

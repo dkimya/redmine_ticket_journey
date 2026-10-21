@@ -35,7 +35,7 @@
   <% end %>
   <p>Solid lines: actual monthly delivery. Dashed lines: current monthly targets. Each chart has its own scale.</p>
   <details class="performance-trend-values"><summary>View monthly totals and values</summary>
-    <div class="autoscroll"><table class="list"><thead><tr><th>Month</th><th>Delivered Tickets</th><th>Monthly Tickets<%= ' per Owner' if @selected_owners.size > 1 %></th><th>Delivered Points</th><th>Monthly Points<%= ' per Owner' if @selected_owners.size > 1 %></th><th>Missing Completion Dates</th></tr></thead>
+    <div class="autoscroll"><table class="list"><thead><tr><th>Month</th><th>Total Delivered Tickets</th><th>Avg. Delivered Tickets per Owner</th><th>Total Delivered Points</th><th>Avg. Delivered Points per Owner</th><th>Missing Completion Dates</th></tr></thead>
       <tbody><% points.each do |point| %><tr><th><%= format_date(point[:window_start]) %> – <%= format_date(point[:date]) %></th><td><%= point[:delivered_count] %></td><td><%= performance_number(point[:monthly_count]) %></td><td><%= performance_number(point[:delivered_weight]) %></td><td><%= performance_number(point[:monthly_weight]) %></td><td><%= point[:missing_completion] %></td></tr><% end %></tbody>
     </table></div>
   </details>
