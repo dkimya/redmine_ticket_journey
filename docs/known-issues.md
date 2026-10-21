@@ -94,3 +94,5 @@ Monthly Day 0 rules superseded on user approval: both metrics now use the three 
 - Returns Section 3 now includes both ratios over the preceding three completed month-end snapshots, with hover counts, a monthly-values table and gaps for unavailable values. It reuses the batched scan and historical events; three extra in-memory snapshots per candidate still add CPU work. Unit/request coverage added; local Ruby/host Redmine are unavailable, so tests, full web rendering, deployed visual verification and before/after latency/memory measurement remain pending.
 
 - Returns comparison row fills now explicitly cover both header and data cells: odd developer rows white, even rows very light blue. This overrides the host's gray Ticket Owner row-header background; the Total footer remains blue and bold. CSS change implemented locally; deployed visual verification pending.
+
+- Returns comparison developer rows now highlight every cell pale yellow (#fff8dc) on hover. The rule applies only to the table body, preserving the blue Total footer. Deployed hover verification pending.

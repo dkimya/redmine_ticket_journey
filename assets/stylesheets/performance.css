@@ -246,6 +246,7 @@
 /* Explicitly include row-header cells, overriding the host's gray th fill. */
 .performance-page .performance-return-comparison tbody tr:nth-child(odd)>*{background:#fff}
 .performance-page .performance-return-comparison tbody tr:nth-child(even)>*{background:#f8fbff}
+.performance-page .performance-return-comparison tbody tr:hover>*{background:#fff8dc}
 /* Consistent distribution grids, including every Total-row cell. */
 .performance-page .performance-return-distribution table{border-collapse:collapse}
 .performance-page .performance-return-distribution table th,
