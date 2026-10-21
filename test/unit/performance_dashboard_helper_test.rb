@@ -3,6 +3,23 @@ require File.expand_path('../test_helper', __dir__)
 class PerformanceDashboardHelperTest < ActiveSupport::TestCase
   include PerformanceDashboardHelper
 
+  test 'leaderboard axes reduce whitespace and include data and targets without capping future values' do
+    points = performance_leaderboard_geometry([{ '1' => 211.0 }], keys: ['1'], scale_values: [160], percent: false)
+    assert_equal 300.0, points[:maximum]
+    assert_equal [0, 100, 200, 300], points[:ticks]
+    returns = performance_leaderboard_geometry([{ '1' => 112.5 }], keys: ['1'], scale_values: [10, 50], percent: true)
+    assert_equal 125.0, returns[:maximum]
+    assert_equal [0, 25, 50, 75, 100, 125], returns[:ticks]
+    target = performance_leaderboard_geometry([{ '1' => 211.0 }], keys: ['1'], scale_values: [420], percent: false)
+    assert_operator target[:maximum], :>=, 420
+    future = performance_leaderboard_geometry([{ '1' => 1350.0 }], keys: ['1'], scale_values: [160], percent: false)
+    assert_operator future[:maximum], :>=, 1350
+    assert future[:series].flatten.all? { |point| (35..235).cover?(point[:y]) }
+    empty = performance_leaderboard_geometry([{ '1' => nil }], keys: ['1'], scale_values: [10, 50], percent: true)
+    assert_equal 50.0, empty[:maximum]
+    assert_nil empty[:series].first.first[:y]
+  end
+
   test 'owner colors are stable across tabs and independent of selection order' do
     assert_equal performance_owner_color(1393), performance_owner_color('1393')
     assert_not_equal performance_owner_color(1393), performance_owner_color(1394)

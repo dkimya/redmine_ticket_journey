@@ -15,6 +15,22 @@ module PerformanceDashboardHelper
     value <= 50 ? 'performance-return-warning' : 'performance-return-negative'
   end
 
+  def performance_leaderboard_geometry(points, keys:, scale_values:, percent:)
+    values = points.flat_map { |point| keys.map { |key| point[key] } }.compact + scale_values.compact
+    peak = [values.max.to_f, percent ? 10.0 : 1.0].max
+    unit = 10.0 ** Math.log10(peak).floor
+    # Choose a nearby readable ceiling instead of rounding the tick step first,
+    # which can create excessive headroom (211 points previously rounded to 400).
+    levels = { 1.0 => 4, 2.0 => 4, 3.0 => 3, 4.0 => 4, 5.0 => 5, 6.0 => 3, 8.0 => 4, 10.0 => 5 }
+    levels = levels.merge(1.25 => 5, 1.5 => 3, 2.5 => 5) if percent
+    level = levels.keys.sort.find { |value| value * unit >= peak }
+    maximum = level * unit
+    intervals = levels.fetch(level)
+    geometry = performance_return_trend_geometry(points, keys: keys, maximum: maximum)
+    step = maximum / intervals
+    geometry.merge(step: step, ticks: (0..intervals).map { |index| index * step })
+  end
+
   def performance_return_trend_geometry(points, keys: [:ratio, :adjusted_ratio], maximum: nil, scale_values: [], minimum: 10.0)
     values = points.flat_map { |point| keys.map { |key| point[key] } }.compact + scale_values.compact
     # A zero baseline, with a scale that also supports incident ratios over 100%.

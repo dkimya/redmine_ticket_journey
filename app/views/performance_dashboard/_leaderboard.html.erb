@@ -8,16 +8,16 @@
   <% keys = entries.map { |entry| entry[:owner].id.to_s } %>
   <% plot = dates.each_index.map { |index| entries.to_h { |entry| [entry[:owner].id.to_s, entry[:points][index][metric]] } } %>
   <% scale_values = @return_mode ? [10.0, 50.0] : entries.map { |entry| entry[:target] } %>
-  <% geometry = performance_return_trend_geometry(plot, keys: keys, scale_values: scale_values, minimum: @return_mode ? 10.0 : 1.0) %>
+  <% geometry = performance_leaderboard_geometry(plot, keys: keys, scale_values: scale_values, percent: @return_mode) %>
   <div class="performance-leaderboard-layout">
   <div class="autoscroll">
     <svg class="performance-trend-chart performance-leaderboard-chart" viewBox="0 0 860 285" role="img" aria-labelledby="leaderboard-title leaderboard-description">
       <title id="leaderboard-title"><%= @return_mode ? 'Individual owner return ratios' : 'Individual owner monthly complexity point delivery' %></title>
       <desc id="leaderboard-description">One line per owner. Missing points are not joined. Exact monthly values and contributing counts appear in the expandable table below. Legend buttons control line visibility only.</desc>
-      <% 0.upto(4) do |index| %>
-        <% y = 235 - index * 50 %>
+      <% geometry[:ticks].each do |tick| %>
+        <% y = 235 - tick / geometry[:maximum] * 200 %>
         <line class="performance-trend-grid" x1="90" x2="770" y1="<%= y %>" y2="<%= y %>" />
-        <text x="78" y="<%= y + 5 %>" text-anchor="end"><%= performance_number(index * geometry[:step]) %><%= '%' if @return_mode %></text>
+        <text x="78" y="<%= y + 5 %>" text-anchor="end"><%= performance_number(tick) %><%= '%' if @return_mode %></text>
       <% end %>
       <% dates.each_with_index do |date, index| %><text x="<%= geometry[:series].first[index][:x] %>" y="268" text-anchor="middle"><%= date.strftime('%b %Y') %></text><% end %>
       <% if @return_mode %>

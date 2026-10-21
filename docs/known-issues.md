@@ -134,3 +134,5 @@ Monthly Day 0 rules superseded on user approval: both metrics now use the three 
 - Team monthly delivery trend headings/subtitle now say average of selected owners for multi-owner reports, replacing the less explicit per owner wording. Calculations and single-owner labels are unchanged. Deployed visual verification pending.
 
 - Replaced ID-hashed leaderboard hues after a screenshot showed near-identical brown lines. Selected owners now get distinct qualitative palette slots, consistent across both tabs and row sorting for the same selection, with extra hues beyond 12 owners. Targets/10%-50% thresholds and calculations are unchanged. Helper coverage added but Ruby tests unrun locally; deployed visual verification pending.
+
+- Tightened Leaderboard vertical axes to reduce excess headroom using nearby readable ceilings and adaptive tick counts. No hard cap: all data and targets remain included. Helper coverage added for 300/125% examples, high targets/future data and empty ratios; Ruby tests unrun locally and deployed visual verification pending.
