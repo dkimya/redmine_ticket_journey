@@ -215,3 +215,32 @@
 .performance-return-ticket li{padding:4px 0}
 @media(max-width:1100px){.performance-return-distributions{grid-template-columns:1fr}}
 @media(max-width:650px){.performance-return-ratios{grid-template-columns:1fr}.performance-return-value{font-size:36px}}
+/* Returns comparison: equal compact buckets and clear metric-group boundaries. */
+.performance-page .performance-return-comparison{table-layout:fixed;width:100%;border-collapse:collapse}
+.performance-return-comparison .return-owner-col{width:14%}
+.performance-return-comparison .return-open-col{width:8%}
+.performance-return-comparison .return-bucket-col{width:5.25%}
+.performance-return-comparison .return-ratio-col{width:18%}
+.performance-page .performance-return-comparison th,.performance-page .performance-return-comparison td{border:1px solid #c6d3e2;white-space:normal;overflow-wrap:anywhere;padding:9px 6px}
+.performance-return-comparison thead th{text-align:center;vertical-align:middle;line-height:1.4}
+.performance-return-comparison thead tr:first-child th.return-count-group{background:#edf5ff;border:2px solid #7897bb}
+.performance-return-comparison thead tr:first-child th.return-repeat-group{background:#f1f7ff;border:2px solid #7897bb}
+.performance-return-comparison thead .return-ratio-group{border-left:2px solid #7897bb!important;border-top:2px solid #7897bb!important}
+.performance-return-comparison thead .return-ratio-end{border-right:2px solid #7897bb!important;border-top:2px solid #7897bb!important}
+.performance-return-comparison thead tr:nth-child(2) th:nth-child(1),.performance-return-comparison thead tr:nth-child(2) th:nth-child(6),.performance-return-comparison tbody tr>:nth-child(3),.performance-return-comparison tbody tr>:nth-child(8),.performance-return-comparison tbody tr>:nth-child(11),.performance-return-comparison tfoot tr>:nth-child(3),.performance-return-comparison tfoot tr>:nth-child(8),.performance-return-comparison tfoot tr>:nth-child(11){border-left:2px solid #7897bb}
+.performance-return-comparison thead tr:nth-child(2) th:nth-child(5),.performance-return-comparison thead tr:nth-child(2) th:nth-child(8),.performance-return-comparison tbody tr>:nth-child(7),.performance-return-comparison tbody tr>:nth-child(10),.performance-return-comparison tbody tr>:nth-child(12),.performance-return-comparison tfoot tr>:nth-child(7),.performance-return-comparison tfoot tr>:nth-child(10),.performance-return-comparison tfoot tr>:nth-child(12){border-right:2px solid #7897bb}
+.performance-return-comparison abbr[title]{text-decoration:underline dotted;cursor:help;text-underline-offset:3px}
+.performance-return-comparison abbr:focus-visible{outline:2px solid #007bd1;outline-offset:3px}
+.performance-page .performance-return-comparison tfoot tr>*{border-top:2px solid #7897bb;border-bottom:2px solid #7897bb;font-weight:800}
+/* Consistent distribution grids, including every Total-row cell. */
+.performance-page .performance-return-distribution table{border-collapse:collapse}
+.performance-page .performance-return-distribution table th,
+.performance-page .performance-return-distribution table td{border:1px solid #b8c8db}
+.performance-page .performance-return-distribution table tfoot th,
+.performance-page .performance-return-distribution table tfoot td{
+  background:#eef6ff;
+  border:1px solid #b8c8db;
+  border-top:2px solid #7897bb;
+  border-bottom:2px solid #7897bb;
+  font-weight:800;
+}

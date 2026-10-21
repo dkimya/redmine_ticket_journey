@@ -76,3 +76,7 @@ Monthly Day 0 rules superseded on user approval: both metrics now use the three 
 - Performance Live Returns implemented locally after Hadi confirmed accumulated same-source-stage repeats and all four scope/layout decisions. Legacy lifetime counters are unchanged. Missing/hidden reason history makes adjusted ratio unavailable; no current-value-only merge exclusion is silently assumed. Unit/functional coverage added but not run without local Ruby. UI, full-request behavior, installed-plugin compatibility and memory measurements remain server verification work.
 
 - Hadi confirmed Ongoing inclusion in Returns to align the denominator with Tickets. Both now share OPEN_EXCLUDED_STATUSES (New/On-Hold), with closed statuses excluded separately. Updated tooltips and regression coverage for open totals, zero-return buckets, prior return history and both ratios. Code implemented locally; deployed totals/ratios await verification. Earlier Returns-specific Ongoing exclusion is superseded.
+
+- Hadi's Returns comparison readability feedback implemented: equal compact bucket columns, abbreviated 3+/2+ headers with explicit threshold tooltips, stronger group outlines and vertical cell dividers through owner/Total rows. Counts and links unchanged; deployed desktop/narrow-screen visual verification pending.
+
+- Returns distribution tables now enforce consistent borders on all cells, including Total-row vertical dividers and identical footer backgrounds/outlines. CSS change implemented locally; deployed visual verification pending.
