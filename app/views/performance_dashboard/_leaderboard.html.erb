@@ -7,12 +7,7 @@
   <% keys = entries.map { |entry| entry[:owner].id.to_s } %>
   <% plot = dates.each_index.map { |index| entries.to_h { |entry| [entry[:owner].id.to_s, entry[:points][index][metric]] } } %>
   <% geometry = performance_return_trend_geometry(plot, keys: keys, minimum: @return_mode ? 10.0 : 1.0) %>
-  <div class="performance-leaderboard-legend" aria-label="Selected owner lines">
-    <% entries.each do |entry| %>
-      <% owner = entry[:owner] %>
-      <button type="button" data-leaderboard-toggle="<%= owner.id %>" aria-pressed="true" aria-label="Hide <%= owner.name %> line" data-owner-name="<%= owner.name %>"><span class="performance-leaderboard-swatch" style="border-color:<%= performance_owner_color(owner.id) %>" aria-hidden="true"></span><%= owner.name %></button>
-    <% end %>
-  </div>
+  <div class="performance-leaderboard-layout">
   <div class="autoscroll">
     <svg class="performance-trend-chart performance-leaderboard-chart" viewBox="0 0 860 285" role="img" aria-labelledby="leaderboard-title leaderboard-description">
       <title id="leaderboard-title"><%= @return_mode ? 'Individual owner return ratios' : 'Individual owner monthly complexity point delivery' %></title>
@@ -37,6 +32,13 @@
         </g>
       <% end %>
     </svg>
+  </div>
+  <div class="performance-leaderboard-legend" aria-label="Selected owner lines">
+    <% entries.each do |entry| %>
+      <% owner = entry[:owner] %>
+      <button type="button" data-leaderboard-toggle="<%= owner.id %>" aria-pressed="true" aria-label="Hide <%= owner.name %> line" data-owner-name="<%= owner.name %>"><span class="performance-leaderboard-swatch" style="border-color:<%= performance_owner_color(owner.id) %>" aria-hidden="true"></span><%= owner.name %></button>
+    <% end %>
+  </div>
   </div>
   <p><%= @return_mode ? 'Includes Merge Conflict. N/A means no open tickets at that month-end. Ratios can exceed 100%; compare incident and ticket counts alongside the percentage.' : 'Points are actual monthly totals for each owner. Missing or hidden weights contribute no points; eligible delivered tickets still count.' %></p>
   <details class="performance-trend-values"><summary>View individual monthly values and counts</summary>
