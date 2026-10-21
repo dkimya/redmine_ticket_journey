@@ -84,3 +84,5 @@ Monthly Day 0 rules superseded on user approval: both metrics now use the three 
 - Returns comparison table final columns changed to total incident count and raw incidents/open-ticket ratio, both including Merge Conflict. The lower adjusted ratio card is unchanged. Local implementation; deployed verification pending.
 
 - Narrowed Returns comparison final columns to 10% (Total Return Incidents) and 14% (incident/open-ticket ratio), with wrapping full headings. Freed width goes to owner/open and equal bucket columns; widths total 100%. Existing borders, right-aligned values and sorting links retained. Deployed visual verification pending.
+
+- Returns comparison readability refined: thin light horizontal rules, stronger vertical group dividers, a subtle double line only above Total, centered integer counts, left-aligned names, right-aligned percentages, regular body values and bold blue Total row. Added row padding and subtle alternating owner rows. Local CSS change; deployed visual verification pending.

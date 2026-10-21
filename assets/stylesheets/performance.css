@@ -224,17 +224,26 @@
 .performance-return-comparison .return-ratio-col{width:14%}
 .performance-return-comparison thead .return-ratio-group a{display:inline-block;max-width:8.5em}
 .performance-return-comparison thead .return-ratio-end a{display:inline-block;max-width:10.5em}
-.performance-page .performance-return-comparison th,.performance-page .performance-return-comparison td{border:1px solid #c6d3e2;white-space:normal;overflow-wrap:anywhere;padding:9px 6px}
+.performance-page .performance-return-comparison th,.performance-page .performance-return-comparison td{border:1px solid #e0e7ef;border-left-color:#c6d3e2;border-right-color:#c6d3e2;white-space:normal;overflow-wrap:anywhere;padding:12px 8px;font-variant-numeric:tabular-nums}
 .performance-return-comparison thead th{text-align:center;vertical-align:middle;line-height:1.4}
-.performance-return-comparison thead tr:first-child th.return-count-group{background:#edf5ff;border:2px solid #7897bb}
-.performance-return-comparison thead tr:first-child th.return-repeat-group{background:#f1f7ff;border:2px solid #7897bb}
-.performance-return-comparison thead .return-ratio-group{border-left:2px solid #7897bb!important;border-top:2px solid #7897bb!important}
-.performance-return-comparison thead .return-ratio-end{border-right:2px solid #7897bb!important;border-top:2px solid #7897bb!important}
+.performance-return-comparison thead tr:first-child th.return-count-group{background:#edf5ff;border-left:2px solid #7897bb;border-right:2px solid #7897bb}
+.performance-return-comparison thead tr:first-child th.return-repeat-group{background:#f1f7ff;border-left:2px solid #7897bb;border-right:2px solid #7897bb}
+.performance-return-comparison thead .return-ratio-group{border-left:2px solid #7897bb}
+.performance-return-comparison thead .return-ratio-end{border-right:2px solid #7897bb}
 .performance-return-comparison thead tr:nth-child(2) th:nth-child(1),.performance-return-comparison thead tr:nth-child(2) th:nth-child(6),.performance-return-comparison tbody tr>:nth-child(3),.performance-return-comparison tbody tr>:nth-child(8),.performance-return-comparison tbody tr>:nth-child(11),.performance-return-comparison tfoot tr>:nth-child(3),.performance-return-comparison tfoot tr>:nth-child(8),.performance-return-comparison tfoot tr>:nth-child(11){border-left:2px solid #7897bb}
 .performance-return-comparison thead tr:nth-child(2) th:nth-child(5),.performance-return-comparison thead tr:nth-child(2) th:nth-child(8),.performance-return-comparison tbody tr>:nth-child(7),.performance-return-comparison tbody tr>:nth-child(10),.performance-return-comparison tbody tr>:nth-child(12),.performance-return-comparison tfoot tr>:nth-child(7),.performance-return-comparison tfoot tr>:nth-child(10),.performance-return-comparison tfoot tr>:nth-child(12){border-right:2px solid #7897bb}
 .performance-return-comparison abbr[title]{text-decoration:underline dotted;cursor:help;text-underline-offset:3px}
 .performance-return-comparison abbr:focus-visible{outline:2px solid #007bd1;outline-offset:3px}
-.performance-page .performance-return-comparison tfoot tr>*{border-top:2px solid #7897bb;border-bottom:2px solid #7897bb;font-weight:800}
+.performance-page .performance-return-comparison tfoot tr>*{border-top:3px double #8ca1bb;border-bottom:1px solid #e0e7ef;font-weight:800;background:#e9f3ff}
+.performance-page .performance-return-comparison tbody tr>th,
+.performance-page .performance-return-comparison tfoot tr>th{text-align:left}
+.performance-page .performance-return-comparison tbody tr>*{font-weight:400}
+.performance-page .performance-return-comparison tbody a{font-weight:400}
+.performance-page .performance-return-comparison tbody tr>td,
+.performance-page .performance-return-comparison tfoot tr>td{text-align:center}
+.performance-page .performance-return-comparison tbody tr>td:last-child,
+.performance-page .performance-return-comparison tfoot tr>td:last-child{text-align:right}
+.performance-page .performance-return-comparison tbody tr:nth-child(even)>*{background:#f8fbff}
 /* Consistent distribution grids, including every Total-row cell. */
 .performance-page .performance-return-distribution table{border-collapse:collapse}
 .performance-page .performance-return-distribution table th,
