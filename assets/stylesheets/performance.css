@@ -296,3 +296,12 @@
 .performance-trend-values summary{cursor:pointer;color:#0073b7}
 .performance-trend-values table{margin-top:12px}
 .performance-trend-values th,.performance-trend-values td{padding:8px;white-space:normal}
+.performance-ticket-trends{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start}
+.performance-ticket-trends>.performance-section{min-width:0;margin:20px 0}
+.performance-monthly-delivery-trend h4{margin:0 0 8px;font-size:17px}
+.performance-monthly-delivery-trend p{color:#536780;font-size:13px}
+.performance-output-chart h5{font-size:14px;margin:16px 0 6px}
+.performance-output-chart p{margin:4px 0}
+.performance-output-svg{max-height:220px}
+.performance-output-weight .performance-trend-series{stroke:#00865e;fill:#00865e}
+@media(max-width:1100px){.performance-ticket-trends{grid-template-columns:1fr}}

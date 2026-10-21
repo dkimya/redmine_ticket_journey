@@ -8,10 +8,23 @@ class TicketJourneyPerformance
   end
 
   def self.delivery_trend_points(date)
-    completed_month_ends(date).map { |day| { date: day, due: 0, done: 0, due_weight: 0.0, done_weight: 0.0 } }
+    completed_month_ends(date).map do |day|
+      { date: day, window_start: day.beginning_of_month << 2,
+        due: 0, done: 0, due_weight: 0.0, done_weight: 0.0,
+        delivered_count: 0, delivered_weight: 0.0, missing_completion: 0 }
+    end
   end
 
   def self.add_delivery_trend_row!(point, row)
+    return unless delivery_eligible?(row)
+
+    if row[:done] && row[:delivered_at].nil?
+      point[:missing_completion] += 1
+    end
+    if monthly_delivery?(row, point[:window_start], point[:date])
+      point[:delivered_count] += 1
+      point[:delivered_weight] += row[:weight]
+    end
     return unless delivery_due?(row, point[:date])
 
     point[:due] += 1
@@ -19,6 +32,17 @@ class TicketJourneyPerformance
     if row[:done]
       point[:done] += 1
       point[:done_weight] += row[:weight]
+    end
+  end
+
+  def self.monthly_delivery?(row, first_day, last_day)
+    delivery_eligible?(row) && row[:done] && row[:delivered_at] && row[:delivered_at].between?(first_day, last_day)
+  end
+
+  def self.finish_output_trend!(points, owner_count)
+    points.each do |point|
+      point[:monthly_count] = point[:delivered_count] / 3.0 / owner_count
+      point[:monthly_weight] = point[:delivered_weight] / 3.0 / owner_count
     end
   end
 
@@ -263,7 +287,7 @@ class TicketJourneyPerformance
     # The legacy third argument is intentionally ignored for old callers.
     monthly_end = date.beginning_of_month - 1
     monthly_start = date.beginning_of_month << 3
-    delivered = delivery_rows.select { |r| r[:done] && r[:delivered_at] && r[:delivered_at].between?(monthly_start, monthly_end) }
+    delivered = delivery_rows.select { |r| monthly_delivery?(r, monthly_start, monthly_end) }
     weighted_delivered = delivered.select { |r| r[:weight].positive? }
     # Both counts and drill-downs use these exact sets; never rebuild them with
     # current-status IssueQuery filters for a historical report.

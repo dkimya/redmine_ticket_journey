@@ -3,6 +3,15 @@ require File.expand_path('../test_helper', __dir__)
 class PerformanceDashboardHelperTest < ActiveSupport::TestCase
   include PerformanceDashboardHelper
 
+  test 'monthly output geometry includes target on its numeric scale without percent units' do
+    points = [{ monthly_count: 0.0 }, { monthly_count: 2.0 }]
+    geometry = performance_return_trend_geometry(points, keys: [:monthly_count], scale_values: [30.0], minimum: 1.0)
+    assert_operator geometry[:maximum], :>=, 30.0
+    assert_equal 1, geometry[:series].size
+    small = performance_return_trend_geometry(points, keys: [:monthly_count], minimum: 1.0)
+    assert_operator small[:maximum], :<, geometry[:maximum]
+  end
+
   test 'five month trend evenly spaces all points across the chart' do
     points = Array.new(5) { { ratio: 50.0, adjusted_ratio: nil } }
     geometry = performance_return_trend_geometry(points)

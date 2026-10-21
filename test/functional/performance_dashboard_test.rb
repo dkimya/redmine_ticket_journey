@@ -65,6 +65,7 @@ class PerformanceDashboardTest < ActionController::TestCase
       due: dates.first, weight: 8.0, missing_weight: false, delivered_at: nil, started: true }
     dates.each_with_index do |day, index|
       snapshot = base.merge(owner_id: index == 2 ? '2' : '1', done: index == 1,
+        delivered_at: index == 1 ? day.beginning_of_month : nil,
         status_name: index == 1 ? 'Done / Closed' : 'In Progress')
       TicketJourneyPerformance.stubs(:snapshot).with { |_candidate, at, *rest| at == day }.returns(snapshot)
     end
@@ -76,13 +77,18 @@ class PerformanceDashboardTest < ActionController::TestCase
     assert_equal [1, 1, 0, 1, 1], trend.map { |point| point[:due] }
     assert_equal [0.0, 100.0, nil, 0.0, 0.0], trend.map { |point| point[:count_ratio] }
     assert_select '.performance-delivery-trend svg', count: 1
-    assert_select '.performance-trend-target-line', count: 1
+    assert_select '.performance-delivery-trend .performance-trend-target-line', count: 1
+    assert_select '.performance-monthly-delivery-trend svg', count: 2
+    assert_select '.performance-monthly-delivery-trend tbody tr', count: 5
+    assert_in_delta 1.0 / 3, trend[1][:monthly_count], 0.0001
+    assert_in_delta 8.0 / 3, trend[1][:monthly_weight], 0.0001
     assert_select '.performance-delivery-trend tbody tr', count: 5
     TicketJourneyPerformance.expects(:history_for).with([issue.id], date, include_return_reason: false).returns({})
     TicketJourneyPerformance.expects(:add_delivery_trend_row!).never
     get :index, params: { project_id: @project.identifier, owner_id: '1', as_of: date.iso8601, metric: 'due' }
     assert_response :success
     assert_select '.performance-delivery-trend', count: 0
+    assert_select '.performance-monthly-delivery-trend', count: 0
     assert_nil @controller.instance_variable_get(:@delivery_trend)
   end
 

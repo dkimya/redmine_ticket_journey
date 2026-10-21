@@ -133,6 +133,7 @@ class PerformanceDashboardController < ApplicationController
       }
     end
     @targets = @target_details.map { |detail| detail[:value] }
+    TicketJourneyPerformance.finish_output_trend!(@delivery_trend, @selected_owners.size) if @delivery_trend
     @comparison = @metric ? [] : @selected_owners.map do |owner|
       { owner: owner, report: TicketJourneyPerformance.calculate(rows.select { |r| r[:owner_id] == owner.id.to_s }, @date) }
     end

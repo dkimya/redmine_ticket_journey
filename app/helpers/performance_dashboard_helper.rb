@@ -6,10 +6,10 @@ module PerformanceDashboardHelper
     value <= 50 ? 'performance-return-warning' : 'performance-return-negative'
   end
 
-  def performance_return_trend_geometry(points, keys: [:ratio, :adjusted_ratio], maximum: nil)
-    values = points.flat_map { |point| keys.map { |key| point[key] } }.compact
+  def performance_return_trend_geometry(points, keys: [:ratio, :adjusted_ratio], maximum: nil, scale_values: [], minimum: 10.0)
+    values = points.flat_map { |point| keys.map { |key| point[key] } }.compact + scale_values.compact
     # A zero baseline, with a scale that also supports incident ratios over 100%.
-    peak = [values.max.to_f, 10.0].max
+    peak = [values.max.to_f, minimum].max
     if maximum
       step = maximum / 4.0
     else

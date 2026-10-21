@@ -1,6 +1,35 @@
 require File.expand_path('../test_helper', __dir__)
 
 class TicketJourneyPerformanceTest < ActiveSupport::TestCase
+  test 'output trends use inclusive rolling windows independent of due dates and divide by every owner' do
+    points = TicketJourneyPerformance.delivery_trend_points(Date.new(2026, 10, 21))
+    assert_equal Date.new(2026, 3, 1), points.first[:window_start]
+    point = points.last
+    assert_equal Date.new(2026, 7, 1), point[:window_start]
+    rows = [row(done: true, delivered_at: Date.new(2026, 7, 1), weight: 6.0),
+      row(done: true, delivered_at: Date.new(2026, 9, 30), weight: 6.0),
+      row(done: true, delivered_at: Date.new(2026, 8, 1), weight: 0.0, missing_weight: true),
+      row(done: true, delivered_at: Date.new(2026, 6, 30), weight: 99.0),
+      row(done: true, delivered_at: Date.new(2026, 10, 1), weight: 99.0),
+      row(done: false, delivered_at: Date.new(2026, 8, 1), weight: 99.0),
+      row(done: true, delivered_at: Date.new(2026, 8, 1), status_name: 'Archived'),
+      row(done: true, delivered_at: Date.new(2026, 8, 1), status_name: 'Ongoing'),
+      row(done: true, delivered_at: nil)]
+    rows.each { |candidate| TicketJourneyPerformance.add_delivery_trend_row!(point, candidate) }
+    TicketJourneyPerformance.finish_output_trend!(points, 2)
+    assert_equal 0, point[:due]
+    assert_equal 3, point[:delivered_count]
+    assert_equal 12.0, point[:delivered_weight]
+    assert_equal 0.5, point[:monthly_count]
+    assert_equal 2.0, point[:monthly_weight]
+    assert_equal 1, point[:missing_completion]
+    # With identical snapshot rows, the next month's card has this same window.
+    card = TicketJourneyPerformance.calculate(rows, Date.new(2026, 10, 1))
+    assert_equal card[:monthly_count] / 2, point[:monthly_count]
+    assert_equal card[:monthly_weight] / 2, point[:monthly_weight]
+    assert_equal 0.0, points.first[:monthly_count]
+  end
+
   test 'delivery trend points match Returns completed month ends' do
     date = Date.new(2026, 1, 15)
     points = TicketJourneyPerformance.delivery_trend_points(date)
