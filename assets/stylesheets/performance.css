@@ -323,3 +323,4 @@
 .performance-leaderboard-owner-label small{display:inline;margin-left:4px;font-size:10px;color:#65758a}
 @media(max-width:950px){.performance-leaderboard-layout{grid-template-columns:minmax(0,1fr);gap:14px}}
 @media(max-width:1100px){.performance-ticket-trends{grid-template-columns:1fr}}
+.performance-page .performance-weight-note { font-size:12px; line-height:1.5; color:#536579; margin-top:8px; }

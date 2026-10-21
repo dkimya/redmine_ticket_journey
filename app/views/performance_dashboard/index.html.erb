@@ -47,10 +47,19 @@
               </div>
               <p>Sum of Complexity Weight</p><div><strong class="performance-weight"><%= performance_number(TicketJourneyPerformance.weight(groups[i])) %></strong>
               <% if i > 0 %><span>(<%= total_weight.positive? ? "#{performance_number(performance_percent(TicketJourneyPerformance.weight(groups[i]), total_weight))}%" : 'N/A' %>)</span><% end %></div>
+              <% missing_metric = "#{%w[open not_overdue started untouched][i]}_missing_weight"; missing_count = @report[:detail_sets].fetch(missing_metric).size %>
+              <% if missing_count.positive? %>
+                <div class="performance-weight-note">
+                  <%= performance_detail_link(pluralize(missing_count, 'ticket'), missing_metric) %> <%= missing_count == 1 ? 'has' : 'have' %> no usable complexity weight.
+                  Total includes <%= groups[i].size - missing_count %> of <%= pluralize(groups[i].size, 'ticket') %>.
+                  <%= performance_tip('Missing, hidden, invalid, zero or negative complexity weights are excluded from the sum. These tickets still count as tickets. Weight percentages use only usable recorded weights across all open tickets.') %>
+                </div>
+              <% end %>
             </article>
           <% end %>
         </div>
       </div>
+      <p class="performance-weight-note">Weight percentages use only usable recorded weights across all open tickets.</p>
     </section>
     <section class="performance-section">
       <h3><span class="performance-step">2</span> Delivery Metrics (All Tickets Due by Date) <%= performance_tip('Cumulative delivery uses tickets with a current due date on or before the report date. The numerator includes only those tickets in Done / Closed at that date. Archived and Ongoing tickets at the selected report date are excluded from all Section 2 counts and weights, including the due denominator. Reopened tickets are not counted as done. No due date means excluded from both delivery ratios. Each ticket counts once.') %></h3>

@@ -208,6 +208,10 @@ class TicketJourneyPerformance
     'stopped' => 'Stopped Open Tickets (Pending)',
     'due_soon' => 'Due Soon', 'missing_due' => 'Open Tickets Without Due Dates',
     'missing_weight' => 'Tickets Without Usable Complexity Weight',
+    'open_missing_weight' => 'Open Tickets Without Usable Complexity Weight',
+    'not_overdue_missing_weight' => 'Not Overdue Tickets Without Usable Complexity Weight',
+    'started_missing_weight' => 'Overdue Started Tickets Without Usable Complexity Weight',
+    'untouched_missing_weight' => 'Overdue Untouched Tickets Without Usable Complexity Weight',
     'missing_delivery' => 'Done Tickets Without Recorded Completion Dates',
     'done' => 'Done Tickets Due by Date', 'due' => 'Tickets Due by Date',
     'delivered' => 'Monthly Ticket Count Contributors',
@@ -311,6 +315,9 @@ class TicketJourneyPerformance
       'missing_delivery' => delivery_rows.select { |r| r[:done] && r[:delivered_at].nil? },
       'done' => done, 'due' => due, 'delivered' => delivered, 'delivered_weight' => weighted_delivered
     }
+    %w[open not_overdue started untouched].each do |group|
+      sets["#{group}_missing_weight"] = sets.fetch(group).select { |row| row[:missing_weight] }
+    end
     {
       detail_sets: sets,
       groups: [open, not_overdue, started, untouched], due: due, done: done,
