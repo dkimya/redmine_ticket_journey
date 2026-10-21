@@ -1,4 +1,8 @@
 module PerformanceDashboardHelper
+  def performance_owner_color(owner_id)
+    "hsl(#{(owner_id.to_i * 137.508 % 360).round(2)}, 65%, 35%)"
+  end
+
   def performance_return_ratio_class(value)
     return 'performance-return-unavailable' if value.nil?
     return 'performance-return-positive' if value < 10

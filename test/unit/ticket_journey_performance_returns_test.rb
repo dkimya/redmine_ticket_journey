@@ -96,6 +96,16 @@ class TicketJourneyPerformanceReturnsTest < ActiveSupport::TestCase
     previous_owner = TicketJourneyPerformanceReturns.trend_points(date).last(3)
     TicketJourneyPerformanceReturns.accumulate_trend!(previous_owner, ticket, history, states, date, values, Set['10'])
     assert previous_owner.all? { |point| point[:open].zero? }
+    individual = { '10' => TicketJourneyPerformanceReturns.trend_points(date).last(3),
+                   '20' => TicketJourneyPerformanceReturns.trend_points(date).last(3) }
+    team = TicketJourneyPerformanceReturns.trend_points(date).last(3)
+    counted_events = TicketJourneyPerformanceReturns.events_for(ticket, history, states, date, reason_value: 'Bug', reason_visible: true)
+    TicketJourneyPerformanceReturns.expects(:events_for).once.returns(counted_events)
+    TicketJourneyPerformanceReturns.accumulate_trend!(team, ticket, history, states, date, values, Set['10', '20'], owner_points: individual)
+    TicketJourneyPerformanceReturns.finish_trend!(team)
+    individual.each_value { |points| TicketJourneyPerformanceReturns.finish_trend!(points) }
+    assert_equal team, individual['20']
+    assert individual['10'].all? { |point| point[:open].zero? && point[:ratio].nil? }
   end
 
   test 'trend excludes tickets before creation and marks hidden reasons unavailable' do

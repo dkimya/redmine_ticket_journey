@@ -24,7 +24,7 @@ class TicketJourneyPerformanceReturns
 
   # Reuse each candidate's loaded scalar history. Retain only monthly aggregates,
   # including tickets closed or reassigned by the main report date.
-  def self.accumulate_trend!(points, issue, history, statuses, date, visible_values, owner_ids)
+  def self.accumulate_trend!(points, issue, history, statuses, date, visible_values, owner_ids, owner_points: nil)
     owner_value = visible_values.find { |value| value.custom_field.id == 57 }&.value.to_s
     snapshots = points.map do |point|
       row = TicketJourneyPerformance.snapshot(issue, point[:date], statuses,
@@ -39,13 +39,17 @@ class TicketJourneyPerformanceReturns
       next unless snapshots[index]
 
       cutoff = point[:date].in_time_zone.end_of_day
-      point[:open] += 1
-      events.each do |event|
-        next if event[:at] > cutoff
+      destinations = [point]
+      destinations << owner_points.fetch(snapshots[index][:owner_id])[index] if owner_points
+      destinations.each do |destination|
+        destination[:open] += 1
+        events.each do |event|
+          next if event[:at] > cutoff
 
-        point[:incidents] += 1
-        point[:non_merge] += 1 if event[:merge_conflict] == false
-        point[:unknown] += 1 if event[:merge_conflict].nil?
+          destination[:incidents] += 1
+          destination[:non_merge] += 1 if event[:merge_conflict] == false
+          destination[:unknown] += 1 if event[:merge_conflict].nil?
+        end
       end
     end
     events

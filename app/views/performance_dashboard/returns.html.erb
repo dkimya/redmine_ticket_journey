@@ -2,6 +2,7 @@
   <%= stylesheet_link_tag 'performance', plugin: 'redmine_ticket_journey' %>
   <%= javascript_include_tag 'performance_owner_picker', plugin: 'redmine_ticket_journey', defer: true %>
   <%= javascript_include_tag 'performance_navigation', plugin: 'redmine_ticket_journey', defer: true %>
+  <%= javascript_include_tag 'performance_leaderboard', plugin: 'redmine_ticket_journey', defer: true %>
 <% end %>
 <% html_title 'Performance Results — Returns' %>
 <div class="performance-page">
@@ -20,7 +21,8 @@
         <tfoot><%= render 'return_comparison_row', report: @returns, ids: @selected_owner_ids, label: 'Total', total: true %></tfoot>
       </table></div>
     </details>
-    <h3>Combined results for selected owners</h3>
+    <%= render 'leaderboard', entries: @leaderboard_entries if @leaderboard_entries %>
+    <h3>Combined Results for selected owners (team)</h3>
     <div class="performance-return-distributions">
       <%= render 'return_distribution', number: 1, title: 'Return Count Distribution (Open Tickets)', keys: %w[returns_0 returns_1 returns_2 returns_3 returns_4], labels: ['0 Return', '1 Return', '2 Returns', '3 Returns', '3+ Returns'], denominator: @returns[:open], total_metric: 'returns_open', total_label: 'Total Open Tickets' %>
       <%= render 'return_distribution', number: 2, title: 'Consecutive Return Distribution (Open Tickets)', keys: %w[repeats_1 repeats_2 repeats_3], labels: ['1 Consecutive Return', '2 Consecutive Returns', '2+ Consecutive Returns'], denominator: @returns[:with_repeats], total_metric: 'repeats_all', total_label: 'Tickets with Consecutive Returns' %>

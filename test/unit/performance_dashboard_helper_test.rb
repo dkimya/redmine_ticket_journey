@@ -3,6 +3,12 @@ require File.expand_path('../test_helper', __dir__)
 class PerformanceDashboardHelperTest < ActiveSupport::TestCase
   include PerformanceDashboardHelper
 
+  test 'owner colors are stable across tabs and independent of selection order' do
+    assert_equal performance_owner_color(1393), performance_owner_color('1393')
+    assert_not_equal performance_owner_color(1393), performance_owner_color(1394)
+    assert_match(/\Ahsl\([\d.]+, 65%, 35%\)\z/, performance_owner_color(1393))
+  end
+
   test 'monthly output geometry includes target on its numeric scale without percent units' do
     points = [{ monthly_count: 0.0 }, { monthly_count: 2.0 }]
     geometry = performance_return_trend_geometry(points, keys: [:monthly_count], scale_values: [30.0], minimum: 1.0)

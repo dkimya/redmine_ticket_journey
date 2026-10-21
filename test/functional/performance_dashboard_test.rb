@@ -151,6 +151,49 @@ class PerformanceDashboardTest < ActionController::TestCase
     assert_select '.performance-planned-section', count: 0
     assert_select '.nodata', text: /No return report has been calculated/
     assert_select 'input[name="tab"][value="returns"]'
+    assert_select '.performance-leaderboard', count: 0
+  end
+
+  test 'multi owner leaderboards compare actual points and raw return ratios before team results' do
+    User.find(2).update_column(:status, Principal::STATUS_ACTIVE)
+    issues = [Issue.find(1), Issue.find(2)]
+    issues.each { |issue| issue.update_columns(project_id: @project.id, tracker_id: issues.first.tracker_id) }
+    issues.first.tracker.update!(name: 'Bug')
+    Issue.expects(:visible).at_least_once.returns(Issue.where(id: issues.map(&:id)))
+    Issue.any_instance.stubs(:visible_custom_field_values).returns([stub(custom_field: stub(id: 57), value: '1')])
+    TicketJourneyPerformance.stubs(:history_for).returns({})
+    rows = issues.each_with_index.map do |issue, index|
+      row = { id: issue.id, owner_id: (index + 1).to_s, status_name: 'Done / Closed', open: false, done: true,
+        due: nil, weight: (index + 1) * 5.0, missing_weight: false, started: true,
+        delivered_at: Date.current.beginning_of_month - 1 }
+      TicketJourneyPerformance.stubs(:snapshot).with { |candidate, *rest| candidate.id == issue.id }.returns(row)
+      row
+    end
+    get :index, params: { project_id: @project.identifier, owner_ids: ['1', '2'] }
+    assert_response :success
+    assert_select '.performance-leaderboard', count: 1
+    assert_select '[data-leaderboard-toggle]', count: 2
+    assert_select '.performance-leaderboard tbody tr', count: 10
+    entries = @controller.instance_variable_get(:@leaderboard_entries).to_h { |entry| [entry[:owner].id, entry[:points]] }
+    assert_equal 5.0, entries[1].last[:delivered_weight]
+    assert_equal 10.0, entries[2].last[:delivered_weight]
+    assert_equal entries.values.sum { |points| points.last[:delivered_weight] }, @controller.instance_variable_get(:@delivery_trend).last[:delivered_weight]
+    assert_operator @response.body.index('performance-comparison'), :<, @response.body.index('performance-leaderboard')
+    assert_operator @response.body.index('performance-leaderboard'), :<, @response.body.index('Combined Results for selected owners (team)')
+    styles = css_select('[data-leaderboard-series]').map { |element| [element['data-leaderboard-series'], element['style']] }.to_h
+    issues.each_with_index do |issue, index|
+      TicketJourneyPerformance.stubs(:snapshot).with { |candidate, *rest| candidate.id == issue.id }.returns(rows[index].merge(open: true, done: false, status_name: 'In Progress'))
+      events = Array.new(index.zero? ? 2 : 1) { |n| { at: (Date.current.beginning_of_month << 5).in_time_zone, repeat: false, merge_conflict: n == 1 } }
+      TicketJourneyPerformanceReturns.stubs(:events_for).with { |candidate, *rest| candidate.id == issue.id }.returns(events)
+    end
+    get :index, params: { project_id: @project.identifier, owner_ids: ['1', '2'], tab: 'returns' }
+    assert_response :success
+    entries = @controller.instance_variable_get(:@leaderboard_entries).to_h { |entry| [entry[:owner].id, entry[:points]] }
+    assert_equal 200.0, entries[1].last[:ratio]
+    assert_equal 100.0, entries[2].last[:ratio]
+    assert_equal 150.0, @controller.instance_variable_get(:@return_trend).last[:ratio]
+    assert_equal styles, css_select('[data-leaderboard-series]').map { |element| [element['data-leaderboard-series'], element['style']] }.to_h
+    assert_select '.performance-leaderboard tbody tr', count: 10
   end
 
   test 'Returns comparison chart and audit drill down share exact historical population' do
@@ -174,7 +217,7 @@ class PerformanceDashboardTest < ActionController::TestCase
     assert_select '.performance-return-trend svg', count: 1
     assert_select '.performance-trend-values tbody tr', count: 5
     assert_operator @response.body.index('performance-return-ratios'), :<, @response.body.index('performance-return-trend')
-    assert_operator @response.body.index('Developer comparison'), :<, @response.body.index('Combined results')
+    assert_operator @response.body.index('Developer comparison'), :<, @response.body.index('Combined Results')
     TicketJourneyPerformance.expects(:history_for).with([issue.id], Date.current, include_return_reason: true).returns({})
     TicketJourneyPerformanceReturns.expects(:accumulate_trend!).never
     get :index, params: { project_id: @project.identifier, tab: 'returns', owner_id: '1', metric: 'repeats_2' }
@@ -424,7 +467,7 @@ class PerformanceDashboardTest < ActionController::TestCase
     assert_select '.performance-comparison tbody tr', count: 2
     assert_select '.performance-comparison tfoot td:first-of-type', text: '2'
     assert_select '.performance-card-0 .performance-value', text: '2'
-    assert_operator @response.body.index('performance-comparison'), :<, @response.body.index('Combined results for selected owners')
+    assert_operator @response.body.index('performance-comparison'), :<, @response.body.index('Combined Results for selected owners (team)')
     get :index, params: { project_id: @project.identifier, owner_ids: ['1', '2'], metric: 'open', sort: 'weight', direction: 'desc' }
     assert_response :success
     assert_select 'tr.performance-ticket-row', count: 2

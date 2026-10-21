@@ -54,6 +54,11 @@ class PerformanceDashboardController < ApplicationController
     rows = []
     @return_trend = @return_mode && !@metric ? TicketJourneyPerformanceReturns.trend_points(@date) : nil
     @delivery_trend = !@return_mode && !@metric ? TicketJourneyPerformance.delivery_trend_points(@date) : nil
+    @leaderboard_points = if !@metric && requested_owners.size > 1
+      requested_owners.to_h do |id|
+        [id, @return_mode ? TicketJourneyPerformanceReturns.trend_points(@date) : TicketJourneyPerformance.delivery_trend_points(@date)]
+      end
+    end
     trend_start = (@return_trend || @delivery_trend)&.first&.fetch(:date)
     @owner_change_rows = nil
     if !@metric || @metric == 'owner_changes'
@@ -86,18 +91,22 @@ class PerformanceDashboardController < ApplicationController
           # Snapshot each month independently, including tickets since reassigned
           # away from a selected owner. Only aggregate totals survive the batch.
           if @delivery_trend
-            @delivery_trend.each do |point|
+            @delivery_trend.each_with_index do |point, point_index|
               historical_row = TicketJourneyPerformance.snapshot(issue, point[:date], statuses,
                 history: history.fetch(issue.id, []), visible_values: visible_values,
                 owner_value: visible_values.find { |value| value.custom_field.id == 57 }&.value.to_s)
               if historical_row && requested_set.include?(historical_row[:owner_id])
                 TicketJourneyPerformance.add_delivery_trend_row!(point, historical_row)
+                if @leaderboard_points
+                  owner_point = @leaderboard_points.fetch(historical_row[:owner_id])[point_index]
+                  TicketJourneyPerformance.add_delivery_trend_row!(owner_point, historical_row)
+                end
               end
             end
           end
           trend_events = if @return_trend
             TicketJourneyPerformanceReturns.accumulate_trend!(@return_trend, issue,
-              history.fetch(issue.id, []), statuses, @date, visible_values, requested_set)
+              history.fetch(issue.id, []), statuses, @date, visible_values, requested_set, owner_points: @leaderboard_points)
           end
           row = TicketJourneyPerformance.snapshot(issue, @date, statuses,
             history: history.fetch(issue.id, []), visible_values: visible_values,
@@ -135,6 +144,13 @@ class PerformanceDashboardController < ApplicationController
     unless @owner
       return render_404 if @metric
       return
+    end
+    @leaderboard_entries = if @leaderboard_points
+      @selected_owners.map do |owner|
+        points = @leaderboard_points.fetch(owner.id.to_s)
+        TicketJourneyPerformanceReturns.finish_trend!(points) if @return_mode
+        { owner: owner, points: points }
+      end
     end
     return render_owner_changes if @metric == 'owner_changes'
     return render_returns(rows) if @return_mode

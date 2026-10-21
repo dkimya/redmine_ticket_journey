@@ -2,6 +2,7 @@
   <%= stylesheet_link_tag 'performance', plugin: 'redmine_ticket_journey' %>
   <%= javascript_include_tag 'performance_owner_picker', plugin: 'redmine_ticket_journey', defer: true %>
   <%= javascript_include_tag 'performance_navigation', plugin: 'redmine_ticket_journey', defer: true %>
+  <%= javascript_include_tag 'performance_leaderboard', plugin: 'redmine_ticket_journey', defer: true %>
 <% end %>
 <% html_title 'Performance' %>
 <div class="performance-page">
@@ -12,7 +13,8 @@
   <p class="performance-context">Selected project and all subprojects · Current Ticket Owners · Visible tickets only <%= performance_tip('Includes Bug, Change Request / Improvement, Feature, and Task (Business Jobs). User Story and other trackers are excluded provisionally. Current Ticket Owner is used for all dates, cards and trends; reassignment updates historical attribution. Status is reconstructed at the selected date; current due dates and weights are used. Missing status history falls back to current status. Owner-change history remains available in the audit.') %></p>
   <% if @report %>
     <%= render 'comparison' %>
-    <h3>Combined results for selected owners</h3>
+    <%= render 'leaderboard', entries: @leaderboard_entries if @leaderboard_entries %>
+    <h3>Combined Results for selected owners (team)</h3>
     <% groups = @report[:groups]; total_weight = TicketJourneyPerformance.weight(groups.first) %>
     <section class="performance-section">
       <h3><span class="performance-step">1</span> Open Tickets <%= performance_tip('New and On-Hold at the selected report date are excluded from open-ticket counts, weights, breakdowns, and Due Soon. Other non-closed statuses, including Pending and Ongoing, remain included. Stopped means Pending only and is a subset of Total Open Tickets. Archived is closed and is not a delivery. Missing due dates are included in Not Overdue; due today is not overdue. Not Touched means the ticket has not been In Progress by the report date. Logged time, comments, and later workflow stages alone do not establish Started. Earlier In Progress history, including before reassignment, still counts. Section 2 retains its separate rules.') %></h3>
