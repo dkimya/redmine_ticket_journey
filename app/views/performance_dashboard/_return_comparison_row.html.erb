@@ -1,6 +1,6 @@
 <tr class="<%= total ? 'performance-comparison-total' : 'performance-return-owner-row' %>">
   <th scope="row"><%= label %></th><td><%= performance_return_link(report[:open], 'returns_open', ids) %></td>
   <% %w[returns_0 returns_1 returns_2 returns_3 returns_4 repeats_1 repeats_2 repeats_3].each do |key| %><td><%= performance_return_link(report[:sets].fetch(key).size, key, ids) %></td><% end %>
+  <td><%= performance_return_link(report[:incidents], 'return_incidents', ids) %></td>
   <td><%= performance_return_link(report[:ratio].nil? ? 'N/A' : "#{performance_number(report[:ratio])}%", 'return_incidents', ids) %></td>
-  <td><%= performance_return_link(report[:adjusted_ratio].nil? ? 'N/A' : "#{performance_number(report[:adjusted_ratio])}%", 'non_merge_incidents', ids) %></td>
 </tr>
