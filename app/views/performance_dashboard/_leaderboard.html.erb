@@ -3,7 +3,7 @@
   <% metric = @return_mode ? :ratio : :delivered_weight %>
   <h4><%= @return_mode ? 'Return Incidents / Open Tickets' : 'Monthly Delivered Complexity Points' %></h4>
   <p>Current Ticket Owner · Five completed months · Select an owner’s legend button to hide or show their line.</p>
-  <p><%= @return_mode ? 'Dashed lines: shared 10% and 50% thresholds for every owner.' : 'Solid lines: actual delivered points. Dashed lines in the same color: each owner’s current monthly target. Equal targets overlap.' %></p>
+  <p><%= @return_mode ? 'Dashed lines: shared 10% and 50% thresholds for every owner.' : 'Solid colored lines: actual delivered points. Thin gray dashed lines: unique monthly targets. Targets are shown in parentheses beside owner names.' %></p>
   <% dates = entries.first[:points].map { |point| point[:date] } %>
   <% keys = entries.map { |entry| entry[:owner].id.to_s } %>
   <% plot = dates.each_index.map { |index| entries.to_h { |entry| [entry[:owner].id.to_s, entry[:points][index][metric]] } } %>
@@ -26,15 +26,19 @@
           <line class="performance-leaderboard-threshold" data-threshold="<%= threshold %>" x1="90" x2="770" y1="<%= threshold_y %>" y2="<%= threshold_y %>" tabindex="0" role="img" aria-label="Shared threshold: <%= threshold %>%"><title>Shared threshold: <%= threshold %>% for all owners</title></line>
           <text class="performance-leaderboard-threshold-label" x="780" y="<%= threshold_y + 4 %>"><%= threshold %>%</text>
         <% end %>
+      <% else %>
+        <% entries.reject { |entry| entry[:target].nil? }.group_by { |entry| entry[:target] }.sort_by(&:first).each do |target, target_entries| %>
+          <% target_y = 235 - target / geometry[:maximum] * 200 %>
+          <% target_description = "Monthly point target #{performance_number(target)}: #{target_entries.map { |entry| entry[:owner].name }.join(', ')}" %>
+          <g data-leaderboard-target data-target-owners="<%= target_entries.map { |entry| entry[:owner].id }.join(',') %>">
+            <line class="performance-leaderboard-target" data-target-value="<%= performance_number(target) %>" x1="90" x2="770" y1="<%= target_y %>" y2="<%= target_y %>" tabindex="0" role="img" aria-label="<%= target_description %>"><title><%= target_description %></title></line>
+            <text class="performance-leaderboard-target-label" x="100" y="<%= target_y - 5 %>">Target: <%= performance_number(target) %></text>
+          </g>
+        <% end %>
       <% end %>
       <% entries.each_with_index do |entry, series_index| %>
         <% owner = entry[:owner]; series = geometry[:series][series_index] %>
         <g class="performance-trend-series" data-leaderboard-series="<%= owner.id %>" style="stroke:<%= performance_owner_color(owner.id) %>;fill:<%= performance_owner_color(owner.id) %>">
-          <% if !@return_mode && !entry[:target].nil? %>
-            <% target_y = 235 - entry[:target] / geometry[:maximum] * 200 %>
-            <% target_description = "#{owner.name}: current monthly complexity-point target #{performance_number(entry[:target])}" %>
-            <line class="performance-leaderboard-target" data-owner-target="<%= owner.id %>" x1="90" x2="770" y1="<%= target_y %>" y2="<%= target_y %>" tabindex="0" role="img" aria-label="<%= target_description %>"><title><%= target_description %></title></line>
-          <% end %>
           <% series.each_cons(2) do |left, right| %><% if left[:y] && right[:y] %><line x1="<%= left[:x] %>" y1="<%= left[:y] %>" x2="<%= right[:x] %>" y2="<%= right[:y] %>" /><% end %><% end %>
           <% series.each do |coordinate| %>
             <% next unless coordinate[:y] %>
@@ -50,8 +54,7 @@
   <div class="performance-leaderboard-legend" aria-label="Selected owner lines">
     <% entries.each do |entry| %>
       <% owner = entry[:owner] %>
-      <% line_description = @return_mode ? 'line' : 'delivery and target lines' %>
-      <button type="button" data-leaderboard-toggle="<%= owner.id %>" aria-pressed="true" aria-label="Hide <%= owner.name %> <%= line_description %>" data-line-description="<%= line_description %>" data-owner-name="<%= owner.name %>"><span class="performance-leaderboard-swatch" style="border-color:<%= performance_owner_color(owner.id) %>" aria-hidden="true"></span><span class="performance-leaderboard-owner-label"><%= owner.name %><% unless @return_mode %><small><%= entry[:target].nil? ? 'Target not configured or unavailable' : "Target: #{performance_number(entry[:target])}" %></small><% end %></span></button>
+      <button type="button" data-leaderboard-toggle="<%= owner.id %>" aria-pressed="true" aria-label="Hide <%= owner.name %> line" data-owner-name="<%= owner.name %>"><span class="performance-leaderboard-swatch" style="border-color:<%= performance_owner_color(owner.id) %>" aria-hidden="true"></span><span class="performance-leaderboard-owner-label"><%= owner.name %><% unless @return_mode %><small title="<%= entry[:target].nil? ? 'Target not configured or unavailable' : 'Current monthly complexity-point target' %>"><%= entry[:target].nil? ? '(target unavailable)' : "(#{performance_number(entry[:target])})" %></small><% end %></span></button>
     <% end %>
   </div>
   </div>

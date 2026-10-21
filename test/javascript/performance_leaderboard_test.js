@@ -4,7 +4,7 @@ const vm = require('node:vm');
 const test = require('node:test');
 const source = fs.readFileSync(require('node:path').join(__dirname, '../../assets/javascripts/performance_leaderboard.js'), 'utf8');
 
-function page(loading = false, empty = false) {
+function page(loading = false, empty = false, targetOwners = []) {
   const buttons = ['1', '2'].map(id => ({
     dataset: { leaderboardToggle: id, ownerName: 'Owner ' + id },
     attributes: { 'aria-pressed': 'true' }, listeners: [],
@@ -16,8 +16,16 @@ function page(loading = false, empty = false) {
     dataset: { leaderboardSeries: id }, hidden: false,
     classList: { toggle(_name, hidden) { series.find(item => item.dataset.leaderboardSeries === id).hidden = hidden; } }
   }));
+  const targets = targetOwners.map(owners => {
+    const target = { dataset: { targetOwners: owners }, hidden: false };
+    target.classList = { toggle(_name, hidden) { target.hidden = hidden; } };
+    return target;
+  });
   const root = { dataset: {}, querySelectorAll(selector) {
-    return selector === '[data-leaderboard-toggle]' ? buttons : series;
+    if (selector === '[data-leaderboard-toggle]') return buttons;
+    if (selector === '[data-leaderboard-series]') return series;
+    if (selector === '[data-leaderboard-target]') return targets;
+    return [];
   } };
   let ready;
   const context = { document: {
@@ -26,7 +34,7 @@ function page(loading = false, empty = false) {
     addEventListener(_name, callback) { ready = callback; }
   } };
   vm.runInNewContext(source, context);
-  return { buttons, series, root, context, ready: () => ready() };
+  return { buttons, series, targets, root, context, ready: () => ready() };
 }
 
 test('legend toggles only the selected owner and updates accessible state', () => {
@@ -54,11 +62,17 @@ test('single-owner and initial pages without leaderboards initialize safely', ()
   assert.doesNotThrow(() => page(false, true));
 });
 
-test('owner toggle announces the grouped delivery and target lines', () => {
-  const p = page();
-  p.buttons[0].dataset.lineDescription = 'delivery and target lines';
+test('shared target stays visible until every owner using it is hidden and restores on show', () => {
+  const p = page(false, false, ['1,2', '2']);
+  assert.equal(p.targets[0].hidden, false);
   p.buttons[0].listeners[0]();
   assert.equal(p.series[0].hidden, true);
-  assert.equal(p.series[1].hidden, false);
-  assert.equal(p.buttons[0].attributes['aria-label'], 'Show Owner 1 delivery and target lines');
+  assert.equal(p.targets[0].hidden, false);
+  assert.equal(p.targets[1].hidden, false);
+  p.buttons[1].listeners[0]();
+  assert.equal(p.targets[0].hidden, true);
+  assert.equal(p.targets[1].hidden, true);
+  p.buttons[0].listeners[0]();
+  assert.equal(p.targets[0].hidden, false);
+  assert.equal(p.targets[1].hidden, true);
 });

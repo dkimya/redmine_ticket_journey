@@ -128,3 +128,5 @@ Monthly Day 0 rules superseded on user approval: both metrics now use the three 
 - Leaderboard target lines implemented: Tickets uses individual current monthly point targets with matching owner colors, grouped hide/show, legend/table values and missing-target notes. Returns uses shared 10%/50% thresholds. Scales include reference lines and target lookups reuse existing permission checks. Four JS tests pass; Ruby target/threshold request tests added but unrun locally; deployed visual/permission verification pending.
 
 - User screenshot shows two-line owner/target legend text overflowing the host-sized buttons. Set automatic button height, a 52px minimum, explicit line height and block label to contain wrapped text. Deployed visual verification pending.
+
+- Leaderboard point targets now deduplicate by numeric value into thin gray dashed lines; target visibility follows whether any associated owner remains visible. Legend target values are small muted parentheses and the diagram title is bold. Four JavaScript tests pass, including shared-target hide/restore; Ruby equal/missing-target request checks updated but unrun. Deployed visual verification pending.

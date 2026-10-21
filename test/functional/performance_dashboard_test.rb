@@ -180,21 +180,26 @@ class PerformanceDashboardTest < ActionController::TestCase
     entries = @controller.instance_variable_get(:@leaderboard_entries).to_h { |entry| [entry[:owner].id, entry[:points]] }
     assert_equal 5.0, entries[1].last[:delivered_weight]
     assert_equal 10.0, entries[2].last[:delivered_weight]
-    assert_select '[data-leaderboard-series="1"] [data-owner-target="1"]', count: 1
-    assert_select '[data-leaderboard-series="2"] [data-owner-target="2"]', count: 1
-    assert_select '.performance-leaderboard-owner-label small', text: 'Target: 160', count: 1
-    assert_select '.performance-leaderboard-owner-label small', text: 'Target: 200', count: 1
+    assert_select '[data-target-value="160"]', count: 1
+    assert_select '[data-target-value="200"]', count: 1
+    assert_select '.performance-leaderboard-owner-label small', text: '(160)', count: 1
+    assert_select '.performance-leaderboard-owner-label small', text: '(200)', count: 1
     assert_select '.performance-leaderboard-threshold', count: 0
     assert_equal entries.values.sum { |points| points.last[:delivered_weight] }, @controller.instance_variable_get(:@delivery_trend).last[:delivered_weight]
     assert_operator @response.body.index('performance-comparison'), :<, @response.body.index('performance-leaderboard')
     assert_operator @response.body.index('performance-leaderboard'), :<, @response.body.index('Combined Results for selected owners (team)')
     styles = css_select('[data-leaderboard-series]').map { |element| [element['data-leaderboard-series'], element['style']] }.to_h
+    @controller.stubs(:monthly_target).with('101', User.find(2)).returns(160.0)
+    get :index, params: { project_id: @project.identifier, owner_ids: ['1', '2'] }
+    assert_response :success
+    assert_select '.performance-leaderboard-target', count: 1
+    assert_equal ['1', '2'], css_select('[data-leaderboard-target]').first['data-target-owners'].split(',').sort
     @controller.stubs(:monthly_target).with('101', User.find(2)).returns(nil)
     get :index, params: { project_id: @project.identifier, owner_ids: ['1', '2'] }
     assert_response :success
-    assert_select '[data-owner-target="1"]', count: 1
-    assert_select '[data-owner-target="2"]', count: 0
-    assert_select '.performance-leaderboard-owner-label small', text: 'Target not configured or unavailable', count: 1
+    assert_select '[data-target-value="160"]', count: 1
+    assert_select '[data-target-value="200"]', count: 0
+    assert_select '.performance-leaderboard-owner-label small', text: '(target unavailable)', count: 1
     issues.each_with_index do |issue, index|
       TicketJourneyPerformance.stubs(:snapshot).with { |candidate, *rest| candidate.id == issue.id }.returns(rows[index].merge(open: true, done: false, status_name: 'In Progress'))
       events = Array.new(index.zero? ? 2 : 1) { |n| { at: (Date.current.beginning_of_month << 5).in_time_zone, repeat: false, merge_conflict: n == 1 } }

@@ -4,7 +4,17 @@
     document.querySelectorAll('[data-performance-leaderboard]').forEach(function (root) {
       if (root.dataset.leaderboardInitialized) return;
       root.dataset.leaderboardInitialized = 'true';
-      root.querySelectorAll('[data-leaderboard-toggle]').forEach(function (button) {
+      var buttons = Array.from(root.querySelectorAll('[data-leaderboard-toggle]'));
+      function updateTargets() {
+        var visibleOwners = buttons.filter(function (button) {
+          return button.getAttribute('aria-pressed') === 'true';
+        }).map(function (button) { return button.dataset.leaderboardToggle; });
+        root.querySelectorAll('[data-leaderboard-target]').forEach(function (target) {
+          var owners = target.dataset.targetOwners.split(',');
+          target.classList.toggle('is-hidden', !owners.some(function (id) { return visibleOwners.indexOf(id) !== -1; }));
+        });
+      }
+      buttons.forEach(function (button) {
         button.addEventListener('click', function () {
           var visible = button.getAttribute('aria-pressed') !== 'true';
           button.setAttribute('aria-pressed', String(visible));
@@ -14,8 +24,10 @@
               series.classList.toggle('is-hidden', !visible);
             }
           });
+          updateTargets();
         });
       });
+      updateTargets();
     });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initialize);
