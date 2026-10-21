@@ -82,3 +82,5 @@ Monthly Day 0 rules superseded on user approval: both metrics now use the three 
 - Returns distribution tables now enforce consistent borders on all cells, including Total-row vertical dividers and identical footer backgrounds/outlines. CSS change implemented locally; deployed visual verification pending.
 
 - Returns comparison table final columns changed to total incident count and raw incidents/open-ticket ratio, both including Merge Conflict. The lower adjusted ratio card is unchanged. Local implementation; deployed verification pending.
+
+- Narrowed Returns comparison final columns to 10% (Total Return Incidents) and 14% (incident/open-ticket ratio), with wrapping full headings. Freed width goes to owner/open and equal bucket columns; widths total 100%. Existing borders, right-aligned values and sorting links retained. Deployed visual verification pending.

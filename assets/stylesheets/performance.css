@@ -217,10 +217,13 @@
 @media(max-width:650px){.performance-return-ratios{grid-template-columns:1fr}.performance-return-value{font-size:36px}}
 /* Returns comparison: equal compact buckets and clear metric-group boundaries. */
 .performance-page .performance-return-comparison{table-layout:fixed;width:100%;border-collapse:collapse}
-.performance-return-comparison .return-owner-col{width:14%}
-.performance-return-comparison .return-open-col{width:8%}
-.performance-return-comparison .return-bucket-col{width:5.25%}
-.performance-return-comparison .return-ratio-col{width:18%}
+.performance-return-comparison .return-owner-col{width:18%}
+.performance-return-comparison .return-open-col{width:10%}
+.performance-return-comparison .return-bucket-col{width:6%}
+.performance-return-comparison .return-incidents-col{width:10%}
+.performance-return-comparison .return-ratio-col{width:14%}
+.performance-return-comparison thead .return-ratio-group a{display:inline-block;max-width:8.5em}
+.performance-return-comparison thead .return-ratio-end a{display:inline-block;max-width:10.5em}
 .performance-page .performance-return-comparison th,.performance-page .performance-return-comparison td{border:1px solid #c6d3e2;white-space:normal;overflow-wrap:anywhere;padding:9px 6px}
 .performance-return-comparison thead th{text-align:center;vertical-align:middle;line-height:1.4}
 .performance-return-comparison thead tr:first-child th.return-count-group{background:#edf5ff;border:2px solid #7897bb}
