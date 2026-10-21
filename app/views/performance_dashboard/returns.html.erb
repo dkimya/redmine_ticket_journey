@@ -7,7 +7,7 @@
 <div class="performance-page">
   <%= render 'header', page_title: 'Performance Results — Returns' %>
   <p class="performance-context">Selected project and all subprojects · Visible tickets only · Open as of <%= format_date(@date) %>
-    <%= performance_tip('Uses the Tickets tracker scope and historical owner/status reconstruction. Returns excludes New, On-Hold, Ongoing, and closed statuses. Only recorded qualifying transitions into Returned through this date count. Current tracker mappings apply. All qualifying incidents belong to the ticket owner at the report date, including incidents before reassignment. No time window or Day 0 applies.') %></p>
+    <%= performance_tip('Uses the Tickets tracker scope and historical owner/status reconstruction. Returns uses the same open population as Tickets: New, On-Hold, and closed statuses are excluded; Ongoing is included in all return populations and ratio denominators. Only recorded qualifying transitions into Returned through this date count. Current tracker mappings apply. All qualifying incidents belong to the ticket owner at the report date, including incidents before reassignment. No time window or Day 0 applies.') %></p>
   <% if @returns %>
     <details class="performance-section performance-comparison" open>
       <summary><strong>Developer comparison — <%= @selected_owners.size %> selected owner(s)</strong></summary>

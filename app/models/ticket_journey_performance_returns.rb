@@ -1,7 +1,8 @@
 # Performance Returns uses dated journal events, never the native lifetime cache.
 # Consecutive repeats are a separate accumulated measure, not a resettable streak.
 class TicketJourneyPerformanceReturns
-  EXCLUDED = (TicketJourneyPerformance::OPEN_EXCLUDED_STATUSES + ['Ongoing']).freeze
+  # Hadi confirmed that Tickets and Returns must share the open denominator.
+  EXCLUDED = TicketJourneyPerformance::OPEN_EXCLUDED_STATUSES
   LABELS = {
     'returns_open' => 'All Open Tickets — Returns',
     'returns_0' => '0 Return', 'returns_1' => '1 Return', 'returns_2' => '2 Returns',

@@ -62,13 +62,33 @@ class TicketJourneyPerformanceReturnsTest < ActiveSupport::TestCase
 
   test 'distributions partition distinct eligible tickets and ratios may exceed 100 percent' do
     rows = [row(1, 0), row(2, 1), row(3, 2, 1), row(4, 3, 2), row(5, 4, 3)]
-    report = TicketJourneyPerformanceReturns.calculate(rows + ['New', 'On-Hold', 'Ongoing', 'Archived', 'Done / Closed'].map { |status| row(6, 4, 3, status) })
+    report = TicketJourneyPerformanceReturns.calculate(rows + ['New', 'On-Hold', 'Archived', 'Done / Closed'].map { |status| row(6, 4, 3, status) })
     assert_equal 5, report[:open]
     assert_equal [1, 1, 1, 1, 1], (0..4).map { |i| report[:sets]["returns_#{i}"].size }
     assert_equal [1, 1, 1], (1..3).map { |i| report[:sets]["repeats_#{i}"].size }
     assert_equal 3, report[:with_repeats]
     assert_equal 200, report[:ratio]
     assert_equal 200, report[:adjusted_ratio]
+  end
+
+  test 'Ongoing shares Tickets open denominator and is included in all Returns populations' do
+    ongoing = row(1, 0, 0, 'Ongoing')
+    returned = row(2, 2, 1)
+    rows = [ongoing, returned]
+    report = TicketJourneyPerformanceReturns.calculate(rows)
+    assert_equal 2, report[:open]
+    assert_equal [ongoing], report[:sets]['returns_0']
+    assert_equal 100, report[:ratio]
+    assert_equal 100, report[:adjusted_ratio]
+    ticket_report = TicketJourneyPerformance.calculate(rows, Date.new(2026, 10, 21))
+    assert_equal ticket_report[:groups].first.map { |ticket| ticket[:id] }, report[:sets]['returns_open'].map { |ticket| ticket[:id] }
+    ongoing_with_history = row(3, 2, 1, 'Ongoing')
+    included = TicketJourneyPerformanceReturns.calculate([ongoing_with_history])
+    assert_equal [ongoing_with_history], included[:sets]['returns_2']
+    assert_equal [ongoing_with_history], included[:sets]['repeats_1']
+    assert_equal [ongoing_with_history], included[:sets]['return_incidents']
+    assert_equal [ongoing_with_history], included[:sets]['non_merge_incidents']
+    assert_same TicketJourneyPerformance::OPEN_EXCLUDED_STATUSES, TicketJourneyPerformanceReturns::EXCLUDED
   end
 
   test 'missing reasons block adjusted metric but not total distribution and zero populations show N A' do
