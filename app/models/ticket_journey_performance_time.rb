@@ -5,6 +5,7 @@ class TicketJourneyPerformanceTime
   LABELS = {
     'time_open' => 'All Open Tickets — Time', 'time_priority' => 'Priority Open Tickets',
     'time_immediate' => 'Immediate / Hot Fix Open Tickets', 'time_age_excluded' => 'Open Tickets with Missing or Future Start Dates',
+    'time_priority_age_excluded' => 'Priority Open Tickets with Missing or Future Start Dates',
     'time_sv' => 'Schedule Variance Contributors', 'time_sv_excluded' => 'Open Tickets Excluded from SV',
     'time_estimate_excluded' => 'Open Tickets Without Usable PM Estimates',
     'time_balance' => 'Estimate Balance Contributors',
@@ -71,6 +72,7 @@ class TicketJourneyPerformanceTime
       # Hot Fix is the Immediate view, not an invented tracker/custom-field rule.
       'time_immediate' => open.select { |row| row[:priority].match?(/immediate/i) },
       'time_age_excluded' => open.select { |row| row[:age].nil? },
+      'time_priority_age_excluded' => priority.select { |row| row[:age].nil? },
       'time_sv' => open.select { |row| row[:exclusions].empty? },
       'time_sv_excluded' => open.reject { |row| row[:exclusions].empty? },
       'time_estimate_excluded' => open.reject { |row| row[:estimate] },
@@ -95,9 +97,11 @@ class TicketJourneyPerformanceTime
     balance_spent = balance_rows.sum { |row| row[:spent] }
     estimates = open.filter_map { |row| row[:estimate] }
     hours = open.filter_map { |row| row[:spent] }
+    excluded_estimate_hours = sets['time_estimate_excluded'].filter_map { |row| row[:spent] }
     { sets: sets, open: open.size, priority: priority.size,
       estimate: estimates.empty? ? nil : estimates.sum, spent: hours.empty? ? nil : hours.sum,
       time_unavailable: open.count { |row| row[:spent].nil? },
+      estimate_excluded_spent: excluded_estimate_hours.empty? ? nil : excluded_estimate_hours.sum,
       balance: balance_rows.empty? ? nil : balance_estimate - balance_spent,
       balance_percent: balance_estimate.positive? ? (balance_estimate - balance_spent) * 100 / balance_estimate : nil,
       balance_estimate: balance_estimate, balance_spent: balance_spent,

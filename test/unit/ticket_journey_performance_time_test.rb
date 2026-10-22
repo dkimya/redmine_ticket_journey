@@ -61,6 +61,19 @@ class TicketJourneyPerformanceTimeTest < ActiveSupport::TestCase
     assert_equal(-44.0, report[:balance])
   end
 
+  test 'estimate exclusion hours reconcile overall spent with balance without treating hidden time as zero' do
+    missing = row(2, estimate: nil, spent: 515.3, planned: nil, age: nil,
+      exclusions: ['Set a positive finite PM Estimate'])
+    report = TicketJourneyPerformanceTime.calculate([row(estimate: 163.0, spent: 108.0), missing])
+    assert_in_delta 623.3, report[:spent], 0.000001
+    assert_in_delta 515.3, report[:estimate_excluded_spent], 0.000001
+    assert_in_delta report[:spent], report[:balance_spent] + report[:estimate_excluded_spent], 0.000001
+    assert_equal [2], report[:sets]['time_priority_age_excluded'].map { |entry| entry[:id] }
+    report = TicketJourneyPerformanceTime.calculate([missing.merge(spent: nil)])
+    assert_nil report[:estimate_excluded_spent]
+    assert_equal 1, report[:time_unavailable]
+  end
+
   test 'SV aggregates hours not percentages and invalid denominators remain unavailable' do
     report = TicketJourneyPerformanceTime.calculate([row(planned: 380.0, spent: 475.0)])
     assert_equal(-25.0, report[:sv])

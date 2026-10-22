@@ -26,6 +26,16 @@
     <p><%= performance_time_link("Immediate / Hot Fix: #{report[:sets]['time_immediate'].size} open tickets", 'time_immediate') %> <%= performance_tip('Immediate priority tickets owned by the selected Ticket Owners. Urgent remains included in the broader Priority distribution. No separate Hot Fix tracker or custom-field mapping is assumed.') %></p>
     <section class="performance-section">
       <h3><span class="performance-step">3</span> Estimation, Spent Time &amp; Schedule Variance (Open Tickets)</h3>
+      <% estimate_exclusions = report[:sets]['time_estimate_excluded'] %>
+      <% if estimate_exclusions.any? %>
+        <p class="performance-notes performance-time-exclusions" role="note">
+          <% if report[:estimate_excluded_spent].nil? %>
+            <%= performance_time_link("#{estimate_exclusions.size} tickets excluded from Estimate Balance", 'time_estimate_excluded') %> because PM Estimate is missing or invalid. Visible logged hours for these tickets are unavailable under current permissions.
+          <% else %>
+            <strong><%= performance_time_hours(report[:estimate_excluded_spent]) %> of visible logged time</strong> on <%= performance_time_link("#{estimate_exclusions.size} tickets", 'time_estimate_excluded') %> excluded from Estimate Balance because PM Estimate is missing or invalid. These visible hours remain in Total Visible Spent Time.
+          <% end %>
+        </p>
+      <% end %>
       <div class="performance-time-cards">
         <article class="performance-metric"><h4>Total PM Estimate</h4><strong><%= performance_time_hours(report[:estimate]) %></strong><p><%= report[:open] - report[:sets]['time_estimate_excluded'].size %> of <%= report[:open] %> open tickets have usable estimates.</p></article>
         <article class="performance-metric"><h4>Total Visible Spent Time</h4><strong><%= performance_time_hours(report[:spent]) %></strong><p>Through <%= format_date(@date) %>; all entry authors.</p><p><%= report[:time_unavailable] %> tickets lack time-view permission. Other visibility restrictions may yield partial hours.</p></article>
