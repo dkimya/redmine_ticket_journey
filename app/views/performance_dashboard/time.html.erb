@@ -1,0 +1,52 @@
+<% html_title 'Performance', 'Time' %>
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'performance', plugin: 'redmine_ticket_journey' %>
+  <%= javascript_include_tag 'performance_owner_picker', plugin: 'redmine_ticket_journey', defer: true %>
+  <%= javascript_include_tag 'performance_navigation', plugin: 'redmine_ticket_journey', defer: true %>
+<% end %>
+<div class="performance-page">
+  <%= render 'header' %>
+  <p class="performance-context">Selected project and all subprojects · Current Ticket Owners and schedule fields · Visible direct logged hours only <%= performance_tip('Same tracker and open-status scope as Tickets and Returns: New, On-Hold and closed statuses excluded; Ongoing included. No child-ticket time rollups. All entry authors are included under current time-entry visibility, using work dates through the report date. Backdated entries and current calendar/schedule edits can change historical results.') %></p>
+  <% if @time_report %>
+    <% report = @time_report %>
+    <% if @selected_owners.any? { |owner| !owner.active? } %><p>Includes inactive owners retained by this report link. The picker lists active users only.</p><% end %>
+    <% if @selected_owners.size > 1 %>
+      <details class="performance-comparison" open><summary>Developer Comparison — Time</summary><div class="autoscroll"><table class="list">
+        <thead><tr><th><%= performance_time_heading('Ticket Owner', 'owner') %></th><th><%= performance_time_heading('Open Tickets', 'open') %></th><th><%= performance_time_heading('PM Estimate', 'estimate') %></th><th><%= performance_time_heading('Visible Logged Hours', 'spent') %></th><th>SV Coverage</th><th><%= performance_time_heading('SV', 'sv') %></th></tr></thead>
+        <tbody><% @time_comparison.each do |entry| %><% owner = entry[:owner]; own = entry[:report] %>
+          <tr><th><%= owner.name %></th><td><%= performance_time_link(own[:open], 'time_open', [owner.id.to_s]) %></td><td><%= performance_time_hours(own[:estimate]) %></td><td><%= performance_time_hours(own[:spent]) %></td><td><%= performance_time_link("#{own[:sets]['time_sv'].size} / #{own[:open]}", 'time_sv', [owner.id.to_s]) %></td><td><%= own[:sv].nil? ? 'N/A' : "#{performance_number(own[:sv])}%" %></td></tr>
+        <% end %></tbody><tfoot><tr class="performance-comparison-total"><th>Total</th><td><%= report[:open] %></td><td><%= performance_time_hours(report[:estimate]) %></td><td><%= performance_time_hours(report[:spent]) %></td><td><%= report[:sets]['time_sv'].size %> / <%= report[:open] %></td><td><%= report[:sv].nil? ? 'N/A' : "#{performance_number(report[:sv])}%" %></td></tr></tfoot>
+      </table></div></details>
+      <h3>Combined Results for selected owners (team)</h3>
+    <% end %>
+    <div class="performance-return-distributions">
+      <%= render 'time_distribution', priority: false %>
+      <%= render 'time_distribution', priority: true %>
+    </div>
+    <p><%= performance_time_link("Immediate / Hot Fix: #{report[:sets]['time_immediate'].size} open tickets", 'time_immediate') %> <%= performance_tip('Immediate priority tickets owned by the selected Ticket Owners. Urgent remains included in the broader Priority distribution. No separate Hot Fix tracker or custom-field mapping is assumed.') %></p>
+    <section class="performance-section">
+      <h3><span class="performance-step">3</span> Estimation, Spent Time &amp; Schedule Variance (Open Tickets)</h3>
+      <div class="performance-time-cards">
+        <article class="performance-metric"><h4>Total PM Estimate</h4><strong><%= performance_time_hours(report[:estimate]) %></strong><p><%= report[:open] - report[:sets]['time_estimate_excluded'].size %> of <%= report[:open] %> open tickets have usable estimates.</p></article>
+        <article class="performance-metric"><h4>Total Visible Spent Time</h4><strong><%= performance_time_hours(report[:spent]) %></strong><p>Through <%= format_date(@date) %>; all entry authors.</p><p><%= report[:time_unavailable] %> tickets lack time-view permission. Other visibility restrictions may yield partial hours.</p></article>
+        <article class="performance-metric <%= performance_time_state(report[:balance_percent], @estimate_allowance, inclusive: false) %>"><h4>Estimate Balance</h4><strong><%= performance_time_hours(report[:balance]) %></strong><p><%= report[:balance_percent].nil? ? 'N/A' : "#{performance_number(report[:balance_percent])}%" %></p><p><%= report[:balance].nil? ? 'Unavailable' : (report[:balance].zero? ? 'At estimate' : (report[:balance].positive? ? 'Remaining Estimate' : 'Above Estimate')) %></p><p><%= performance_time_link("#{report[:sets]['time_balance'].size} comparable tickets", 'time_balance') %>; estimate <%= performance_time_hours(report[:balance_estimate]) %>, visible spent <%= performance_time_hours(report[:balance_spent]) %>. Overrun allowance: <%= performance_number(@estimate_allowance) %>%.</p></article>
+        <article class="performance-metric <%= performance_time_state(report[:sv], @sv_warning) %>"><h4>Time-Based Schedule Variance</h4><strong><%= report[:sv].nil? ? 'N/A' : "#{performance_number(report[:sv])}%" %></strong><p><%= report[:sv].nil? ? 'No positive planned effort' : (report[:sv].zero? ? 'At planned time consumption' : (report[:sv].positive? ? 'Below planned time consumption' : 'Above planned time consumption')) %></p><p>Planned: <%= performance_time_hours(report[:planned]) %><br>Visible actual: <%= performance_time_hours(report[:actual]) %></p><p><%= performance_time_link("SV calculated for #{report[:sets]['time_sv'].size} of #{report[:open]} open tickets", 'time_sv') %>. Warning threshold: <%= performance_number(@sv_warning) %>%.</p></article>
+      </div>
+      <% sv_rows = report[:sets]['time_sv']; bars = [['PM Estimate', sv_rows.sum { |row| row[:estimate] }, '#008fff'], ['Planned Effort (by report date)', report[:planned], '#009e73'], ['Visible Spent Time', report[:actual], { 'performance-return-unavailable' => '#778899', 'performance-return-positive' => '#48bd82', 'performance-return-warning' => '#d98b16', 'performance-return-negative' => '#d64b4b' }.fetch(performance_time_state(report[:sv], @sv_warning))]]; maximum = [bars.map { |bar| bar[1] }.max, 1].max %>
+      <div class="performance-time-bars" role="img" aria-label="Estimate, planned effort and visible spent hours for SV contributors only">
+        <h4>Comparable Hours — SV Contributors Only</h4>
+        <% bars.each do |label, value, color| %><div class="performance-time-bar-row"><span><%= label %></span><div><span style="width:<%= value * 100.0 / maximum %>%;background:<%= color %>"></span></div><strong><%= performance_time_hours(value) %></strong></div><% end %>
+      </div>
+      <p><%= performance_time_link("#{report[:sets]['time_sv_excluded'].size} tickets excluded from SV — investigate missing data", 'time_sv_excluded') %> · <%= performance_time_link("#{report[:sets]['time_estimate_excluded'].size} without usable PM estimates", 'time_estimate_excluded') %>.</p>
+      <p>Visible early logged work: <%= performance_time_hours(report[:early_hours]) %>. Future-start tickets remain outside SV until their scheduled start. A positive balance or SV does not prove delivery or savings.</p>
+    </section>
+    <%= render 'time_productivity' if @time_trend %>
+    <%= render 'owner_change_note' %>
+    <details class="performance-section"><summary>Calculation notes and calendar</summary>
+      <p>Working weekdays: <%= @calendar.weekdays.map { |day| Date::DAYNAMES[day] }.join(', ') %>. Organization holidays excluded: <%= @calendar.holidays.size %>. Default daily hours: <%= performance_number(@calendar.hours_per_day) %>.</p>
+      <p>Age is zero on Start Date, then counts working days after it through the report date. Pauses remain included. Reopening does not reset Start Date automatically. SV uses inclusive Start/Due working days and includes the full report day. Due Date must be after Start Date; zero-working-day windows are excluded. Planned effort is PM Estimate multiplied by the elapsed fraction, capped to 0–100%. SV = (summed planned − summed visible actual) / summed planned × 100. Ratios are calculated from combined hours, never averaged percentages. Exactly zero is neutral; negative values are unfavorable.</p>
+      <% if @time_hours_fallback.any? %><p><%= @time_hours_fallback.size %> selected owner(s) use default daily hours because configured weekly hours are unavailable or invalid. Hidden User fields are not disclosed.</p><% end %>
+      <p>All settings, owner, Start Date, Due Date, PM Estimate, priority and complexity weights are current. Status is reconstructed at each report date. Invalid/negative logged hours are excluded. The standard Redmine time visibility applies; totals are visible hours, not guaranteed complete organization hours.</p>
+    </details>
+  <% else %><p class="nodata">Select a Ticket Owner and click Apply to calculate Time performance.</p><% end %>
+</div>

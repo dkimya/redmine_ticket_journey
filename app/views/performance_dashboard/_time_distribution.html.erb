@@ -1,0 +1,18 @@
+<% report = @time_report; prefix = priority ? 'time_priority' : 'time_age'; population = report[:sets][priority ? 'time_priority' : 'time_open']; counts = 4.times.map { |index| report[:sets]["#{prefix}_#{index}"].size }; aged = counts.sum; excluded = population.size - aged %>
+<section class="performance-section">
+  <h3><span class="performance-step"><%= priority ? 2 : 1 %></span> <%= priority ? 'Priority Tickets' : 'Ticket' %> Age Distribution (Open Tickets) <%= performance_tip('Working days after current Start Date through As of Date; Start Date is age zero. Pauses included. Missing or future Start Dates are excluded from age buckets and explicitly counted. Bucket percentages use age-eligible tickets; coverage is shown below.') %></h3>
+  <div class="performance-return-distribution">
+    <div class="performance-time-chart">
+      <div class="performance-donut" role="img" aria-label="<%= aged %> age-eligible tickets; exact values in adjacent table" style="background:<%= performance_time_gradient(counts) %>"><div><strong><%= aged %></strong><span>Age-eligible <%= priority ? 'Priority Tickets' : 'Open Tickets' %></span></div></div>
+      <% offset = 0.0; counts.each_with_index do |count, index| %>
+        <% percent = aged.zero? ? 0.0 : count * 100.0 / aged; angle = (offset + percent / 2) * Math::PI / 50; offset += percent %>
+        <% if count.positive? %><span class="performance-time-segment" style="left:<%= 50 + Math.sin(angle) * 46 %>%;top:<%= 50 - Math.cos(angle) * 46 %>%"><%= performance_time_link("#{performance_number(percent)}%", "#{prefix}_#{index}") %></span><% end %>
+      <% end %>
+    </div>
+    <table class="list"><thead><tr><th>Age</th><th>No. of Tickets</th><th>Percentage</th></tr></thead>
+      <tbody><% counts.each_with_index do |count, index| %><tr><td><span class="performance-dot" style="background:<%= TicketJourneyPerformanceTime::COLORS[index] %>"></span><%= performance_time_link(TicketJourneyPerformanceTime::BUCKETS[index], "#{prefix}_#{index}") %></td><td><%= performance_time_link(count, "#{prefix}_#{index}") %></td><td><%= aged.zero? ? 'N/A' : "#{performance_number(count * 100.0 / aged)}%" %></td></tr><% end %></tbody>
+      <tfoot><tr><th>Age-eligible Total</th><td><%= aged %></td><td><%= aged.zero? ? 'N/A' : '100%' %></td></tr></tfoot>
+    </table>
+  </div>
+  <p><%= aged %> of <%= performance_time_link(population.size, priority ? 'time_priority' : 'time_open') %> open tickets have an eligible Start Date. <%= excluded %> excluded from this distribution. <%= performance_time_link('Investigate missing/future Start Dates', 'time_age_excluded') %> (all open tickets).</p>
+</section>

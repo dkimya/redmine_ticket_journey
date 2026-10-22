@@ -10,13 +10,23 @@ class PerformanceDashboardController < ApplicationController
     return render_404 unless %w[tickets returns time].include?(@performance_tab)
     @metric = params[:metric].presence
     @return_mode = @dashboard_type == 'live' && @performance_tab == 'returns'
-    labels = @return_mode ? TicketJourneyPerformanceReturns::LABELS : TicketJourneyPerformance::DETAIL_LABELS
+    @time_mode = @dashboard_type == 'live' && @performance_tab == 'time'
+    labels = if @time_mode
+      TicketJourneyPerformanceTime::LABELS
+    else
+      @return_mode ? TicketJourneyPerformanceReturns::LABELS : TicketJourneyPerformance::DETAIL_LABELS
+    end
     return render_404 if @metric && @metric != 'owner_changes' && !labels.key?(@metric)
     @date = params[:as_of].present? ? Date.iso8601(params[:as_of]) : Date.current
     raise ArgumentError if @date > Date.current
+    @time_month = nil
+    if @time_mode && %w[time_delivered time_delivered_excluded].include?(@metric)
+      @time_month = Date.iso8601(params[:time_month].to_s)
+      return render_404 unless TicketJourneyPerformance.completed_month_ends(@date).include?(@time_month)
+    end
     requested_owners = Array(params[:owner_ids].presence || params[:owner_id]).map(&:to_s).reject(&:blank?).uniq
     requested_set = requested_owners.to_set
-    if @dashboard_type == 'periodic' || @performance_tab == 'time'
+    if @dashboard_type == 'periodic'
       return render_404 unless requested_owners.all? { |id| id.match?(/\A[1-9]\d*\z/) }
 
       # Planned tabs retain context but must not run ticket/history/target scans.
@@ -33,6 +43,7 @@ class PerformanceDashboardController < ApplicationController
       @selected_owner_ids = [@owner&.id].compact.map(&:to_s)
       @initial_load = true
       return render(:returns) if @return_mode
+      return render(:time) if @time_mode
       return
     end
     @settings = Setting.plugin_redmine_ticket_journey
@@ -43,6 +54,7 @@ class PerformanceDashboardController < ApplicationController
                   .where('issues.created_on <= ?', @date.in_time_zone.end_of_day)
                   .select(Issue.column_names.reject { |name| name == 'description' }.map { |name| "issues.#{name}" })
                   .preload(:project, :tracker)
+    issues = issues.preload(:priority) if @time_mode
     # Current Ticket Owner governs attribution; history is retained for audit.
     candidates = candidate_issues(issues, requested_owners)
     owner_ids = discover_owner_ids(@metric ? candidates : issues)
@@ -51,8 +63,12 @@ class PerformanceDashboardController < ApplicationController
     # not become available through dashboard filtering or aggregates.
     rows = []
     @return_trend = @return_mode && !@metric ? TicketJourneyPerformanceReturns.trend_points(@date) : nil
-    @delivery_trend = !@return_mode && !@metric ? TicketJourneyPerformance.delivery_trend_points(@date) : nil
-    @leaderboard_points = if !@metric && requested_owners.size > 1
+    @delivery_trend = !@return_mode && !@time_mode && !@metric ? TicketJourneyPerformance.delivery_trend_points(@date) : nil
+    @time_trend = @time_mode && !@metric ? TicketJourneyPerformanceTime.trend_points(@date) : nil
+    @calendar = TicketJourney::WorkingCalendar.new(@settings) if @time_mode
+    @time_owner_hours = {}
+    @time_hours_fallback = Set.new
+    @leaderboard_points = if !@time_mode && !@metric && requested_owners.size > 1
       requested_owners.to_h do |id|
         [id, @return_mode ? TicketJourneyPerformanceReturns.trend_points(@date) : TicketJourneyPerformance.delivery_trend_points(@date)]
       end
@@ -75,6 +91,10 @@ class PerformanceDashboardController < ApplicationController
         # Earlier owner changes are necessary for exact month-end attribution.
         history = TicketJourneyPerformance.history_for(batch.map(&:id), trend_start || @date, include_return_reason: @return_mode)
         field_values = TicketJourneyPerformance.batch_field_values(batch, field_ids: @return_mode ? [57, 66, 70] : [57, 70])
+        if @time_mode && @metric != 'owner_changes'
+          time_entries = TicketJourneyPerformanceTime.hours_for(batch.map(&:id), @date)
+          time_projects = batch.map(&:project).uniq(&:id).to_h { |project| [project.id, User.current.allowed_to?(:view_time_entries, project)] }
+        end
         batch.each do |issue|
           scanned += 1
           visible_values = field_values.fetch(issue.id)
@@ -106,11 +126,33 @@ class PerformanceDashboardController < ApplicationController
             TicketJourneyPerformanceReturns.accumulate_trend!(@return_trend, issue,
               history.fetch(issue.id, []), statuses, @date, visible_values, requested_set, owner_points: @leaderboard_points)
           end
-          row = TicketJourneyPerformance.snapshot(issue, @date, statuses,
+          if @time_trend
+            @time_trend.each do |point|
+              snapshot = TicketJourneyPerformance.snapshot(issue, point[:date], statuses,
+                history: history.fetch(issue.id, []), visible_values: visible_values,
+                owner_value: visible_values.find { |value| value.custom_field.id == 57 }&.value.to_s)
+              next unless snapshot && requested_set.include?(snapshot[:owner_id])
+              hours = time_projects[issue.project_id] ? TicketJourneyPerformanceTime.spent(time_entries[issue.id], point[:date]) : nil
+              TicketJourneyPerformanceTime.add_productivity!(point, snapshot, hours)
+            end
+          end
+          snapshot_date = @time_month || @date
+          row = TicketJourneyPerformance.snapshot(issue, snapshot_date, statuses,
             history: history.fetch(issue.id, []), visible_values: visible_values,
             owner_value: visible_values.find { |value| value.custom_field.id == 57 }&.value.to_s)
           next unless row
           if requested_set.include?(row[:owner_id])
+            if @time_mode
+              row = TicketJourneyPerformanceTime.enrich(row, issue, snapshot_date, @calendar, time_entries[issue.id],
+                time_projects[issue.project_id], time_daily_hours(row[:owner_id]))
+              if @time_month
+                reasons = []
+                reasons << 'Set a positive visible Complexity Weight' if row[:missing_weight]
+                reasons << 'Logged time unavailable under current permissions' if row[:spent].nil?
+                reasons << 'No recorded completion date; inspect status history' unless row[:delivered_at]
+                row = row.merge(exclusions: reasons)
+              end
+            end
             if @return_mode
               next unless TicketJourneyPerformanceReturns.eligible?(row)
               reason = visible_values.find { |value| value.custom_field.id == 66 }
@@ -129,6 +171,7 @@ class PerformanceDashboardController < ApplicationController
     Rails.logger.info("Performance candidate scan: #{scanned} tickets, #{(Process.clock_gettime(Process::CLOCK_MONOTONIC) - scan_started).round(3)}s")
     TicketJourneyPerformanceReturns.finish_trend!(@return_trend) if @return_trend
     TicketJourneyPerformance.finish_delivery_trend!(@delivery_trend) if @delivery_trend
+    TicketJourneyPerformanceTime.finish_trend!(@time_trend) if @time_trend
     member_ids = Member.where(project_id: performance_project_ids).pluck(:user_id)
     @owners = alphabetical_owners(User.active.where(id: (owner_ids.to_a + member_ids).uniq))
     # Active-only is a dropdown rule, not an access restriction. Resolve saved
@@ -152,6 +195,7 @@ class PerformanceDashboardController < ApplicationController
     end
     return render_owner_changes if @metric == 'owner_changes'
     return render_returns(rows) if @return_mode
+    return render_time(rows) if @time_mode
     @report = TicketJourneyPerformance.calculate(rows, @date)
     ActiveRecord::Associations::Preloader.new(records: @selected_owners, associations: :custom_values).call unless @metric
     @target_details = @metric ? [] : %w[count weight].map do |kind|
@@ -228,6 +272,73 @@ class PerformanceDashboardController < ApplicationController
   end
 
   private
+
+  def time_daily_hours(owner_id)
+    return @time_owner_hours[owner_id] if @time_owner_hours.key?(owner_id)
+    id = @settings['performance_weekly_hours_field_id'].to_s
+    @time_weekly_field ||= UserCustomField.find_by(id: id.to_i, field_format: %w[int float]) if id.present?
+    field = @time_weekly_field
+    value = if field && (User.current.admin? || field.visible?)
+      TicketJourneyPerformanceTime.positive(User.find_by(id: owner_id)&.custom_value_for(field.id)&.value)
+    end
+    daily = value / @calendar.weekdays.size if value
+    if daily.nil? || daily > 24
+      @time_hours_fallback << owner_id if id.present?
+      daily = @calendar.hours_per_day
+    end
+    @time_owner_hours[owner_id] = daily
+  end
+
+  def render_time(rows)
+    @time_report = TicketJourneyPerformanceTime.calculate(rows, month: @time_month)
+    @estimate_allowance = TicketJourney::PerformanceSettings.time_threshold(@settings, 'performance_estimate_allowance')
+    @sv_warning = TicketJourney::PerformanceSettings.time_threshold(@settings, 'performance_sv_warning')
+    unless @metric
+      @time_comparison = @selected_owners.map do |owner|
+        { owner: owner, report: TicketJourneyPerformanceTime.calculate(rows.select { |row| row[:owner_id] == owner.id.to_s }) }
+      end
+      @time_sort = %w[owner open estimate spent sv].include?(params[:time_sort]) ? params[:time_sort] : 'owner'
+      @time_direction = params[:time_direction] == 'desc' ? 'desc' : 'asc'
+      @time_comparison.sort! do |a, b|
+        x = @time_sort == 'owner' ? a[:owner].name.downcase : a[:report][@time_sort.to_sym]
+        y = @time_sort == 'owner' ? b[:owner].name.downcase : b[:report][@time_sort.to_sym]
+        result = if x.nil? || y.nil?
+          (x.nil? ? 1 : 0) <=> (y.nil? ? 1 : 0)
+        else
+          (x <=> y) * (@time_direction == 'desc' ? -1 : 1)
+        end
+        result.zero? ? a[:owner].id <=> b[:owner].id : result
+      end
+      return render(:time)
+    end
+
+    @detail_title = TicketJourneyPerformanceTime::LABELS.fetch(@metric)
+    @group_by = TicketJourneyPerformance::DETAIL_GROUPS.key?(params[:group_by]) ? params[:group_by] : nil
+    @sort = %w[id age due spent].include?(params[:sort]) ? params[:sort] : 'id'
+    @direction = params[:direction] == 'desc' ? 'desc' : 'asc'
+    names = @selected_owners.to_h { |owner| [owner.id.to_s, owner.name] }
+    records = @time_report[:sets].fetch(@metric).map { |row| row.merge(owner_name: names[row[:owner_id]]) }
+    records.sort! do |a, b|
+      group = TicketJourneyPerformance.detail_group_key(a, @group_by) <=> TicketJourneyPerformance.detail_group_key(b, @group_by) if @group_by
+      next group if group && !group.zero?
+      x, y = a[@sort.to_sym], b[@sort.to_sym]
+      result = if x.nil? || y.nil?
+        (x.nil? ? 1 : 0) <=> (y.nil? ? 1 : 0)
+      else
+        (x <=> y) * (@direction == 'desc' ? -1 : 1)
+      end
+      result.zero? ? a[:id] <=> b[:id] : result
+    end
+    @detail_count = records.size
+    @matching_issue_ids = records.map { |row| row[:id] }
+    @page_count = [(@detail_count / 100.0).ceil, 1].max
+    @page = [[params[:page].to_i, 1].max, @page_count].min
+    @detail_rows = records.slice((@page - 1) * 100, 100) || []
+    @detail_issues = Issue.visible(User.current).where(project_id: performance_project_ids, id: @detail_rows.map { |row| row[:id] })
+      .includes(:project, :tracker).index_by(&:id)
+    @detail_rows.select! { |row| @detail_issues.key?(row[:id]) }
+    render :time_details
+  end
 
   def alphabetical_owners(users)
     users.to_a.sort_by { |user| [user.name.to_s.downcase, user.id] }

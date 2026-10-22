@@ -7,3 +7,18 @@
   <% end %>
   <p>Only public monthly target fields are shown to non-administrators. Monthly employee targets are separate from the shared delivery percentage. No Extra Tasks adjustment applies.</p>
 </fieldset>
+<fieldset><legend>Performance Time — Working Calendar and Thresholds</legend>
+  <% calendar = TicketJourney::WorkingCalendar.new(settings) %>
+  <p><label>Working weekdays</label><%= hidden_field_tag 'settings[performance_working_weekdays][]', '', id: nil %>
+    <% [1, 2, 3, 4, 5, 6, 0].each do |day| %>
+      <label class="inline"><%= check_box_tag 'settings[performance_working_weekdays][]', day, calendar.weekdays.include?(day), id: "performance_workday_#{day}" %> <%= Date::DAYNAMES[day] %></label>
+    <% end %>
+  </p>
+  <p><label for="settings_performance_hours_per_day">Default working hours per day</label><%= number_field_tag 'settings[performance_hours_per_day]', calendar.hours_per_day, id: 'settings_performance_hours_per_day', min: 0.01, max: 24, step: 'any', required: true %> Default: 8.</p>
+  <p><label for="settings_performance_holidays">Organization holidays</label><%= text_area_tag 'settings[performance_holidays]', settings['performance_holidays'], id: 'settings_performance_holidays', rows: 6, cols: 48 %><br>One date per line: YYYY-MM-DD followed by an optional description. These dates are excluded from working time and age.</p>
+  <p><label for="settings_performance_weekly_hours_field_id">Owner weekly-hours field</label><%= select_tag 'settings[performance_weekly_hours_field_id]', options_for_select(UserCustomField.where(field_format: %w[int float]).order(:name).map { |field| ["#{field.name} (##{field.id})", field.id] }, settings['performance_weekly_hours_field_id']), include_blank: 'Use default daily hours', id: 'settings_performance_weekly_hours_field_id' %><br>Optional existing numeric User field; no field is created. Weekly hours divide by configured working weekdays. Missing, hidden or invalid values fall back to default daily hours and are disclosed in the report. Private values are never exposed to non-administrators.</p>
+  <% [['performance_estimate_allowance', 'Estimate overrun allowance (%)'], ['performance_sv_warning', 'SV warning threshold (%)']].each do |key, label| %>
+    <p><label for="settings_<%= key %>"><%= label %></label><%= number_field_tag "settings[#{key}]", TicketJourney::PerformanceSettings.time_threshold(settings, key), id: "settings_#{key}", min: 0, max: 100, step: 'any', required: true %> Default: 10%.</p>
+  <% end %>
+  <p>Age is zero on the Start Date and counts working days after it. SV includes the report day's full scheduled working hours. Pauses are included. Current settings also apply to past report dates; calendar edits can change historical results. Owner-specific daily hours cancel out of the elapsed/window fraction when constant across the schedule; they do not change the ticket's PM Estimate.</p>
+</fieldset>

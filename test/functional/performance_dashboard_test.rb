@@ -30,28 +30,68 @@ class PerformanceDashboardTest < ActionController::TestCase
     assert_response 422
   end
 
-  test 'planned time tab preserves context without calculating reports' do
+  test 'initial live Time page renders filters without issue or time scans' do
     Issue.expects(:visible).never
+    TimeEntry.expects(:visible).never
     TicketJourneyPerformance.expects(:history_for).never
-    TicketJourneyPerformance.expects(:calculate).never
-    %w[time].each do |tab|
-      get :index, params: { project_id: @project.identifier, tab: tab,
-                            owner_ids: ['1', '2'], as_of: Date.current.iso8601 }
-      assert_response :success
-      assert_select '.performance-planned-section', text: /planned for a later implementation/
-      assert_select '.performance-tabs a[aria-current="page"]', text: /#{tab.titleize}/
-      assert_select 'input[name="tab"][value=?]', tab
-      assert_select '#owner_id option[selected]', count: 2
-      assert_select '.performance-card', count: 0
-      assert_select '.performance-tabs a', count: 3 do |links|
-        links.each do |link|
-          context = Rack::Utils.parse_nested_query(URI.parse(link['href']).query)
-          assert_equal ['1', '2'], context['owner_ids']
-          assert_equal Date.current.iso8601, context['as_of']
-          assert_nil context['metric']
-        end
-      end
-    end
+    get :index, params: { project_id: @project.identifier, tab: 'time', as_of: Date.current.iso8601 }
+    assert_response :success
+    assert_select '.nodata', text: /Select a Ticket Owner/
+    assert_select '.performance-tabs a[aria-current="page"]', text: 'Time'
+    assert_select '.performance-tabs a[aria-current="page"] .performance-tab-planned', count: 0
+    assert_select 'input[name="tab"][value="time"]'
+    assert_select '.performance-time-productivity', count: 0
+  end
+
+  test 'weekly hours honor User field visibility and disclose default fallback' do
+    field = stub(visible?: false)
+    UserCustomField.stubs(:find_by).returns(field)
+    User.current = User.find(2)
+    @controller.instance_variable_set(:@settings, { 'performance_weekly_hours_field_id' => '99' })
+    @controller.instance_variable_set(:@calendar, TicketJourney::WorkingCalendar.new({}))
+    @controller.instance_variable_set(:@time_owner_hours, {})
+    @controller.instance_variable_set(:@time_hours_fallback, Set.new)
+    field.expects(:id).never
+    assert_equal 8.0, @controller.send(:time_daily_hours, '1')
+    assert_includes @controller.instance_variable_get(:@time_hours_fallback), '1'
+  ensure
+    User.current = nil
+  end
+
+  test 'Time productivity rejects a month outside the five completed month ends before scanning' do
+    Issue.expects(:visible).never
+    get :index, params: { project_id: @project.identifier, owner_id: '1', tab: 'time',
+      as_of: '2026-10-21', metric: 'time_delivered', time_month: '2026-10-31' }
+    assert_response :not_found
+  end
+
+  test 'live Time renders paired hours, monthly productivity and exact exclusion drill down' do
+    issue = Issue.find(1)
+    issue.tracker.update!(name: 'Bug')
+    date = Date.new(2026, 10, 21)
+    Issue.expects(:visible).at_least_once.returns(Issue.where(id: issue.id))
+    Issue.any_instance.stubs(:visible_custom_field_values).returns([stub(custom_field: stub(id: 57), value: '1')])
+    Issue.any_instance.stubs(:start_date).returns(nil)
+    snapshot = { id: issue.id, owner_id: '1', status_name: 'In Progress', open: true,
+      done: false, due: date + 2, weight: 8.0, missing_weight: false,
+      delivered_at: nil, started: true }
+    TicketJourneyPerformance.stubs(:snapshot).returns(snapshot)
+    TicketJourneyPerformanceTime.stubs(:hours_for).returns({ issue.id => [[date, 3.0]] })
+    get :index, params: { project_id: @project.identifier, owner_id: '1', tab: 'time', as_of: date.iso8601 }
+    assert_response :success
+    assert_select '.performance-time-productivity tbody tr', count: 5
+    assert_select '.performance-time-cards', count: 1
+    assert_select '.performance-owner-change-note', count: 1
+    assert_select '.performance-header p', text: /Open ticket time analysis/
+    assert_select '.performance-header p', text: /Planned report/, count: 0
+    assert_equal 1, @controller.instance_variable_get(:@time_report)[:sets]['time_sv_excluded'].size
+    TicketJourneyPerformanceTime.expects(:add_productivity!).never
+    get :index, params: { project_id: @project.identifier, owner_id: '1', tab: 'time', as_of: date.iso8601, metric: 'time_sv_excluded' }
+    assert_response :success
+    assert_select '.performance-time-details tbody tr', count: 1
+    assert_select '.performance-time-details td', text: /Set Start Date/
+    assert_select 'input[name="tab"][value="time"]'
+    assert_nil @controller.instance_variable_get(:@time_trend)
   end
 
   test 'Tickets trend uses current owner at each month end and skips trend work on drill down' do

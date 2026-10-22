@@ -3,6 +3,16 @@ require File.expand_path('../test_helper', __dir__)
 class PerformanceDashboardHelperTest < ActiveSupport::TestCase
   include PerformanceDashboardHelper
 
+  test 'Time signs zero and threshold boundaries distinguish SV from estimate allowance' do
+    assert_equal 'performance-return-unavailable', performance_time_state(nil, 10)
+    assert_equal 'performance-return-unavailable', performance_time_state(0, 10)
+    assert_equal 'performance-return-positive', performance_time_state(1, 10)
+    assert_equal 'performance-return-warning', performance_time_state(-9.99, 10)
+    assert_equal 'performance-return-negative', performance_time_state(-10, 10)
+    assert_equal 'performance-return-warning', performance_time_state(-10, 10, inclusive: false)
+    assert_equal 'performance-return-negative', performance_time_state(-10.01, 10, inclusive: false)
+  end
+
   test 'leaderboard axes reduce whitespace and include data and targets without capping future values' do
     points = performance_leaderboard_geometry([{ '1' => 211.0 }], keys: ['1'], scale_values: [160], percent: false)
     assert_equal 300.0, points[:maximum]

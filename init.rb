@@ -3,6 +3,7 @@ require_relative 'lib/ticket_journey/issue_patch'
 require_relative 'lib/ticket_journey/issue_query_patch'
 require_relative 'lib/ticket_journey/hooks'
 require_relative 'lib/ticket_journey/performance_settings'
+require_relative 'lib/ticket_journey/working_calendar'
 
 Setting.include TicketJourney::PerformanceSettings unless Setting < TicketJourney::PerformanceSettings
 
@@ -29,7 +30,10 @@ Redmine::Plugin.register :redmine_ticket_journey do
   author_url  ''
 
   requires_redmine version_or_higher: '6.0.0'
-  settings default: { 'performance_count_field_id' => '', 'performance_weight_field_id' => '', 'performance_delivery_target' => '90' },
+  settings default: { 'performance_count_field_id' => '', 'performance_weight_field_id' => '', 'performance_delivery_target' => '90',
+                      'performance_working_weekdays' => %w[1 2 3 4 5], 'performance_hours_per_day' => '8',
+                      'performance_holidays' => '', 'performance_weekly_hours_field_id' => '',
+                      'performance_estimate_allowance' => '10', 'performance_sv_warning' => '10' },
            partial: 'settings/ticket_journey_performance'
 
   # Register as a project module so it appears in Settings > Modules.

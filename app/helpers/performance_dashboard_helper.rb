@@ -1,4 +1,41 @@
 module PerformanceDashboardHelper
+  def performance_time_params(overrides = {})
+    performance_owner_params.merge(tab: 'time', as_of: @date.iso8601, time_month: @time_month&.iso8601).merge(overrides)
+  end
+
+  def performance_time_link(label, metric, ids = @selected_owner_ids)
+    link_to label, performance_dashboard_path(@project, **performance_owner_params(ids), tab: 'time', as_of: @date.iso8601, metric: metric)
+  end
+
+  def performance_time_heading(label, key)
+    direction = @time_sort == key && @time_direction == 'asc' ? 'desc' : 'asc'
+    marker = @time_sort == key ? (@time_direction == 'asc' ? ' ▲' : ' ▼') : ''
+    link_to "#{label}#{marker}", performance_dashboard_path(@project, **performance_time_params(time_sort: key, time_direction: direction))
+  end
+
+  def performance_time_hours(value)
+    value.nil? ? 'Unavailable' : "#{performance_number(value)} h"
+  end
+
+  def performance_time_state(value, threshold, inclusive: true)
+    return 'performance-return-unavailable' if value.nil? || value.zero?
+    return 'performance-return-positive' if value.positive?
+    exceeded = inclusive ? value <= -threshold : value < -threshold
+    exceeded ? 'performance-return-negative' : 'performance-return-warning'
+  end
+
+  def performance_time_gradient(counts)
+    total = counts.sum
+    return '#dce5ef' if total.zero?
+    offset = 0.0
+    stops = counts.each_with_index.map do |count, index|
+      first = offset
+      offset += count * 100.0 / total
+      "#{TicketJourneyPerformanceTime::COLORS[index]} #{first}% #{offset}%"
+    end
+    "conic-gradient(#{stops.join(', ')})"
+  end
+
   def performance_owner_color(owner_id)
     # Use distinct palette slots within the selection instead of hashing user IDs
     # to hues, which can put two selected developers in almost the same color.

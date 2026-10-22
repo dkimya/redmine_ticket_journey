@@ -1,0 +1,33 @@
+<% html_title 'Performance Time', @detail_title %>
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'performance', plugin: 'redmine_ticket_journey' %>
+  <%= javascript_include_tag 'performance_navigation', plugin: 'redmine_ticket_journey', defer: true %>
+<% end %>
+<div class="performance-page">
+  <%= render 'header', page_title: @detail_title, show_filters: false %>
+  <p><%= link_to '← Back to Performance Time', performance_dashboard_path(@project, **performance_time_params(time_month: nil)), data: { performance_back: true } %></p>
+  <p><strong><%= @owner_label %></strong> · As of <%= format_date(@date) %> · <%= @detail_count %> matching tickets across all pages.</p>
+  <% if @time_month %><p>Productivity month: <%= format_date(@time_month.beginning_of_month) %> – <%= format_date(@time_month) %>. Status and visible logged hours use this month-end; current owner and complexity weight apply. Tickets with no recorded completion are listed for investigation without assuming delivery within this month.</p><% end %>
+  <p>Current Ticket Owner and schedule fields; historical status. Age uses working days after Start Date. Hours include visible direct entries from every author with work date through the report date, without child rollups. Restricted time visibility may yield partial totals. Exclusion notes explain the required correction; permissions must be reviewed by an administrator.</p>
+  <%= form_tag performance_dashboard_path(@project), method: :get do %>
+    <% performance_owner_params.each do |key, value| %><% Array(value).each do |id| %><%= hidden_field_tag(key == :owner_ids ? 'owner_ids[]' : 'owner_id', id, id: nil) %><% end %><% end %>
+    <%= hidden_field_tag :tab, 'time' %><%= hidden_field_tag :metric, @metric %><%= hidden_field_tag :as_of, @date.iso8601 %>
+    <%= hidden_field_tag :time_month, @time_month.iso8601 if @time_month %>
+    <%= label_tag :sort, 'Sort' %><%= select_tag :sort, options_for_select([['Ticket ID', 'id'], ['Working-day Age', 'age'], ['Due Date', 'due'], ['Visible Spent Time', 'spent']], @sort) %>
+    <%= select_tag :direction, options_for_select([['Ascending', 'asc'], ['Descending', 'desc']], @direction), aria: { label: 'Sort direction' } %>
+    <%= label_tag :group_by, 'Group by' %><%= select_tag :group_by, options_for_select([['None', ''], ['Project', 'project'], ['Tracker', 'tracker'], ['Owner', 'owner'], ['Status', 'status']], @group_by) %><%= submit_tag 'Apply options', name: nil %>
+  <% end %>
+  <% if @detail_rows.empty? %><p class="nodata">No tickets match this metric.</p><% else %>
+    <div class="autoscroll"><table class="list performance-time-details"><thead><tr><th>Ticket</th><th>Subject</th><th>Project</th><th>Owner (current)</th><th>Status (as of date)</th><th>Start</th><th>Due</th><th>Working-day Age</th><th>Complexity Weight</th><th>Last Completion</th><th>PM Estimate</th><th>Visible Spent</th><th>Planned Effort</th><th>Data Review</th></tr></thead><tbody>
+      <% previous_group = nil; @detail_rows.each do |row| %><% issue = @detail_issues.fetch(row[:id]); group = TicketJourneyPerformance.detail_group_key(row, @group_by) %>
+        <% if @group_by && group != previous_group %><tr class="group"><th colspan="14"><%= row[TicketJourneyPerformance::DETAIL_GROUPS[@group_by]] %></th></tr><% previous_group = group %><% end %>
+        <tr><td><%= link_to "##{issue.id}", issue_path(issue) %></td><td><%= issue.subject %></td><td><%= issue.project.name %></td><td><%= row[:owner_name] %></td><td><%= row[:status_name] %></td><td><%= row[:start_date] ? format_date(row[:start_date]) : 'Missing' %></td><td><%= row[:due] ? format_date(row[:due]) : 'Missing' %></td><td><%= row[:age].nil? ? 'N/A' : row[:age] %></td><td><%= row[:missing_weight] ? 'Unavailable' : performance_number(row[:weight]) %></td><td><%= row[:delivered_at] ? format_date(row[:delivered_at]) : 'Not recorded' %></td><td><%= performance_time_hours(row[:estimate]) %></td><td><%= performance_time_hours(row[:spent]) %></td><td><%= performance_time_hours(row[:planned]) %></td><td><%= row[:exclusions].empty? ? 'Schedule data usable' : row[:exclusions].join('; ') %><% if row[:early_hours].to_f.positive? %><br>Visible logged before Start Date: <%= performance_time_hours(row[:early_hours]) %><% end %></td></tr>
+      <% end %>
+    </tbody></table></div>
+    <p><%= link_to 'Open matching tickets in Issues (current values)', performance_current_issues_path %></p>
+  <% end %>
+  <p>Page <%= @page %> of <%= @page_count %> · Up to 100 tickets per page
+    <% if @page > 1 %> · <%= link_to 'Previous', performance_dashboard_path(@project, **performance_time_params(metric: @metric, sort: @sort, direction: @direction, group_by: @group_by, page: @page - 1)) %><% end %>
+    <% if @page < @page_count %> · <%= link_to 'Next', performance_dashboard_path(@project, **performance_time_params(metric: @metric, sort: @sort, direction: @direction, group_by: @group_by, page: @page + 1)) %><% end %>
+  </p>
+</div>

@@ -1,0 +1,21 @@
+<section class="performance-section performance-time-productivity">
+  <h3>Delivered Complexity Weight per Logged Hour — Five Completed Months</h3>
+  <p>Each month uses tickets Done / Closed at that month-end whose latest completion occurred within the month. Current owners and weights apply. Visible direct ticket hours accumulate through that month-end, including work before the delivery month. Exclusions remove the ticket from both points and hours; zero total hours produces N/A.</p>
+  <% points = @time_trend; geometry = performance_leaderboard_geometry(points, keys: [:productivity], scale_values: [], percent: false); series = geometry[:series].first %>
+  <svg class="performance-trend-chart" viewBox="0 0 860 285" role="img" aria-labelledby="time-productivity-title time-productivity-description">
+    <title id="time-productivity-title">Monthly delivered complexity points per visible logged hour</title>
+    <desc id="time-productivity-description">Five individual completed months, not a rolling average. Unavailable points leave gaps. Exact values and exclusions are in the table below.</desc>
+    <% geometry[:ticks].each do |tick| %><% y = 235 - tick / geometry[:maximum] * 200 %><line class="performance-trend-grid" x1="90" x2="770" y1="<%= y %>" y2="<%= y %>" /><text x="78" y="<%= y + 5 %>" text-anchor="end"><%= number_with_precision(tick, precision: 3, strip_insignificant_zeros: true) %></text><% end %>
+    <g class="performance-trend-series">
+      <% series.each_cons(2) do |left, right| %><% if left[:y] && right[:y] %><line x1="<%= left[:x] %>" y1="<%= left[:y] %>" x2="<%= right[:x] %>" y2="<%= right[:y] %>" /><% end %><% end %>
+      <% series.each do |coordinate| %><% point = points[coordinate[:index]] %>
+        <% if coordinate[:y] %><% description = "#{format_date(point[:date])}: #{number_with_precision(point[:productivity], precision: 3)} points/hour; #{point[:count]} tickets, #{performance_number(point[:weight])} points / #{performance_number(point[:hours])} hours" %><circle cx="<%= coordinate[:x] %>" cy="<%= coordinate[:y] %>" r="5" tabindex="0" aria-label="<%= description %>"><title><%= description %></title></circle><% end %>
+      <% end %>
+    </g>
+    <% series.each do |coordinate| %><text x="<%= coordinate[:x] %>" y="268" text-anchor="middle"><%= format_date(points[coordinate[:index]][:date]) %></text><% end %>
+  </svg>
+  <details class="performance-trend-values"><summary>View monthly productivity values and coverage</summary><div class="autoscroll"><table class="list">
+    <thead><tr><th>Month end</th><th>Contributing Tickets</th><th>Delivered Points</th><th>Visible Ticket Hours</th><th>Points / Hour</th><th>Excluded: Weight / Time</th><th>Done with No Completion Record</th></tr></thead>
+    <tbody><% points.each do |point| %><tr><th><%= format_date(point[:date]) %></th><td><%= link_to point[:count], performance_dashboard_path(@project, **performance_time_params(metric: 'time_delivered', time_month: point[:date].iso8601)) %></td><td><%= performance_number(point[:weight]) %></td><td><%= performance_time_hours(point[:hours]) %></td><td><%= point[:productivity].nil? ? 'N/A' : number_with_precision(point[:productivity], precision: 3, strip_insignificant_zeros: true) %></td><td><%= link_to point[:excluded], performance_dashboard_path(@project, **performance_time_params(metric: 'time_delivered_excluded', time_month: point[:date].iso8601)) %></td><td><%= link_to point[:missing_completion], performance_dashboard_path(@project, **performance_time_params(metric: 'time_delivered_excluded', time_month: point[:date].iso8601)) %></td></tr><% end %></tbody>
+  </table></div></details>
+</section>

@@ -15,7 +15,7 @@
     <% context[:tab] = key unless key == 'tickets' %>
     <% context[:dashboard_type] = @dashboard_type if @dashboard_type == 'periodic' %>
     <%= link_to performance_dashboard_path(@project, **context), class: "performance-tab#{' is-active' if @performance_tab == key}", aria: { current: (@performance_tab == key ? 'page' : nil) } do %>
-      <%= label %><% if @dashboard_type == 'periodic' || key == 'time' %><span class="performance-tab-planned">Planned</span><% end %>
+      <%= label %><% if @dashboard_type == 'periodic' %><span class="performance-tab-planned">Planned</span><% end %>
     <% end %>
   <% end %>
 </nav>
