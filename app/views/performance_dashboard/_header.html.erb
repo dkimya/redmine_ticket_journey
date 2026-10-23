@@ -18,6 +18,6 @@
     <% end %>
     </div>
     <% if @dashboard_type == 'live' && @metric && @metric != 'owner_changes' %>
-      <p><%= link_to 'View Ticket Owner changes', performance_dashboard_path(@project, **performance_owner_params, as_of: @date.iso8601, tab: @performance_tab, metric: 'owner_changes'), class: 'performance-detail-link' %></p>
+      <p><%= performance_drilldown_link 'View Ticket Owner changes', performance_dashboard_path(@project, **performance_owner_params, as_of: @date.iso8601, tab: @performance_tab, metric: 'owner_changes'), class: 'performance-detail-link' %></p>
     <% end %>
   </header>

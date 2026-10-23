@@ -1,10 +1,15 @@
 module PerformanceDashboardHelper
+  def performance_drilldown_link(label, path, **options)
+    title = [options[:title] || 'View tickets', 'Opens in a new tab'].join(' · ')
+    link_to label, path, options.merge(target: '_blank', rel: 'noopener', title: title)
+  end
+
   def performance_time_params(overrides = {})
     performance_owner_params.merge(tab: 'time', as_of: @date.iso8601, time_month: @time_month&.iso8601).merge(overrides)
   end
 
   def performance_time_link(label, metric, ids = @selected_owner_ids)
-    link_to label, performance_dashboard_path(@project, **performance_owner_params(ids), tab: 'time', as_of: @date.iso8601, metric: metric)
+    performance_drilldown_link label, performance_dashboard_path(@project, **performance_owner_params(ids), tab: 'time', as_of: @date.iso8601, metric: metric)
   end
 
   def performance_time_heading(label, key)
@@ -98,7 +103,7 @@ module PerformanceDashboardHelper
   end
 
   def performance_return_link(label, metric, ids = @selected_owner_ids)
-    link_to label, performance_dashboard_path(@project, **performance_owner_params(ids), tab: 'returns', as_of: @date.iso8601, metric: metric)
+    performance_drilldown_link label, performance_dashboard_path(@project, **performance_owner_params(ids), tab: 'returns', as_of: @date.iso8601, metric: metric)
   end
 
   def performance_return_heading(label, key)
@@ -123,7 +128,7 @@ module PerformanceDashboardHelper
   end
 
   def performance_comparison_link(value, metric, ids)
-    link_to value, performance_dashboard_path(@project, **performance_owner_params(ids), as_of: @date.iso8601, metric: metric)
+    performance_drilldown_link value, performance_dashboard_path(@project, **performance_owner_params(ids), as_of: @date.iso8601, metric: metric)
   end
 
   def performance_comparison_heading(label, key)
@@ -186,7 +191,7 @@ module PerformanceDashboardHelper
       c: ['id', 'project', 'subject', 'status', "cf_57", 'due_date', "cf_70"], group_by: '')
   end
   def performance_detail_link(label, metric)
-    link_to label, performance_dashboard_path(@project, **performance_owner_params, as_of: @date.iso8601, metric: metric),
+    performance_drilldown_link label, performance_dashboard_path(@project, **performance_owner_params, as_of: @date.iso8601, metric: metric),
             title: "View tickets: #{TicketJourneyPerformance::DETAIL_LABELS.fetch(metric)}", class: 'performance-detail-link'
   end
   def performance_number(value)

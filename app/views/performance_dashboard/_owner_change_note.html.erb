@@ -1,5 +1,5 @@
 <% unless @owner_change_rows.nil? %>
   <% audit_params = performance_owner_params.merge(as_of: @date.iso8601, tab: @performance_tab, metric: 'owner_changes') %>
-  <p class="performance-owner-change-note"><%= link_to "During these 5 months, #{@owner_change_rows.size} ticket(s) had Ticket Owner changes. View tickets", performance_dashboard_path(@project, **audit_params), class: 'performance-detail-link' %>
+  <p class="performance-owner-change-note"><%= performance_drilldown_link "During these 5 months, #{@owner_change_rows.size} ticket(s) had Ticket Owner changes. View tickets", performance_dashboard_path(@project, **audit_params), class: 'performance-detail-link' %>
     <%= performance_tip("#{format_date(@owner_change_start)} – #{format_date(@owner_change_end)}. Each visible in-scope ticket counts once when an existing Ticket Owner is changed or removed and a selected owner is involved. Initial assignments from no owner are excluded. All report metrics use the current Ticket Owner; this audit retains recorded previous/new owners.") %></p>
 <% end %>

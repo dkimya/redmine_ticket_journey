@@ -15,8 +15,8 @@ function page(url, referrer, storage, initialState = null, length = 3) {
     } },
     document: { referrer, addEventListener: (_name, callback) => { listener = callback; } }
   });
-  return { history, click(href, back = false, modifiers = {}) {
-    const link = { href, target: '', hasAttribute: name => name === 'data-performance-back' && back };
+  return { history, click(href, back = false, modifiers = {}, target = '') {
+    const link = { href, target, hasAttribute: name => name === 'data-performance-back' && back };
     const event = Object.assign({ target: { closest: () => link }, button: 0, defaultPrevented: false,
       preventDefault() { this.defaultPrevented = true; } }, modifiers);
     listener(event);
@@ -25,6 +25,18 @@ function page(url, referrer, storage, initialState = null, length = 3) {
 }
 const dashboard = 'https://example.test/projects/a/performance?owner_id=1';
 const details = dashboard + '&metric=open';
+
+test('default new-tab drill downs leave dashboard history untouched and Back uses its normal URL', () => {
+  const storage = new Map();
+  const report = page(dashboard, '', storage, { otherFeature: true });
+  const event = report.click(details, false, {}, '_blank');
+  assert.equal(event.defaultPrevented, false);
+  assert.equal(storage.size, 0);
+  assert.deepEqual(report.history.state, { otherFeature: true });
+  const drill = page(details, dashboard, storage, null, 3);
+  assert.equal(drill.click(dashboard, true).defaultPrevented, false);
+  assert.equal(drill.history.destination, undefined);
+});
 
 test('return skips sorting entries and preserves existing history state', () => {
   const storage = new Map();
