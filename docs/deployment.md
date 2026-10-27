@@ -1,5 +1,18 @@
 # Deployment and verification
 
+## Periodic date-filter foundation — 2026-10-27
+
+Deploy controller and shared header/tabs/planned view changes together. No new
+assets, settings, fields or migrations are required. After the normal application
+restart, verify RSD/RED and owner controls on Periodic Tickets, Returns and Time.
+Apply and section links must preserve the chosen range; Live must retain its
+As of Date without receiving range inputs. Check malformed dates, RSD after RED,
+future RED, equal dates, month/year boundaries, narrow-screen wrapping and
+keyboard use. Invalid ranges must show a 422 with a report-date message. Periodic
+must still show Planned and execute no issue/history/time calculations. This
+supersedes older instructions expecting no Periodic date inputs. See
+[the specification](periodic-tickets-spec.md) for the remaining calculation work.
+
 Observed host: `/opt/redmine`, plugin `/opt/redmine/plugins/redmine_ticket_journey`, Puma under `redmine.service`, nginx proxy. Logs showed Ruby 3.3.4 and Rails 7.2.3; observations are not a support matrix.
 
 ## Deploy

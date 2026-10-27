@@ -29,6 +29,10 @@ class PerformanceDashboardController < ApplicationController
     if @dashboard_type == 'periodic'
       return render_404 unless requested_owners.all? { |id| id.match?(/\A[1-9]\d*\z/) }
 
+      @period_end = params[:red].present? ? Date.iso8601(params[:red]) : @date
+      @period_start = params[:rsd].present? ? Date.iso8601(params[:rsd]) : @period_end.beginning_of_month
+      raise ArgumentError if @period_start > @period_end || @period_end > Date.current
+
       # Planned tabs retain context but must not run ticket/history/target scans.
       @owners = alphabetical_owners(User.active.where(id: Member.where(project_id: performance_project_ids).select(:user_id)))
       @selected_owner_ids = requested_owners.presence || [@owners.find { |user| user.id == User.current.id }&.id].compact.map(&:to_s)
@@ -268,7 +272,12 @@ class PerformanceDashboardController < ApplicationController
       render :details
     end
   rescue ArgumentError
-    render_error message: 'Choose a valid As of Date on or before today.', status: 422
+    message = if @dashboard_type == 'periodic'
+      'Choose valid report dates: RSD must be on or before RED, and RED must be on or before today.'
+    else
+      'Choose a valid As of Date on or before today.'
+    end
+    render_error message: message, status: 422
   end
 
   private

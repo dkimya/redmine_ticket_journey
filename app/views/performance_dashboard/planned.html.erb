@@ -8,7 +8,9 @@
   <section class="performance-section performance-planned-section">
     <h3><%= @dashboard_type == 'periodic' ? 'Periodic Report' : "#{@performance_tab.titleize} Performance" %> — Planned</h3>
     <p>This section is planned for a later implementation. No <%= @dashboard_type == 'periodic' ? 'periodic report' : @performance_tab %> performance metrics are calculated here yet.</p>
-    <p>Your As of Date and selected Ticket Owners are retained when switching tabs. Metric definitions and time windows will be agreed before implementation.</p>
-    <% if @dashboard_type == 'periodic' %><p>A From / To date range will be introduced when Periodic Report is implemented. The date above only preserves your Live Dashboard context.</p><% end %>
+    <p>Your reporting period and selected Ticket Owners are retained when switching Periodic sections. Your Live Dashboard As of Date is retained separately.</p>
+    <% if @performance_tab == 'tickets' %>
+      <p>Tickets will compare expected work with completed expected work, show other completed work separately, and follow remaining debt through today. Assignment and hotfix definitions are still being confirmed before calculations are enabled.</p>
+    <% end %>
   </section>
 </div>

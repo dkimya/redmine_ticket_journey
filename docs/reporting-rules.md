@@ -1,5 +1,23 @@
 # Reporting rules
 
+## Periodic Tickets preparation — 2026-10-27
+
+The user approved the proposed Periodic Tickets approach. See
+[the calculation and layout specification](periodic-tickets-spec.md) for agreed
+policies and definitions still requiring confirmation. RSD/RED controls,
+server-side range validation and Periodic-section context preservation are now
+implemented locally. This supersedes older statements that Periodic has no date
+range inputs. All Periodic metrics remain Planned with no report scans; Tickets
+calculations/charts/tables/drill-downs await the assignment, hotfix and related
+population definitions. Current-owner/current-due-date/current-weight policies
+remain authoritative. Runtime and deployed verification are pending.
+
+Periodic Tickets Debt at RED is user-confirmed as unfinished tickets from the
+expectation package; Still Open Now is its currently open subset. This is an
+agreed rule awaiting calculation implementation, and does not alter existing
+PMO open-and-due-by-RED debt. Assignment/hotfix and detailed boundary rules remain
+pending in the specification.
+
 Reviewed against code and conversation on 2026-10-13. **Implemented** means present in code, not necessarily server-verified. See [known issues](known-issues.md) for evidence and differences requiring confirmation.
 
 ## Current Ticket Owner policy — Hadi confirmed, implemented locally

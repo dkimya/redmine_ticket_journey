@@ -319,7 +319,10 @@ class PerformanceDashboardTest < ActionController::TestCase
     assert_select '.performance-type-tabs a[aria-current="page"]', text: /Periodic Report/
     assert_select '.performance-header h2', text: 'Time — Periodic Report'
     assert_select 'input[name="dashboard_type"][value="periodic"]'
-    assert_select '.performance-planned-section', text: /From \/ To date range/
+    assert_select '.performance-planned-section', text: /No periodic report performance metrics are calculated/
+    assert_select 'input[type="date"][name="rsd"][value=?]', Date.current.beginning_of_month.iso8601
+    assert_select 'input[type="date"][name="red"][value=?]', Date.current.iso8601
+    assert_select 'input[type="date"][name="as_of"]', count: 0
     assert_operator @response.body.index('aria-label="Dashboard type"'), :<, @response.body.index('aria-label="Report section"')
     assert_operator @response.body.index('aria-label="Report section"'), :<, @response.body.index('<h2>')
     assert_select '.performance-tabs a', count: 3 do |links|
@@ -328,6 +331,8 @@ class PerformanceDashboardTest < ActionController::TestCase
         assert_equal 'periodic', context['dashboard_type']
         assert_equal ['1', '2'], context['owner_ids']
         assert_equal Date.current.iso8601, context['as_of']
+        assert_equal Date.current.beginning_of_month.iso8601, context['rsd']
+        assert_equal Date.current.iso8601, context['red']
       end
     end
     assert_select '.performance-type-tabs a', count: 2 do |links|
@@ -336,6 +341,72 @@ class PerformanceDashboardTest < ActionController::TestCase
       assert_equal 'time', live['tab']
       assert_equal ['1', '2'], live['owner_ids']
     end
+  end
+
+  test 'periodic date range survives section navigation and Apply without scans' do
+    Issue.expects(:visible).never
+    TicketJourneyPerformance.expects(:calculate).never
+    first_day = Date.current.beginning_of_month << 1
+    last_day = Date.current.beginning_of_month - 1
+    get :index, params: { project_id: @project.identifier, dashboard_type: 'periodic',
+                          rsd: first_day.iso8601, red: last_day.iso8601, owner_ids: ['1', '2'] }
+    assert_response :success
+    assert_select 'form.performance-filters' do
+      assert_select 'input[name="rsd"][value=?]', first_day.iso8601
+      assert_select 'input[name="red"][value=?]', last_day.iso8601
+      assert_select 'input[name="dashboard_type"][value="periodic"]'
+      assert_select 'select[name="owner_ids[]"] option[selected]', count: 2
+    end
+    assert_select '.performance-tabs a', count: 3 do |links|
+      links.each do |link|
+        context = Rack::Utils.parse_nested_query(URI.parse(link['href']).query)
+        assert_equal first_day.iso8601, context['rsd']
+        assert_equal last_day.iso8601, context['red']
+        assert_equal ['1', '2'], context['owner_ids']
+      end
+    end
+    assert_select '.performance-type-tabs a', count: 2 do |links|
+      live = Rack::Utils.parse_nested_query(URI.parse(links.first['href']).query)
+      assert_nil live['rsd']
+      assert_nil live['red']
+      assert_equal Date.current.iso8601, live['as_of']
+    end
+  end
+
+  test 'invalid periodic dates are rejected before issue scans' do
+    Issue.expects(:visible).never
+    today = Date.current
+    [
+      { rsd: 'invalid' },
+      { red: '2026-02-30' },
+      { rsd: today.iso8601, red: (today - 1).iso8601 },
+      { red: (today + 1).iso8601 }
+    ].each do |dates|
+      get :index, params: { project_id: @project.identifier, dashboard_type: 'periodic' }.merge(dates)
+      assert_response 422
+    end
+  end
+
+  test 'periodic single day and explicit RED default are accepted without scans' do
+    Issue.expects(:visible).never
+    last_day = Date.current.beginning_of_month - 1
+    get :index, params: { project_id: @project.identifier, dashboard_type: 'periodic', red: last_day.iso8601 }
+    assert_response :success
+    assert_select 'input[name="rsd"][value=?]', last_day.beginning_of_month.iso8601
+    get :index, params: { project_id: @project.identifier, dashboard_type: 'periodic',
+                          rsd: last_day.iso8601, red: last_day.iso8601 }
+    assert_response :success
+    assert_select 'input[name="rsd"][value=?]', last_day.iso8601
+    assert_select 'input[name="red"][value=?]', last_day.iso8601
+  end
+
+  test 'live filters keep As of Date and omit periodic date inputs' do
+    Issue.expects(:visible).never
+    get :index, params: { project_id: @project.identifier }
+    assert_response :success
+    assert_select 'input[type="date"][name="as_of"]', count: 1
+    assert_select 'input[name="rsd"]', count: 0
+    assert_select 'input[name="red"]', count: 0
   end
 
   test 'unknown dashboard category is rejected before report scans' do

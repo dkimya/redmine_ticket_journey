@@ -1,5 +1,16 @@
 # Known issues and evidence
 
+## Periodic Tickets preparation — 2026-10-27
+
+RSD/RED controls and validation are implemented locally across Periodic sections.
+Ranges and owners survive section navigation/Apply, while Live retains its
+separate As of Date. Periodic calculations remain disabled pending business
+definitions in [the specification](periodic-tickets-spec.md). This supersedes
+earlier no-period-input statements, not the Planned status of Periodic metrics.
+Request tests cover valid/default/invalid ranges, navigation and no-scan behavior;
+Ruby/test Redmine are unavailable locally, so those tests and deployed layout
+remain unverified. No schema changes.
+
 Reviewed 2026-10-13. **Server-confirmed** means user output/screenshots or explicit confirmation in this conversation, not a fresh check of today's deployment.
 
 | Issue | Solution and evidence |
