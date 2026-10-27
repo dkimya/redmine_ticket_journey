@@ -348,7 +348,7 @@ class PerformanceDashboardTest < ActionController::TestCase
     TicketJourneyPerformance.expects(:calculate).never
     first_day = Date.current.beginning_of_month << 1
     last_day = Date.current.beginning_of_month - 1
-    get :index, params: { project_id: @project.identifier, dashboard_type: 'periodic',
+    get :index, params: { project_id: @project.identifier, dashboard_type: 'periodic', tab: 'time',
                           rsd: first_day.iso8601, red: last_day.iso8601, owner_ids: ['1', '2'] }
     assert_response :success
     assert_select 'form.performance-filters' do

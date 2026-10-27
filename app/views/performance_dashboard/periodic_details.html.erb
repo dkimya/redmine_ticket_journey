@@ -1,0 +1,30 @@
+<% html_title 'Performance', @detail_title %>
+<% content_for :header_tags do %><%= stylesheet_link_tag 'performance', plugin: 'redmine_ticket_journey' %><%= javascript_include_tag 'performance_navigation', plugin: 'redmine_ticket_journey', defer: true %><% end %>
+<div class="performance-page periodic-page">
+  <%= render 'header', page_title: @detail_title, show_filters: false %>
+  <p><%= link_to '← Back to Periodic Tickets', performance_dashboard_path(@project, **periodic_ticket_params), data: { performance_back: true } %></p>
+  <p><strong><%= @owner_label %></strong> · <%= @detail_count %> tickets · Total usable CW: <%= performance_number(@detail_weight) %><% if @trend_date %> · Cumulative through <%= @trend_date == @period_start - 1 ? 'opening debt' : format_date(@trend_date) %><% end %></p>
+  <p class="periodic-provisional">Provisional rules. Status is at RED; owner, due date, tracker and usable weight are current. Still Open Now checks current non-closed status. Expected and completion dates follow the documented Periodic rules. These sets recalculate with your current visibility; edits can change results.</p>
+  <%= form_tag performance_dashboard_path(@project), method: :get, class: 'periodic-detail-options' do %>
+    <% performance_detail_params.except(:group_by).each do |key, value| %><% Array(value).each do |item| %><%= hidden_field_tag(key == :owner_ids ? 'owner_ids[]' : key, item, id: nil) %><% end %><% end %>
+    <%= label_tag :group_by, 'Group by' %><%= select_tag :group_by, options_for_select([['None', ''], ['Project', 'project'], ['Tracker', 'tracker'], ['Current Owner', 'owner'], ['Status at RED', 'status']], @group_by) %><%= submit_tag 'Apply grouping', name: nil %>
+  <% end %>
+  <% if @matching_issue_ids.any? %><p><%= link_to 'Open matching tickets in Issues (current values)', performance_current_issues_path %></p><% end %>
+  <% if @detail_rows.empty? %><p class="nodata">No tickets match this metric.</p><% else %>
+    <div class="autoscroll"><table class="list issues periodic-details"><thead><tr>
+      <th><%= performance_sort_heading('Ticket', 'id') %></th><th>Project</th><th><%= performance_sort_heading('Subject', 'subject') %></th><th>Tracker</th><th>Current Owner</th><th><%= performance_sort_heading('Status at RED', 'status') %></th><th><%= performance_sort_heading('Current Due Date', 'due') %></th><th><%= performance_sort_heading('Current CW', 'weight') %></th><th>Recorded Assignment</th><th>Category</th><th>Expected Date</th><th><%= performance_sort_heading('Last Completion by RED', 'completion') %></th>
+    </tr></thead><tbody>
+      <% @detail_rows.group_by { |row| TicketJourneyPerformance.detail_group_key(row, @group_by) }.each do |group_key, group| %>
+        <% if @group_by %><tr class="group"><th colspan="12"><%= group.first[TicketJourneyPerformance::DETAIL_GROUPS.fetch(@group_by)].presence || 'Unknown' %> · <%= @group_totals[group_key][:count] %> tickets · <%= performance_number(@group_totals[group_key][:weight]) %> CW (all pages)</th></tr><% end %>
+        <% group.each do |row| %><% issue = @detail_issues.fetch(row[:id]) %>
+          <tr class="performance-ticket-row"><td><%= link_to "##{issue.id}", issue_path(issue) %></td><td><%= issue.project.name %></td><td class="subject"><%= issue.subject %></td><td><%= issue.tracker.name %></td><td><%= row[:owner_name] %></td><td><%= row[:status_name].presence || 'Unknown' %></td><td><%= row[:due] ? format_date(row[:due]) : 'Not set' %></td><td><%= row[:missing_weight] ? 'Unavailable' : performance_number(row[:weight]) %></td><td><%= row[:assigned_on] ? format_date(row[:assigned_on]) : 'Not recorded' %></td><td><%= row[:category] ? TicketJourneyPeriodicTickets::LABELS.fetch(row[:category]) : 'Outside expectation' %></td><td><%= row[:expected_on] ? format_date(row[:expected_on]) : 'N/A' %></td><td><%= row[:delivered_at] ? format_date(row[:delivered_at]) : 'Not recorded' %></td></tr>
+        <% end %>
+      <% end %>
+    </tbody></table></div>
+  <% end %>
+  <p>Page <%= @page %> of <%= @page_count %> · Up to 100 tickets per page
+    <% if @page > 1 %> · <%= link_to 'Previous', performance_dashboard_path(@project, **performance_detail_params(page: @page - 1)) %><% end %>
+    <% if @page < @page_count %> · <%= link_to 'Next', performance_dashboard_path(@project, **performance_detail_params(page: @page + 1)) %><% end %>
+  </p>
+  <%= render 'periodic_rules' %>
+</div>

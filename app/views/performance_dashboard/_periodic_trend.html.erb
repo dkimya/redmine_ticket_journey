@@ -1,0 +1,36 @@
+<% all_points = series.flat_map { |entry| entry[:points] }; geometry = performance_leaderboard_geometry(all_points, keys: [:value], scale_values: [], percent: false) %>
+<% dates = series.first[:points].map { |point| point[:date] }; span = [(dates.last - dates.first).to_f, 1].max %>
+<% chart_id = "periodic-#{chart_key}" %>
+<section class="performance-section periodic-trend">
+  <h3><%= title %></h3>
+  <ul class="performance-trend-legend"><% series.each do |entry| %><li><span class="performance-trend-swatch" style="border-color:<%= entry[:color] %>;border-top-style:<%= entry[:dashed] ? 'dashed' : 'solid' %>"></span><%= entry[:label] %></li><% end %></ul>
+  <div class="autoscroll"><svg class="performance-trend-chart" viewBox="0 0 860 300" role="img" aria-labelledby="<%= chart_id %>-title">
+    <title id="<%= chart_id %>-title"><%= title %>. Dashed lines are expected; solid lines are completed expectations. Exact values are in the table below.</title>
+    <% geometry[:ticks].each do |value| %><% y = 235 - value / geometry[:maximum] * 200 %>
+      <line class="performance-trend-grid" x1="90" x2="770" y1="<%= y %>" y2="<%= y %>" />
+      <text x="78" y="<%= y + 5 %>" text-anchor="end"><%= performance_number(value) %></text>
+    <% end %>
+    <% label_step = [(dates.size / 7.0).ceil, 1].max %>
+    <% dates.each_with_index do |day, index| %><% next unless index % label_step == 0 || index == dates.size - 1 %>
+      <text x="<%= 90 + (day - dates.first).to_f / span * 680 %>" y="268" text-anchor="middle"><%= day.strftime('%d %b %y') %></text>
+    <% end %>
+    <% series.each do |entry| %>
+      <% coordinates = entry[:points].map { |point| [90 + (point[:date] - dates.first).to_f / span * 680, 235 - point[:value] / geometry[:maximum] * 200] } %>
+      <polyline points="<%= coordinates.map { |x, y| "#{x},#{y}" }.join(' ') %>" fill="none" stroke="<%= entry[:color] %>" stroke-width="2.5" stroke-dasharray="<%= entry[:dashed] ? '8 5' : 'none' %>" />
+      <% entry[:points].each_with_index do |point, index| %>
+        <% description = "#{entry[:label]} · #{format_date(point[:date])}: #{performance_number(point[:value])} · Opens in a new tab" %>
+        <a href="<%= performance_dashboard_path(@project, **periodic_ticket_params({ metric: entry[:metric], trend_date: point[:date].iso8601 }, ids: entry[:ids])) %>" target="_blank" rel="noopener" aria-label="<%= description %>">
+          <circle cx="<%= coordinates[index][0] %>" cy="<%= coordinates[index][1] %>" r="<%= entry[:dashed] ? 6 : 3.5 %>" fill="<%= entry[:dashed] ? '#fff' : entry[:color] %>" stroke="<%= entry[:color] %>" stroke-width="2"><title><%= description %></title></circle>
+        </a>
+      <% end %>
+    <% end %>
+  </svg></div>
+  <details class="performance-trend-values"><summary>Show period breakdown</summary>
+    <div class="autoscroll"><table class="list"><thead><tr><th>As of</th><% series.each do |entry| %><th><%= entry[:label] %></th><% end %></tr></thead>
+      <tbody><% dates.each_with_index do |day, index| %><tr><th><%= day == @period_start - 1 ? 'Opening debt' : format_date(day) %></th>
+        <% series.each do |entry| %><td><%= performance_drilldown_link performance_number(entry[:points][index][:value]), performance_dashboard_path(@project, **periodic_ticket_params({ metric: entry[:metric], trend_date: day.iso8601 }, ids: entry[:ids])) %></td><% end %>
+      </tr><% end %></tbody>
+    </table></div>
+  </details>
+  <p class="performance-weight-note">Cumulative values from the final period package. Opening debt is present at the opening point. Actual counts qualifying completions still Done / Closed at RED; later reopening within the period removes them from the curve. Other Done is separate. Periods over 120 days use month ends; shorter periods use Sunday week ends and a final partial week.</p>
+</section>

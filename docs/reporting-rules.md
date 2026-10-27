@@ -1,22 +1,29 @@
 # Reporting rules
 
-## Periodic Tickets preparation — 2026-10-27
+## Periodic Tickets — provisional implementation, 2026-10-27
 
-The user approved the proposed Periodic Tickets approach. See
-[the calculation and layout specification](periodic-tickets-spec.md) for agreed
-policies and definitions still requiring confirmation. RSD/RED controls,
-server-side range validation and Periodic-section context preservation are now
-implemented locally. This supersedes older statements that Periodic has no date
-range inputs. All Periodic metrics remain Planned with no report scans; Tickets
-calculations/charts/tables/drill-downs await the assignment, hotfix and related
-population definitions. Current-owner/current-due-date/current-weight policies
-remain authoritative. Runtime and deployed verification are pending.
+The user authorized implementation of the recommendations while awaiting Hadi.
+See [the calculation and layout specification](periodic-tickets-spec.md) for
+the implemented provisional defaults. This supersedes older statements that
+Periodic Tickets is Planned or has no date-range inputs. Periodic Returns/Time
+remain Planned. Current-owner/current-due-date/current-weight policies remain
+authoritative. Runtime and deployed verification are pending.
 
 Periodic Tickets Debt at RED is user-confirmed as unfinished tickets from the
-expectation package; Still Open Now is its currently open subset. This is an
-agreed rule awaiting calculation implementation, and does not alter existing
-PMO open-and-due-by-RED debt. Assignment/hotfix and detailed boundary rules remain
-pending in the specification.
+expectation package; Still Open Now is its currently open subset. Existing PMO
+open-and-due-by-RED debt is unchanged. The remaining rules are provisional, not
+Hadi-confirmed: full RSD–RED inclusivity, opening snapshot immediately before
+RSD, beginning debt then current Immediate/Hot Fix with in-period recorded owner
+assignment then scheduled tasks due within the period. Earlier-assigned tasks
+due in the period are included. Missing assignment history is disclosed with no
+creation-date fallback. Archived/Ongoing/On-Hold at RED remove tickets from the
+entire package. Actual delivery requires recorded in-period completion and
+Done / Closed at RED. Missing completion evidence remains unresolved in debt
+for expected tickets and is linked for review. Other Done never improves expected
+completion or its deviation; team sums and aggregate percentages are distinct
+from Live monthly averages. Cards, charts and drill-downs reuse exact sets in
+TicketJourneyPeriodicTickets. Initial navigation remains scan-free. No fields,
+counters, settings, migrations or changes to Live calculations are added.
 
 Reviewed against code and conversation on 2026-10-13. **Implemented** means present in code, not necessarily server-verified. See [known issues](known-issues.md) for evidence and differences requiring confirmation.
 

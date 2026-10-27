@@ -1,15 +1,20 @@
 # Known issues and evidence
 
-## Periodic Tickets preparation — 2026-10-27
+## Periodic Tickets — provisional implementation, 2026-10-27
 
-RSD/RED controls and validation are implemented locally across Periodic sections.
-Ranges and owners survive section navigation/Apply, while Live retains its
-separate As of Date. Periodic calculations remain disabled pending business
-definitions in [the specification](periodic-tickets-spec.md). This supersedes
-earlier no-period-input statements, not the Planned status of Periodic metrics.
-Request tests cover valid/default/invalid ranges, navigation and no-scan behavior;
-Ruby/test Redmine are unavailable locally, so those tests and deployed layout
-remain unverified. No schema changes.
+User-authorized provisional Tickets calculations, collapsed summary/owner/team
+tables, KPI flow, comparison/completion/debt charts, individual/team period trends
+and new-tab contributor lists are implemented locally. Ranges and owners survive
+section navigation/Apply; Live retains its separate As of Date. Periodic
+Returns/Time remain Planned. See [the specification](periodic-tickets-spec.md)
+for the exact assumptions awaiting Hadi, including status exclusion removal and
+unverified completion treatment. This supersedes earlier disabled/Planned
+Tickets statements. Unit/history/helper/request tests were added but Ruby/test
+Redmine are unavailable locally; those tests, full web requests, deployed layout
+and measured performance remain unverified. Initial navigation still avoids
+scans; Apply retains compact selected-owner rows and performs per-owner/trend
+calculations, so batch bounds alone do not establish safe production memory or
+latency. No schema changes.
 
 Reviewed 2026-10-13. **Server-confirmed** means user output/screenshots or explicit confirmation in this conversation, not a fresh check of today's deployment.
 

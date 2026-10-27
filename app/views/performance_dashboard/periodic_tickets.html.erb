@@ -1,0 +1,111 @@
+<% html_title 'Performance', 'Periodic Tickets' %>
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'performance', plugin: 'redmine_ticket_journey' %>
+  <%= javascript_include_tag 'performance_owner_picker', plugin: 'redmine_ticket_journey', defer: true %>
+  <%= javascript_include_tag 'performance_navigation', plugin: 'redmine_ticket_journey', defer: true %>
+<% end %>
+<div class="performance-page periodic-page">
+  <%= render 'header', page_title: 'Periodic Performance — Tickets' %>
+  <p class="periodic-provisional"><strong>Provisional calculation rules — awaiting Hadi's confirmation.</strong> Current Ticket Owner, due date, priority and visible complexity weight apply. Status is historical. <a href="#periodic-calculation-notes">Read calculation rules and assumptions</a>.</p>
+  <p class="performance-context">Selected project and visible descendant projects · Bug, Feature, Change Request / Improvement, Task (Business Jobs) · Archived, Ongoing and On-Hold at RED excluded</p>
+  <% if @periodic_report %>
+    <p><strong><%= @owner_label %></strong><% if @selected_owners.any? { |owner| !owner.active? } %> · Includes inactive owners from saved selections; picker lists active users only.<% end %></p>
+    <% report = @periodic_report; summaries = report[:summaries] %>
+    <section class="performance-section periodic-summary">
+      <h3><%= @selected_owners.size > 1 ? 'Owner Comparison and Team Results' : 'Plan / Actual Results' %></h3>
+      <% if @selected_owners.size > 1 %>
+        <details><summary>Show actual results by Ticket Owner</summary>
+          <div class="autoscroll"><table class="list periodic-owner-table">
+            <thead><tr><th rowspan="2">Ticket Owner</th><% %w[completed other actual debt still_open].each do |key| %><th colspan="2"><%= TicketJourneyPeriodicTickets::LABELS.fetch(key) %></th><% end %></tr><tr><% 5.times do %><th>Tickets</th><th>CW</th><% end %></tr></thead>
+            <tbody><% @periodic_owners.each do |entry| %><tr><th><%= entry[:owner].name %></th><% %w[completed other actual debt still_open].each do |key| %><% [:count, :weight].each do |measure| %><td><%= periodic_summary_link(entry[:report], key, measure, [entry[:owner].id.to_s]) %></td><% end %><% end %></tr><% end %></tbody>
+            <tfoot><tr><th>Team total</th><% %w[completed other actual debt still_open].each do |key| %><% [:count, :weight].each do |measure| %><td><%= periodic_summary_link(report, key, measure) %></td><% end %><% end %></tr></tfoot>
+          </table></div>
+        </details>
+      <% end %>
+      <details><summary>Show <%= @selected_owners.size > 1 ? 'aggregated team' : 'owner' %> plan, actual and deviations</summary>
+        <div class="periodic-grid"><% [:count, :weight].each do |measure| %><div><%= render 'periodic_metric_table', report: report, measure: measure %></div><% end %></div>
+      </details>
+      <% if @selected_owners.size > 1 %>
+        <details><summary>Show deviations by Ticket Owner</summary>
+          <div class="autoscroll"><table class="list periodic-deviation-table"><thead><tr><th>Ticket Owner</th><th>Expected Tickets</th><th>Completed Expected</th><th>Deviation</th><th>Deviation %</th><th>Expected CW</th><th>Completed Expected CW</th><th>CW Deviation</th><th>CW Deviation %</th><th>Debt at RED</th><th>Debt Deviation</th><th>Still Open Now</th><th>Current Debt Deviation</th></tr></thead>
+            <tbody><% (@periodic_owners + [{ owner: nil, report: report }]).each do |entry| %><% item = entry[:report]; ids = entry[:owner] ? [entry[:owner].id.to_s] : @selected_owner_ids %>
+              <tr class="<%= 'periodic-total-row' unless entry[:owner] %>"><th><%= entry[:owner]&.name || 'Team total' %></th>
+                <% [:count, :weight].each do |measure| %><% delta = TicketJourneyPeriodicTickets.deviation(item[:summaries]['expected'][measure], item[:summaries]['completed'][measure]) %>
+                  <td><%= periodic_summary_link(item, 'expected', measure, ids) %></td><td><%= periodic_summary_link(item, 'completed', measure, ids) %></td><td><%= periodic_deviation(delta[:value]) %></td><td><%= delta[:percent].nil? ? 'N/A' : safe_join([periodic_deviation(delta[:percent]), '%']) %></td>
+                <% end %>
+                <td><%= periodic_summary_link(item, 'debt', :count, ids) %></td><td><%= periodic_deviation(-item[:summaries]['debt'][:count]) %></td><td><%= periodic_summary_link(item, 'still_open', :count, ids) %></td><td><%= periodic_deviation(-item[:summaries]['still_open'][:count]) %></td>
+              </tr>
+            <% end %></tbody>
+          </table></div>
+          <p>Team percentages use summed expected and completed work. Selected owners with zero output remain included.</p>
+        </details>
+      <% end %>
+    </section>
+
+    <section class="performance-section">
+      <h3>Expected Work and Actual Delivery<%= ' — Team' if @selected_owners.size > 1 %></h3>
+      <div class="periodic-flow">
+        <% %w[beginning planned hotfix expected completed other actual].each do |key| %>
+          <article class="periodic-kpi periodic-<%= key %>">
+            <h4><%= TicketJourneyPeriodicTickets::LABELS.fetch(key) %></h4>
+            <strong><%= periodic_summary_link(report, key, :count) %></strong><span>Tickets</span>
+            <p><%= periodic_summary_link(report, key, :weight) %> CW</p>
+            <% if summaries[key][:missing_weight].positive? %><small><%= summaries[key][:missing_weight] %> without usable weight</small><% end %>
+          </article>
+        <% end %>
+      </div>
+      <p class="performance-weight-note">Debt at RSD + Planned Assigned Tasks + Assigned Hotfixes = Expected Total. Completed from Expectation + Other Done = Total Actual Done.</p>
+    </section>
+
+    <div class="periodic-grid">
+      <section class="performance-section">
+        <h3>Expectation vs Actual</h3>
+        <% [:count, :weight].each do |measure| %>
+          <h4><%= measure == :count ? 'Tickets' : 'Complexity Weight' %></h4>
+          <% maximum = [%w[expected completed actual].map { |key| summaries[key][measure] }.max.to_f, 1].max %>
+          <% %w[expected completed actual].each do |key| %>
+            <div class="periodic-bar-row"><span><%= TicketJourneyPeriodicTickets::LABELS[key] %></span><div class="periodic-bar-track"><%= periodic_ticket_link(content_tag(:span, '', style: "width:#{summaries[key][measure] * 100.0 / maximum}%;", class: "periodic-bar-fill periodic-#{key}"), key, @selected_owner_ids, 'aria-label': "#{TicketJourneyPeriodicTickets::LABELS[key]}: #{performance_number(summaries[key][measure])}") %></div><b><%= periodic_summary_link(report, key, measure) %></b></div>
+          <% end %>
+        <% end %>
+        <details><summary>Show details table</summary><%= render 'periodic_metric_table', report: report, measure: :count %><%= render 'periodic_metric_table', report: report, measure: :weight %></details>
+      </section>
+      <section class="performance-section">
+        <h3>Completion of Expected Work</h3>
+        <% ratio = performance_percent(summaries['completed'][:count], summaries['expected'][:count]); weight_ratio = performance_percent(summaries['completed'][:weight], summaries['expected'][:weight]) %>
+        <div class="periodic-completion">
+          <div class="performance-donut" role="img" aria-label="<%= ratio.nil? ? 'No expected tickets' : "#{performance_number(ratio)}% of expected tickets completed" %>" style="background:conic-gradient(#00865e 0% <%= ratio || 0 %>%, #e7edf3 <%= ratio || 0 %>% 100%)"><div><strong><%= ratio.nil? ? 'N/A' : "#{performance_number(ratio)}%" %></strong><span><%= summaries['completed'][:count] %> of <%= summaries['expected'][:count] %></span></div></div>
+          <div><p>Completed: <%= periodic_summary_link(report, 'completed', :count) %> tickets · <%= periodic_summary_link(report, 'completed', :weight) %> CW</p><p>Remaining: <%= periodic_summary_link(report, 'debt', :count) %> tickets · <%= periodic_summary_link(report, 'debt', :weight) %> CW</p><p>Weight completion: <strong><%= weight_ratio.nil? ? 'N/A' : "#{performance_number(weight_ratio)}%" %></strong></p></div>
+        </div>
+        <p>Other Done is excluded from both completion percentages. Unverified completion history remains unresolved in Debt at RED; see data quality below.</p>
+        <details><summary>Show completion details</summary><table class="list"><thead><tr><th>Metric</th><th>Tickets</th><th>CW</th></tr></thead><tbody><% %w[expected completed debt].each do |key| %><tr><th><%= TicketJourneyPeriodicTickets::LABELS[key] %></th><td><%= periodic_summary_link(report, key, :count) %></td><td><%= periodic_summary_link(report, key, :weight) %></td></tr><% end %></tbody></table></details>
+      </section>
+    </div>
+
+    <section class="performance-section">
+      <h3>Debt Summary</h3>
+      <p>Of <%= periodic_summary_link(report, 'debt', :count) %> unresolved expected tickets at RED, <%= periodic_summary_link(report, 'still_open', :count) %> are still open as of <%= format_date(Date.current) %>. Current follow-up can change after RED.</p>
+      <div class="periodic-grid"><% [:count, :weight].each do |measure| %><div><h4><%= measure == :count ? 'Tickets' : 'Complexity Weight' %></h4><% maximum = [%w[beginning debt still_open].map { |key| summaries[key][measure] }.max.to_f, 1].max %>
+        <% %w[beginning debt still_open].each do |key| %><div class="periodic-bar-row"><span><%= TicketJourneyPeriodicTickets::LABELS[key] %></span><div class="periodic-bar-track"><%= periodic_ticket_link(content_tag(:span, '', style: "width:#{summaries[key][measure] * 100.0 / maximum}%;", class: "periodic-bar-fill periodic-#{key}"), key, @selected_owner_ids, 'aria-label': "#{TicketJourneyPeriodicTickets::LABELS[key]}: #{performance_number(summaries[key][measure])}") %></div><b><%= periodic_summary_link(report, key, measure) %></b></div><% end %>
+      </div><% end %></div>
+      <details><summary>Show debt details</summary><table class="list"><thead><tr><th>Metric</th><th>Tickets</th><th>CW</th></tr></thead><tbody><% %w[beginning debt still_open].each do |key| %><tr><th><%= TicketJourneyPeriodicTickets::LABELS[key] %></th><td><%= periodic_summary_link(report, key, :count) %></td><td><%= periodic_summary_link(report, key, :weight) %></td></tr><% end %></tbody></table></details>
+    </section>
+
+    <% if @selected_owners.size > 1 %><%= render 'periodic_owner_results' %><% end %>
+    <div class="periodic-grid"><% [:count, :weight].each do |measure| %>
+      <%= render 'periodic_trend', chart_key: "team-#{measure}", title: "Expected vs Completed — #{measure == :count ? 'Tickets' : 'Complexity Weight'}", series: periodic_trend_series(report, measure) %>
+    <% end %></div>
+    <% if @selected_owners.size > 1 %>
+      <% [:count, :weight].each do |measure| %>
+        <%= render 'periodic_trend', chart_key: "owners-#{measure}", title: "Individual Owner Trends — #{measure == :count ? 'Tickets' : 'Complexity Weight'}", series: @periodic_owners.flat_map { |entry| periodic_trend_series(entry[:report], measure, [entry[:owner].id.to_s], owner: entry[:owner]) } %>
+      <% end %>
+    <% end %>
+
+    <section class="performance-section periodic-data-quality"><h3>Data Quality and Scope</h3>
+      <% %w[missing_weight missing_assignment missing_due missing_completion excluded].each do |key| %><p><%= periodic_ticket_link("#{TicketJourneyPeriodicTickets::LABELS[key]}: #{summaries[key][:count]}", key) %></p><% end %>
+      <p>Missing assignment history never falls back to ticket creation. Scheduled tickets due during the period can still be planned work; hotfix eligibility needs recorded assignment. Excluded statuses remove tickets from the entire package at RED. A Done ticket without a recorded period completion cannot increase actual delivery; expected work without qualifying completion remains unresolved in debt. Missing weights do not remove ticket counts.</p>
+    </section>
+  <% else %>
+    <p class="nodata">Select Ticket Owner(s), choose the report period, and click Apply.</p>
+  <% end %>
+  <%= render 'periodic_rules' %>
+</div>

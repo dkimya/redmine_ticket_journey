@@ -325,6 +325,58 @@
 @media(max-width:1100px){.performance-ticket-trends{grid-template-columns:1fr}}
 .performance-page .performance-weight-note { font-size:12px; line-height:1.5; color:#536579; margin-top:8px; }
 /* Live Time uses the shared cards, distribution tables and chart conventions. */
+.periodic-page .periodic-provisional{padding:12px 16px;border:1px solid #d8bd7f;background:#fff9e9;border-radius:8px;line-height:1.6}
+.periodic-page .periodic-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start}
+.periodic-grid>div,.periodic-grid>.performance-section{min-width:0}
+.periodic-page details{margin:14px 0}
+.periodic-page summary{cursor:pointer;font-weight:600;line-height:1.5}
+.periodic-summary details>summary{padding:10px 12px;background:#edf6ff;border-radius:5px;color:#135d94}
+.periodic-page table{margin-top:12px}
+.periodic-page caption{text-align:left;font-weight:700;padding:10px 0;color:#17365d}
+.periodic-page th,.periodic-page td{padding:9px 10px;border:1px solid #dce6f0;white-space:normal}
+.periodic-page td{text-align:right;font-variant-numeric:tabular-nums}
+.periodic-page th{font-weight:600}
+.periodic-page th small{display:block;color:#536579;font-weight:400;font-size:11px}
+.periodic-total-row,.periodic-page tfoot{background:#eaf4ff;font-weight:700}
+.periodic-flow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:12px}
+.periodic-kpi{background:#edf6ff;border:1px solid #c8ddef;border-radius:9px;padding:16px 12px;min-width:0}
+.periodic-kpi h4{font-size:14px;min-height:44px;line-height:1.5;margin:0 0 14px}
+.periodic-kpi strong{display:block;font-size:32px;line-height:1.2}
+.periodic-kpi small{display:block;font-size:11px;line-height:1.5}
+.periodic-kpi p{margin-bottom:6px}
+.periodic-page .periodic-completed{background:#eaf9f2}
+.periodic-page .periodic-other{background:#f3ebff}
+.periodic-page .periodic-bar-fill{background:#0072b2;display:block;height:100%;min-width:0}
+.periodic-page .periodic-bar-fill.periodic-completed{background:#00865e}
+.periodic-page .periodic-bar-fill.periodic-other{background:#7b2cbf}
+.periodic-page .periodic-bar-fill.periodic-actual{background:#205cbd}
+.periodic-page .periodic-bar-fill.periodic-debt{background:#b35a00}
+.periodic-page .periodic-bar-fill.periodic-still_open{background:#bd3543}
+.periodic-bar-row{display:grid;grid-template-columns:minmax(105px,1fr) minmax(80px,1.6fr) minmax(45px,.4fr);gap:12px;align-items:center;margin:16px 0}
+.periodic-bar-row>span{font-size:13px;overflow-wrap:anywhere}
+.periodic-bar-row>b{text-align:right;font-size:15px}
+.periodic-bar-track,.periodic-stacked-bar{height:24px;background:#edf1f6;border-radius:3px;overflow:hidden}
+.periodic-bar-track>a{display:block;height:100%}
+.periodic-stacked-bar{display:flex}
+.periodic-stacked-bar>a{display:block;height:100%}
+.periodic-completion{display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+.periodic-completion>.performance-donut{flex:0 0 180px}
+.periodic-deviation-row{display:grid;grid-template-columns:minmax(100px,1fr) minmax(100px,1.6fr) minmax(100px,.7fr);gap:10px;align-items:center;margin:18px 0}
+.periodic-deviation-row>b{text-align:right;font-variant-numeric:tabular-nums}
+.periodic-deviation-row small{font-size:11px;color:#536579}
+.periodic-deviation-track{height:24px;background:#edf1f6;position:relative}
+.periodic-deviation-track i{position:absolute;height:100%;left:50%;border-left:1px solid #526577}
+.periodic-deviation-fill{position:absolute;top:4px;height:16px}
+.periodic-negative{background:#bd3543}.periodic-positive{background:#00865e}
+.periodic-page .periodic-details td{text-align:left;overflow-wrap:anywhere}
+.periodic-page .periodic-details th{white-space:nowrap}
+.periodic-page .periodic-detail-options{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:20px 0}
+.periodic-page #periodic-calculation-notes li{margin:10px 0;line-height:1.6}
+.periodic-page .periodic-trend .performance-trend-legend{max-height:170px;overflow:auto}
+.periodic-page a:focus-visible{outline:2px solid #17365d;outline-offset:3px}
+@media(max-width:1250px){.periodic-flow{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:1000px){.periodic-page .periodic-grid{grid-template-columns:1fr}}
+@media(max-width:650px){.periodic-flow{grid-template-columns:repeat(2,minmax(0,1fr))}.periodic-deviation-row{grid-template-columns:1fr}.periodic-kpi h4{min-height:0}}
 .performance-time-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
 .performance-time-cards .performance-metric { min-width: 0; overflow-wrap: anywhere; }
 .performance-time-cards strong { display: block; font-size: 28px; }

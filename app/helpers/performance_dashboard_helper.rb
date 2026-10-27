@@ -1,4 +1,32 @@
 module PerformanceDashboardHelper
+  def periodic_ticket_params(overrides = {}, ids: @selected_owner_ids)
+    performance_owner_params(ids).merge(dashboard_type: 'periodic', rsd: @period_start.iso8601,
+      red: @period_end.iso8601, as_of: @date.iso8601).merge(overrides)
+  end
+
+  def periodic_ticket_link(label, metric, ids = @selected_owner_ids, **options)
+    performance_drilldown_link label, performance_dashboard_path(@project,
+      **periodic_ticket_params({ metric: metric }, ids: ids)), **options
+  end
+
+  def periodic_deviation(value)
+    content_tag(:span, "#{'+' if value.positive?}#{performance_number(value)}",
+      class: value.positive? ? 'performance-good' : (value.negative? ? 'performance-bad' : 'performance-neutral'))
+  end
+
+  def periodic_summary_link(report, key, measure, ids = @selected_owner_ids)
+    periodic_ticket_link(performance_number(report[:summaries].fetch(key).fetch(measure)), key, ids)
+  end
+
+  def periodic_trend_series(report, measure, ids = @selected_owner_ids, owner: nil)
+    %w[expected completed].each_with_index.map do |kind, index|
+      { label: [owner&.name, kind == 'expected' ? 'Expected' : 'Completed from Expectation'].compact.join(' — '),
+        color: owner ? performance_owner_color(owner.id) : %w[#0072b2 #00865e][index],
+        dashed: kind == 'expected', ids: ids, metric: "trend_#{kind}",
+        points: report[:trends].map { |point| { date: point[:date], value: point.fetch("#{kind}_#{measure}".to_sym) } } }
+    end
+  end
+
   def performance_drilldown_link(label, path, **options)
     title = [options[:title] || 'View tickets', 'Opens in a new tab'].join(' · ')
     link_to label, path, options.merge(target: '_blank', rel: 'noopener', title: title)
@@ -146,6 +174,10 @@ module PerformanceDashboardHelper
   end
 
   def performance_detail_params(overrides = {})
+    if @periodic_tickets
+      return periodic_ticket_params({ metric: @metric, trend_date: @trend_date&.iso8601,
+        sort: @sort, direction: @direction, group_by: @group_by }).merge(overrides)
+    end
     performance_owner_params.merge(as_of: @date.iso8601, metric: @metric, sort: @sort,
       direction: @direction, group_by: @group_by, detail_options: '1',
       detail_columns: @detail_columns).merge(overrides)

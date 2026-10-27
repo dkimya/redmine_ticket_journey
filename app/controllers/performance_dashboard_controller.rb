@@ -9,14 +9,17 @@ class PerformanceDashboardController < ApplicationController
     @performance_tab = params[:tab].presence || 'tickets'
     return render_404 unless %w[tickets returns time].include?(@performance_tab)
     @metric = params[:metric].presence
+    @periodic_tickets = @dashboard_type == 'periodic' && @performance_tab == 'tickets'
     @return_mode = @dashboard_type == 'live' && @performance_tab == 'returns'
     @time_mode = @dashboard_type == 'live' && @performance_tab == 'time'
-    labels = if @time_mode
+    labels = if @periodic_tickets
+      TicketJourneyPeriodicTickets::LABELS
+    elsif @time_mode
       TicketJourneyPerformanceTime::LABELS
     else
       @return_mode ? TicketJourneyPerformanceReturns::LABELS : TicketJourneyPerformance::DETAIL_LABELS
     end
-    return render_404 if @metric && @metric != 'owner_changes' && !labels.key?(@metric)
+    return render_404 if @metric && !labels.key?(@metric) && (@periodic_tickets || @metric != 'owner_changes')
     @date = params[:as_of].present? ? Date.iso8601(params[:as_of]) : Date.current
     raise ArgumentError if @date > Date.current
     @time_month = nil
@@ -36,6 +39,8 @@ class PerformanceDashboardController < ApplicationController
       # Planned tabs retain context but must not run ticket/history/target scans.
       @owners = alphabetical_owners(User.active.where(id: Member.where(project_id: performance_project_ids).select(:user_id)))
       @selected_owner_ids = requested_owners.presence || [@owners.find { |user| user.id == User.current.id }&.id].compact.map(&:to_s)
+      return render_periodic_tickets(requested_owners) if @periodic_tickets
+      return render_404 if @metric
       return render :planned
     end
     # Opening the menu must not scan issues or reconstruct journal history.
@@ -281,6 +286,87 @@ class PerformanceDashboardController < ApplicationController
   end
 
   private
+
+  def render_periodic_tickets(requested_owners)
+    return render(:periodic_tickets) if requested_owners.empty? && !@metric
+    return render_404 if requested_owners.empty?
+
+    @trend_date = if @metric&.start_with?('trend_')
+      Date.iso8601(params[:trend_date].to_s)
+    end
+    if @trend_date && !TicketJourneyPeriodicTickets.trend_dates(@period_start, @period_end).include?(@trend_date)
+      return render_404
+    end
+    selected = requested_owners.to_set
+    statuses = IssueStatus.all.index_by { |status| status.id.to_s }
+    scope = Issue.visible(User.current).where(project_id: performance_project_ids)
+      .joins(:tracker).where(trackers: { name: TicketJourneyPerformance::TRACKERS })
+      .where('issues.created_on <= ?', @period_end.in_time_zone.end_of_day)
+      .select(Issue.column_names.reject { |name| name == 'description' }.map { |name| "issues.#{name}" })
+      .preload(:project, :tracker, :priority)
+    rows = []
+    discovered = Set.new
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    Issue.uncached do
+      scope.find_in_batches(batch_size: TicketJourneyPerformance::BATCH_SIZE) do |batch|
+        values = TicketJourneyPerformance.batch_field_values(batch)
+        selected_batch = batch.select do |issue|
+          owner = values.fetch(issue.id).find { |value| value.custom_field.id == 57 }&.value.to_s
+          discovered << owner if owner.present?
+          selected.include?(owner)
+        end
+        next if selected_batch.empty?
+
+        history = TicketJourneyPeriodicTickets.history_for(selected_batch.map(&:id), @period_end)
+        selected_batch.each do |issue|
+          owner = values.fetch(issue.id).find { |value| value.custom_field.id == 57 }.value.to_s
+          row = TicketJourneyPeriodicTickets.row(issue, @period_start, @period_end, statuses,
+            history.fetch(issue.id, []), values.fetch(issue.id), owner)
+          rows << row if row
+        end
+      end
+    end
+    Rails.logger.info("Periodic Tickets scan: #{(Process.clock_gettime(Process::CLOCK_MONOTONIC) - started).round(3)}s")
+    member_ids = @owners.map { |owner| owner.id.to_s }
+    return render_404 unless requested_owners.all? { |id| discovered.include?(id) || member_ids.include?(id) }
+
+    @owners = alphabetical_owners(User.active.where(id: (member_ids + discovered.to_a).uniq))
+    @selected_owners = alphabetical_owners(User.where(id: requested_owners))
+    return render_404 unless @selected_owners.size == requested_owners.size
+
+    @selected_owner_ids = @selected_owners.map { |owner| owner.id.to_s }
+    @owner_label = @selected_owners.map(&:name).join(', ')
+    @periodic_report = TicketJourneyPeriodicTickets.calculate(rows, @period_start, @period_end)
+    unless @metric
+      @periodic_owners = @selected_owners.map do |owner|
+        { owner: owner, report: TicketJourneyPeriodicTickets.calculate(rows.select { |row| row[:owner_id] == owner.id.to_s }, @period_start, @period_end) }
+      end
+      return render :periodic_tickets
+    end
+    @detail_title = TicketJourneyPeriodicTickets::LABELS.fetch(@metric)
+    records = if @trend_date
+      TicketJourneyPeriodicTickets.trend_rows(@periodic_report[:sets], @metric.delete_prefix('trend_'), @trend_date)
+    else
+      @periodic_report[:sets].fetch(@metric)
+    end
+    @sort, @direction = TicketJourneyPerformance.detail_sort_options(@metric, params[:sort], params[:direction])
+    @group_by = TicketJourneyPerformance::DETAIL_GROUPS.key?(params[:group_by]) ? params[:group_by] : nil
+    names = @selected_owners.to_h { |owner| [owner.id.to_s, owner.name] }
+    records = records.map { |row| row.merge(owner_name: names[row[:owner_id]]) }
+    @detail_rows = TicketJourneyPerformance.sort_details(records, @sort, @direction, group_by: @group_by)
+    @matching_issue_ids = @detail_rows.map { |row| row[:id] }
+    @detail_count = @detail_rows.size
+    @detail_weight = TicketJourneyPerformance.weight(@detail_rows)
+    @group_totals = @detail_rows.group_by { |row| TicketJourneyPerformance.detail_group_key(row, @group_by) }
+      .transform_values { |group| TicketJourneyPeriodicTickets.summary(group) }
+    @page_count = [(@detail_count / 100.0).ceil, 1].max
+    @page = [[params[:page].to_i, 1].max, @page_count].min
+    @detail_rows = @detail_rows.slice((@page - 1) * 100, 100) || []
+    @detail_issues = Issue.visible(User.current).where(project_id: performance_project_ids, id: @detail_rows.map { |row| row[:id] })
+      .includes(:project, :tracker, :priority).index_by(&:id)
+    @detail_rows.select! { |row| @detail_issues.key?(row[:id]) }
+    render :periodic_details
+  end
 
   def time_daily_hours(owner_id)
     return @time_owner_hours[owner_id] if @time_owner_hours.key?(owner_id)

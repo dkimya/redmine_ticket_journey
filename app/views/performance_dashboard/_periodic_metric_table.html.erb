@@ -1,0 +1,15 @@
+<div class="autoscroll"><table class="list periodic-metric-table">
+  <caption><%= measure == :count ? 'Tickets' : 'Complexity Weight' %> — <%= @selected_owners.size > 1 ? 'team totals' : 'selected owner' %></caption>
+  <thead><tr><th>Metric</th><th>Plan / Expectation</th><th>Actual</th><th>Deviation</th><th>Deviation %</th></tr></thead>
+  <tbody><% TicketJourneyPeriodicTickets.metric_rows(report, measure).each do |row| %>
+    <tr class="<%= 'periodic-total-row' if %w[expected actual].include?(row[:key]) %>">
+      <th><%= TicketJourneyPeriodicTickets::LABELS.fetch(row[:key]) %><small><%= row[:direction] == :plan_minus_actual ? 'P−A' : 'A−P' %></small></th>
+      <td><%= row[:plan].positive? ? periodic_ticket_link(performance_number(row[:plan]), row[:key] == 'actual' ? 'expected' : row[:key]) : performance_number(row[:plan]) %></td>
+      <% actual_metric = %w[planned hotfix].include?(row[:key]) ? "completed_#{row[:key]}" : (row[:key] == 'expected' ? 'completed' : row[:key]) %>
+      <td><%= periodic_ticket_link(performance_number(row[:actual]), actual_metric) %></td>
+      <td><%= periodic_deviation(row[:deviation][:value]) %></td>
+      <td><%= row[:deviation][:percent].nil? ? 'N/A' : safe_join([periodic_deviation(row[:deviation][:percent]), '%']) %></td>
+    </tr>
+  <% end %></tbody>
+</table></div>
+<p class="performance-weight-note">Debt's target is zero, while its opening workload contributes to Expected Total. Expected Total compares only completed expected work. Total Actual Done also includes Other Done. Weight sums use usable visible values.</p>

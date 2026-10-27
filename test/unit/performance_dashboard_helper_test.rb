@@ -3,6 +3,25 @@ require File.expand_path('../test_helper', __dir__)
 class PerformanceDashboardHelperTest < ActiveSupport::TestCase
   include PerformanceDashboardHelper
 
+  test 'Periodic owner links replace team selection and retain range and detail context' do
+    @selected_owner_ids = %w[1 2]
+    @period_start, @period_end, @date = Date.new(2026, 3, 1), Date.new(2026, 3, 31), Date.new(2026, 10, 1)
+    individual = periodic_ticket_params({ metric: 'completed' }, ids: ['2'])
+    assert_equal '2', individual[:owner_id]
+    assert_nil individual[:owner_ids]
+    assert_equal 'periodic', individual[:dashboard_type]
+    assert_equal '2026-03-01', individual[:rsd]
+    assert_equal '2026-03-31', individual[:red]
+    assert_equal '2026-10-01', individual[:as_of]
+    @periodic_tickets, @metric, @trend_date = true, 'trend_completed', @period_end
+    @sort, @direction, @group_by = 'weight', 'desc', 'owner'
+    context = performance_detail_params(page: 2)
+    assert_equal %w[1 2], context[:owner_ids]
+    assert_equal '2026-03-31', context[:trend_date]
+    assert_equal 'owner', context[:group_by]
+    assert_equal 2, context[:page]
+  end
+
   test 'Time signs zero and threshold boundaries distinguish SV from estimate allowance' do
     assert_equal 'performance-return-unavailable', performance_time_state(nil, 10)
     assert_equal 'performance-return-unavailable', performance_time_state(0, 10)

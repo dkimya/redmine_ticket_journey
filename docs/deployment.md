@@ -1,17 +1,50 @@
 # Deployment and verification
 
-## Periodic date-filter foundation — 2026-10-27
+## Periodic Tickets — provisional implementation, 2026-10-27
 
-Deploy controller and shared header/tabs/planned view changes together. No new
-assets, settings, fields or migrations are required. After the normal application
-restart, verify RSD/RED and owner controls on Periodic Tickets, Returns and Time.
-Apply and section links must preserve the chosen range; Live must retain its
-As of Date without receiving range inputs. Check malformed dates, RSD after RED,
-future RED, equal dates, month/year boundaries, narrow-screen wrapping and
-keyboard use. Invalid ranges must show a 422 with a report-date message. Periodic
-must still show Planned and execute no issue/history/time calculations. This
-supersedes older instructions expecting no Periodic date inputs. See
-[the specification](periodic-tickets-spec.md) for the remaining calculation work.
+Deploy the new TicketJourneyPeriodicTickets model, controller/helper changes,
+Periodic views/partials, shared tabs and performance.css together. Restart Redmine,
+publish assets through the existing host process and hard-refresh. No settings,
+fields, migrations or new permission are required. The provisional badge and
+calculation notes must remain visible pending Hadi's review. See
+[the specification](periodic-tickets-spec.md) for the authorized defaults.
+
+1. Verify RSD/RED and owner controls on all Periodic sections. Apply/section links
+   preserve ranges; Live retains its separate As of Date. Check malformed dates,
+   RSD after RED, future RED, equal dates, leap/month/year boundaries and permission
+   failures. Invalid dates return 422. Initial Tickets and all Returns/Time pages
+   must not scan histories; Returns/Time stay Planned.
+2. Compare an opening-debt ticket, a scheduled task assigned before RSD, and an
+   in-period assigned Immediate/Hot Fix with no due date. Check category precedence,
+   a future-due hotfix, a missing assignment record and a ticket already closed at
+   opening. No duplicate expectation contributions or creation-date fallback.
+3. Check Done on RSD and RED, reopened before/after RED, no recorded completion,
+   and Archived/Ongoing/On-Hold at RED versus different current statuses. Verify
+   Expected = Completed from Expectation + Debt and Actual = Completed + Other Done
+   for counts and weights. Unverified completion stays unresolved with a review
+   link; Still Open Now remains a current subset of RED debt. PMO rules stay intact.
+4. Reassign current owner and change current due/weight/priority: past reruns may
+   change as documented. Test blank/hidden owner, hidden/nonpositive/missing weights,
+   restricted projects/issues and inactive saved-owner reports. No hidden values
+   should be exposed through totals, selector discovery or detail lists.
+5. Multi-owner view: include an owner with zero output, sum each category against
+   the team values, and calculate team deviations from combined totals rather than
+   average percentages. Each owner link must select only that owner, without a
+   competing team owner_ids parameter. Check missing weights and zero-plan N/A.
+6. Verify collapsed top summary tables, seven KPI cards, comparisons, completion
+   donut, debt follow-up, stacked actual-owner bars, centered deviation bars, team
+   and individual ticket/CW trends on desktop/narrow screens and keyboard use.
+   Opening debt is present at the opening point; final points equal cards. Check
+   partial Monday-based weeks and month-end buckets for periods over 120 days.
+7. Open numeric/bar/SVG point/detail-table links in new tabs. Check full period,
+   owners and trend bucket in the URL, exact contributor IDs, sorting, grouping,
+   100-row pagination, Back and whole-set native Issues links. Large ID-list URL
+   limitations remain. Current issue/field visibility must still apply.
+8. Run plugin tests only in a configured test Redmine root, never production.
+   Measure full-request time and peak memory on the installed plugin set. Recheck
+   Live Tickets/Returns/Time, ticket page, My page, Issues, saved queries, numeric
+   Return Count filtering/sorting and selected-column CSV. Local Ruby/request and
+   deployed visual/performance verification have not been performed.
 
 Observed host: `/opt/redmine`, plugin `/opt/redmine/plugins/redmine_ticket_journey`, Puma under `redmine.service`, nginx proxy. Logs showed Ruby 3.3.4 and Rails 7.2.3; observations are not a support matrix.
 

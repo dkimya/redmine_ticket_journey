@@ -5,8 +5,8 @@
     <% context[:tab] = @performance_tab unless @performance_tab == 'tickets' %>
     <% context[:dashboard_type] = key unless key == 'live' %>
     <% context.merge!(rsd: @period_start.iso8601, red: @period_end.iso8601) if key == 'periodic' && @period_start && @period_end %>
-    <%= link_to performance_dashboard_path(@project, **context), class: "performance-tab#{' is-active' if @dashboard_type == key}", title: (key == 'live' ? 'View a dashboard snapshot at the selected As of Date; this page does not automatically refresh.' : 'Select a reporting period. Periodic calculations are planned pending metric definitions.'), aria: { current: (@dashboard_type == key ? 'page' : nil) } do %>
-      <%= label %><% if key == 'periodic' %><span class="performance-tab-planned">Planned</span><% end %>
+    <%= link_to performance_dashboard_path(@project, **context), class: "performance-tab#{' is-active' if @dashboard_type == key}", title: (key == 'live' ? 'View a dashboard snapshot at the selected As of Date; this page does not automatically refresh.' : 'Tickets uses provisional period rules; Returns and Time are planned.'), aria: { current: (@dashboard_type == key ? 'page' : nil) } do %>
+      <%= label %><% if key == 'periodic' %><span class="performance-tab-planned">Provisional</span><% end %>
     <% end %>
   <% end %>
 </nav>
@@ -17,7 +17,7 @@
     <% context[:dashboard_type] = @dashboard_type if @dashboard_type == 'periodic' %>
     <% context.merge!(rsd: @period_start.iso8601, red: @period_end.iso8601) if @dashboard_type == 'periodic' && @period_start && @period_end %>
     <%= link_to performance_dashboard_path(@project, **context), class: "performance-tab#{' is-active' if @performance_tab == key}", aria: { current: (@performance_tab == key ? 'page' : nil) } do %>
-      <%= label %><% if @dashboard_type == 'periodic' %><span class="performance-tab-planned">Planned</span><% end %>
+      <%= label %><% if @dashboard_type == 'periodic' %><span class="performance-tab-planned"><%= key == 'tickets' ? 'Provisional' : 'Planned' %></span><% end %>
     <% end %>
   <% end %>
 </nav>

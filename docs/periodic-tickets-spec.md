@@ -1,8 +1,10 @@
 # Periodic Performance — Tickets
 
-Status: specification and date-filter foundation, 2026-10-27. The user approved
-the proposed approach. Ticket calculations, charts, comparison tables and
-drill-downs are not implemented. Periodic Returns and Time remain Planned.
+Status: implemented locally with provisional defaults, 2026-10-27. The user
+explicitly authorized implementation of the recommendations while awaiting Hadi.
+This authorization is not Hadi's confirmation of each business definition.
+Tickets calculations, charts, comparison tables and drill-downs are implemented;
+Periodic Returns and Time remain Planned. Runtime/deployment verification is pending.
 
 ## Sources and precedence
 
@@ -21,16 +23,20 @@ force unless explicitly changed.
 - Dates default to the month containing the retained Live As of Date, through
   that date. An explicit RED without RSD defaults RSD to RED's first day of month.
 - Dates must parse as ISO dates, RSD must be on/before RED, and RED cannot be in
-  the future. Equal dates are allowed by the controls; counting boundaries still
-  require agreement below.
+  the future. Equal dates are valid, including same-day completions.
 - Section navigation and Apply retain the period. Live As of Date is separate;
   switching back to Live retains that snapshot date. Live links do not carry
   Periodic range parameters. A later switch from Live starts a fresh default range.
-- Planned pages use the lightweight active-member selector and run no issue,
-  journal, target or time-entry calculations. Saved selected IDs outside the
-  selector retain generic labels without exposing user details.
+- Initial Tickets and all Planned pages use the lightweight active-member
+  selector without issue/history scans. Tickets Apply performs an uncached
+  100-issue batch scan with visible owner/weight values. Only selected owners'
+  scalar histories are queried and compact report rows retained. Inactive saved
+  owner links work only for owners discoverable from visible in-scope tickets.
+  Full Issue objects are loaded only for the 100-row detail page. No time or
+  employee-target scan is added. Selected-owner retained memory still grows with
+  ticket count, and repeated owner/trend calculations add CPU work.
 
-## Agreed approach for implementation
+## Implemented calculation approach
 
 Use current Ticket Owner #57, current due dates and current visible Complexity
 Weight #70, including historical reruns. A blank current owner remains unassigned.
@@ -53,8 +59,10 @@ Debt at RED is the unfinished subset of the expectation package at RED, confirme
 by the user on 2026-10-27. Still Open Now is the currently open subset of that
 Debt-at-RED population. Tickets outside the expectation package cannot enter
 either debt metric. This Periodic definition does not change PMO's existing
-open-and-due-by-RED debt calculation. The detailed completion and exclusion
-treatment below still requires agreement before calculating the populations.
+open-and-due-by-RED debt calculation. Expected tickets without valid period
+completion evidence remain unresolved in debt, even when their RED status is
+Done; missing completion history is explicitly disclosed and drill-downable.
+This evidence treatment is provisional and awaits Hadi's review.
 
 Beginning debt has two different uses: its undesirable balance has target zero,
 but its ticket population contributes to expected workload. Do not sum the zero
@@ -68,7 +76,7 @@ N/A. Team counts, weights and plan are sums of distinct contributors, with team
 deviations calculated from those totals. Owner averages, if shown, are explicitly
 separate from team totals. Live monthly per-owner averages remain unchanged.
 
-## Proposed layout
+## Implemented layout
 
 1. Shared Performance navigation, title, RSD/RED and owner filters.
 2. Collapsible summary tables near the beginning, following the RTF's explicit
@@ -83,45 +91,61 @@ separate from team totals. Live monthly per-owner averages remain unchanged.
 5. Period expected/completed trends for tickets and weight. Multiple-owner mode
    also compares individual trends as requested in the RTF, not only team trends.
 
-Chart-specific breakdowns may sit below their charts without duplicating the
-full summary tables. Chart data and details must reconcile exactly. Contributor
-links should reuse the existing new-tab drill-down convention and preserve the
-period, selected owners, metric and relevant trend bucket.
+Chart-specific breakdowns sit below charts. Values and details share exact sets.
+Contributor links use the existing new-tab convention and preserve period,
+selected owners, metric and trend bucket. Details support sorting, optional
+grouping, 100-row pagination and whole-set native Issues handoff. Detail columns
+are fixed for the Periodic audit; the native Issues handoff has its usual column
+options. Existing large-ID-list URL length limitations also apply here.
 
-## Decisions pending before report calculations
+## Provisional defaults awaiting Hadi's review
 
 Server configuration evidence supplied by the user on 2026-10-27 confirms:
 included tracker names already match Performance: Bug (1), Feature (2), Task
 (Business Jobs) (7), Change Request / Improvement (16). Ticket Owner is User field
 57 and Complexity Weight is integer field 70. Priority 7 is explicitly named
-Immediate/Hot Fix; priority 6 is Urgent/Current Week. Use priority 7 as the proposed
-hotfix mapping, without treating priority 6 as hotfix or introducing a field.
-The mapping's presence is confirmed; the business eligibility/timing rules are
-still pending. The metadata command completed and returned JSON despite startup
+Immediate/Hot Fix; priority 6 is Urgent/Current Week. The model matches the exact
+current priority name Immediate/Hot Fix, without treating priority 6 as hotfix or
+introducing a field. The mapping's presence is confirmed; its business use is
+provisional. The metadata command completed and returned JSON despite startup
 Group::HABTM_Users constant warnings; this does not verify dashboard web requests.
 
-- Assignment: does "assigned during the period" mean ticket creation, current
-  owner's recorded assignment, native assignee changes, or another event? Define
-  reassignment and missing-history treatment without changing current attribution.
-- Hotfix: proposed mapping is the server's Immediate/Hot Fix priority (7).
-  Confirm whether current or historical priority determines classification,
-  due-date eligibility and precedence over planned-task/beginning-debt categories
-  to prevent duplicate contributions.
-- Boundaries: proposed reuse of PMO means RSD end-of-day beginning snapshot and
-  completions RSD+1 through RED inclusive. Confirm whether Periodic should instead
-  include all of RSD; a one-day range exposes this difference.
-- Completion: proposed rule is a recorded Done / Closed transition in the period,
-  still Done / Closed at RED, counted once per ticket using its latest qualifying
-  completion. Confirm handling of reopened tickets and absent completion history.
-- Exclusions: confirm evaluation dates for Archived/Ongoing/On-Hold. Proposed
-  historical status at each boundary, not today's status as a global prefilter.
-  Clarify excluded work's treatment in unfinished expectation reconciliation.
-- Trends: use due dates for the expected curve and recorded completion dates for
-  actual expected-work delivery. Place beginning debt at the opening point.
-  Agree timing for hotfixes with no due date and week anchoring. Final points must
-  equal report totals; avoid linear allocation or zero-filled unknown dates.
+- Assignment uses the latest genuine recorded transition of Ticket Owner #57
+  into the current owner on/before RED, including initial assignments. No-op edits
+  do not count, and absent history has no creation-date fallback. Current owner
+  still controls attribution regardless of the historical owner at RED.
+- Beginning debt: open, eligible status immediately before RSD, with current due
+  date before RSD. Planned tasks: current due within RSD–RED, including earlier
+  assignments; exclude tickets already closed before RSD. Thus missing assignment
+  history does not remove scheduled planned tasks.
+- Hotfix: current named priority, recorded assignment during RSD–RED, and not
+  closed before RSD. Qualifies with missing or out-of-period due date. Category
+  precedence: beginning debt, then hotfix, then planned task. An in-period due
+  date schedules a hotfix; otherwise its recorded assignment date does.
+- Boundaries include all of RSD through RED. The opening snapshot is RSD−1 end
+  of day. This intentionally differs from legacy PMO's RSD end-of-day convention
+  without changing PMO calculations.
+- Delivery requires Done / Closed at RED with latest recorded completion within
+  the inclusive period. Each ticket counts once. Reopening before RED removes
+  delivery; reopening after RED does not. Other Done uses the same delivery test
+  outside the expectation package, independent of due date.
+- Archived/Ongoing/On-Hold at RED remove tickets from the entire package, with a
+  linked exclusion list. Beginning debt also checks opening eligibility. New is
+  not excluded in Periodic. Current status is used only for Still Open Now,
+  which remains a subset of Debt at RED.
+- Trends use the final RED package, current due dates for expected work, and
+  recorded completion dates for actual expected-work delivery. Opening debt is
+  present at the opening point. Weekly points are Sunday ends (Monday-based
+  weeks) plus the partial final period. Periods over 120 days use month ends.
+  Individual-owner expected/actual lines use the same definitions. No linear
+  allocation, owner-count division or averaged percentages are used.
+- Missing completion evidence cannot improve delivery. Expected work with no
+  qualifying completion remains unresolved in debt; missing records are shown
+  separately for investigation. Other Done has zero plan and negative P−A
+  deviation. Total Actual Done has a separate output deviation versus expected;
+  it never changes expected-work deviation.
 
-## Verification required for the eventual implementation
+## Verification
 
 Test distinct component sets, debt target/workload separation, current-owner
 reassignment and blank owners, period boundaries, reopened/late completions,
@@ -131,6 +155,9 @@ contributors against their drill-down sets and final trend points against cards.
 Preserve bounded uncached scans and page-only full Issue loading. Measure full
 request latency and peak memory with installed plugins.
 
-The date-filter foundation has request regression coverage, but local Ruby and a
-configured test Redmine root are unavailable. Ruby tests, deployed rendering,
-keyboard/mobile layout and installed-plugin compatibility remain unverified.
+Unit/history/helper/request coverage has been added for the provisional rules,
+reconciliation, missing data, current attribution with historical status,
+boundary dates, initial no-scan behavior, multi-owner links and details. Local
+Ruby and a configured test Redmine root are unavailable, so this Ruby coverage
+has not been executed. Deployed rendering, keyboard/mobile layout, full requests,
+installed-plugin compatibility and measured latency/memory remain unverified.

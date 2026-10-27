@@ -1,0 +1,35 @@
+<section class="performance-section">
+  <h3>Actual Results by Ticket Owner</h3>
+  <p>Green is completed expected work; purple is Other Done. The combined bar is Total Actual Done. Individual plans are compared separately below.</p>
+  <div class="periodic-grid"><% [:count, :weight].each do |measure| %><div>
+    <h4><%= measure == :count ? 'Tickets' : 'Complexity Weight' %></h4>
+    <% maximum = [@periodic_owners.map { |entry| entry[:report][:summaries]['actual'][measure] }.max.to_f, 1].max %>
+    <% @periodic_owners.each do |entry| %><% sums = entry[:report][:summaries]; ids = [entry[:owner].id.to_s] %>
+      <div class="periodic-bar-row"><span><%= entry[:owner].name %></span><div class="periodic-stacked-bar">
+        <% %w[completed other].each do |key| %><%= periodic_ticket_link(content_tag(:span, '', class: "periodic-bar-fill periodic-#{key}"), key, ids, style: "width:#{sums[key][measure] * 100.0 / maximum}%;", 'aria-label': "#{entry[:owner].name} · #{TicketJourneyPeriodicTickets::LABELS[key]}: #{performance_number(sums[key][measure])}") %><% end %>
+      </div><b><%= periodic_summary_link(entry[:report], 'actual', measure, ids) %></b></div>
+    <% end %>
+  </div><% end %></div>
+  <details><summary>Show owner breakdown</summary><div class="autoscroll"><table class="list"><thead><tr><th>Owner</th><th>Completed Expected Tickets</th><th>Completed Expected CW</th><th>Other Done Tickets</th><th>Other Done CW</th><th>Total Done Tickets</th><th>Total Done CW</th></tr></thead><tbody>
+    <% @periodic_owners.each do |entry| %><tr><th><%= entry[:owner].name %></th><% %w[completed other actual].each do |key| %><% [:count, :weight].each do |measure| %><td><%= periodic_summary_link(entry[:report], key, measure, [entry[:owner].id.to_s]) %></td><% end %><% end %></tr><% end %>
+  </tbody></table></div></details>
+</section>
+<section class="performance-section">
+  <h3>Owner Deviation Comparison</h3>
+  <p>Completed expected work minus each owner's own expected workload. Other Done is excluded. A zero-plan percentage is N/A.</p>
+  <div class="periodic-grid"><% [:count, :weight].each do |measure| %><div>
+    <h4><%= measure == :count ? 'Tickets' : 'Complexity Weight' %></h4>
+    <% deviations = @periodic_owners.map { |entry| TicketJourneyPeriodicTickets.deviation(entry[:report][:summaries]['expected'][measure], entry[:report][:summaries]['completed'][measure]) }; maximum = [deviations.map { |delta| delta[:value].abs }.max.to_f, 1].max %>
+    <% @periodic_owners.each_with_index do |entry, index| %><% delta = deviations[index]; width = delta[:value].abs * 50.0 / maximum %>
+      <div class="periodic-deviation-row"><span><%= entry[:owner].name %></span>
+        <div class="periodic-deviation-track" role="img" aria-label="<%= entry[:owner].name %>: deviation <%= performance_number(delta[:value]) %>">
+          <span class="periodic-deviation-fill <%= delta[:value].negative? ? 'periodic-negative' : 'periodic-positive' %>" style="left:<%= delta[:value].negative? ? 50 - width : 50 %>%;width:<%= width %>%"></span><i></i>
+        </div>
+        <b><%= periodic_deviation(delta[:value]) %> <small>(<%= delta[:percent].nil? ? 'N/A' : "#{performance_number(delta[:percent])}%" %>)</small></b>
+      </div>
+    <% end %>
+  </div><% end %></div>
+  <details><summary>Show deviation details</summary><div class="autoscroll"><table class="list"><thead><tr><th>Owner</th><th>Expected Tickets</th><th>Completed Expected Tickets</th><th>Ticket Deviation</th><th>Expected CW</th><th>Completed Expected CW</th><th>CW Deviation</th></tr></thead><tbody>
+    <% @periodic_owners.each do |entry| %><tr><th><%= entry[:owner].name %></th><% [:count, :weight].each do |measure| %><td><%= periodic_summary_link(entry[:report], 'expected', measure, [entry[:owner].id.to_s]) %></td><td><%= periodic_summary_link(entry[:report], 'completed', measure, [entry[:owner].id.to_s]) %></td><td><%= periodic_deviation(entry[:report][:summaries]['completed'][measure] - entry[:report][:summaries]['expected'][measure]) %></td><% end %></tr><% end %>
+  </tbody></table></div></details>
+</section>
