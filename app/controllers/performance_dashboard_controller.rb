@@ -305,6 +305,7 @@ class PerformanceDashboardController < ApplicationController
       @periodic_time_available, @periodic_time_any_available = allowed.all?, allowed.any?
       @time_bucket = params[:time_bucket].present? ? Date.iso8601(params[:time_bucket]) : nil
       return render_404 if @time_bucket && (!@metric || !TicketJourneyPeriodicReturns.intervals(@period_start, @period_end).map(&:last).include?(@time_bucket))
+      return render_404 if @metric == 'time_mix' && params[:mix_scope].present? && !%w[personal package archived].include?(params[:mix_scope])
     end
 
     @trend_date = if @metric&.start_with?('trend_')
@@ -429,6 +430,14 @@ class PerformanceDashboardController < ApplicationController
     end
     packages = @periodic_time_owners.to_h { |entry| [entry[:owner].id.to_s, entry[:report][:tickets]] }
     @estimate_allowance = TicketJourney::PerformanceSettings.time_threshold(@settings, 'performance_estimate_allowance')
+    if !@metric || @metric == 'time_mix'
+      development_ids = Array(@settings['performance_periodic_development_activity_ids']).map(&:to_s).reject(&:blank?)
+      @time_mix = TicketJourneyPeriodicTimeMix.calculate(rows, @periodic_time_owners, @period_start, @period_end, development_ids, available: @periodic_time_available)
+      records = @time_mix[:personal] + @time_mix[:package] + @time_mix[:archived]
+      @time_mix_users = User.where(id: records.map { |entry| entry[:user_id] }.uniq).to_h { |user| [user.id.to_s, user.name] }
+      @time_mix_activities = TimeEntryActivity.where(id: records.map { |entry| entry[:activity_id] }.uniq).to_h { |activity| [activity.id.to_s, activity.name] }
+      return render_periodic_time_mix if @metric == 'time_mix'
+    end
     if @metric
       entries = @periodic_time_owners
       @time_detail_start, @time_detail_end = @period_start, @period_end
@@ -468,6 +477,44 @@ class PerformanceDashboardController < ApplicationController
       { start: first, date: last, owners: entries, report: TicketJourneyPeriodicTime.aggregate(entries.map { |entry| entry[:report] }, @settings) }
     end
     render :periodic_time
+  end
+
+  def render_periodic_time_mix
+    @mix_scope = params[:mix_scope].presence || 'personal'
+    return render_404 unless %w[personal package archived].include?(@mix_scope)
+    @mix_filters = params.permit(:mix_scope, :mix_activity, :mix_user, :mix_category, :mix_tracker, :mix_owner).to_h.symbolize_keys
+    records = @time_mix.fetch(@mix_scope.to_sym)
+    @time_detail_start, @time_detail_end = @period_start, @period_end
+    if @time_bucket
+      @time_detail_start, @time_detail_end = TicketJourneyPeriodicReturns.intervals(@period_start, @period_end).find { |_first, last| last == @time_bucket }
+      records = records.select { |entry| entry[:day].between?(@time_detail_start, @time_detail_end) }
+    end
+    { mix_activity: :activity_id, mix_user: :user_id, mix_category: :category, mix_tracker: :tracker, mix_owner: :package_owner }.each do |param, field|
+      records = records.select { |entry| entry[field] == params[param] } if params[param].present?
+    end
+    @mix_sort = %w[day user activity ticket].include?(params[:mix_sort]) ? params[:mix_sort] : 'day'
+    @mix_direction = params[:direction] == 'desc' ? 'desc' : 'asc'
+    @mix_group = { 'tracker' => :tracker, 'category' => :category, 'user' => :user_id, 'activity' => :activity_id }[params[:mix_group]]
+    records = records.sort_by do |entry|
+      primary = case @mix_sort
+      when 'user' then @time_mix_users[entry[:user_id]].to_s.downcase
+      when 'activity' then @time_mix_activities[entry[:activity_id]].to_s.downcase
+      when 'ticket' then entry[:issue_id]
+      else entry[:day]
+      end
+      [@mix_group ? entry[@mix_group].to_s : '', primary, entry[:issue_id], entry[:user_id], entry[:activity_id], entry[:day]]
+    end
+    records.reverse! if @mix_direction == 'desc'
+    @mix_group_counts = records.group_by { |entry| entry[@mix_group] }.transform_values(&:size)
+    @mix_summary = TicketJourneyPeriodicTimeMix.summarize(records, @time_mix[:development_ids], available: @time_mix[:available])
+    @matching_issue_ids = records.map { |entry| entry[:issue_id] }.uniq
+    @detail_count = records.size
+    @page_count = [(@detail_count / 100.0).ceil, 1].max
+    @page = [[params[:page].to_i, 1].max, @page_count].min
+    @mix_detail_rows = records.slice((@page - 1) * 100, 100) || []
+    @detail_issues = Issue.visible(User.current).where(project_id: performance_project_ids, id: @mix_detail_rows.map { |entry| entry[:issue_id] }).index_by(&:id)
+    @mix_detail_rows.select! { |entry| @detail_issues.key?(entry[:issue_id]) }
+    render :periodic_time_mix_details
   end
 
   def periodic_time_project_permissions

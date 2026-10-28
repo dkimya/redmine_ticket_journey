@@ -1,5 +1,31 @@
 # Known issues and evidence
 
+## Part 3 Time additions — local implementation, 2026-10-28
+
+Reviewed Time formulas are retained, with new activity/user evidence and archived
+paid-effort disclosure. Personal total/daily hours now include separately classified
+Archived and On-Hold/Ongoing effort; delivery and expected efficiency still exclude
+these tickets. Main selected-user, all-contributor expected-package, and archived
+owner-ticket scopes overlap and are not summed. Tracker/owner/user observations
+support calibration, not automatic target changes. [Time specification](periodic-time-spec.md)
+supersedes older status-excluded personal total and four-category statements below.
+
+Development mapping is an optional existing-activity ID selection; no mapping is
+guessed. Without it, development ratios are N/A and all raw activity shares remain
+available. The 90% working estimate is not a new default. The operating policy to
+archive/replace on necessary owner change is documented but not enforced by field
+patches or automatic ticket creation. Current owner-change diagnostics are not a
+log-creation sequencing audit. No schema/native-event/field changes.
+
+Trend definitions were not explicitly confirmed in Part 3; plain completion versus
+work-date labels/examples are added to the same page, with owner details collapsed
+for executive reading. Presentation still needs review after deployment. Ruby
+unit/loader/settings/helper/request tests are added/updated but unrun locally;
+eleven JavaScript checks and diff checks pass. New panels, source-data, installed-
+plugin requests/layout and performance are not server-verified. Period activity
+aggregation retains all contributors needed for expected/archived packages and can
+grow with issue/user/activity/day combinations; measure memory and latency.
+
 ## Part 2 Returns applied locally — 2026-10-28
 
 Confirmed answers and the user's N/A clarification are implemented. Non-Merge

@@ -1,4 +1,40 @@
 module PerformanceDashboardHelper
+  def periodic_time_mix_params(scope, filters = {})
+    periodic_time_params({ metric: 'time_mix', mix_scope: scope }.merge(filters))
+  end
+
+  def periodic_time_mix_link(label, scope, filters = {})
+    performance_drilldown_link label, performance_dashboard_path(@project, **periodic_time_mix_params(scope, filters))
+  end
+
+  def periodic_time_mix_name(key, value)
+    case key
+    when :activity_id then @time_mix_activities[value] || "Activity ##{value.presence || 'unavailable'}"
+    when :user_id then @time_mix_users[value] || "User ##{value.presence || 'unavailable'}"
+    when :category then { 'expected_done' => 'Completed expected work', 'expected_unfinished' => 'Unfinished expected work',
+      'other' => 'Other Work', 'archived' => 'Archived — paid effort without delivery credit',
+      'excluded' => 'On-Hold / Ongoing — outside delivery package', 'unclassified' => 'Ticket Owner unavailable' }[value] || value
+    else value
+    end
+  end
+
+  def periodic_time_mix_color(key, value)
+    return performance_owner_color(value) if key == :user_id
+    colors = %w[#0072b2 #009e73 #d55e00 #7b2cbf #c62828 #a45d00 #56b4e9 #7a6a8b]
+    index = @time_mix_activities.keys.sort.index(value) || 0
+    colors[index % colors.size]
+  end
+
+  def periodic_time_mix_gradient(groups, total, key: :activity_id)
+    return '#e7edf3' unless total && total.positive?
+    offset = 0.0
+    stops = groups.map do |group|
+      first = offset
+      offset += group[:report][:total].to_f * 100 / total
+      "#{periodic_time_mix_color(key, group[:key])} #{first}% #{offset}%"
+    end
+    "conic-gradient(#{stops.join(', ')})"
+  end
   def performance_return_metric_note(report, adjusted: false)
     return 'Unavailable — missing or hidden Return Reason; known non-merge incidents are only a partial count.' if adjusted && report[:unknown].positive?
     return 'Not applicable — no tickets in this population; 0 return incidents.' if report[:population].to_i.zero? && report[:open].to_i.zero?

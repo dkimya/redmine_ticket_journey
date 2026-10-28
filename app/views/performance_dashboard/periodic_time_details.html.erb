@@ -21,7 +21,8 @@
             <details><summary>Work-date totals</summary><% row.fetch(:owner_logs, {}).fetch(actor, []).each do |day, value| %><% next unless day.between?(@time_detail_start, @time_detail_end) %><p><%= format_date(day) %>: <%= periodic_time_number(value, 'total_hours') %> h</p><% end %></details>
           </td><td><%= row[:missing_weight] ? 'Unavailable' : performance_number(row[:weight]) %></td>
           <td><%= row[:time_category]&.humanize || (row[:category] ? TicketJourneyPeriodicTickets::LABELS[row[:category]] : 'Ticket contributor') %><% unless row[:estimate] %><p>No positive PM estimate</p><% end %><% if row[:ticket_hours].nil? %><p>Ticket time unavailable / invalid</p><% end %><% if hours.nil? %><p>Logged-user time unavailable / invalid</p><% end %><% if row[:missing_weight] %><p>No usable visible weight</p><% end %><% if row[:invalid_costs].to_i.positive? %><p>Invalid recorded ticket hours</p><% end %>
-            <% if @metric == 'efficiency' %><p>Delivered weight in this cohort: <%= row[:done] && row[:delivered_at]&.between?(@time_detail_start, @time_detail_end) ? performance_number(row[:weight]) : '0' %></p><% end %>
+            <% if Array(row[:extraordinary_reasons]).any? %><p><%= Array(row[:extraordinary_reasons]).join('; ') %></p><% end %>
+            <% if @metric == 'efficiency' %><p>Delivered weight in this cohort: <%= TicketJourneyPeriodicTickets.delivered?(row, @time_detail_start, @time_detail_end) ? performance_number(row[:weight]) : '0' %></p><% end %>
           </td>
         </tr>
       <% end %>

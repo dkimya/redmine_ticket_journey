@@ -1,6 +1,7 @@
-# Provisional Periodic Time: ticket attribution is current owner; personal time
+# Periodic Time: ticket attribution is current owner; personal time
 # always follows TimeEntry.user_id. All loaders are read-only and batch bounded.
 class TicketJourneyPeriodicTime
+  WORK_CATEGORIES = %w[expected_done expected_unfinished other archived excluded unclassified].freeze
   GROUP_FIELDS = { 'actor' => :report_owner_name, 'project' => :project_name,
     'tracker' => :tracker_name, 'status' => :status_name }.freeze
 
@@ -22,6 +23,10 @@ class TicketJourneyPeriodicTime
     'expected_done_all' => 'All Owner Hours on Completed Expected Work',
     'expected_unfinished' => 'Owner Hours on Unfinished Expected Work',
     'unclassified' => 'Owner Hours with Unavailable Ticket Owner',
+    'archived_hours' => 'Logged Hours on Currently Archived Tickets',
+    'excluded_hours' => 'Logged Hours on Current On-Hold or Ongoing Tickets',
+    'time_mix' => 'Logged Time by Activity and User',
+    'ownership_review' => 'Logged Time on Tickets with Recorded Owner Changes',
     'cost_excluded' => 'Done Tickets Excluded from Cost Comparison',
     'expected_done_excluded' => 'Completed Expected Tickets Excluded from Owner-Hours Comparison',
     'efficiency_excluded' => 'Expected Tickets Excluded from Efficiency Comparison',
@@ -38,7 +43,15 @@ class TicketJourneyPeriodicTime
         logs[id][user.to_s] << [day.to_date, finite_sum(hours)]
       end
     invalid = visible.where('time_entries.hours < 0 OR time_entries.hours > ? OR time_entries.hours IS NULL', Float::MAX)
+    mix = Hash.new { |hash, id| hash[id] = [] }
+    valid.where(spent_on: first_day..last_day).group(:issue_id, :user_id, :activity_id, :spent_on).sum(:hours).each do |(id, user, activity, day), hours|
+      mix[id] << { user_id: user.to_s, activity_id: activity.to_s, day: day.to_date, hours: finite_sum(hours) }
+    end
+    invalid.where(spent_on: first_day..last_day).group(:issue_id, :user_id, :activity_id, :spent_on).count.each do |(id, user, activity, day), count|
+      mix[id] << { user_id: user.to_s, activity_id: activity.to_s, day: day.to_date, hours: nil, invalid_count: count }
+    end
     { costs: costs, logs: logs, invalid_costs: invalid.group(:issue_id).count,
+      mix: mix,
       invalid_logs: invalid.where(user_id: owners, spent_on: first_day..last_day).group(:issue_id, :user_id, :spent_on).count }
   end
 
@@ -56,6 +69,7 @@ class TicketJourneyPeriodicTime
       estimate: TicketJourney::WorkingCalendar.positive_number(issue.estimated_hours),
       priority: issue.priority&.name.to_s, ticket_hours: cost, time_allowed: time_allowed,
       owner_visible: owner_visible, owner_logs: time_allowed ? logs : {}, invalid_logs: invalid_users,
+      mix_records: time_allowed ? hours.fetch(:mix, {}).fetch(issue.id, []) : [],
       invalid_costs: hours[:invalid_costs].fetch(issue.id, 0))
   end
 
@@ -84,30 +98,29 @@ class TicketJourneyPeriodicTime
     values.empty? ? nil : values.sum.to_f / values.size
   end
 
+  def self.work_category(row, expected_ids, completed_ids)
+    return 'archived' if TicketJourneyPeriodicTickets.current_status(row) == 'Archived'
+    return 'excluded' if TicketJourneyPeriodicTickets.excluded?(row)
+    return 'unclassified' unless row[:owner_visible]
+    return 'expected_done' if completed_ids.include?(row[:id])
+    expected_ids.include?(row[:id]) ? 'expected_unfinished' : 'other'
+  end
+
   def self.owner_report(rows, owner_id, first_day, last_day, calendar, settings, daily_hours,
     total_available:, any_time_available: true, package: nil, completion_range: nil, comparison_range: nil)
     comparison_first, comparison_last = comparison_range || [first_day, last_day]
     own = rows.select { |row| row[:owner_visible] && row[:owner_id] == owner_id }
     tickets = package || TicketJourneyPeriodicTickets.calculate(own, first_day, last_day, with_trends: false)
-    eligible = rows.reject { |row| TicketJourneyPeriodicTickets.excluded?(row) }
     done = tickets[:sets]['actual']
     done = done.select { |row| row[:delivered_at].between?(*completion_range) } if completion_range
     expected = tickets[:sets]['expected']
     expected_ids = expected.map { |row| row[:id] }.to_set
     completed_ids = tickets[:sets]['completed'].map { |row| row[:id] }.to_set
     # Personal time belongs to the logged user, not the entry creator or ticket owner.
-    personal = eligible.filter_map do |row|
+    personal = rows.filter_map do |row|
       entries = row.fetch(:owner_logs, {}).fetch(owner_id, []).select { |day, _hours| day.between?(first_day, last_day) }
       next if entries.empty? && invalid_count(row, owner_id, first_day, last_day).zero?
-      category = if !row[:owner_visible]
-        'unclassified'
-      elsif completed_ids.include?(row[:id])
-        'expected_done'
-      elsif expected_ids.include?(row[:id])
-        'expected_unfinished'
-      else
-        'other'
-      end
+      category = work_category(row, expected_ids, completed_ids)
       row.merge(log_owner_id: owner_id, personal_hours: personal_hours(row, owner_id, first_day, last_day), time_category: category)
     end
     logs = personal.group_by { |row| row[:time_category] }
@@ -160,11 +173,14 @@ class TicketJourneyPeriodicTime
     sets = result.transform_values { |entry| entry[:rows] }.merge(
       'expected_done_all' => logs.fetch('expected_done', []),
       'expected_unfinished' => logs.fetch('expected_unfinished', []), 'unclassified' => logs.fetch('unclassified', []),
+      'archived_hours' => logs.fetch('archived', []), 'excluded_hours' => logs.fetch('excluded', []),
+      'time_mix' => personal,
+      'ownership_review' => personal.select { |row| Array(row[:extraordinary_reasons]).include?('Ticket Owner changed') },
       'cost_excluded' => done - cost_rows, 'efficiency_excluded' => expected - efficiency_rows,
       'expected_done_excluded' => tickets[:sets]['completed'].reject { |row| expected_done.any? { |item| item[:id] == row[:id] } },
       'dtc_excluded' => done - dtc_rows)
     { metrics: result, sets: sets, tickets: tickets, personal: personal,
-      breakdown: %w[expected_done expected_unfinished other unclassified].to_h { |key| [key, any_time_available ? sum_logs.call(logs.fetch(key, [])) : nil] },
+      breakdown: WORK_CATEGORIES.to_h { |key| [key, any_time_available ? sum_logs.call(logs.fetch(key, [])) : nil] },
       durations: durations, priority_durations: priority_durations, days: days, capacity: capacity,
       done_count: done.size, expected_done_count: tickets[:sets]['completed'].size,
       valid_visible_hours: any_time_available ? sum_logs.call(personal) : nil,
@@ -215,7 +231,7 @@ class TicketJourneyPeriodicTime
       [key, entry]
     end
     { metrics: metrics, sets: LABELS.keys.to_h { |key| [key, reports.flat_map { |report| report[:sets].fetch(key) }] },
-      breakdown: %w[expected_done expected_unfinished other unclassified].to_h do |key|
+      breakdown: WORK_CATEGORIES.to_h do |key|
         values = reports.map { |report| report[:breakdown][key] }
         [key, values.any?(&:nil?) ? nil : values.sum]
       end,

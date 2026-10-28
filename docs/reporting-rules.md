@@ -1,5 +1,29 @@
 # Reporting rules
 
+## Part 3 Time review — 2026-10-28
+
+Supplied answers confirm calendar creation-to-completion DTC, all-contributor
+ticket cost through RED versus personal work-date hours, booked-user attribution,
+paired full-portfolio efficiency/A−P, Extra/Unplanned separation, selected project
+and child-project scope, and N/A/zero treatment. See [the Time spec](periodic-time-spec.md)
+for the current rule reference. Trend communication was requested rather than
+explicitly approving new monthly dashboards: retained windows now have plain
+date explanations/examples on this same page, with owner charts collapsed.
+
+Time activity/user donuts and tracker/package-owner/logged-user observations are
+implemented locally. Development activity IDs are optional explicit settings,
+default empty; all activity shares remain visible but development ratios are N/A
+until mapped. The 90% working estimate is context, not a silently set target.
+Current estimates and user share settings are not rewritten from observed ratios.
+
+Archived and On-Hold/Ongoing personal hours are now retained in total/daily logged
+hours, with separate reconciliation categories and no delivery/efficiency credit.
+All-contributor expected-package and archived-ticket activity/user scopes are
+separate from selected-user hours and must not be added together. Archive/replace
+on necessary owner change is an operating policy, not an automated editing rule.
+No custom fields, counters, native events or migrations are introduced. Ruby,
+deployed data/visual/request verification and measured performance remain pending.
+
 ## Part 2 confirmations — 2026-10-28
 
 The supplied answers confirm full return history through RED (including before

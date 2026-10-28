@@ -31,6 +31,10 @@ module TicketJourney
     def validate_performance_time_settings
       return unless name == 'plugin_redmine_ticket_journey' && value.is_a?(Hash)
       config = value
+      activity_ids = Array(config['performance_periodic_development_activity_ids']).map(&:to_s).reject(&:blank?).uniq
+      if activity_ids.any? && (activity_ids.any? { |id| !id.match?(/\A[1-9]\d*\z/) } || TimeEntryActivity.where(id: activity_ids).count != activity_ids.size)
+        errors.add(:base, 'Development activities must be selected from existing time-entry activities.')
+      end
       %w[performance_periodic_dtc_target performance_periodic_priority_dtc_target performance_periodic_owner_share].each do |key|
         next if config[key].blank?
         unless TicketJourney::PerformanceSettings.periodic_target(config, key)

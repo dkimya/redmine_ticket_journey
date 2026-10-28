@@ -1,5 +1,28 @@
 # Draft message to Hadi
 
+Part 3 status, 2026-10-28: creation-to-completion calendar DTC, time windows,
+booked users, paired efficiency/A−P, Extra/Unplanned, hierarchy and missing-data
+rules are confirmed. Activity/user/package/tracker evidence and archived paid
+effort are added locally. Targets remain unset unless configured; 90% is a working
+estimate, not an automatically adopted development ratio. Existing development
+activity names/IDs are still a configuration input. Trend explanation was unclear,
+so both date windows are now explained simply on the same page, with collapsed
+individual charts; no separate future executive dashboard is assumed. Do not
+resend the old Time questions unchanged. Runtime/data/layout verification remains
+pending; no message has been sent automatically.
+
+Suggested short Part 3 follow-up after reviewing the updated page:
+
+“The Time page now shows both delivery and logged-work views. A ticket finished
+in Week 2 appears in Week 2 on the completed-ticket cost chart, including its
+earlier work. Hours actually logged in Week 1 appear in Week 1 on logged-hours
+charts. Both views are available on this same page; individual details are
+collapsed for quick executive reading. Please identify any labels that remain
+unclear. Development-share observations are shown by activity, contributor and
+tracker; which existing time-entry activities should be classified as Development?
+The 90% estimate remains a working reference until the observed mix supports a
+target. Archived paid effort is shown separately without delivery credit.”
+
 Part 2 status, 2026-10-28: Returns questions below have been answered. Full
 through-RED history, completion cohorts and non-Merge incidents / all returned
 tickets are confirmed; the user approved N/A (not applicable) for no returned

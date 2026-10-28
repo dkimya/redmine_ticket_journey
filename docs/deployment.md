@@ -1,5 +1,43 @@
 # Deployment and verification
 
+## Part 3 activity and archived time — 2026-10-28
+
+Deploy the Periodic Time and new TimeMix models, controller/helper, new mix views,
+Time views, settings/default/validation changes together. Restart through the host
+process. No migration or custom field. See [Time rules](periodic-time-spec.md).
+
+1. Configure existing Development activity IDs, including applicable project
+   overrides, in plugin settings. Empty mapping keeps development ratios N/A and
+   exposes all activity shares. The 90% working estimate does not set a target;
+   owner share and DTC targets remain separately configurable. Test clearing the
+   multi-select and rejecting invalid/nonexistent IDs.
+2. Run the full plugin tests from a configured TEST Redmine root. Ruby coverage is
+   unrun locally; eleven local JavaScript navigation/legend checks and diff checks
+   pass. Never use production data for tests.
+3. Reconcile selected users' hours across completed expected, unfinished expected,
+   other, archived, On-Hold/Ongoing and hidden-owner categories. Archived/excluded
+   hours must count toward personal total/daily hours with no delivery/CW credit.
+   Reassignment must not move booked users' historical entries.
+4. Verify all-contributor expected-package and archived-ticket donuts separately
+   from selected-user donuts. Include QA/other users outside selected owners, work
+   before RSD, after RED and backdated records. Activity mix uses period work dates;
+   ticket-cost cards use all direct cost through RED. Never add overlapping scopes.
+5. Inspect package-owner × tracker development and owner-booked shares, and logged
+   user × tracker activity mix, including a real 0 development share, no hours,
+   missing mapping, invalid time and permission gaps. No partial ratio should look
+   complete. Hidden Ticket Owner must not enter package attribution or leak names.
+6. Check exact scope/activity/user/category/tracker/package-owner contributor links,
+   work-date groups, sorting/grouping/pagination/Back and native unique-ID handoff.
+   Metadata should come only from visible contributors in scope. The existing
+   owner-change review is recorded history, not proof a change followed log creation.
+7. Review CEO readability of completion versus logged-work dates, example labels,
+   collapsed owner/package/archive details, responsive donut legends and numeric
+   precision. Both views stay in the same page. Inspect actual request exceptions.
+8. Recheck all installed-plugin/native query/CSV/issue/My page and affected reports.
+   Measure memory/latency with realistic issue/user/activity/day volume: batched
+   queries still retain selected aggregates. Existing screenshots do not verify
+   these new panels, total-hour semantics or source data.
+
 ## Part 2 Returns changes — 2026-10-28
 
 Deploy the shared Returns and Periodic Returns/Tickets models, controller/helper,

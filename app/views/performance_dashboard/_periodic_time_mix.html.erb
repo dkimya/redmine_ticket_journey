@@ -1,0 +1,45 @@
+<section class="performance-section periodic-time-mix">
+  <h3>Where the Logged Hours Went</h3>
+  <p>All charts below use work dates from <%= format_date(@period_start) %> through <%= format_date(@period_end) %>. PM estimates belong to whole tickets. Logged hours belong to the recorded users, including entries created by someone else.</p>
+  <h4>Selected users — all scoped period hours</h4>
+  <div class="periodic-grid">
+    <%= render 'periodic_time_mix_donut', title: 'Hours by Activity', records: @time_mix[:personal], key: :activity_id, scope: 'personal' %>
+    <%= render 'periodic_time_mix_donut', title: 'Hours by Logged User', records: @time_mix[:personal], key: :user_id, scope: 'personal' %>
+  </div>
+  <div class="autoscroll"><table class="list"><thead><tr><th>Work category</th><th>Hours</th><th>Tickets</th><th>Development activity hours</th><th>Development share</th></tr></thead><tbody>
+    <% TicketJourneyPeriodicTimeMix.group(@time_mix[:personal], :category, @time_mix[:development_ids], available: @time_mix[:available]).each do |group| %><tr><th><%= periodic_time_mix_link(periodic_time_mix_name(:category, group[:key]), 'personal', mix_category: group[:key]) %></th><td><%= performance_number(group[:report][:total]) %></td><td><%= group[:report][:tickets] %></td><td><%= performance_number(group[:report][:development]) %></td><td><%= group[:report][:development_share] ? "#{performance_number(group[:report][:development_share])}%" : 'N/A' %></td></tr><% end %>
+  </tbody></table></div>
+  <p>Archived hours are paid effort without delivery credit. On-Hold/Ongoing effort is also disclosed separately. Both are retained in total/daily logged hours and never improve completed output or expected-work efficiency.</p>
+  <details><summary>Expected package — all contributors by activity and user</summary>
+    <p>These charts use all visible users' period hours on the selected owners' expected tickets, including unfinished expected tickets. They are a different scope from the selected-user charts above and must not be added to them. Archived tickets are outside expectation.</p>
+    <div class="periodic-grid">
+      <%= render 'periodic_time_mix_donut', title: 'Package Hours by Activity', records: @time_mix[:package], key: :activity_id, scope: 'package' %>
+      <%= render 'periodic_time_mix_donut', title: 'Package Hours by Contributor', records: @time_mix[:package], key: :user_id, scope: 'package' %>
+    </div>
+  </details>
+  <details><summary>Archived tickets owned by selected owners — all contributor effort</summary>
+    <p>All visible contributors' period hours on currently archived tickets owned by the selected owners. These hours have no delivery credit. This scope overlaps selected users' hours above and must not be added to them.</p>
+    <div class="periodic-grid">
+      <%= render 'periodic_time_mix_donut', title: 'Archived Ticket Hours by Activity', records: @time_mix[:archived], key: :activity_id, scope: 'archived' %>
+      <%= render 'periodic_time_mix_donut', title: 'Archived Ticket Hours by Contributor', records: @time_mix[:archived], key: :user_id, scope: 'archived' %>
+    </div>
+  </details>
+  <details><summary>Development share by package owner and tracker</summary>
+    <p>Development activity hours ÷ all contributors' hours on the same expected package, within this reporting period. The 90% working estimate is shown as context, not a measured normal or an automatically applied target. Owner-booked share is separate from development activity share.</p>
+    <div class="autoscroll"><table class="list"><thead><tr><th>Current package owner</th><th>Tracker</th><th>Total package hours</th><th>Development hours</th><th>Development share</th><th>Owner-booked share</th></tr></thead><tbody>
+      <% @time_mix[:package].group_by { |entry| [entry[:package_owner], entry[:tracker]] }.sort_by { |key, _records| key.map(&:to_s) }.each do |(owner, tracker), records| %><% summary = TicketJourneyPeriodicTimeMix.summarize(records, @time_mix[:development_ids], available: @time_mix[:available]) %>
+        <tr><th><%= @selected_owners.find { |user| user.id.to_s == owner }&.name || 'Unavailable' %></th><td><%= periodic_time_mix_link(tracker, 'package', mix_owner: owner, mix_tracker: tracker) %></td><td><%= periodic_time_mix_link(performance_number(summary[:total]), 'package', mix_owner: owner, mix_tracker: tracker) %></td><td><%= performance_number(summary[:development]) %></td><td><%= summary[:development_share] ? "#{performance_number(summary[:development_share])}%" : 'N/A' %></td><td><%= summary[:owner_share] ? "#{performance_number(summary[:owner_share])}%" : 'N/A' %></td></tr>
+      <% end %>
+    </tbody></table></div>
+  </details>
+  <details><summary>Activity mix by logged user and tracker</summary>
+    <p>Selected users' own period hours, including archived and other excluded work. This measures each user's activity mix; it is not their share of a ticket's total cost.</p>
+    <div class="autoscroll"><table class="list"><thead><tr><th>Logged user</th><th>Tracker</th><th>Hours</th><th>Development hours</th><th>Development share</th></tr></thead><tbody>
+      <% @time_mix[:personal].group_by { |entry| [entry[:user_id], entry[:tracker]] }.sort_by { |key, _records| key.map(&:to_s) }.each do |(user, tracker), records| %><% summary = TicketJourneyPeriodicTimeMix.summarize(records, @time_mix[:development_ids], available: @time_mix[:available]) %>
+        <tr><th><%= periodic_time_mix_name(:user_id, user) %></th><td><%= periodic_time_mix_link(tracker, 'personal', mix_user: user, mix_tracker: tracker) %></td><td><%= performance_number(summary[:total]) %></td><td><%= performance_number(summary[:development]) %></td><td><%= summary[:development_share] ? "#{performance_number(summary[:development_share])}%" : 'N/A' %></td></tr>
+      <% end %>
+    </tbody></table></div>
+  </details>
+  <% if @time_mix[:development_ids].empty? %><p class="periodic-provisional">Development activities have not been mapped. All activity shares are visible; development ratios remain N/A until existing activities are selected in plugin settings. No activity is classified by name automatically.</p><% end %>
+  <p><%= periodic_time_mix_link('Review all selected-user work-date activity totals', 'personal') %> · <%= periodic_time_mix_link('Review all expected-package contributor totals', 'package') %>. Only visible entries on scoped tickets are counted; time without tickets and outside the selected project hierarchy is outside this report.</p>
+</section>

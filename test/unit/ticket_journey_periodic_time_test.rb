@@ -172,7 +172,16 @@ class TicketJourneyPeriodicTimeTest < ActiveSupport::TestCase
     assert_equal 0.0, result[:metrics]['efficiency'][:actual]
     assert_nil result[:metrics]['dtc'][:actual]
     excluded = report([row(1, current_status_name: 'On-Hold')])
-    assert_equal 0.0, excluded[:metrics]['total_hours'][:actual]
+    assert_equal 4.0, excluded[:metrics]['total_hours'][:actual]
+    assert_equal 4.0, excluded[:breakdown]['excluded']
+    assert_empty excluded[:tickets][:sets]['expected']
+    archived = report([row(2, current_status_name: 'Archived', extraordinary_reasons: ['Ticket Owner changed'])])
+    assert_equal 4.0, archived[:metrics]['total_hours'][:actual]
+    assert_equal 4.0, archived[:breakdown]['archived']
+    assert_equal [2], archived[:sets]['archived_hours'].map { |entry| entry[:id] }
+    assert_equal [2], archived[:sets]['ownership_review'].map { |entry| entry[:id] }
+    assert_empty archived[:tickets][:sets]['actual']
+    assert_nil archived[:metrics]['efficiency'][:actual]
   end
 
   private

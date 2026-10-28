@@ -35,7 +35,7 @@ Redmine::Plugin.register :redmine_ticket_journey do
                       'performance_holidays' => '', 'performance_weekly_hours_field_id' => '',
                       'performance_estimate_allowance' => '10', 'performance_sv_warning' => '10',
                       'performance_periodic_dtc_target' => '', 'performance_periodic_priority_dtc_target' => '',
-                      'performance_periodic_owner_share' => '' },
+                        'performance_periodic_owner_share' => '', 'performance_periodic_development_activity_ids' => [] },
            partial: 'settings/ticket_journey_performance'
 
   # Register as a project module so it appears in Settings > Modules.

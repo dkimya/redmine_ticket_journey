@@ -1,0 +1,28 @@
+<% html_title 'Performance Time', 'Activity and User Details' %>
+<% content_for :header_tags do %><%= stylesheet_link_tag 'performance', plugin: 'redmine_ticket_journey' %><%= javascript_include_tag 'performance_navigation', plugin: 'redmine_ticket_journey', defer: true %><% end %>
+<div class="performance-page periodic-page periodic-time-mix-details">
+  <%= render 'header', page_title: 'Logged Time — Activities and Users', show_filters: false %>
+  <p><%= link_to '← Back to Periodic Time', performance_dashboard_path(@project, **periodic_time_params(metric: nil, time_bucket: nil, time_group: nil)), data: { performance_back: true } %></p>
+  <p><strong><%= { 'package' => 'Expected package — all visible contributors', 'personal' => 'Selected logged users — all scoped work', 'archived' => 'Archived tickets owned by selected owners — all visible contributors' }.fetch(@mix_scope) %></strong> · <%= format_date(@time_detail_start) %> – <%= format_date(@time_detail_end) %> · <%= @detail_count %> daily activity/user groups · <%= @matching_issue_ids.size %> distinct tickets</p>
+  <p>Total: <%= performance_number(@mix_summary[:total]) %> h · Known valid visible hours: <%= performance_number(@mix_summary[:known]) %> · Invalid records: <%= @mix_summary[:invalid] %>. These are grouped work-date totals, not lifetime ticket costs. Archived effort receives no completed-output credit.</p>
+  <% if @mix_filters.except(:mix_scope).any? %><p>Filters: <% @mix_filters.except(:mix_scope).each do |key, value| %><span><%= key.to_s.delete_prefix('mix_').humanize %>: <%= periodic_time_mix_name({ mix_activity: :activity_id, mix_user: :user_id, mix_category: :category }.fetch(key, key), value) %> · </span><% end %></p><% end %>
+  <%= form_tag performance_dashboard_path(@project), method: :get do %>
+    <% periodic_time_mix_params(@mix_scope, @mix_filters).each do |key, value| %><% Array(value).each do |item| %><%= hidden_field_tag(key == :owner_ids ? 'owner_ids[]' : key, item, id: nil) %><% end %><% end %>
+    <%= label_tag :mix_sort, 'Sort' %><%= select_tag :mix_sort, options_for_select([['Work date', 'day'], ['User', 'user'], ['Activity', 'activity'], ['Ticket', 'ticket']], @mix_sort) %>
+    <%= select_tag :direction, options_for_select([['Ascending', 'asc'], ['Descending', 'desc']], @mix_direction), aria: { label: 'Sort direction' } %>
+    <%= label_tag :mix_group, 'Group by' %><%= select_tag :mix_group, options_for_select([['None', ''], ['Tracker', 'tracker'], ['Work category', 'category'], ['Logged user', 'user'], ['Activity', 'activity']], params[:mix_group]) %><%= submit_tag 'Apply options', name: nil %>
+  <% end %>
+  <% if @matching_issue_ids.any? %><p><%= link_to 'Open matching tickets in Issues (current values)', performance_current_issues_path %></p><% end %>
+  <% if @mix_detail_rows.empty? %><p class="nodata">No visible time-entry groups match these filters.</p><% else %>
+    <div class="autoscroll"><table class="list"><thead><tr><th>Ticket</th><th>Subject / Project</th><th>Tracker</th><th>Work date</th><th>Logged user</th><th>Activity</th><th>Hours</th><th>Work category</th><th>Current status</th></tr></thead><tbody>
+      <% previous_group = nil; @mix_detail_rows.each do |entry| %><% group = @mix_group && entry[@mix_group]; issue = @detail_issues.fetch(entry[:issue_id]) %>
+        <% if @mix_group && group != previous_group %><tr class="group"><th colspan="9"><%= periodic_time_mix_name(@mix_group, group) %> · <%= @mix_group_counts[group] %> groups (all pages)</th></tr><% previous_group = group %><% end %>
+        <tr class="periodic-time-mix-row"><td><%= link_to "##{issue.id}", issue_path(issue) %></td><td><%= issue.subject %><br><%= entry[:project] %></td><td><%= entry[:tracker] %></td><td><%= format_date(entry[:day]) %></td><td><%= periodic_time_mix_name(:user_id, entry[:user_id]) %></td><td><%= periodic_time_mix_name(:activity_id, entry[:activity_id]) %></td><td><%= performance_number(entry[:hours]) %><% if entry[:hours].nil? %> · invalid/unavailable<% end %></td><td><%= periodic_time_mix_name(:category, entry[:category]) %></td><td><%= entry[:current_status] %></td></tr>
+      <% end %>
+    </tbody></table></div>
+  <% end %>
+  <p>Page <%= @page %> of <%= @page_count %> · Up to 100 groups per page
+    <% if @page > 1 %> · <%= link_to 'Previous', performance_dashboard_path(@project, **periodic_time_mix_params(@mix_scope, @mix_filters.merge(mix_sort: @mix_sort, mix_group: params[:mix_group], direction: @mix_direction, page: @page - 1))) %><% end %>
+    <% if @page < @page_count %> · <%= link_to 'Next', performance_dashboard_path(@project, **periodic_time_mix_params(@mix_scope, @mix_filters.merge(mix_sort: @mix_sort, mix_group: params[:mix_group], direction: @mix_direction, page: @page + 1))) %><% end %>
+  </p>
+</div>

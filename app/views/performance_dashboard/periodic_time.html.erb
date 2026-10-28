@@ -7,7 +7,7 @@
 <% end %>
 <div class="performance-page periodic-page periodic-time-page">
   <%= render 'header', page_title: 'Periodic Performance — Time' %>
-  <p class="periodic-provisional"><strong>Provisional Time rules — confirmation pending.</strong> Ticket costs include visible direct hours from all contributors through RED. Personal hours follow the logged user (time-entry user_id) and use RSD–RED work dates. <a href="#periodic-time-rules">Read the time windows and calculation rules</a>.</p>
+  <p class="periodic-provisional"><strong>Time definitions have been reviewed and updated.</strong> Ticket costs include all visible contributors' direct hours through RED. Personal hours follow the logged user and work dates within the reporting period. Archived effort is shown separately. <a href="#periodic-time-rules">Read the time windows and calculation rules</a>.</p>
   <p class="performance-context">Same Periodic expectation package, visible project hierarchy and tracker scope · Recorded completion with current-status checks · Current owners, estimates, weights, priority and calendar settings</p>
   <% if @periodic_time_report %>
     <% report = @periodic_time_report %>
@@ -49,14 +49,16 @@
         <p><%= periodic_time_link("Excluded done tickets: #{report[:sets]['cost_excluded'].size}", 'cost_excluded') %> · Full done-population visible cost: <%= periodic_time_number(report[:all_done_visible_cost], 'ticket_cost') %> h</p>
       </section>
       <section class="performance-section"><h3>Personal Hours — Reconciliation</h3>
-        <p>Known visible hours: <strong><%= periodic_time_number(report[:valid_visible_hours], 'total_hours') %> h</strong>. All four categories below use logged users and work dates in the selected period.</p>
+        <p>Known visible hours: <strong><%= periodic_time_number(report[:valid_visible_hours], 'total_hours') %> h</strong>. All categories below use logged users and work dates in the selected period, including paid archived/excluded effort.</p>
         <table class="list"><thead><tr><th>Category</th><th>Hours</th></tr></thead><tbody>
-          <% [['expected_done', 'Completed expected work', 'expected_done_all'], ['expected_unfinished', 'Unfinished expected work', 'expected_unfinished'], ['other', 'Other tickets (including cross-owner work)', 'other_hours'], ['unclassified', 'Ticket Owner unavailable', 'unclassified']].each do |key, label, metric| %><tr><th><%= label %></th><td><%= periodic_time_link(periodic_time_number(report[:breakdown][key], 'total_hours'), metric) %></td></tr><% end %>
+          <% [['expected_done', 'Completed expected work', 'expected_done_all'], ['expected_unfinished', 'Unfinished expected work', 'expected_unfinished'], ['other', 'Other tickets (including cross-owner work)', 'other_hours'], ['archived', 'Archived — paid effort without delivery credit', 'archived_hours'], ['excluded', 'On-Hold / Ongoing — outside delivery package', 'excluded_hours'], ['unclassified', 'Ticket Owner unavailable', 'unclassified']].each do |key, label, metric| %><tr><th><%= label %></th><td><%= periodic_time_link(periodic_time_number(report[:breakdown][key], 'total_hours'), metric) %></td></tr><% end %>
         </tbody></table>
         <p>Expected Done comparable card: <%= periodic_time_number(report[:metrics]['expected_done_hours'][:actual], 'total_hours') %> h. All Expected Done hours: <%= periodic_time_number(report[:expected_done_raw_hours], 'total_hours') %> h. Missing estimates/time can explain the difference.</p>
         <p><%= periodic_time_link("Expected Done comparison exclusions: #{report[:sets]['expected_done_excluded'].size}", 'expected_done_excluded') %></p>
       </section>
     </div>
+
+    <%= render 'periodic_time_mix' %>
 
     <section class="performance-section"><h3>Expected Work Completion</h3>
       <% completion = @periodic_time_completion; percent = performance_percent(completion['completed'][:count], completion['expected'][:count]) %>
@@ -66,15 +68,17 @@
       <p>Other Work is favorable Extra Work only for an owner with a nonempty, fully delivered expectation package and zero debt at RED. Team results keep favorable and unplanned hours separate.</p>
     </section>
 
+    <p class="performance-context">How to read the trends: a ticket finished in Week 2 appears in Week 2 on delivery/cost charts. Hours logged in Week 1 appear in Week 1 on logged-hours charts, even if that ticket finishes later. These views are both available here; a separate executive dashboard is not required. Long periods use months.</p>
     <div class="periodic-grid">
-      <%= render 'periodic_time_trend', chart_key: 'dtc', title: 'Days to Close — Completion Cohorts', series: periodic_time_trend_series(%w[dtc priority_dtc]), description: 'Calendar days from creation to latest qualifying completion. Each point uses the final RED done population completed in that interval; targets are current global settings.' %>
-      <%= render 'periodic_time_trend', chart_key: 'cost', title: 'Ticket Cost — Completion Cohorts', series: periodic_time_trend_series(['ticket_cost']), description: 'PM estimate versus full visible direct ticket hours through RED for each completion cohort, including work before RSD. These are delivered-ticket costs, not hours logged only during the cohort.' %>
+      <%= render 'periodic_time_trend', chart_key: 'dtc', title: 'Time to Close — Completed Tickets', series: periodic_time_trend_series(%w[dtc priority_dtc]), description: 'For tickets finished in each interval: average calendar days from creation to completion. A ticket finished in Week 2 appears in Week 2. Targets are configured separately. Long periods use months.' %>
+      <%= render 'periodic_time_trend', chart_key: 'cost', title: 'Cost of Completed Tickets', series: periodic_time_trend_series(['ticket_cost']), description: 'For tickets finished in each interval: PM estimate versus all direct hours through report end, including earlier work. A ticket finished in Week 2 carries its full ticket cost in Week 2. The next chart instead shows when hours were logged.' %>
       <%= render 'periodic_time_trend', chart_key: 'total', title: 'Owner Logged Hours — Work-Date Intervals', series: periodic_time_trend_series(['total_hours']), description: 'Actual uses visible valid entries booked to the selected users in each interval. Plan is owner-workdays × configured daily hours, summed across owners.' %>
       <%= render 'periodic_time_trend', chart_key: 'daily', title: 'Average Logged Hours per Owner-Workday', series: periodic_time_trend_series(['daily_hours']), description: 'Sum logged hours divided by sum owner-workdays. Partial weeks use their actual configured working days; zero-workday points are unavailable.' %>
       <%= render 'periodic_time_trend', chart_key: 'efficiency', title: 'Delivered Expected Complexity Weight / Owner Hour', series: periodic_time_trend_series(['efficiency']), description: 'Actual uses delivered expected weight in the completion interval divided by owner work-date hours on the paired full expectation portfolio, including unfinished work. Plan is the full portfolio weight / configured expected effort, a rate reference rather than a weekly allocation.' %>
       <%= render 'periodic_time_breakdown' %>
     </div>
     <% if @selected_owners.size > 1 %>
+      <details class="performance-section periodic-time-owner-trends"><summary>Show individual owner trends</summary>
       <% %w[dtc priority_dtc ticket_cost expected_done_hours total_hours daily_hours efficiency].each do |key| %>
         <% series = @selected_owners.flat_map do |owner|
           kinds = key == 'expected_done_hours' ? [:actual] : [:actual, :plan]
@@ -85,12 +89,14 @@
         end %>
         <%= render 'periodic_time_trend', chart_key: "owners-#{key}", title: "#{TicketJourneyPeriodicTime::METRICS[key].first} — Individual Owners", series: series, description: 'Individual actual values use the same contributor definitions and date windows as the team charts. Targets and per-owner deviations are available in the top comparison tables.' %>
       <% end %>
+      </details>
     <% end %>
     <section class="performance-section"><h3>Coverage and Settings</h3>
-      <% %w[cost_excluded expected_done_excluded efficiency_excluded dtc_excluded unclassified].each do |key| %><p><%= periodic_time_link("#{TicketJourneyPeriodicTime::LABELS[key]}: #{report[:sets][key].size}", key) %></p><% end %>
+      <% %w[cost_excluded expected_done_excluded efficiency_excluded dtc_excluded unclassified archived_hours excluded_hours ownership_review].each do |key| %><p><%= periodic_time_link("#{TicketJourneyPeriodicTime::LABELS[key]}: #{report[:sets][key].size}", key) %></p><% end %>
+      <p>When ownership must change after developer time was logged, the operating policy is to archive and replace the ticket. The report preserves all recorded users and separately shows archived effort; ticket edits are not blocked and no replacements are created automatically. Recorded owner changes are linked for review without assuming when the time was originally entered.</p>
       <p>Unavailable/invalid personal-time contributions: <%= report[:invalid_rows] %>. Invalid, negative and nonfinite time is excluded from comparisons, not presented as zero. Owner daily-hour fallbacks: <%= @time_hours_fallback.size %> owner(s).</p>
       <p>Efficiency uses <%= report[:metrics]['efficiency'][:rows].size %> paired ticket-owner contributions: delivered <%= performance_number(report[:metrics]['efficiency'][:delivered_weight]) %> CW / <%= performance_number(report[:metrics]['efficiency'][:actual_effort]) %> owner h. Planned <%= performance_number(report[:metrics]['efficiency'][:expected_weight]) %> CW / <%= performance_number(report[:metrics]['efficiency'][:planned_effort]) %> expected h.</p>
-      <p>Totals cover visible issues in the selected project hierarchy, included trackers and current status scope. Time without a ticket, on excluded trackers/statuses, or outside this hierarchy is outside these totals. The capacity plan still represents configured owner availability; partial issue/private-entry visibility may limit logged-hour comparisons.</p>
+      <p>Totals cover visible tickets in the selected project and child projects, using the Performance tracker scope. Archived, On-Hold and Ongoing hours remain visible separately and count toward logged time, without delivery credit. Time without a ticket, on excluded trackers, or outside this hierarchy is outside these totals. Partial visibility may limit comparison with full configured capacity.</p>
     </section>
   <% else %><p class="nodata">Select Ticket Owner(s), set the period, and click Apply. Initial navigation does not scan issues or time entries. Configure DTC targets and owner-share % before interpreting target comparisons.</p><% end %>
   <%= render 'periodic_time_rules' %>

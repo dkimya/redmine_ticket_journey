@@ -1,6 +1,18 @@
 require File.expand_path('../test_helper', __dir__)
 
 class TicketJourneyPerformanceSettingsTest < ActiveSupport::TestCase
+  test 'development activities map existing records and allow an explicit empty selection' do
+    activity = TimeEntryActivity.create!(name: 'Periodic Test Development')
+    setting = Setting.find_by(name: 'plugin_redmine_ticket_journey') || Setting.new(name: 'plugin_redmine_ticket_journey')
+    setting.value = { 'performance_periodic_development_activity_ids' => ['', activity.id.to_s] }
+    assert setting.valid?, setting.errors.full_messages.join(', ')
+    setting.value = { 'performance_periodic_development_activity_ids' => [''] }
+    assert setting.valid?
+    [['invalid'], ['999999999'], ['0']].each do |ids|
+      setting.value = { 'performance_periodic_development_activity_ids' => ids }
+      assert_not setting.valid?
+    end
+  end
   test 'Periodic Time targets are optional finite and independently validated' do
     setting = Setting.find_by(name: 'plugin_redmine_ticket_journey') || Setting.new(name: 'plugin_redmine_ticket_journey')
     %w[performance_periodic_dtc_target performance_periodic_priority_dtc_target].each do |key|
