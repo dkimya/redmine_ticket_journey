@@ -1,0 +1,35 @@
+<% html_title 'Performance Time', @detail_title %>
+<% content_for :header_tags do %><%= stylesheet_link_tag 'performance', plugin: 'redmine_ticket_journey' %><%= javascript_include_tag 'performance_navigation', plugin: 'redmine_ticket_journey', defer: true %><% end %>
+<div class="performance-page periodic-page">
+  <%= render 'header', page_title: @detail_title, show_filters: false %>
+  <p><%= link_to '← Back to Periodic Time', performance_dashboard_path(@project, **periodic_time_params(time_bucket: nil, time_group: nil)), data: { performance_back: true } %></p>
+  <p><strong><%= @owner_label %></strong> · <%= @detail_count %> ticket-owner contributions · <%= @matching_issue_ids.size %> distinct tickets · Work-date/cohort interval: <%= format_date(@time_detail_start) %> – <%= format_date(@time_detail_end) %></p>
+  <p class="periodic-provisional">Provisional rules. Personal hours follow the report owner's recorded time-entry user_id and the displayed interval. Ticket cost is visible direct lifetime hours through RED from all logged users. Status and package classification are fixed at RED. Current ticket owners, estimates and weights apply. Capacity/targets are settings, not sums of these ticket rows.</p>
+  <%= form_tag performance_dashboard_path(@project), method: :get do %>
+    <% periodic_time_params(metric: @metric).except(:time_group).each do |key, value| %><% Array(value).each do |item| %><%= hidden_field_tag(key == :owner_ids ? 'owner_ids[]' : key, item, id: nil) %><% end %><% end %>
+    <%= label_tag :sort, 'Sort' %><%= select_tag :sort, options_for_select([['Ticket ID', 'id'], ['Report owner / logged user', 'actor']], @time_sort) %><%= select_tag :direction, options_for_select([['Ascending', 'asc'], ['Descending', 'desc']], @direction) %>
+    <%= label_tag :time_group, 'Group by' %><%= select_tag :time_group, options_for_select([['None', ''], ['Logged user', 'actor'], ['Project', 'project'], ['Tracker', 'tracker'], ['Status at RED', 'status']], @time_group) %><%= submit_tag 'Apply options', name: nil %>
+  <% end %>
+  <% if @matching_issue_ids.any? %><p><%= link_to 'Open matching tickets in Issues (current values)', performance_current_issues_path %></p><% end %>
+  <% if @detail_rows.empty? %><p class="nodata">No ticket contributors for this metric. Calendar targets can exist without logged tickets.</p><% else %>
+    <div class="autoscroll"><table class="list periodic-time-details"><thead><tr><th>Ticket</th><th>Subject / Project</th><th>Report Owner / Logged User</th><th>Current Ticket Owner</th><th>Status at RED</th><th>Completion / DTC</th><th>PM Estimate</th><th>Ticket Cost through RED</th><th>User Hours in Interval</th><th>Current CW</th><th>Coverage / Classification</th></tr></thead><tbody>
+      <% previous_group = nil; @detail_rows.each do |row| %><% issue = @detail_issues.fetch(row[:id]); actor = row[:report_owner_id]; hours = TicketJourneyPeriodicTime.personal_hours(row, actor, @time_detail_start, @time_detail_end); group = TicketJourneyPeriodicTime.group_value(row, @time_group) %>
+        <% if @time_group && group != previous_group %><tr class="group"><th colspan="11"><%= group.presence || 'Unknown' %> · <%= @time_group_totals[group] %> contributions (all pages)</th></tr><% previous_group = group %><% end %>
+        <tr class="periodic-time-ticket"><td><%= link_to "##{issue.id}", issue_path(issue) %></td><td><%= issue.subject %><br><small><%= issue.project.name %></small></td><td><%= row[:report_owner_name] %></td><td><%= row[:owner_visible] ? (@current_owner_names[row[:owner_id]] || 'Unassigned') : 'Unavailable' %></td><td><%= row[:status_name] %></td>
+          <td><%= row[:delivered_at] ? format_date(row[:delivered_at]) : 'No recorded completion' %><br><small>Created: <%= row[:created_date] ? format_date(row[:created_date]) : 'Unavailable' %></small><% if row[:created_date] && row[:delivered_at] && row[:delivered_at] >= row[:created_date] %><br><%= (row[:delivered_at] - row[:created_date]).to_i %> calendar days<% elsif row[:created_date] && row[:delivered_at] %><p>Completion precedes creation</p><% end %></td>
+          <td><%= periodic_time_number(row[:estimate], 'ticket_cost') %> h</td><td><%= periodic_time_number(row[:ticket_hours], 'ticket_cost') %> h</td><td><%= periodic_time_number(hours, 'total_hours') %> h
+            <details><summary>Work-date totals</summary><% row.fetch(:owner_logs, {}).fetch(actor, []).each do |day, value| %><% next unless day.between?(@time_detail_start, @time_detail_end) %><p><%= format_date(day) %>: <%= periodic_time_number(value, 'total_hours') %> h</p><% end %></details>
+          </td><td><%= row[:missing_weight] ? 'Unavailable' : performance_number(row[:weight]) %></td>
+          <td><%= row[:time_category]&.humanize || (row[:category] ? TicketJourneyPeriodicTickets::LABELS[row[:category]] : 'Ticket contributor') %><% unless row[:estimate] %><p>No positive PM estimate</p><% end %><% if row[:ticket_hours].nil? %><p>Ticket time unavailable / invalid</p><% end %><% if hours.nil? %><p>Logged-user time unavailable / invalid</p><% end %><% if row[:missing_weight] %><p>No usable visible weight</p><% end %><% if row[:invalid_costs].to_i.positive? %><p>Invalid recorded ticket hours</p><% end %>
+            <% if @metric == 'efficiency' %><p>Delivered weight in this cohort: <%= row[:done] && row[:delivered_at]&.between?(@time_detail_start, @time_detail_end) ? performance_number(row[:weight]) : '0' %></p><% end %>
+          </td>
+        </tr>
+      <% end %>
+    </tbody></table></div>
+  <% end %>
+  <p>Page <%= @page %> of <%= @page_count %> · Up to 100 ticket-owner contributions per page
+    <% if @page > 1 %> · <%= link_to 'Previous', performance_dashboard_path(@project, **periodic_time_params(metric: @metric, sort: @time_sort, direction: @direction, page: @page - 1)) %><% end %>
+    <% if @page < @page_count %> · <%= link_to 'Next', performance_dashboard_path(@project, **periodic_time_params(metric: @metric, sort: @time_sort, direction: @direction, page: @page + 1)) %><% end %>
+  </p>
+  <%= render 'periodic_time_rules' %>
+</div>

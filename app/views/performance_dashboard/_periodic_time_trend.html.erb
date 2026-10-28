@@ -1,0 +1,30 @@
+<% keys = series.each_index.map(&:to_s); dates = series.first[:points].map { |point| point[:date] } %>
+<% plot = dates.each_index.map { |index| series.each_with_index.to_h { |entry, position| [position.to_s, entry[:points][index][:value]] } }; geometry = performance_leaderboard_geometry(plot, keys: keys, scale_values: [], percent: false) %>
+<% owners = series.select { |entry| entry[:owner_id] }.group_by { |entry| entry[:owner_id] }; format_key = series.first[:key]; title_id = "periodic-time-#{chart_key}" %>
+<section class="performance-section performance-leaderboard periodic-time-trend" data-performance-leaderboard>
+  <h3><%= title %></h3><p class="performance-weight-note"><%= description %></p>
+  <% if owners.empty? %><ul class="performance-trend-legend"><% series.each do |entry| %><li><span class="performance-trend-swatch" style="border-color:<%= entry[:color] %>;border-top-style:<%= entry[:dashed] ? 'dashed' : 'solid' %>"></span><%= entry[:label] %></li><% end %></ul><% end %>
+  <div class="<%= 'performance-leaderboard-layout' if owners.any? %>"><div class="autoscroll">
+    <svg class="performance-trend-chart" viewBox="0 0 860 300" role="img" aria-labelledby="<%= title_id %>">
+      <title id="<%= title_id %>"><%= title %>. Solid actual and dashed plan. Gaps are unavailable values. Exact values and contributor links are below.</title>
+      <% geometry[:ticks].each do |tick| %><% y = 235 - tick / geometry[:maximum] * 200 %><line class="performance-trend-grid" x1="90" x2="770" y1="<%= y %>" y2="<%= y %>" /><text x="78" y="<%= y + 5 %>" text-anchor="end"><%= periodic_time_number(tick, format_key) %></text><% end %>
+      <% step = [(dates.size / 7.0).ceil, 1].max %><% dates.each_with_index do |day, index| %><% next unless index % step == 0 || index == dates.size - 1 %><text x="<%= geometry[:series].first[index][:x] %>" y="268" text-anchor="middle"><%= day.strftime('%d %b %y') %></text><% end %>
+      <% series.each_with_index do |entry, position| %><% coordinates = geometry[:series][position] %>
+        <g data-leaderboard-series="<%= entry[:owner_id] || "series-#{position}" %>" style="stroke:<%= entry[:color] %>;fill:<%= entry[:color] %>">
+          <% coordinates.each_cons(2) do |left, right| %><% if left[:y] && right[:y] %><line x1="<%= left[:x] %>" x2="<%= right[:x] %>" y1="<%= left[:y] %>" y2="<%= right[:y] %>" stroke-width="2.5" stroke-dasharray="<%= entry[:dashed] ? '8 5' : 'none' %>" /><% end %><% end %>
+          <% coordinates.each do |coordinate| %><% next unless coordinate[:y] %><% point = entry[:points][coordinate[:index]]; label = "#{entry[:label]} · #{format_date(point[:start])} – #{format_date(point[:date])}: #{periodic_time_number(point[:value], entry[:key])}" %>
+            <% if entry[:kind] == :actual %>
+              <a href="<%= performance_dashboard_path(@project, **periodic_time_params({ metric: entry[:metric], time_bucket: point[:date].iso8601 }, ids: entry[:ids])) %>" target="_blank" rel="noopener" aria-label="<%= label %> · Opens contributors in a new tab"><circle cx="<%= coordinate[:x] %>" cy="<%= coordinate[:y] %>" r="5"><title><%= label %></title></circle></a>
+            <% else %><circle cx="<%= coordinate[:x] %>" cy="<%= coordinate[:y] %>" r="5" fill="white" stroke-width="2" tabindex="0" role="img" aria-label="<%= label %>"><title><%= label %></title></circle><% end %>
+          <% end %>
+        </g>
+      <% end %>
+    </svg>
+  </div>
+  <% if owners.any? %><div class="performance-leaderboard-legend"><p>Solid actual · Dashed plan where defined</p><% owners.each do |id, entries| %><% entry = entries.first %><button type="button" data-leaderboard-toggle="<%= id %>" data-owner-name="<%= entry[:owner_name] || entry[:label] %>" data-line-description="lines" aria-pressed="true" aria-label="Hide <%= entry[:owner_name] || entry[:label] %> lines"><span class="performance-leaderboard-swatch" style="border-color:<%= entry[:color] %>"></span><span><%= entry[:owner_name] || entry[:label] %></span></button><% end %></div><% end %>
+  </div>
+  <details class="performance-trend-values"><summary>Show interval values and contributors</summary><div class="autoscroll"><table class="list"><thead><tr><th>Interval</th><% series.each do |entry| %><th><%= entry[:label] %></th><% end %></tr></thead><tbody>
+    <% dates.each_with_index do |day, index| %><tr><th><%= format_date(series.first[:points][index][:start]) %> – <%= format_date(day) %></th><% series.each do |entry| %><td><% if entry[:kind] == :actual %><%= performance_drilldown_link periodic_time_number(entry[:points][index][:value], entry[:key]), performance_dashboard_path(@project, **periodic_time_params({ metric: entry[:metric], time_bucket: day.iso8601 }, ids: entry[:ids])) %><% else %><%= periodic_time_number(entry[:points][index][:value], entry[:key]) %><% end %></td><% end %></tr><% end %>
+  </tbody></table></div></details>
+  <p class="performance-weight-note">Intervals are Monday-based weeks with partial first/last weeks; ranges over 120 days use calendar months. This chart states its completion/work-date population above. N/A is a gap, not zero. Current settings and final RED eligibility apply throughout.</p>
+</section>

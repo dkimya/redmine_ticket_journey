@@ -2,7 +2,8 @@
 
 Implemented locally on user authorization, 2026-10-28. Business choices marked
 provisional await Hadi's confirmation. Ruby/request, deployed visual and service
-performance checks remain unverified. Periodic Time remains Planned.
+performance checks remain unverified. Periodic Time is also implemented
+provisionally; see [its specification](periodic-time-spec.md).
 
 ## Sources and scope
 

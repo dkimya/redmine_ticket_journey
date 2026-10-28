@@ -4,7 +4,7 @@ const vm = require('node:vm');
 const test = require('node:test');
 const source = fs.readFileSync(require('node:path').join(__dirname, '../../assets/javascripts/performance_leaderboard.js'), 'utf8');
 
-function page(loading = false, empty = false, targetOwners = [], includeTeam = false) {
+function page(loading = false, empty = false, targetOwners = [], includeTeam = false, pairedOwnerLines = false) {
   const buttons = ['1', '2'].map(id => ({
     dataset: { leaderboardToggle: id, ownerName: 'Owner ' + id },
     attributes: { 'aria-pressed': 'true' }, listeners: [],
@@ -12,10 +12,12 @@ function page(loading = false, empty = false, targetOwners = [], includeTeam = f
     setAttribute(name, value) { this.attributes[name] = value; },
     addEventListener(_name, callback) { this.listeners.push(callback); }
   }));
-  const series = (includeTeam ? ['team', '1', '2'] : ['1', '2']).map(id => ({
-    dataset: { leaderboardSeries: id }, hidden: false,
-    classList: { toggle(_name, hidden) { series.find(item => item.dataset.leaderboardSeries === id).hidden = hidden; } }
-  }));
+  const ownerIds = pairedOwnerLines ? ['1', '1', '2', '2'] : ['1', '2'];
+  const series = (includeTeam ? ['team', ...ownerIds] : ownerIds).map(id => {
+    const item = { dataset: { leaderboardSeries: id }, hidden: false };
+    item.classList = { toggle(_name, hidden) { item.hidden = hidden; } };
+    return item;
+  });
   const targets = targetOwners.map(owners => {
     const target = { dataset: { targetOwners: owners }, hidden: false };
     target.classList = { toggle(_name, hidden) { target.hidden = hidden; } };
@@ -68,6 +70,17 @@ test('Periodic Returns team line remains visible when every individual owner is 
   assert.equal(p.series.find(item => item.dataset.leaderboardSeries === 'team').hidden, false);
   assert.equal(p.series.find(item => item.dataset.leaderboardSeries === '1').hidden, true);
   assert.equal(p.series.find(item => item.dataset.leaderboardSeries === '2').hidden, true);
+});
+
+test('Periodic Time toggles an owners actual and plan lines together', () => {
+  const p = page(false, false, [], false, true);
+  p.buttons[0].dataset.lineDescription = 'lines';
+  p.buttons[0].listeners[0]();
+  assert(p.series.filter(item => item.dataset.leaderboardSeries === '1').every(item => item.hidden));
+  assert(p.series.filter(item => item.dataset.leaderboardSeries === '2').every(item => !item.hidden));
+  assert.equal(p.buttons[0].attributes['aria-label'], 'Show Owner 1 lines');
+  p.buttons[0].listeners[0]();
+  assert(p.series.every(item => !item.hidden));
 });
 
 test('shared target stays visible until every owner using it is hidden and restores on show', () => {

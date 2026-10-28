@@ -2,6 +2,34 @@ require File.expand_path('../test_helper', __dir__)
 
 class PerformanceDashboardHelperTest < ActiveSupport::TestCase
   include PerformanceDashboardHelper
+  include ActionView::Helpers::NumberHelper
+
+  test 'Periodic Time owner links replace team selection and preserve interval context' do
+    @selected_owner_ids = %w[1 2]
+    @period_start, @period_end, @date = Date.new(2026, 3, 1), Date.new(2026, 3, 31), Date.new(2026, 10, 1)
+    @time_bucket = Date.new(2026, 3, 8)
+    context = periodic_time_params(metric: 'total_hours', page: 2, ids: ['2'])
+    assert_equal 'time', context[:tab]
+    assert_equal 'periodic', context[:dashboard_type]
+    assert_equal '2', context[:owner_id]
+    assert_nil context[:owner_ids]
+    assert_equal '2026-03-08', context[:time_bucket]
+    assert_equal 2, context[:page]
+  end
+
+  test 'Time classifications keep mixed Extra Work neutral and respect estimate allowance boundaries' do
+    @estimate_allowance = 10.0
+    mixed = { actual: 5, deviation: { value: -5, percent: nil }, extra_hours: 2, unplanned_hours: 3 }
+    assert_equal 'periodic-time-warning', periodic_time_class('other_hours', mixed)
+    assert_equal 'Mixed Extra / Unplanned Work', periodic_time_deviation('other_hours', mixed)
+    extra = mixed.merge(extra_hours: 5, unplanned_hours: 0)
+    assert_equal 'performance-good', periodic_time_class('other_hours', extra)
+    assert_match(/Extra Work/, periodic_time_deviation('other_hours', extra))
+    cost = { deviation: { value: -10, percent: -10 } }
+    assert_equal 'periodic-time-warning', periodic_time_class('ticket_cost', cost)
+    assert_equal 'performance-bad', periodic_time_class('ticket_cost', { deviation: { value: -11, percent: -10.01 } })
+    assert_equal 'performance-bad', periodic_time_class('total_hours', cost)
+  end
 
   test 'Periodic owner links replace team selection and retain range and detail context' do
     @selected_owner_ids = %w[1 2]

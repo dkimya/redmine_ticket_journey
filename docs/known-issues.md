@@ -1,5 +1,27 @@
 # Known issues and evidence
 
+## Periodic Time — local implementation, 2026-10-28
+
+All three Periodic sections are now implemented provisionally. Time adds eight
+metrics, optional blank targets/share, owner/team comparisons, paired coverage,
+personal-hour reconciliation including unfinished work, completion/work-date
+trends and contributor lists. Booked users (`TimeEntry.user_id`) determine
+personal time; entry creators and ticket reassignment do not transfer it. See
+[Time specification](periodic-time-spec.md) for Hadi-pending rules, especially
+calendar DTC, lifetime ticket cost, share denominator, Extra Work and CW/h A−P.
+Older Time Planned statements below are superseded.
+
+Eleven JavaScript navigation/legend checks pass locally. Added Ruby model/entry/
+settings/helper/request tests are unrun: Ruby and a configured test Redmine are
+unavailable here. Full requests, deployed Time layout, source-data reconciliation
+and measured memory/latency remain pending. Batch scans alone do not establish
+safe report performance. Time totals intentionally omit unlinked/excluded/outside
+hierarchy entries; partial visibility limits comparison with full capacity.
+
+User screenshots confirm Tickets and Returns page rendering and displayed
+arithmetic, not source-ticket eligibility. The revised Live metric and Periodic
+Time have no user-confirmed server verification yet. No schema/data changes.
+
 ## Periodic Returns and revised Live metric — 2026-10-28
 
 Implemented locally on user authorization: Periodic Returns with exact Tickets

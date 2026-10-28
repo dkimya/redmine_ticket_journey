@@ -1,5 +1,48 @@
 # Deployment and verification
 
+## Periodic Time — 2026-10-28
+
+Deploy the new Periodic Time model/views with controller/helper, shared tabs,
+settings validation/view/defaults and performance.css. Reuse existing calendar,
+owner picker, navigation and leaderboard scripts. Restart Redmine and publish
+assets through the normal host process; hard-refresh. No migration or field is
+required. All Periodic sections are provisional; older Time Planned checks below
+are superseded. Keep the provisional notice and [Time rules](periodic-time-spec.md).
+
+1. Configure optional DTC/priority DTC targets and owner-share % under plugin
+   settings. Blank stays N/A; do not copy illustrative design values as defaults.
+   Verify weekday/holiday/default hours and optional weekly-hours field mapping.
+2. Run `bundle exec rake redmine:plugins:test NAME=redmine_ticket_journey RAILS_ENV=test`
+   from a configured **test Redmine root**, never on production data. Ruby is not
+   installed locally; the added Ruby unit/settings/helper/request tests are unrun.
+   Eleven local JavaScript navigation/legend checks pass.
+3. Initial Time navigation must avoid issue/history/time scans. Apply retains
+   dates/owners across sections. Reconcile expected/done/other/debt with Tickets.
+   Compare all eight metrics and exact contributor lists against source data.
+4. Check booked user `user_id` versus entry creator `author_id`, reassignment and
+   cross-owner work. Lifetime direct ticket cost includes pre-RSD work through
+   RED from all users; personal time uses selected users' in-period `spent_on`.
+   Verify backdated/future entries, unlinked/out-of-scope exclusions and raw versus
+   paired totals. Unfinished expected hours must reconcile and affect efficiency.
+5. Check missing estimates/weights/targets, authorized zero entries, invalid hours,
+   hidden Ticket Owner, mixed project time permissions, zero workdays and weekly
+   hour fallback. Unknown values must not look like healthy zeros. Team rates
+   must recompute from underlying totals, not owner averages.
+6. Verify per-owner Extra Work with nonempty completed package and no RED debt;
+   empty packages do not qualify. Mixed team Extra/Unplanned must stay separate.
+   Cost allowance boundaries are amber/red; CW/h deviation is provisionally A−P.
+7. Verify partial Monday-based weeks and >120-day calendar-month intervals,
+   fixed RED portfolios, completion-cohort costs versus work-date personal hours,
+   exact values, N/A gaps, contributor links and paired actual/plan legend toggles.
+   No weekly owner-share budget should be invented.
+8. Inspect new-tab detail sorting/grouping/pagination, logged versus current owner,
+   work-date totals, range/Back and unique-ID native Issues handoff. Check wide and
+   narrow screens, keyboard access and actual request exceptions. Measure memory
+   and latency on representative test data, including large ranges/owner counts.
+9. Recheck Live and Periodic Tickets/Returns, ticket page, My page, Issues, saved
+   queries, numeric Return Count sorting/filtering and selected-column CSV with
+   the installed plugins. Successful partial rendering alone is insufficient.
+
 ## Periodic Returns and Live metric change — 2026-10-28
 
 Deploy the new TicketJourneyPeriodicReturns model and Periodic Returns views with

@@ -2,10 +2,11 @@
 
 Hi Hadi,
 
-We have implemented provisional Periodic Tickets and Returns based on your
-explanations, Excel and designs. The Tickets page has rendered on the server;
-ticket-level calculations still require verification. Returns and the revised
-Live Return Ticket Metric are implemented locally and await server verification.
+We have implemented provisional Periodic Tickets, Returns and Time based on your
+explanations, Excel and designs. Tickets and Returns screenshots confirm page
+rendering and displayed arithmetic; ticket-level calculations still require
+verification. Time and the revised Live Return Ticket Metric are implemented
+locally and await server verification.
 
 The Returns primary metric is incidents / tickets with at least one return,
 displayed as a number such as 1.6. Periodic uses Completed from Expectation, with
@@ -60,5 +61,47 @@ Please confirm these provisional choices or send corrections:
     followed by KPIs/charts. Multi-owner views include team values and individual
     trends; there is no ranking based only on raw output.
 
+For Time, please also confirm these recommendations:
+
+13. **Days to Close:** calendar days from ticket creation to latest qualifying
+    completion, including pauses; same-day closure is zero. Priority uses current
+    Urgent/Immediate. Should DTC instead start from Start Date or first In Progress?
+    Please provide the DTC and priority DTC targets; they currently default blank.
+14. **Ticket cost versus personal time:** ticket cost includes all visible direct
+    ticket hours by all contributors through RED, including work before RSD, on
+    Total Actual Done including Other Done. Personal hours use only RSD–RED work
+    dates. Is this distinction correct? Child rollups are excluded.
+15. **Personal attribution:** use the person booked to the time entry (`user_id`),
+    even if someone else created it (`author_id`) or the ticket was reassigned.
+    Current Ticket Owner still controls ticket delivery and expectation results.
+16. **Expected Done comparison:** owner plan = owner-share % × PM estimates of
+    completed expected tickets; actual uses the same estimate/time-available
+    tickets. Raw hours and exclusions are separate. Please confirm the share %;
+    it defaults blank rather than assuming the design's 90%.
+17. **Unfinished work:** retain its personal hours in total reconciliation and
+    efficiency effort. Do not classify unfinished expectation hours as Other Work.
+18. **CW per hour:** actual = delivered expected CW / personal hours on the full
+    paired expectation portfolio, including unfinished tickets. Plan = portfolio
+    expected CW / (share % × PM estimate). Require usable estimate, weight and
+    visible time on the same portfolio. Deviation is A−P because higher is better;
+    this provisionally corrects the Excel's P−A label. Do you agree with this basis?
+19. **Other Work / Extra Work:** favorable only per owner with a nonempty fully
+    completed expectation and zero RED debt. This is an end-of-period judgement,
+    not a claim that other work happened after completion. Raw P−A remains in
+    audit tables; team Extra and Unplanned stay separate. Should sequencing be
+    required instead?
+20. **Capacity and scope:** reuse configured weekdays, holidays and per-owner daily
+    hours. Logged totals cover visible eligible tickets in the selected hierarchy;
+    unlinked/out-of-scope entries are excluded. Is that the intended scope, or do
+    you want a separate all-project personal-hours report?
+21. **Time trends:** DTC/cost use completion cohorts; personal hours use work dates.
+    CW/h compares interval delivered CW to interval effort on the fixed portfolio.
+    No estimated weekly allocation is invented. Keep weekly intervals (monthly
+    for long ranges), or add separate independently rebuilt monthly reports?
+22. **Missing data:** blank targets, unavailable permissions and zero-effort ratios
+    show N/A; authorized zero entries remain zero. Missing estimates/weights are
+    excluded from paired comparisons with raw totals and review links. Keep this?
+
 We can revise these rules consistently across cards, tables, trends and ticket
-drill-downs after your confirmation.
+drill-downs after your confirmation. These questions are a draft for review;
+no message has been sent automatically.

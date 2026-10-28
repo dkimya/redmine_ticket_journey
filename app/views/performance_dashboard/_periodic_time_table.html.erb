@@ -1,0 +1,12 @@
+<div class="autoscroll"><table class="list periodic-time-table">
+  <thead><tr><th>Metric</th><th>Plan / Target</th><th>Actual</th><th>Performance Deviation</th><th>Deviation %</th><th>Contributors</th></tr></thead>
+  <tbody><% TicketJourneyPeriodicTime::METRICS.each do |key, (label, unit, direction)| %><% entry = report[:metrics][key] %>
+    <tr><th><%= label %><small><%= unit %> · <%= direction == :plan_minus_actual ? 'P−A' : 'A−P' %></small></th>
+      <td><%= periodic_time_number(entry[:plan], key) %></td><td><%= periodic_time_link(periodic_time_number(entry[:actual], key), key, ids) %></td>
+      <td class="<%= periodic_time_class(key, entry) %>"><%= periodic_time_deviation(key, entry) %></td>
+      <td><%= entry[:deviation].nil? || entry[:deviation][:percent].nil? ? 'N/A' : "#{performance_number(entry[:deviation][:percent])}%" %></td>
+      <td><%= periodic_time_link(entry[:rows].size, key, ids) %></td>
+    </tr>
+  <% end %></tbody>
+</table></div>
+<p class="performance-weight-note">Cost and expected-done owner hours use comparable ticket sets; review coverage below. CW/h uses the paired full expectation portfolio. Other Work's raw P−A remains <%= periodic_time_number(report[:metrics]['other_hours'][:deviation]&.fetch(:value), 'other_hours') %> h; favorable Extra Work is a separate end-of-period business classification, not a changed arithmetic formula. Zero-plan percentages are N/A.</p>

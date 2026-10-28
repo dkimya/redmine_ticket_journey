@@ -15,6 +15,12 @@ module TicketJourney
       parse_target(settings[key]) || 10.0
     end
 
+    def self.periodic_target(settings, key)
+      return parse_target(settings[key]) if key == 'performance_periodic_owner_share'
+      number = Float(settings[key].to_s, exception: false)
+      number if number && number.finite? && number >= 0
+    end
+
     def self.included(base)
       base.validate :validate_performance_delivery_target
       base.validate :validate_performance_time_settings
@@ -25,6 +31,12 @@ module TicketJourney
     def validate_performance_time_settings
       return unless name == 'plugin_redmine_ticket_journey' && value.is_a?(Hash)
       config = value
+      %w[performance_periodic_dtc_target performance_periodic_priority_dtc_target performance_periodic_owner_share].each do |key|
+        next if config[key].blank?
+        unless TicketJourney::PerformanceSettings.periodic_target(config, key)
+          errors.add(:base, "#{key.humanize} must be finite and nonnegative (owner share allows 0 through 100%).")
+        end
+      end
       %w[performance_estimate_allowance performance_sv_warning].each do |key|
         if config.key?(key) && !TicketJourney::PerformanceSettings.parse_target(config[key])
           errors.add(:base, "#{key.humanize} must be a number between 0 and 100.")

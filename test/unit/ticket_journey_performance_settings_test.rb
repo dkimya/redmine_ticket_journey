@@ -1,6 +1,32 @@
 require File.expand_path('../test_helper', __dir__)
 
 class TicketJourneyPerformanceSettingsTest < ActiveSupport::TestCase
+  test 'Periodic Time targets are optional finite and independently validated' do
+    setting = Setting.find_by(name: 'plugin_redmine_ticket_journey') || Setting.new(name: 'plugin_redmine_ticket_journey')
+    %w[performance_periodic_dtc_target performance_periodic_priority_dtc_target].each do |key|
+      ['', nil].each { |value| assert_nil TicketJourney::PerformanceSettings.periodic_target({ key => value }, key) }
+      %w[-1 NaN Infinity invalid].each do |value|
+        setting.value = { key => value }
+        assert_not setting.valid?, "Expected invalid #{key}=#{value}"
+      end
+      setting.value = { key => '' }
+      assert setting.valid?
+      setting.value = { key => '7.5' }
+      assert setting.valid?
+      setting.value = { key => '0' }
+      assert setting.valid?
+    end
+    %w[0 90 100].each do |value|
+      setting.value = { 'performance_periodic_owner_share' => value }
+      assert setting.valid?
+      assert_equal value.to_f, TicketJourney::PerformanceSettings.periodic_target(setting.value, 'performance_periodic_owner_share')
+    end
+    %w[-1 101 NaN Infinity].each do |value|
+      setting.value = { 'performance_periodic_owner_share' => value }
+      assert_not setting.valid?
+    end
+  end
+
   test 'time settings reject impossible calendars thresholds and field mappings' do
     setting = Setting.find_by(name: 'plugin_redmine_ticket_journey') || Setting.new(name: 'plugin_redmine_ticket_journey')
     invalid = [

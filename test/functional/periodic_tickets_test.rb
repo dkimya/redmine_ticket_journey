@@ -97,12 +97,13 @@ class PeriodicTicketsTest < ActionController::TestCase
     end
   end
 
-  test 'Periodic Time remains planned without scans' do
+  test 'initial Periodic Time retains the period without scans' do
     Issue.expects(:visible).never
     %w[time].each do |tab|
-      get :index, params: context.merge(tab: tab, owner_id: '1')
+      get :index, params: context.merge(tab: tab)
       assert_response :success
-      assert_select '.performance-planned-section', count: 1
+      assert_select '.periodic-time-page', count: 1
+      assert_select '.nodata', text: /does not scan/
       assert_select '.periodic-flow', count: 0
     end
   end

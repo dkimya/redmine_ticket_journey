@@ -1,5 +1,24 @@
 # Reporting rules
 
+## Periodic Time — provisional implementation, 2026-10-28
+
+The user authorized the Time recommendations pending Hadi. All three Periodic
+sections are now implemented provisionally; older Time Planned statements below
+are superseded. See [the Time specification](periodic-time-spec.md) for the single
+business-rule reference. Time reuses exact Tickets packages; current owner/due/
+estimate/weight/priority remain authoritative. Personal hours follow booked user
+`TimeEntry.user_id`, not entry creator or current Ticket Owner. Ticket cost is
+visible direct lifetime hours through RED; personal hours use RSD–RED work dates.
+
+Eight metrics, optional blank targets/share, owner/team comparisons, reconciliation,
+completion/work-date trends and audited contributor lists are implemented locally.
+Paired comparisons disclose exclusions. Unfinished expected effort remains in
+reconciliation and the paired efficiency denominator. Extra Work is per owner
+with nonempty fully completed expectation and no RED debt; team Extra/Unplanned
+stay separate. CW/h uses A−P provisionally. Permission/missing-data gaps are N/A.
+Initial navigation remains scan-free. Ruby, deployed requests/layout and measured
+performance remain unverified; Hadi has not confirmed the provisional choices.
+
 ## Periodic Returns and revised Live metric — 2026-10-28
 
 User-authorized suggestions/corrections are implemented locally; see

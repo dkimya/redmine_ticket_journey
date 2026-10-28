@@ -1,0 +1,14 @@
+<section class="performance-section periodic-time-breakdown"><h3>Personal Hours Breakdown — Work Dates</h3>
+  <p>Each segment follows the logged user, not the entry creator or current ticket owner. Completed and unfinished expectation hours are both retained. Full-package classification is fixed at RED.</p>
+  <% categories = [['expected_done', 'Expected Done', 'expected_done_all', '#0072b2'], ['expected_unfinished', 'Expected unfinished', 'expected_unfinished', '#d0a21b'], ['other', 'Other work', 'other_hours', '#b26716'], ['unclassified', 'Owner unavailable', 'unclassified', '#7a6a8b']]; maximum = [@periodic_time_trends.map { |point| point[:report][:valid_visible_hours] }.compact.max.to_f, 1].max %>
+  <ul class="performance-trend-legend"><% categories.each do |_key, label, _metric, color| %><li><span class="performance-trend-swatch" style="border-color:<%= color %>"></span><%= label %></li><% end %></ul>
+  <% @periodic_time_trends.each do |point| %><div class="periodic-bar-row"><span><%= point[:date].strftime('%d %b %y') %></span><div class="periodic-stacked-bar">
+    <% unless point[:report][:valid_visible_hours].nil? %><% categories.each do |key, label, metric, color| %><% value = point[:report][:breakdown][key] %>
+      <%= performance_drilldown_link content_tag(:span, '', class: 'periodic-bar-fill', style: "background:#{color}"), performance_dashboard_path(@project, **periodic_time_params({ metric: metric, time_bucket: point[:date].iso8601 })), style: "width:#{value.to_f * 100 / maximum}%;", 'aria-label': "#{label}: #{periodic_time_number(value, 'total_hours')} hours" %>
+    <% end %><% end %>
+  </div><b><%= periodic_time_number(point[:report][:valid_visible_hours], 'total_hours') %> h</b></div><% end %>
+  <details><summary>Show breakdown table</summary><div class="autoscroll"><table class="list"><thead><tr><th>Work-Date Interval</th><% categories.each do |_key, label, _metric, _color| %><th><%= label %></th><% end %><th>Known Visible Hours</th></tr></thead><tbody>
+    <% @periodic_time_trends.each do |point| %><tr><th><%= format_date(point[:start]) %> – <%= format_date(point[:date]) %></th><% categories.each do |key, _label, metric, _color| %><td><%= performance_drilldown_link periodic_time_number(point[:report][:breakdown][key], 'total_hours'), performance_dashboard_path(@project, **periodic_time_params({ metric: metric, time_bucket: point[:date].iso8601 })) %></td><% end %><td><%= periodic_time_number(point[:report][:valid_visible_hours], 'total_hours') %></td></tr><% end %>
+  </tbody></table></div></details>
+  <p>Capacity plan and deviation appear in the Total Logged Hours chart. Owner-share estimates are compared at the full reporting-period level; no weekly allocation of those estimates is assumed.</p>
+</section>

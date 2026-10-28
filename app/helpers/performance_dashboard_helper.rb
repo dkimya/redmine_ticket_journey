@@ -1,4 +1,54 @@
 module PerformanceDashboardHelper
+  def periodic_time_params(overrides = {}, ids: @selected_owner_ids, **context)
+    periodic_ticket_params({ tab: 'time', time_bucket: @time_bucket&.iso8601, time_group: @time_group }.merge(overrides).merge(context), ids: ids)
+  end
+
+  def periodic_time_link(label, metric, ids = @selected_owner_ids, **options)
+    performance_drilldown_link label, performance_dashboard_path(@project,
+      **periodic_time_params({ metric: metric }, ids: ids)), **options
+  end
+
+  def periodic_time_number(value, key)
+    value.nil? ? 'N/A' : number_with_precision(value, precision: key == 'efficiency' ? 3 : 1, strip_insignificant_zeros: true)
+  end
+
+  def periodic_time_class(key, entry)
+    return 'performance-neutral' if entry[:deviation].nil?
+    if key == 'other_hours'
+      return 'periodic-time-warning' if entry[:extra_hours].to_f.positive? && entry[:unplanned_hours].to_f.positive?
+      return 'performance-good' if entry[:extra_hours].to_f.positive?
+    end
+    value = entry[:deviation][:value]
+    return 'performance-neutral' if value.zero?
+    return 'performance-good' if value.positive?
+    return 'periodic-time-warning' if key == 'ticket_cost' && entry[:deviation][:percent] && entry[:deviation][:percent] >= -@estimate_allowance
+    'performance-bad'
+  end
+
+  def periodic_time_deviation(key, entry)
+    return 'N/A' if entry[:deviation].nil?
+    if key == 'other_hours' && entry[:extra_hours].to_f.positive?
+      return 'Mixed Extra / Unplanned Work' if entry[:unplanned_hours].to_f.positive?
+      return "+#{periodic_time_number(entry[:extra_hours], key)} Extra Work"
+    end
+    value = entry[:deviation][:value]
+    "#{'+' if value.positive?}#{periodic_time_number(value, key)}"
+  end
+
+  def periodic_time_trend_series(keys)
+    series = keys.each_with_index.map do |key, index|
+      { key: key, kind: :actual, label: TicketJourneyPeriodicTime::METRICS.fetch(key).first,
+        metric: key, ids: @selected_owner_ids, color: %w[#0072b2 #a45d00 #00865e][index % 3], dashed: false,
+        points: @periodic_time_trends.map { |point| { date: point[:date], start: point[:start], value: point[:report][:metrics][key][:actual] } } }
+    end
+    keys.each_with_index do |key, index|
+      series << { key: key, kind: :plan, label: "#{TicketJourneyPeriodicTime::METRICS[key].first} — Plan",
+        metric: key, ids: @selected_owner_ids, color: %w[#0072b2 #a45d00 #00865e][index % 3], dashed: true,
+        points: @periodic_time_trends.map { |point| { date: point[:date], start: point[:start], value: point[:report][:metrics][key][:plan] } } }
+    end
+    series
+  end
+
   def periodic_ticket_params(overrides = {}, ids: @selected_owner_ids)
     performance_owner_params(ids).merge(dashboard_type: 'periodic', rsd: @period_start.iso8601,
       red: @period_end.iso8601, as_of: @date.iso8601).merge(overrides)

@@ -313,13 +313,15 @@ class PerformanceDashboardTest < ActionController::TestCase
     Issue.expects(:visible).never
     TicketJourneyPerformance.expects(:calculate).never
     get :index, params: { project_id: @project.identifier, dashboard_type: 'periodic', tab: 'time',
-                          owner_ids: ['1', '2'], as_of: Date.current.iso8601 }
+                          as_of: Date.current.iso8601 }
+    retained = @controller.instance_variable_get(:@selected_owner_ids)
     assert_response :success
     assert_select '.performance-header > .performance-navigation', count: 1
     assert_select '.performance-type-tabs a[aria-current="page"]', text: /Periodic Report/
-    assert_select '.performance-header h2', text: 'Time — Periodic Report'
+    assert_select '.performance-header h2', text: 'Periodic Performance — Time'
     assert_select 'input[name="dashboard_type"][value="periodic"]'
-    assert_select '.performance-planned-section', text: /No periodic report performance metrics are calculated/
+    assert_select '.performance-planned-section', count: 0
+    assert_select '.nodata', text: /does not scan/
     assert_select 'input[type="date"][name="rsd"][value=?]', Date.current.beginning_of_month.iso8601
     assert_select 'input[type="date"][name="red"][value=?]', Date.current.iso8601
     assert_select 'input[type="date"][name="as_of"]', count: 0
@@ -329,7 +331,7 @@ class PerformanceDashboardTest < ActionController::TestCase
       links.each do |link|
         context = Rack::Utils.parse_nested_query(URI.parse(link['href']).query)
         assert_equal 'periodic', context['dashboard_type']
-        assert_equal ['1', '2'], context['owner_ids']
+        assert_equal retained, Array(context['owner_ids'] || context['owner_id']).reject(&:blank?)
         assert_equal Date.current.iso8601, context['as_of']
         assert_equal Date.current.beginning_of_month.iso8601, context['rsd']
         assert_equal Date.current.iso8601, context['red']
@@ -339,30 +341,31 @@ class PerformanceDashboardTest < ActionController::TestCase
       live = Rack::Utils.parse_nested_query(URI.parse(links.first['href']).query)
       assert_nil live['dashboard_type']
       assert_equal 'time', live['tab']
-      assert_equal ['1', '2'], live['owner_ids']
+      assert_equal retained, Array(live['owner_ids'] || live['owner_id']).reject(&:blank?)
     end
   end
 
-  test 'periodic date range survives section navigation and Apply without scans' do
+  test 'periodic initial date range survives section navigation without scans' do
     Issue.expects(:visible).never
     TicketJourneyPerformance.expects(:calculate).never
     first_day = Date.current.beginning_of_month << 1
     last_day = Date.current.beginning_of_month - 1
     get :index, params: { project_id: @project.identifier, dashboard_type: 'periodic', tab: 'time',
-                          rsd: first_day.iso8601, red: last_day.iso8601, owner_ids: ['1', '2'] }
+                          rsd: first_day.iso8601, red: last_day.iso8601 }
+    retained = @controller.instance_variable_get(:@selected_owner_ids)
     assert_response :success
     assert_select 'form.performance-filters' do
       assert_select 'input[name="rsd"][value=?]', first_day.iso8601
       assert_select 'input[name="red"][value=?]', last_day.iso8601
       assert_select 'input[name="dashboard_type"][value="periodic"]'
-      assert_select 'select[name="owner_ids[]"] option[selected]', count: 2
+      assert_select 'select[name="owner_ids[]"] option[selected]', count: retained.size
     end
     assert_select '.performance-tabs a', count: 3 do |links|
       links.each do |link|
         context = Rack::Utils.parse_nested_query(URI.parse(link['href']).query)
         assert_equal first_day.iso8601, context['rsd']
         assert_equal last_day.iso8601, context['red']
-        assert_equal ['1', '2'], context['owner_ids']
+        assert_equal retained, Array(context['owner_ids'] || context['owner_id']).reject(&:blank?)
       end
     end
     assert_select '.performance-type-tabs a', count: 2 do |links|

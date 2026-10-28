@@ -5,7 +5,8 @@ explicitly authorized implementation of the recommendations while awaiting Hadi.
 This authorization is not Hadi's confirmation of each business definition.
 Tickets calculations, charts, comparison tables and drill-downs are implemented;
 Periodic Returns is also implemented provisionally as of 2026-10-28; see
-[its specification](periodic-returns-spec.md). Periodic Time remains Planned.
+[its specification](periodic-returns-spec.md). Periodic Time is implemented
+provisionally as of 2026-10-28; see [its specification](periodic-time-spec.md).
 Runtime/deployment verification is pending.
 
 ## Sources and precedence

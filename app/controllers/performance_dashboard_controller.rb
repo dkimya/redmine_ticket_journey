@@ -11,18 +11,21 @@ class PerformanceDashboardController < ApplicationController
     @metric = params[:metric].presence
     @periodic_tickets = @dashboard_type == 'periodic' && @performance_tab == 'tickets'
     @periodic_returns = @dashboard_type == 'periodic' && @performance_tab == 'returns'
+    @periodic_time = @dashboard_type == 'periodic' && @performance_tab == 'time'
     @return_mode = @dashboard_type == 'live' && @performance_tab == 'returns'
     @time_mode = @dashboard_type == 'live' && @performance_tab == 'time'
     labels = if @periodic_tickets
       TicketJourneyPeriodicTickets::LABELS
     elsif @periodic_returns
       TicketJourneyPeriodicReturns::LABELS
+    elsif @periodic_time
+      TicketJourneyPeriodicTime::LABELS
     elsif @time_mode
       TicketJourneyPerformanceTime::LABELS
     else
       @return_mode ? TicketJourneyPerformanceReturns::LABELS : TicketJourneyPerformance::DETAIL_LABELS
     end
-    return render_404 if @metric && !labels.key?(@metric) && (@periodic_tickets || @periodic_returns || @metric != 'owner_changes')
+    return render_404 if @metric && !labels.key?(@metric) && (@dashboard_type == 'periodic' || @metric != 'owner_changes')
     @date = params[:as_of].present? ? Date.iso8601(params[:as_of]) : Date.current
     raise ArgumentError if @date > Date.current
     @time_month = nil
@@ -39,12 +42,10 @@ class PerformanceDashboardController < ApplicationController
       @period_start = params[:rsd].present? ? Date.iso8601(params[:rsd]) : @period_end.beginning_of_month
       raise ArgumentError if @period_start > @period_end || @period_end > Date.current
 
-      # Planned tabs retain context but must not run ticket/history/target scans.
+      # Initial Periodic navigation uses only the lightweight member selector.
       @owners = alphabetical_owners(User.active.where(id: Member.where(project_id: performance_project_ids).select(:user_id)))
       @selected_owner_ids = requested_owners.presence || [@owners.find { |user| user.id == User.current.id }&.id].compact.map(&:to_s)
-      return render_periodic_tickets(requested_owners) if @periodic_tickets || @periodic_returns
-      return render_404 if @metric
-      return render :planned
+      return render_periodic_tickets(requested_owners)
     end
     # Opening the menu must not scan issues or reconstruct journal history.
     # Project members seed the selector; calculated reports also discover former
@@ -291,8 +292,20 @@ class PerformanceDashboardController < ApplicationController
   private
 
   def render_periodic_tickets(requested_owners)
-    return render(@periodic_returns ? :periodic_returns : :periodic_tickets) if requested_owners.empty? && !@metric
+    page = @periodic_time ? :periodic_time : (@periodic_returns ? :periodic_returns : :periodic_tickets)
+    return render(page) if requested_owners.empty? && !@metric
     return render_404 if requested_owners.empty?
+
+    if @periodic_time
+      @settings = Setting.plugin_redmine_ticket_journey
+      @calendar = TicketJourney::WorkingCalendar.new(@settings)
+      @time_owner_hours, @time_hours_fallback = {}, Set.new
+      @periodic_project_time_permissions = periodic_time_project_permissions
+      allowed = @periodic_project_time_permissions.values
+      @periodic_time_available, @periodic_time_any_available = allowed.all?, allowed.any?
+      @time_bucket = params[:time_bucket].present? ? Date.iso8601(params[:time_bucket]) : nil
+      return render_404 if @time_bucket && (!@metric || !TicketJourneyPeriodicReturns.intervals(@period_start, @period_end).map(&:last).include?(@time_bucket))
+    end
 
     @trend_date = if @metric&.start_with?('trend_')
       Date.iso8601(params[:trend_date].to_s)
@@ -318,10 +331,16 @@ class PerformanceDashboardController < ApplicationController
     Issue.uncached do
       scope.find_in_batches(batch_size: TicketJourneyPerformance::BATCH_SIZE) do |batch|
         values = TicketJourneyPerformance.batch_field_values(batch, field_ids: @periodic_returns ? [57, 66, 70] : [57, 70])
+        hours = TicketJourneyPeriodicTime.load_hours(batch.map(&:id), @period_start, @period_end, requested_owners) if @periodic_time
         selected_batch = batch.select do |issue|
           owner = values.fetch(issue.id).find { |value| value.custom_field.id == 57 }&.value.to_s
           discovered << owner if owner.present?
-          selected.include?(owner)
+          booked = @periodic_time && (hours[:logs].key?(issue.id) || hours[:invalid_logs].keys.any? { |id, _user, _day| id == issue.id })
+          if booked
+            hours[:logs].fetch(issue.id, {}).each_key { |user| discovered << user }
+            hours[:invalid_logs].each_key { |id, user, _day| discovered << user.to_s if id == issue.id }
+          end
+          selected.include?(owner) || booked
         end
         next if selected_batch.empty?
 
@@ -331,9 +350,14 @@ class PerformanceDashboardController < ApplicationController
           TicketJourneyPeriodicTickets.history_for(selected_batch.map(&:id), @period_end)
         end
         selected_batch.each do |issue|
-          owner = values.fetch(issue.id).find { |value| value.custom_field.id == 57 }.value.to_s
+          owner_value = values.fetch(issue.id).find { |value| value.custom_field.id == 57 }
+          owner = owner_value&.value.to_s
           row = TicketJourneyPeriodicTickets.row(issue, @period_start, @period_end, statuses,
             history.fetch(issue.id, []), values.fetch(issue.id), owner)
+          if @periodic_time && row
+            row = TicketJourneyPeriodicTime.enrich(row, issue, hours,
+              @periodic_project_time_permissions.fetch(issue.project_id, false), !owner_value.nil?)
+          end
           if @periodic_returns && row && row[:done] && row[:delivered_at]&.between?(@period_start, @period_end) &&
               !TicketJourneyPeriodicTickets::EXCLUDED_STATUSES.include?(row[:status_name])
             row = TicketJourneyPeriodicReturns.enrich(row, issue, history.fetch(issue.id, []), statuses, @period_end, values.fetch(issue.id))
@@ -342,7 +366,7 @@ class PerformanceDashboardController < ApplicationController
         end
       end
     end
-    Rails.logger.info("Periodic #{@periodic_returns ? 'Returns' : 'Tickets'} scan: #{(Process.clock_gettime(Process::CLOCK_MONOTONIC) - started).round(3)}s")
+    Rails.logger.info("Periodic #{@performance_tab.titleize} scan: #{(Process.clock_gettime(Process::CLOCK_MONOTONIC) - started).round(3)}s")
     member_ids = @owners.map { |owner| owner.id.to_s }
     return render_404 unless requested_owners.all? { |id| discovered.include?(id) || member_ids.include?(id) }
 
@@ -352,6 +376,7 @@ class PerformanceDashboardController < ApplicationController
 
     @selected_owner_ids = @selected_owners.map { |owner| owner.id.to_s }
     @owner_label = @selected_owners.map(&:name).join(', ')
+    return render_periodic_time(rows) if @periodic_time
     @periodic_report = TicketJourneyPeriodicTickets.calculate(rows, @period_start, @period_end, with_trends: !@periodic_returns)
     return render_periodic_returns(rows) if @periodic_returns
     unless @metric
@@ -383,6 +408,70 @@ class PerformanceDashboardController < ApplicationController
       .includes(:project, :tracker, :priority).index_by(&:id)
     @detail_rows.select! { |row| @detail_issues.key?(row[:id]) }
     render :periodic_details
+  end
+
+  def render_periodic_time(rows)
+    build = lambda do |first, last, packages = nil|
+      @selected_owners.map do |owner|
+        id = owner.id.to_s
+        report = TicketJourneyPeriodicTime.owner_report(rows, id, first, last, @calendar, @settings, time_daily_hours(id),
+          total_available: @periodic_time_available, any_time_available: @periodic_time_any_available,
+          package: packages && packages[id], completion_range: packages ? [first, last] : nil,
+          comparison_range: [@period_start, @period_end])
+        { owner: owner, report: report }
+      end
+    end
+    @periodic_time_owners = build.call(@period_start, @period_end)
+    @periodic_time_report = TicketJourneyPeriodicTime.aggregate(@periodic_time_owners.map { |entry| entry[:report] }, @settings)
+    @periodic_time_completion = %w[expected completed other debt].to_h do |key|
+      summaries = @periodic_time_owners.map { |entry| entry[:report][:tickets][:summaries][key] }
+      [key, { count: summaries.sum { |summary| summary[:count] }, weight: summaries.sum { |summary| summary[:weight] } }]
+    end
+    packages = @periodic_time_owners.to_h { |entry| [entry[:owner].id.to_s, entry[:report][:tickets]] }
+    @estimate_allowance = TicketJourney::PerformanceSettings.time_threshold(@settings, 'performance_estimate_allowance')
+    if @metric
+      entries = @periodic_time_owners
+      @time_detail_start, @time_detail_end = @period_start, @period_end
+      if @time_bucket
+        first, last = TicketJourneyPeriodicReturns.intervals(@period_start, @period_end).find { |_start, finish| finish == @time_bucket }
+        @time_detail_start, @time_detail_end = first, last
+        entries = build.call(first, last, packages)
+      end
+      @detail_title = TicketJourneyPeriodicTime::LABELS.fetch(@metric)
+      records = entries.flat_map do |entry|
+        entry[:report][:sets].fetch(@metric).map { |row| row.merge(report_owner_id: entry[:owner].id.to_s, report_owner_name: entry[:owner].name) }
+      end
+      @time_sort = %w[id actor].include?(params[:sort]) ? params[:sort] : 'id'
+      @direction = params[:direction] == 'desc' ? 'desc' : 'asc'
+      @time_group = TicketJourneyPeriodicTime::GROUP_FIELDS.key?(params[:time_group]) ? params[:time_group] : nil
+      records.sort! do |left, right|
+        group = TicketJourneyPeriodicTime.group_value(left, @time_group).downcase <=> TicketJourneyPeriodicTime.group_value(right, @time_group).downcase
+        next group unless group.zero?
+        a = @time_sort == 'actor' ? [left[:report_owner_name].downcase, left[:id]] : [left[:id], left[:report_owner_id].to_i]
+        b = @time_sort == 'actor' ? [right[:report_owner_name].downcase, right[:id]] : [right[:id], right[:report_owner_id].to_i]
+        (a <=> b) * (@direction == 'desc' ? -1 : 1)
+      end
+      @time_group_totals = records.group_by { |row| TicketJourneyPeriodicTime.group_value(row, @time_group) }.transform_values(&:size)
+      @detail_count = records.size
+      @matching_issue_ids = records.map { |row| row[:id] }.uniq
+      @page_count = [(@detail_count / 100.0).ceil, 1].max
+      @page = [[params[:page].to_i, 1].max, @page_count].min
+      @detail_rows = records.slice((@page - 1) * 100, 100) || []
+      @detail_issues = Issue.visible(User.current).where(project_id: performance_project_ids, id: @detail_rows.map { |row| row[:id] }).includes(:project, :tracker).index_by(&:id)
+      @detail_rows.select! { |row| @detail_issues.key?(row[:id]) }
+      owner_ids = @detail_rows.select { |row| row[:owner_visible] }.map { |row| row[:owner_id] }.reject(&:blank?).uniq
+      @current_owner_names = User.where(id: owner_ids).to_h { |user| [user.id.to_s, user.name] }
+      return render :periodic_time_details
+    end
+    @periodic_time_trends = TicketJourneyPeriodicReturns.intervals(@period_start, @period_end).map do |first, last|
+      entries = build.call(first, last, packages)
+      { start: first, date: last, owners: entries, report: TicketJourneyPeriodicTime.aggregate(entries.map { |entry| entry[:report] }, @settings) }
+    end
+    render :periodic_time
+  end
+
+  def periodic_time_project_permissions
+    Project.where(id: performance_project_ids).to_h { |project| [project.id, User.current.allowed_to?(:view_time_entries, project)] }
   end
 
   def render_periodic_returns(rows)
