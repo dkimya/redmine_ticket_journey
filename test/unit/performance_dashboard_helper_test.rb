@@ -4,6 +4,17 @@ class PerformanceDashboardHelperTest < ActiveSupport::TestCase
   include PerformanceDashboardHelper
   include ActionView::Helpers::NumberHelper
 
+  test 'return notes distinguish not applicable missing reasons and real zero incidents' do
+    empty = { population: 0, returned: 0, unknown: 0 }
+    assert_match(/Not applicable.*no tickets/, performance_return_metric_note(empty))
+    no_returns = empty.merge(population: 5)
+    assert_match(/Not applicable.*no returned tickets.*0 return incidents/, performance_return_metric_note(no_returns))
+    unknown = no_returns.merge(returned: 2, unknown: 1)
+    assert_match(/Unavailable.*partial count/, performance_return_metric_note(unknown, adjusted: true))
+    zero = unknown.merge(unknown: 0, adjusted_ratio: 0.0)
+    assert_match(/including merge-only tickets/, performance_return_metric_note(zero, adjusted: true))
+  end
+
   test 'Periodic Time owner links replace team selection and preserve interval context' do
     @selected_owner_ids = %w[1 2]
     @period_start, @period_end, @date = Date.new(2026, 3, 1), Date.new(2026, 3, 31), Date.new(2026, 10, 1)

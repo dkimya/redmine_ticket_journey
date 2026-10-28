@@ -15,6 +15,7 @@ class TicketJourneyPeriodicTickets
     'missing_completion' => 'Done Tickets Without Recorded Completion Dates',
     'excluded' => 'Tickets Excluded by Current Status',
     'excluded_during_period' => 'Expected Tickets Excluded by a Status Change During the Period',
+    'archived_on_hold_period' => 'Tickets Archived or On-Hold During the Period',
     'extraordinary' => 'Extraordinary Tickets',
     'newly_assigned' => 'Scheduled Tickets Entering To-Do During the Period',
     'earlier_assigned' => 'Scheduled Tickets Entering To-Do Before the Period',
@@ -124,6 +125,14 @@ class TicketJourneyPeriodicTickets
     if ending[:done] && current_status != 'Done / Closed'
       diagnostic[:extraordinary_reasons] |= ['No longer Done / Closed']
     end
+    audit_statuses = ['Archived', 'On-Hold']
+    archived_on_hold = [beginning, ending].compact.any? { |snapshot| audit_statuses.include?(snapshot[:status_name]) }
+    archived_on_hold ||= history.any? do |entry|
+      entry.created_on.in_time_zone.to_date.between?(first_day, last_day) && entry.details.any? do |detail|
+        detail.property == 'attr' && detail.prop_key == 'status_id' &&
+          [detail.old_value, detail.value].any? { |id| audit_statuses.include?(statuses[id.to_s]&.name.to_s.strip) }
+      end
+    end
     ending.merge(diagnostic).merge(
       beginning_open: beginning && beginning[:open],
       closed_before: beginning && !beginning[:open],
@@ -131,6 +140,7 @@ class TicketJourneyPeriodicTickets
       hotfix: issue.priority&.name.to_s.strip == HOTFIX_PRIORITY,
       current_open: statuses[issue.status_id.to_s] && !statuses[issue.status_id.to_s].is_closed,
       current_done: current_status == 'Done / Closed', current_status_name: current_status,
+      archived_on_hold_period: archived_on_hold,
       project_id: issue.project_id, project_name: issue.project.name,
       tracker_name: issue.tracker.name, subject: issue.subject
     )
@@ -175,6 +185,7 @@ class TicketJourneyPeriodicTickets
       'missing_completion' => eligible.select { |row| row[:done] && row[:delivered_at].nil? },
       'excluded' => excluded,
       'excluded_during_period' => excluded.select { |row| row[:excluded_during_period] && category(row, first_day, last_day) },
+      'archived_on_hold_period' => rows.select { |row| row[:archived_on_hold_period] },
       'extraordinary' => rows.select { |row| Array(row[:extraordinary_reasons]).any? },
       'newly_assigned' => expected.select { |row| row[:due]&.between?(first_day, last_day) && row[:todo_on]&.between?(first_day, last_day) },
       'earlier_assigned' => expected.select { |row| row[:due]&.between?(first_day, last_day) && row[:todo_on] && row[:todo_on] < first_day }

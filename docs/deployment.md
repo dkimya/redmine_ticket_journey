@@ -1,5 +1,36 @@
 # Deployment and verification
 
+## Part 2 Returns changes — 2026-10-28
+
+Deploy the shared Returns and Periodic Returns/Tickets models, controller/helper,
+shared metric/comparison/trend/audit views and navigation together. Restart through
+the existing host process. No migration, field, counter or setting is added. See
+[the confirmed Returns spec](periodic-returns-spec.md). The Returns tab is plain;
+passive confirmation text is in the page/notes; Time remains provisional.
+
+1. Run plugin tests from a configured TEST Redmine root. Ruby tests are unrun
+   locally without Ruby/Redmine. Eleven local JavaScript checks and diff checks pass.
+2. Test 3 non-Merge incidents / 2 returned tickets = 1.5, including a merge-only
+   ticket in the denominator. Do not divide by all open tickets or multiply by 100.
+   Check primary and adjusted cards, owner/team tables and numeric trends on Live,
+   Periodic Expected Done and Total Done, with Other Done kept separate.
+3. Verify merge-only returns give adjusted 0 with primary >0; no returned tickets
+   give N/A (not applicable) with incident/ticket counts 0. Distinguish an empty
+   population. Missing/hidden reasons give unavailable adjusted data, with known
+   counts labelled partial; primary and distributions remain usable.
+4. Inspect numerator, all-returned denominator and unavailable-reason contributor
+   lists, including merge-only membership, event filtering, owner/range/cohort
+   context, sorting/grouping/pagination/Back and native Issues handoff.
+5. Confirm pre-RSD incidents count and post-RED incidents do not. Weekly/monthly
+   completion cohorts partition Expected Done; their incident/non-Merge counts
+   reconcile. Live repeats use open tickets at the selected date; Periodic repeats
+   use the exact completed expected population. Native Return Count is unchanged.
+6. Check separate archived/on-hold period-history lists, including tickets restored
+   to active before RED or now. Current excluded statuses remain outside results.
+7. Verify full installed-plugin requests, permission boundaries, zero/unknown SVG
+   points, independent chart legends, narrow layouts, native queries/CSV and actual
+   memory/latency. Earlier screenshots do not verify these revisions.
+
 ## Hadi-confirmed Part 1 changes — 2026-10-28
 
 Deploy the shared Periodic Tickets model, Time eligibility change, Performance

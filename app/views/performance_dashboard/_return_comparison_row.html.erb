@@ -3,4 +3,5 @@
   <% %w[returns_0 returns_1 returns_2 returns_3 returns_4 repeats_1 repeats_2 repeats_3].each do |key| %><td><%= performance_return_link(report[:sets].fetch(key).size, key, ids) %></td><% end %>
   <td><%= performance_return_link(report[:incidents], 'return_incidents', ids) %></td>
   <td><%= performance_return_link(performance_number(report[:ratio]), 'return_incidents', ids) %><small class="return-metric-denominator"><%= report[:returned] %> returned tickets</small></td>
+  <td><%= performance_return_link(performance_number(report[:adjusted_ratio]), 'non_merge_incidents', ids) %><small><%= performance_return_link(report[:returned], 'non_merge_denominator', ids) %> returned tickets<% if report[:unknown].positive? %> · reasons unavailable<% end %></small></td>
 </tr>

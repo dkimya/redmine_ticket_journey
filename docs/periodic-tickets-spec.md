@@ -72,6 +72,11 @@ an in-period status change have a separate linked explanation. Expected =
 Completed + Debt reconciles after exclusions; the excluded count explains the
 removed commitment rather than manufacturing an unmatched total.
 
+Part 2 adds an independent Archived/On-Hold period-history list. It includes
+boundary states and transitions into/out of those states during the period,
+including tickets later reactivated and tickets outside expectation. Its audit
+membership does not change current-status exclusion or delivery eligibility.
+
 ## Other Work and deviations
 
 Other Done is qualifying completed output outside expectation, kept distinct in

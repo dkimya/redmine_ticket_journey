@@ -1,5 +1,25 @@
 # Known issues and evidence
 
+## Part 2 Returns applied locally — 2026-10-28
+
+Confirmed answers and the user's N/A clarification are implemented. Non-Merge
+uses known non-merge incidents / ALL returned tickets, including merge-only
+tickets, on Live and Periodic populations. No percentage multiplier/all-open
+denominator remains. Cards, owner/team comparisons, trends and numerator/
+denominator/unknown-reason audits share the formula. Full through-RED history and
+completion cohorts are confirmed. Archived/on-hold history has a separate list
+including later-reactivated tickets. [Current Returns rules](periodic-returns-spec.md)
+supersede older provisional/legacy statements below; Time remains provisional.
+
+Empty returned populations show N/A (not applicable) with 0 counts; known zero
+non-Merge incidents among returned tickets show 0. Missing/hidden reasons remain
+unavailable. Live consecutive populations remain open at the selected date;
+Periodic lagging populations remain completed expected tickets. Native counters
+are unchanged. Eleven JavaScript checks and diff checks pass locally. Ruby model/
+helper/request tests are unrun without Ruby/test Redmine. Full request, deployed
+visual/source-data/performance verification is pending; no server evidence yet
+confirms these revisions. No new migrations/fields/counters/settings.
+
 ## Hadi Part 1 confirmed and applied locally — 2026-10-28
 
 Confirmed source: Q&A Part 1.docx plus the user's follow-up answers. Tickets now

@@ -11,7 +11,9 @@ class TicketJourneyPerformanceReturns
     'repeats_1' => '1 Consecutive Return', 'repeats_2' => '2 Consecutive Returns',
     'repeats_3' => '2+ Consecutive Returns (3 or more)',
     'return_incidents' => 'Open Tickets with at Least One Return — Metric Contributors',
-    'non_merge_incidents' => 'Non-Merge Return Incidents — Contributors'
+    'non_merge_incidents' => 'Non-Merge Return Incidents — Contributors',
+    'non_merge_denominator' => 'Returned Tickets — Non-Merge Metric Denominator',
+    'unknown_return_reasons' => 'Returned Tickets with Unavailable Incident Reasons'
   }.freeze
   COLORS = ['#00bc87', '#008fff', '#ffbd36', '#ff8b2d', '#f65362'].freeze
 
@@ -59,7 +61,7 @@ class TicketJourneyPerformanceReturns
   def self.finish_trend!(points)
     points.each do |point|
       point[:ratio] = point[:returned].positive? ? point[:incidents].to_f / point[:returned] : nil
-      point[:adjusted_ratio] = point[:open].positive? && point[:unknown].zero? ? point[:non_merge] * 100.0 / point[:open] : nil
+      point[:adjusted_ratio] = point[:returned].positive? && point[:unknown].zero? ? point[:non_merge].to_f / point[:returned] : nil
     end
   end
 
@@ -116,6 +118,8 @@ class TicketJourneyPerformanceReturns
     1.upto(3) { |i| sets["repeats_#{i}"] = open.select { |row| [row[:repeat_count], 3].min == i } }
     sets['return_incidents'] = open.select { |row| row[:return_count].positive? }
     sets['non_merge_incidents'] = open.select { |row| row[:events].any? { |event| event[:merge_conflict] == false } }
+    sets['non_merge_denominator'] = sets['return_incidents']
+    sets['unknown_return_reasons'] = open.select { |row| row[:events].any? { |event| event[:merge_conflict].nil? } }
     incidents = open.sum { |row| row[:return_count] }
     unknown = open.sum { |row| row[:events].count { |event| event[:merge_conflict].nil? } }
     non_merge = open.sum { |row| row[:events].count { |event| event[:merge_conflict] == false } }
@@ -124,7 +128,7 @@ class TicketJourneyPerformanceReturns
       incidents: incidents, repeats: open.sum { |row| row[:repeat_count] },
       with_repeats: sets['repeats_all'].size, non_merge: non_merge, unknown: unknown, sets: sets,
       ratio: sets['return_incidents'].any? ? incidents.to_f / sets['return_incidents'].size : nil,
-      adjusted_ratio: open.any? && unknown.zero? ? non_merge * 100.0 / open.size : nil
+      adjusted_ratio: sets['return_incidents'].any? && unknown.zero? ? non_merge.to_f / sets['return_incidents'].size : nil
     }
   end
 end

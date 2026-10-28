@@ -89,7 +89,7 @@ class TicketJourneyPerformanceReturnsTest < ActiveSupport::TestCase
     assert_equal [1, 2, 2], points.map { |point| point[:incidents] }
     assert_equal [1.0, 2.0, 2.0], points.map { |point| point[:ratio] }
     assert_equal [1, 1, 1], points.map { |point| point[:returned] }
-    assert_equal [100.0, 200.0, 200.0], points.map { |point| point[:adjusted_ratio] }
+    assert_equal [1.0, 2.0, 2.0], points.map { |point| point[:adjusted_ratio] }
     combined = TicketJourneyPerformanceReturns.trend_points(date).last(3)
     TicketJourneyPerformanceReturns.accumulate_trend!(combined, ticket, history, states, date, values, Set['10', '20'])
     assert_equal [1, 1, 1], combined.map { |point| point[:open] }
@@ -143,7 +143,7 @@ class TicketJourneyPerformanceReturnsTest < ActiveSupport::TestCase
       assert_equal 1, point[:non_merge]
       assert_equal 2, point[:returned]
       assert_equal 1.0, point[:ratio]
-      assert_in_delta 100.0 / 3, point[:adjusted_ratio], 0.001
+      assert_equal 0.5, point[:adjusted_ratio]
     end
   end
 
@@ -156,7 +156,7 @@ class TicketJourneyPerformanceReturnsTest < ActiveSupport::TestCase
     assert_equal 3, report[:with_repeats]
     assert_equal 4, report[:returned]
     assert_equal 2.5, report[:ratio]
-    assert_equal 200, report[:adjusted_ratio]
+    assert_equal 2.5, report[:adjusted_ratio]
   end
 
   test 'Ongoing shares Tickets open denominator and is included in all Returns populations' do
@@ -168,7 +168,7 @@ class TicketJourneyPerformanceReturnsTest < ActiveSupport::TestCase
     assert_equal [ongoing], report[:sets]['returns_0']
     assert_equal 1, report[:returned]
     assert_equal 2.0, report[:ratio]
-    assert_equal 100, report[:adjusted_ratio]
+    assert_equal 2.0, report[:adjusted_ratio]
     ticket_report = TicketJourneyPerformance.calculate(rows, Date.new(2026, 10, 21))
     assert_equal ticket_report[:groups].first.map { |ticket| ticket[:id] }, report[:sets]['returns_open'].map { |ticket| ticket[:id] }
     ongoing_with_history = row(3, 2, 1, 'Ongoing')
@@ -196,7 +196,7 @@ class TicketJourneyPerformanceReturnsTest < ActiveSupport::TestCase
     report = TicketJourneyPerformanceReturns.calculate([ticket])
     assert_equal 3, report[:incidents]
     assert_equal 3.0, report[:ratio]
-    assert_equal 200, report[:adjusted_ratio]
+    assert_equal 2.0, report[:adjusted_ratio]
     assert_equal [ticket], report[:sets]['returns_3']
     assert_equal [ticket], report[:sets]['repeats_2']
     assert_equal [ticket], report[:sets]['non_merge_incidents']
@@ -208,10 +208,30 @@ class TicketJourneyPerformanceReturnsTest < ActiveSupport::TestCase
     assert_equal 0, no_returns[:returned]
     assert_equal 0, no_returns[:incidents]
     assert_nil no_returns[:ratio]
+    assert_nil no_returns[:adjusted_ratio]
     ticket = row(3, 2)
     report = TicketJourneyPerformanceReturns.calculate([ticket, ticket, row(4, 0)])
     assert_equal 2, report[:open]
     assert_equal 1, report[:returned]
     assert_equal 2.0, report[:ratio]
+  end
+
+  test 'merge-only tickets remain in the denominator and produce a measured zero' do
+    merge_only = row(1, 2, 1)
+    merge_only[:events] = [{ merge_conflict: true }, { merge_conflict: true }]
+    non_merge = row(2, 3, 2)
+    report = TicketJourneyPerformanceReturns.calculate([merge_only, non_merge, row(3, 0)])
+    assert_equal 2, report[:returned]
+    assert_equal 3, report[:non_merge]
+    assert_equal 1.5, report[:adjusted_ratio]
+    assert_equal [merge_only, non_merge], report[:sets]['non_merge_denominator']
+    assert_equal [non_merge], report[:sets]['non_merge_incidents']
+    zero = TicketJourneyPerformanceReturns.calculate([merge_only])
+    assert_equal 0.0, zero[:adjusted_ratio]
+    assert_equal 2.0, zero[:ratio]
+    assert_equal 1, zero[:with_repeats]
+    points = [{ returned: 1, incidents: 2, non_merge: 0, unknown: 0, open: 2 }]
+    TicketJourneyPerformanceReturns.finish_trend!(points)
+    assert_equal 0.0, points.first[:adjusted_ratio]
   end
 end

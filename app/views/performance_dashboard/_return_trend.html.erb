@@ -1,8 +1,8 @@
 <div class="performance-return-trend">
   <h4>Return Ticket Metric Trend — Open Tickets <%= performance_tip('Each completed month-end uses its open tickets and all their qualifying returns through that date. Divide incidents by open tickets with at least one return. No returned tickets means N/A. This is a snapshot, not returns occurring only within the month. Current owner, project scope and visibility apply.') %></h4>
   <p>Month-end snapshots · Same selected owners · Cards above show <%= format_date(@date) %></p>
-  <ul class="performance-trend-legend"><li><span class="performance-trend-swatch"></span>All incidents / returned open tickets · Lower is better</li></ul>
-  <% geometry = performance_return_trend_geometry(points, keys: [:ratio], minimum: 1.0) %>
+  <ul class="performance-trend-legend"><li><span class="performance-trend-swatch"></span>All incidents / returned open tickets · Lower is better</li><li><span class="performance-trend-swatch" style="border-color:#a45d00"></span>Non-merge incidents / returned open tickets</li></ul>
+  <% geometry = performance_return_trend_geometry(points, keys: [:ratio, :adjusted_ratio], minimum: 1.0) %>
   <div class="autoscroll">
     <svg class="performance-trend-chart" viewBox="0 0 860 285" role="img" aria-labelledby="return-trend-title return-trend-description">
       <title id="return-trend-title">Incidents per returned open ticket at the last five month ends</title>
@@ -15,15 +15,15 @@
       <% points.each_with_index do |point, index| %>
         <text x="<%= geometry[:series].first[index][:x] %>" y="268" text-anchor="middle"><%= format_date(point[:date]) %></text>
       <% end %>
-      <% geometry[:series].each do |series| %>
-        <g class="performance-trend-series">
+      <% geometry[:series].each_with_index do |series, series_index| %>
+        <g class="performance-trend-series" style="stroke:<%= series_index.zero? ? '#0072b2' : '#a45d00' %>;fill:<%= series_index.zero? ? '#0072b2' : '#a45d00' %>">
           <% series.each_cons(2) do |left, right| %>
             <% if left[:y] && right[:y] %><line x1="<%= left[:x] %>" y1="<%= left[:y] %>" x2="<%= right[:x] %>" y2="<%= right[:y] %>" /><% end %>
           <% end %>
           <% series.each do |coordinate| %>
             <% next unless coordinate[:y] %>
             <% point = points[coordinate[:index]] %>
-            <% description = "#{format_date(point[:date])}: #{performance_number(point[:ratio])} incidents per returned ticket; #{point[:incidents]} incidents / #{point[:returned]} returned open tickets; #{point[:open]} open tickets overall" %>
+            <% description = "#{format_date(point[:date])}: #{performance_number(point[series_index.zero? ? :ratio : :adjusted_ratio])} #{series_index.zero? ? 'all' : 'non-merge'} incidents per returned ticket; #{series_index.zero? ? point[:incidents] : point[:non_merge]} incidents / #{point[:returned]} returned open tickets; #{point[:open]} open tickets overall" %>
             <circle cx="<%= coordinate[:x] %>" cy="<%= coordinate[:y] %>" r="7" tabindex="0" role="img" aria-label="<%= description %>"><title><%= description %></title></circle>
           <% end %>
         </g>
@@ -32,14 +32,14 @@
   </div>
   <details class="performance-trend-values"><summary>View monthly values and counts</summary>
     <div class="autoscroll"><table class="list">
-      <thead><tr><th>Month end</th><th>Open Tickets</th><th>Returned Open Tickets</th><th>Total Return Incidents</th><th>Incidents / Returned Open Tickets</th><th>Non-Merge Incidents</th><th>Legacy Non-Merge / All Open Tickets (%)</th></tr></thead>
+      <thead><tr><th>Month end</th><th>Open Tickets</th><th>Returned Open Tickets</th><th>Total Return Incidents</th><th>Incidents / Returned Open Tickets</th><th>Non-Merge Incidents</th><th>Non-Merge Incidents / Returned Open Tickets</th></tr></thead>
       <tbody><% points.each do |point| %><tr>
         <th><%= format_date(point[:date]) %></th><td><%= point[:open] %></td><td><%= point[:returned] %></td><td><%= point[:incidents] %></td>
         <td><%= point[:ratio].nil? ? (point[:open].zero? ? 'N/A — no open tickets' : 'N/A — no returned tickets') : performance_number(point[:ratio]) %></td>
         <td><%= point[:unknown].positive? ? "#{point[:non_merge]} known; #{point[:unknown]} reasons unavailable" : point[:non_merge] %></td>
-        <td><%= point[:adjusted_ratio].nil? ? (point[:open].zero? ? 'N/A — no open tickets' : 'N/A — missing or hidden Return Reason') : "#{performance_number(point[:adjusted_ratio])}%" %></td>
+        <td><%= point[:adjusted_ratio].nil? ? (point[:returned].zero? ? 'N/A — not applicable: no returned tickets' : 'N/A — unavailable Return Reason') : performance_number(point[:adjusted_ratio]) %></td>
       </tr><% end %></tbody>
     </table></div>
   </details>
-  <p class="performance-trend-note">Each point includes all recorded returns through that month-end for its open-ticket population. Gaps mean unavailable data, not zero.</p>
+  <p class="performance-trend-note">Each point includes all recorded returns through that month-end for its open-ticket population. Both formulas use all returned open tickets as denominator, including merge-only tickets. Gaps mean not applicable or unavailable; a known zero non-merge numerator with returned tickets is shown as 0.</p>
 </div>

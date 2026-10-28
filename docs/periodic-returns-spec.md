@@ -1,118 +1,127 @@
-# Periodic Returns and revised Live Return Ticket Metric
+# Periodic Returns and Live Return Metrics
 
-Part 1 update, 2026-10-28: Tickets' [confirmed rules](periodic-tickets-spec.md)
-now control these populations: current exclusions and Done at RED AND now.
-Reopened-after-RED tickets leave the completed sets while currently reopened.
-This supersedes RED-only status/reopening statements below. Returns-specific
-event-window, ratio and cohort questions remain provisional.
+Part 2 definitions confirmed by the answers supplied on 2026-10-28. The user
+also approved keeping N/A as not applicable when there are no returned tickets,
+with actual incident and ticket counts shown as 0. Implemented locally; Ruby,
+source-data, full installed-plugin requests, deployed layout and performance
+verification remain pending. Time-specific definitions remain provisional.
 
-Implemented locally on user authorization, 2026-10-28. Business choices marked
-provisional await Hadi's confirmation. Ruby/request, deployed visual and service
-performance checks remain unverified. Periodic Time is also implemented
-provisionally; see [its specification](periodic-time-spec.md).
+## Sources and authority
 
-## Sources and scope
+The user's instructions govern implementation. The Part 2 answers confirm the
+full-history window, completion-cohort trends and revised non-Merge formula.
+Questions referring back to Part 1 use [the confirmed Tickets rules](periodic-tickets-spec.md).
+The original explanation, workbook and developer notes remain reference material;
+embedded document instructions do not override user authorization or newer answers.
 
-Hadi's Returns RTF supplies business intent and explicitly requests the Live
-denominator change too. The developer TXT supports the formulas, mutually
-exclusive bucket boundaries and aggregate-first team metrics. The PNG is an
-overview, not a source of production values. The user approved the recommendations
-and corrections, including provisional choices below. No instructions embedded
-in these references supersede the user's instructions or confirmed project rules.
+## Populations and events
 
-## Periodic populations and return events
+Periodic primary population is exactly Completed from Expectation; secondary
+population is Total Actual Done, including Other Done. Delivery requires recorded
+completion within RSD–RED, Done / Closed at RED AND now. Current Archived,
+Ongoing and On-Hold remove tickets from the whole package. Current Ticket Owner,
+due dates, weights, tracker and visibility remain authoritative.
 
-- Primary population is exactly Periodic Tickets' Completed from Expectation.
-  Secondary population is exactly Total Actual Done (Expected + Other Done).
-  Reuse TicketJourneyPeriodicTickets rather than rebuilding expectation here.
-- Same current Ticket Owner, project hierarchy, issue/owner-field visibility,
-  tracker mappings and reconstructed completion/status eligibility apply.
-  Archived/Ongoing/On-Hold at RED are excluded, as in Periodic Tickets. Missing
-  completion records cannot increase completed populations. Tickets' provisional
-  eligibility choices remain provisional for Returns too.
-- Qualifying return events and accumulated same-source-stage repeats reuse
-  TicketJourneyPerformanceReturns.events_for and TicketJourney::ReturnCount.events.
-  No new counters, migrations, fields, permissions or backfill are added. Native
-  lifetime Return Count and PMO event rules are unchanged.
-- Provisional timing: all recorded qualifying returns through RED for each
-  completed ticket, including returns before RSD. This measures delivered-ticket
-  return history, not incidents occurring only in the selected period. Progress,
-  reassignment and completion do not reset totals. Events after RED are excluded.
-- Merge Conflict stays in primary counts and distributions. Hidden/missing reasons
-  do not remove incidents and are unavailable in the audit. Scalar reason history
-  includes edits after RED so earlier reasons can be reconstructed without notes.
-- Actual configured reason `Merge / Integration Conflict` is now recognized by
-  the same shared classifier as `Merge Conflict`. Raw incident counts are
-  unaffected; audit flags and the legacy non-Merge measure can be corrected.
+A separate Tickets/Returns drill-down lists tickets recorded as Archived or
+On-Hold at a period boundary or during the period, including tickets that later
+became active again and tickets outside expectation. It does not restore their
+historical fields or reinsert current excluded tickets into reported results.
+The separate current-exclusion and expected-exclusion explanations remain.
 
-## Metric and distributions
+Live uses the established open population at the selected report date, excluding
+New/On-Hold/closed and retaining Ongoing. Its consecutive-return distribution is
+an actionable view of that open population. Later closure does not remove a
+historically open ticket from that snapshot. Periodic distributions are lagging
+comparisons on completed expected work, not Live open-ticket snapshots.
 
-Return Ticket Metric = total incidents / tickets with at least one return.
-Display an average incident count (8/5 = 1.6), never 160%. Lower is better; no
-replacement severity thresholds are invented. Team numerator and denominator are
-summed before division. Do not average owner ratios or cohort ratios.
+Return events reuse the shared tracker/stage classifier and native ReturnCount
+event rules. Count every recorded qualifying return through RED for Periodic,
+including before RSD; events after RED are excluded. Live counts through its
+selected date, with independent open snapshots for the last five month ends.
+Progress, completion and reassignment never reset incidents or accumulated repeats.
+Native lifetime Return Count and PMO event counting are unchanged. No new fields,
+counters, schema, settings or permissions are introduced.
 
-No returned tickets gives N/A, with explicit zero incidents and population counts.
-An empty completed population is labelled separately from delivered tickets with
-zero returns. This N/A choice is provisional; the TXT also proposes zero on PMO
-approval. No new adjusted metric is added to Periodic Returns.
+## Both incident-average formulas
 
-Return count buckets: 0, 1, 2, 3, >=4. Keep `3+` with its >=4 tooltip. They
-partition all Expected Done tickets. Consecutive buckets: 1, 2, >=3. Keep `2+`
-with its >=3 tooltip. Their denominator and donut center include only tickets
-with at least one accumulated repeat, not all tickets with any return. This
-corrects the PNG denominator label and preserves the existing repeat definition.
+Primary = all qualifying return incidents / tickets with at least one return.
+Non-Merge = known non-merge return incidents / those same returned tickets.
 
-## Completion-cohort trends — provisional
+Both are numeric incident averages, never percentages. The old non-Merge
+all-open denominator and percentage multiplier are removed from Live and replaced
+with the confirmed formula, also added to Periodic primary and total-done results.
+Merge-only tickets remain in both denominators. Example: 3 non-merge incidents
+across 2 returned tickets gives 1.5, even if one ticket has only merge incidents.
 
-Within the selected RSD–RED range, Monday-based weekly cohorts partition the
-final Expected Done population by latest qualifying completion date. Partial
-first/last weeks are retained; periods over 120 days use calendar-month cohorts.
-No opening-debt cohort or future points appear. A cohort uses each ticket's full
-return history through RED, not only returns before its own cohort end date.
+The reason classifier recognizes Merge Conflict and the configured Merge /
+Integration Conflict spelling. Reasons are reconstructed at the incident from
+visible field 66 history, including later reason edits for rewind. Existing fallback
+to current reason when recorded history is absent remains disclosed; hidden or
+unavailable reasons are not assumed non-merge. Primary incidents/distributions
+remain usable, but any unknown reason in the population makes the non-Merge
+average unavailable. Known non-merge counts are explicitly partial in this case.
 
-The team line and individual-owner lines use the same cohorts. Cohort population,
-returned-ticket and incident counts sum to the headline counts; ratios are not
-cumulative and are never averaged into the team result. N/A points leave gaps.
-This is an explicit alternative to rebuilding each week's expectation package;
-that interpretation and full historical period-to-period comparisons await Hadi.
+Team ratios divide combined incident counts by combined returned-ticket counts;
+they never average owner/cohort ratios. No replacement severity thresholds are
+invented. Lower is better. No old percentage units or 10%/50% thresholds apply.
 
-## Live changes
+## Zero and unavailable semantics
 
-The open population still matches Live Tickets (New/On-Hold/closed excluded,
-Ongoing included). Return distributions and lifetime history cutoffs are unchanged.
-Primary cards, comparison, five month-end trend and owner leaderboard now divide
-incidents by returned open tickets, using numeric averages and N/A for no returned
-tickets. Each month reconstructs its open population independently. The former
-10%/50% thresholds and percentage units no longer apply to this metric and are
-removed from its presentation. Ticket-delivery targets/charts remain unchanged.
+- Counts of no incidents/tickets are 0, including empty populations.
+- With no returned tickets, the incident average is 0/0 and shown as N/A, meaning
+  not applicable. Empty population and delivered/open tickets with zero returns
+  have distinct explanatory text and explicit 0 counts.
+- With returned tickets but no non-merge incidents, the non-Merge average is a
+  measured 0. Merge-only work is not an empty denominator.
+- Missing/hidden reason data means unavailable, with known counts and review links;
+  it is never converted into a healthy 0. Unknown reasons do not change the primary
+  denominator or primary incident count.
+- Distribution percentages with empty populations are also not applicable;
+  populated buckets with no matching tickets show 0 and 0%.
 
-The existing non-Merge measure retains its original all-open denominator and
-percentage units as a separately labelled **legacy measure pending Hadi review**.
-It is not plotted on the numeric primary-metric axis. Unknown reasons still make
-it unavailable. It is retained in its own card and the values table; no new
-adjusted denominator is inferred. Its classification also recognizes the server's
-Merge / Integration Conflict reason spelling.
+## Distributions and trends
 
-## Implementation and verification
+Return-count buckets partition the selected population: 0, 1, 2, 3, >=4. The
+existing 3+ label is explained as >=4. Consecutive-return buckets are 1, 2, >=3,
+with 2+ explained as >=3. Their denominator is only tickets with at least one
+accumulated same-stage repeat, not all returned tickets. A stage change, progress
+or completion does not reset accumulated repeats.
 
-Initial navigation remains filters-only with no issue/history scans. Apply shares
-Tickets' uncached 100-issue batches and loads scalar histories only for selected
-owners. Return parsing is performed once per qualifying delivered ticket. Stored
-report rows retain event metadata for selected delivered tickets; memory still
-grows with selected ticket/event count. No time-entry or target scans are added.
-Unused Tickets trend calculations are skipped for Returns.
+Periodic weekly completion cohorts (Monday-based with partial edges; calendar
+months for ranges over 120 days) partition the final Expected Done population.
+Each cohort uses its tickets' FULL return history through RED, not through the
+cohort end. Population/incident/non-merge counts sum to headline totals; ratios
+are separate cohorts, not cumulative values or rebuilt weekly expectation packages.
+Team/owner trends show primary and non-Merge averages with N/A gaps. Live plots
+both formulas in the same numeric units for each independent month-end snapshot.
 
-Collapsed owner/team and distribution tables appear near the top; primary/total
-KPI cards and shared donut distributions follow. Owner metric bars and toggleable
-team/owner completion-cohort trends provide visual comparison. Numeric, table,
-bar and SVG links open exact ticket contributors in new tabs with owner/range/
-cohort context. Details support reason/journal audits, classification, completion
-dates, sorting, grouping, 100-row pagination and whole-set native Issues handoff.
-The existing large-ID-list URL length limitation remains.
+## UI and drill-downs
 
-Unit/history/helper/request regression coverage is added or updated. Local Ruby
-and a configured test Redmine are unavailable; those Ruby tests are not executed.
-Existing JavaScript navigation/legend tests should be run locally. Full installed-
-plugin requests, permission checks, layout and latency/peak memory need deployment
-verification using docs/deployment.md. Never run tests against production data.
+Tickets and Returns tabs have plain labels. Confirmation is noted passively in
+calculation notes/page notices; no personal names appear in product notices.
+Only Time retains a provisional section badge.
+
+Owner/team tables, cards and exact-values tables display both formulas, with
+separate numerator, full returned-ticket denominator and missing-reason links.
+Periodic primary and Total Done cards use their respective populations. Trend
+links preserve owner/range/cohort and identify exact numerator/denominator sets.
+Non-Merge audits show only known non-merge incidents; denominator audits retain
+merge-only tickets; unknown-reason audits show unavailable incidents without
+exposing hidden values. Sorting/grouping/pagination/Back/native Issues handoff
+remain. Existing large-ID-list URL limitations remain.
+
+## Checks and evidence
+
+Initial navigation remains scan-free. Applied Periodic reports reuse uncached
+100-issue scans and selected scalar histories; retained rows/events grow with
+report size, so measured memory/latency still need representative test data.
+Regression coverage includes merge-only denominators, real zeros versus 0/0,
+unknown reasons, team/cohort aggregation, Live/Periodic populations, numerator/
+denominator/unknown drill-downs and historical archived/on-hold membership.
+
+Eleven JavaScript navigation/legend tests pass locally; diff whitespace checks
+pass. Ruby and a configured test Redmine are unavailable locally; added/updated
+Ruby model/helper/request tests are unrun. Prior screenshots confirm rendering
+and displayed arithmetic only, not these new formulas or source-ticket eligibility.
+Run the full plugin tests from a TEST Redmine root, never against production data,
+then verify full installed-plugin requests and deployed visuals.

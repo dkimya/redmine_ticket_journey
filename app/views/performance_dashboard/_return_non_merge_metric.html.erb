@@ -1,0 +1,8 @@
+<article class="performance-metric performance-non-merge-metric">
+  <h4><%= title %></h4>
+  <strong class="performance-return-value"><%= performance_return_link(performance_number(report[:adjusted_ratio]), numerator_metric) %></strong>
+  <p><%= performance_return_link(report[:non_merge], numerator_metric) %> known non-merge return incidents</p>
+  <p><%= performance_return_link(report[:returned], denominator_metric) %> tickets with at least one return</p>
+  <p><%= performance_return_metric_note(report, adjusted: true) %></p>
+  <% if report[:unknown].positive? %><p><%= performance_return_link("#{report[:unknown]} incidents with unavailable reasons", unknown_metric) %></p><% end %>
+</article>

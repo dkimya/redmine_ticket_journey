@@ -1,5 +1,13 @@
 # Draft message to Hadi
 
+Part 2 status, 2026-10-28: Returns questions below have been answered. Full
+through-RED history, completion cohorts and non-Merge incidents / all returned
+tickets are confirmed; the user approved N/A (not applicable) for no returned
+tickets, with 0 counts and genuine adjusted zeros preserved. Live uses open
+report-date populations; Periodic uses completed expected work. These changes
+are applied locally; source-data/runtime/deployed verification remains pending.
+Do not resend old questions 7–11. Only Time-specific definitions remain open.
+
 Part 1 status, 2026-10-28: Hadi answered the original Tickets questions and all
 three follow-ups. Do not resend Tickets questions 1–6 below; the body is retained
 as the earlier draft. Latest To-Do for current owner, current-status completion,

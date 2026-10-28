@@ -65,5 +65,23 @@ class TicketJourneyPeriodicHistoryTest < ActiveSupport::TestCase
     active = TicketJourneyPeriodicTickets.row(issue, first_day, last_day, statuses, history, values, '2')
     assert active[:beginning_open]
     assert_equal [99], TicketJourneyPeriodicTickets.calculate([active], first_day, last_day)[:sets]['beginning'].map { |entry| entry[:id] }
+    audit = TicketJourneyPeriodicTickets.calculate([active], first_day, last_day)
+    assert_empty audit[:sets]['excluded']
+    assert_equal [99], audit[:sets]['archived_on_hold_period'].map { |entry| entry[:id] }
+  end
+
+  test 'archived during period is audited after reactivation even without an opening snapshot' do
+    first, last = Date.new(2026, 3, 1), Date.new(2026, 3, 31)
+    states = { '7' => stub(name: 'Archived', is_closed: true), '2' => stub(name: 'In Progress', is_closed: false) }
+    issue = stub(id: 99, created_on: (first + 1).in_time_zone, status_id: 2, due_date: last,
+      start_date: nil, priority: stub(name: 'Normal'), project_id: 1, project: stub(name: 'Project'),
+      tracker: stub(name: 'Bug'), subject: 'Reactivated')
+    history = [TicketJourneyPerformance::HistoryJournal.new(1, (first + 2).in_time_zone, [
+      TicketJourneyPerformance::HistoryDetail.new('attr', 'status_id', '7', '2', 1)
+    ])]
+    row = TicketJourneyPeriodicTickets.row(issue, first, last, states, history, [], '1')
+    report = TicketJourneyPeriodicTickets.calculate([row], first, last)
+    assert_empty report[:sets]['excluded']
+    assert_equal [99], report[:sets]['archived_on_hold_period'].map { |item| item[:id] }
   end
 end

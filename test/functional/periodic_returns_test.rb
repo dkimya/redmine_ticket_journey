@@ -11,7 +11,7 @@ class PeriodicReturnsTest < ActionController::TestCase
     @first, @last = Date.new(2020, 1, 1), Date.new(2020, 1, 31)
   end
 
-  test 'initial Returns shows provisional filters without issue or return history scans' do
+  test 'initial Returns shows confirmed rules and filters without history scans' do
     Issue.expects(:visible).never
     TicketJourneyPeriodicTickets.expects(:history_for).never
     TicketJourneyPerformanceReturns.expects(:events_for).never
@@ -20,7 +20,7 @@ class PeriodicReturnsTest < ActionController::TestCase
     assert_select '.nodata', text: /click Apply/
     assert_select '.periodic-provisional', text: /full recorded history through RED/i
     assert_select '.periodic-return-kpis', count: 0
-    assert_select '.performance-tabs a[aria-current="page"]', text: /Returns.*Provisional/
+    assert_select '.performance-tabs a[aria-current="page"]', text: 'Returns'
   end
 
   test 'completed populations match Tickets and expected versus total metrics remain separate' do
@@ -33,12 +33,21 @@ class PeriodicReturnsTest < ActionController::TestCase
     assert_equal tickets[:sets]['actual'].map { |row| row[:id] }, report[:sets]['total_open'].map { |row| row[:id] }
     assert_equal 2.0, report[:expected][:ratio]
     assert_equal 3.0, report[:total][:ratio]
+    assert_nil report[:expected][:adjusted_ratio]
+    assert_nil report[:total][:adjusted_ratio]
+    assert_select '.performance-non-merge-metric', count: 2
+    assert_select '.performance-non-merge-metric p', text: /Unavailable.*partial count/, count: 2
     assert_select '.periodic-summary details[open]', count: 0
     assert_select '.periodic-return-kpis', count: 2
     assert_select '.performance-return-distributions .performance-donut', count: 2
-    assert_select '.periodic-return-trend', count: 1
+    assert_select '.periodic-return-trend', count: 2
     assert_select '.performance-leaderboard-threshold', count: 0
     assert_select '.performance-return-distributions table tfoot', count: 2
+    get :index, params: context.merge(owner_id: '1', metric: 'unknown_return_reasons')
+    assert_response :success
+    assert_select '.performance-return-ticket', count: 1
+    assert_select 'li', text: /Reason unavailable/, count: 1
+    assert_select 'li', text: /Merge Conflict/, count: 0
   end
 
   test 'multi-owner table and cohort links do not retain a competing team owner parameter' do
@@ -64,7 +73,7 @@ class PeriodicReturnsTest < ActionController::TestCase
         end
       end
     end
-    assert_select '[data-leaderboard-toggle]', count: 2
+    assert_select '[data-leaderboard-toggle]', count: 4
   end
 
   test 'cohort audit preserves context grouping event reasons and all contributor IDs' do
@@ -111,13 +120,39 @@ class PeriodicReturnsTest < ActionController::TestCase
     end
   end
 
+  test 'non-Merge cards and audits separate numerator denominator and unknown reasons' do
+    issues = prepare_scan(known_reasons: true)
+    get :index, params: context.merge(owner_id: '1')
+    assert_response :success
+    report = @controller.instance_variable_get(:@periodic_return_report)
+    assert_equal 0.5, report[:expected][:adjusted_ratio]
+    assert_equal 2.0, report[:total][:adjusted_ratio]
+    assert_select '.performance-non-merge-metric', count: 2
+    assert_select '.performance-non-merge-metric strong', text: '0.5', count: 1
+    assert_select '.performance-non-merge-metric strong', text: '2', count: 1
+    get :index, params: context.merge(owner_id: '1', metric: 'non_merge_incidents')
+    assert_response :success
+    assert_equal [issues.first.id], @controller.instance_variable_get(:@matching_issue_ids)
+    assert_select 'li', text: /Merge Conflict/, count: 0
+    get :index, params: context.merge(owner_id: '1', metric: 'total_non_merge_denominator')
+    assert_response :success
+    assert_equal issues.map(&:id).sort, @controller.instance_variable_get(:@matching_issue_ids).sort
+    assert_select 'li', text: /Merge Conflict/, minimum: 1
+    bucket = TicketJourneyPeriodicReturns.intervals(@first, @last).find { |first, last| (@first + 3).between?(first, last) }.last
+    get :index, params: context.merge(owner_id: '1', metric: 'trend_non_merge', trend_date: bucket.iso8601)
+    assert_response :success
+    assert_equal [issues.first.id], @controller.instance_variable_get(:@matching_issue_ids)
+    assert_select 'form input[name="trend_date"][value=?]', bucket.iso8601
+    assert_select 'li', text: /Merge Conflict/, count: 0
+  end
+
   private
 
   def context
     { project_id: @project.identifier, dashboard_type: 'periodic', tab: 'returns', rsd: @first.iso8601, red: @last.iso8601 }
   end
 
-  def prepare_scan
+  def prepare_scan(known_reasons: false)
     issues = [Issue.find(1), Issue.find(2)]
     issues.first.tracker.update!(name: 'Bug')
     issues.each { |issue| issue.update_columns(project_id: @project.id, tracker_id: issues.first.tracker_id) }
@@ -125,7 +160,7 @@ class PeriodicReturnsTest < ActionController::TestCase
     TicketJourneyPerformance.stubs(:batch_field_values).returns(issues.to_h do |issue|
       [issue.id, [TicketJourneyPerformance::FieldValue.new(stub(id: 57), '1')]]
     end)
-    TicketJourneyPeriodicTickets.expects(:history_for).with(issues.map(&:id).sort, @last, include_return_reason: true).returns({})
+    TicketJourneyPeriodicTickets.stubs(:history_for).with(issues.map(&:id).sort, @last, include_return_reason: true).returns({})
     issues.each_with_index do |issue, index|
       TicketJourneyPeriodicTickets.stubs(:row).with { |candidate, *rest| candidate.id == issue.id }.returns(
         { id: issue.id, owner_id: '1', due: index.zero? ? @first + 5 : nil,
@@ -135,8 +170,8 @@ class PeriodicReturnsTest < ActionController::TestCase
           tracker_name: 'Bug', subject: issue.subject })
       events = Array.new(index.zero? ? 2 : 4) do |number|
         { journal_id: number + 1, at: (@first - 2).in_time_zone, from_status: 'Feedback',
-          reason: number.zero? ? 'Merge / Integration Conflict' : nil,
-          repeat: number.positive?, merge_conflict: number.zero? ? true : nil }
+          reason: number.zero? ? 'Merge / Integration Conflict' : (known_reasons ? 'Wrong Implementation' : nil),
+          repeat: number.positive?, merge_conflict: number.zero? ? true : (known_reasons ? false : nil) }
       end
       TicketJourneyPerformanceReturns.stubs(:events_for).with { |candidate, *rest| candidate.id == issue.id }.returns(events)
     end

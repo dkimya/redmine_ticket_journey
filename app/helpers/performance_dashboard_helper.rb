@@ -1,4 +1,11 @@
 module PerformanceDashboardHelper
+  def performance_return_metric_note(report, adjusted: false)
+    return 'Unavailable — missing or hidden Return Reason; known non-merge incidents are only a partial count.' if adjusted && report[:unknown].positive?
+    return 'Not applicable — no tickets in this population; 0 return incidents.' if report[:population].to_i.zero? && report[:open].to_i.zero?
+    return 'Not applicable — no returned tickets; 0 return incidents.' if report[:returned].zero?
+    adjusted ? 'Non-merge incidents / all returned tickets, including merge-only tickets · Lower is better' : 'All incidents / returned tickets · Lower is better'
+  end
+
   def periodic_time_params(overrides = {}, ids: @selected_owner_ids, **context)
     periodic_ticket_params({ tab: 'time', time_bucket: @time_bucket&.iso8601, time_group: @time_group }.merge(overrides).merge(context), ids: ids)
   end

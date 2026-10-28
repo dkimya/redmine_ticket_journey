@@ -1,13 +1,14 @@
+<% adjusted = metric_key == :adjusted_ratio; metric_title = adjusted ? 'Non-Merge Return Metric' : 'Return Ticket Metric'; chart_id = adjusted ? 'periodic-non-merge-trend-title' : 'periodic-return-trend-title'; contributor_metric = adjusted ? 'trend_non_merge' : 'trend_returned' %>
 <% entries = [{ owner: nil, report: @periodic_return_report }] + (@selected_owners.size > 1 ? @periodic_return_owners : []) %>
 <% points = @periodic_return_report[:trends]; keys = entries.map { |entry| entry[:owner]&.id.to_s.presence || 'team' } %>
-<% plot = points.each_index.map { |index| entries.each_with_index.to_h { |entry, position| [keys[position], entry[:report][:trends][index][:ratio]] } } %>
+<% plot = points.each_index.map { |index| entries.each_with_index.to_h { |entry, position| [keys[position], entry[:report][:trends][index][metric_key]] } } %>
 <% geometry = performance_leaderboard_geometry(plot, keys: keys, scale_values: [], percent: false) %>
 <section class="performance-section performance-leaderboard periodic-return-trend" data-performance-leaderboard>
-  <h3>Return Ticket Metric Trend — Expected Done Tickets</h3>
-  <p>Completion-period cohorts · Full ticket return history through RED · Incidents per returned ticket · Lower is better</p>
+  <h3><%= metric_title %> Trend — Expected Done Tickets</h3>
+  <p>Completion-period cohorts · Full ticket return history through RED · <%= adjusted ? 'Non-merge incidents' : 'All incidents' %> per returned ticket · Lower is better</p>
   <div class="performance-leaderboard-layout"><div class="autoscroll">
-    <svg class="performance-trend-chart performance-leaderboard-chart" viewBox="0 0 860 300" role="img" aria-labelledby="periodic-return-trend-title">
-      <title id="periodic-return-trend-title">Incidents per returned Expected Done ticket, by completion cohort. Missing points mean no returned tickets. Exact counts are in the table below.</title>
+    <svg class="performance-trend-chart performance-leaderboard-chart" viewBox="0 0 860 300" role="img" aria-labelledby="<%= chart_id %>">
+      <title id="<%= chart_id %>"><%= metric_title %> per returned Expected Done ticket, by completion cohort. Missing points are not applicable or unavailable. Exact counts are in the table below.</title>
       <% geometry[:ticks].each do |tick| %><% y = 235 - tick / geometry[:maximum] * 200 %>
         <line class="performance-trend-grid" x1="90" x2="770" y1="<%= y %>" y2="<%= y %>" /><text x="78" y="<%= y + 5 %>" text-anchor="end"><%= performance_number(tick) %></text>
       <% end %>
@@ -20,8 +21,8 @@
         <g class="performance-trend-series" data-leaderboard-series="<%= key %>" style="stroke:<%= color %>;fill:<%= color %>">
           <% series.each_cons(2) do |left, right| %><% if left[:y] && right[:y] %><line x1="<%= left[:x] %>" x2="<%= right[:x] %>" y1="<%= left[:y] %>" y2="<%= right[:y] %>" /><% end %><% end %>
           <% series.each do |coordinate| %><% next unless coordinate[:y] %><% point = entry[:report][:trends][coordinate[:index]] %>
-            <% description = "#{name}: #{format_date(point[:start])} – #{format_date(point[:date])}; #{point[:population]} Expected Done; #{point[:incidents]} incidents / #{point[:returned]} returned tickets = #{performance_number(point[:ratio])}. Opens in a new tab." %>
-            <a href="<%= performance_dashboard_path(@project, **periodic_ticket_params({ tab: 'returns', metric: 'trend_returned', trend_date: point[:date].iso8601 }, ids: ids)) %>" target="_blank" rel="noopener" aria-label="<%= description %>"><circle cx="<%= coordinate[:x] %>" cy="<%= coordinate[:y] %>" r="5"><title><%= description %></title></circle></a>
+            <% description = "#{name}: #{format_date(point[:start])} – #{format_date(point[:date])}; #{point[:population]} Expected Done; #{adjusted ? point[:non_merge] : point[:incidents]} #{adjusted ? 'non-merge' : 'all'} incidents / #{point[:returned]} returned tickets = #{performance_number(point[metric_key])}. Opens in a new tab." %>
+            <a href="<%= performance_dashboard_path(@project, **periodic_ticket_params({ tab: 'returns', metric: contributor_metric, trend_date: point[:date].iso8601 }, ids: ids)) %>" target="_blank" rel="noopener" aria-label="<%= description %>"><circle cx="<%= coordinate[:x] %>" cy="<%= coordinate[:y] %>" r="5"><title><%= description %></title></circle></a>
           <% end %>
         </g>
       <% end %>
@@ -34,14 +35,16 @@
     <% end %>
   </div></div>
   <details class="performance-trend-values"><summary>Show completion-period breakdown and exact metric values</summary>
-    <div class="autoscroll"><table class="list"><thead><tr><th>Owner / Team</th><th>Completion Period</th><th>Expected Done</th><th>Returned Tickets</th><th>Return Incidents</th><th>Incidents / Returned Ticket</th></tr></thead><tbody>
+    <div class="autoscroll"><table class="list"><thead><tr><th>Owner / Team</th><th>Completion Period</th><th>Expected Done</th><th>Returned Tickets</th><th>Return Incidents</th><th>Incidents / Returned Ticket</th><th>Known Non-Merge Incidents</th><th>Non-Merge Incidents / Returned Ticket</th></tr></thead><tbody>
       <% entries.each do |entry| %><% owner = entry[:owner]; ids = owner ? [owner.id.to_s] : @selected_owner_ids %><% entry[:report][:trends].each do |point| %>
         <% base = periodic_ticket_params({ tab: 'returns', trend_date: point[:date].iso8601 }, ids: ids) %>
         <tr><th><%= owner&.name || 'Team / selected owner total' %></th><td><%= format_date(point[:start]) %> – <%= format_date(point[:date]) %></td>
           <td><%= performance_drilldown_link point[:population], performance_dashboard_path(@project, **base.merge(metric: 'trend_expected')) %></td>
           <td><%= performance_drilldown_link point[:returned], performance_dashboard_path(@project, **base.merge(metric: 'trend_returned')) %></td>
           <td><%= performance_drilldown_link point[:incidents], performance_dashboard_path(@project, **base.merge(metric: 'trend_returned')) %></td>
-          <td><%= point[:ratio].nil? ? (point[:population].zero? ? 'N/A — no Expected Done tickets' : 'N/A — no returned tickets') : performance_number(point[:ratio]) %></td>
+          <td><%= point[:ratio].nil? ? (point[:population].zero? ? 'N/A — not applicable: no Expected Done tickets' : 'N/A — not applicable: no returned tickets') : performance_number(point[:ratio]) %></td>
+          <td><%= performance_drilldown_link point[:non_merge], performance_dashboard_path(@project, **base.merge(metric: 'trend_non_merge')) %></td>
+          <td><%= performance_drilldown_link performance_number(point[:adjusted_ratio]), performance_dashboard_path(@project, **base.merge(metric: 'trend_non_merge_denominator')) %><% if point[:unknown].positive? %> · <%= performance_drilldown_link "#{point[:unknown]} reasons unavailable", performance_dashboard_path(@project, **base.merge(metric: 'trend_unknown_return_reasons')) %><% end %></td>
         </tr>
       <% end %><% end %>
     </tbody></table></div>

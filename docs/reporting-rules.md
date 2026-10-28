@@ -1,5 +1,23 @@
 # Reporting rules
 
+## Part 2 confirmations — 2026-10-28
+
+The supplied answers confirm full return history through RED (including before
+RSD), within-period completion-cohort trends, and non-Merge incidents divided by
+ALL tickets with at least one return. See [the Returns specification](periodic-returns-spec.md)
+for the current authority; this supersedes legacy non-Merge percentage/all-open
+denominator and Returns-provisional statements below. Applied to Live, Periodic
+Expected Done, Total Done, owner/team comparisons and trends. Merge-only tickets
+stay in the denominator; unknown reasons make only the non-Merge average unavailable.
+
+The user approved N/A as not applicable for no returned tickets (0/0), while
+counts stay 0. A known non-Merge zero numerator with returned tickets gives 0.
+Live consecutive distributions use open tickets at the selected date; Periodic
+uses completed expected cohorts for lagging comparison. Part 1 exclusions and
+current-field rules stay in force. Archived/on-hold period-history audits include
+later-reactivated tickets. Only Time-specific definitions remain provisional.
+Implemented locally, with full runtime/deployed verification pending.
+
 ## Hadi Part 1 confirmations — 2026-10-28
 
 The Q&A Part 1 document and follow-up answers supplied by the user confirm the

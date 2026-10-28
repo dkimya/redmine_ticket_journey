@@ -489,7 +489,16 @@ class PerformanceDashboardController < ApplicationController
     records = if @trend_date
       interval = TicketJourneyPeriodicReturns.intervals(@period_start, @period_end).find { |_first, last| last == @trend_date }
       cohort = TicketJourneyPeriodicReturns.cohort_rows(@periodic_return_report[:sets]['returns_open'], *interval)
-      @metric == 'trend_returned' ? cohort.select { |row| row[:return_count].positive? } : cohort
+      case @metric
+      when 'trend_returned', 'trend_non_merge_denominator'
+        cohort.select { |row| row[:return_count].positive? }
+      when 'trend_non_merge'
+        cohort.select { |row| row[:events].any? { |event| event[:merge_conflict] == false } }
+      when 'trend_unknown_return_reasons'
+        cohort.select { |row| row[:events].any? { |event| event[:merge_conflict].nil? } }
+      else
+        cohort
+      end
     else
       @periodic_return_report[:sets].fetch(@metric)
     end

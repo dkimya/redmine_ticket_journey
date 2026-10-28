@@ -42,6 +42,27 @@ class TicketJourneyPeriodicReturnsTest < ActiveSupport::TestCase
     assert_equal 1, result[:expected][:incidents]
   end
 
+  test 'non-Merge averages use full through-RED incidents and all returned tickets in each population' do
+    merge = row(1, 2)
+    merge[:events] = Array.new(2) { { merge_conflict: true } }
+    regular = row(2, 3)
+    other = row(3, 4, due: @last + 1)
+    result = calculate([merge, regular, other, row(4, 0)])
+    assert_equal 1.5, result[:expected][:adjusted_ratio]
+    assert_in_delta 7.0 / 3, result[:total][:adjusted_ratio]
+    assert_equal [1, 2], result[:sets]['non_merge_denominator'].map { |item| item[:id] }
+    assert_equal [2], result[:sets]['non_merge_incidents'].map { |item| item[:id] }
+    assert_equal [2, 3], result[:sets]['total_non_merge_incidents'].map { |item| item[:id] }
+    assert_equal 3, result[:trends].sum { |point| point[:non_merge] }
+    point = result[:trends].find { |entry| entry[:returned].positive? }
+    assert_equal 1.5, point[:adjusted_ratio]
+    regular[:events][0][:merge_conflict] = nil
+    unavailable = calculate([merge, regular])
+    assert_nil unavailable[:expected][:adjusted_ratio]
+    assert_equal 2.5, unavailable[:expected][:ratio]
+    assert_equal [2], unavailable[:sets]['unknown_return_reasons'].map { |item| item[:id] }
+  end
+
   test 'repeat distribution uses repeat tickets not all returned tickets and upper buckets are exclusive' do
     result = calculate([row(1, 1), row(2, 2, repeats: 1), row(3, 3, repeats: 2), row(4, 5, repeats: 4)])[:expected]
     assert_equal 4, result[:returned]

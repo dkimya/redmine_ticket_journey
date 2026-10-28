@@ -104,7 +104,7 @@
     <% end %>
 
     <section class="performance-section periodic-data-quality"><h3>Data Quality and Scope</h3>
-      <% %w[extraordinary missing_weight missing_todo missing_assignment missing_due missing_completion excluded excluded_during_period].each do |key| %><p><%= periodic_ticket_link("#{TicketJourneyPeriodicTickets::LABELS[key]}: #{summaries[key][:count]}", key) %></p><% end %>
+      <% %w[extraordinary missing_weight missing_todo missing_assignment missing_due missing_completion excluded excluded_during_period archived_on_hold_period].each do |key| %><p><%= periodic_ticket_link("#{TicketJourneyPeriodicTickets::LABELS[key]}: #{summaries[key][:count]}", key) %></p><% end %>
       <p>Missing To-Do, due dates and completion evidence remain visible for correction. Current status exclusions remove tickets from the package; in-period exclusions have a separate audit list. Expected = Completed + Debt after exclusions. Extraordinary changes can alter past reports. Missing weights retain ticket counts.</p>
     </section>
   <% else %>
