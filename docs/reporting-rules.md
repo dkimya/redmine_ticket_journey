@@ -1,5 +1,36 @@
 # Reporting rules
 
+## Periodic Returns and revised Live metric — 2026-10-28
+
+User-authorized suggestions/corrections are implemented locally; see
+[the Returns specification](periodic-returns-spec.md). Periodic Returns is now
+provisional rather than Planned. Periodic Time remains Planned. Primary population
+is the exact Periodic Tickets Completed from Expectation set; secondary population
+is Total Actual Done. Return/repeat events reuse existing shared rules. Provisional
+timing counts full recorded history through RED, including before RSD. Weekly
+completion cohorts (monthly for >120-day ranges) partition the final expected-done
+population; they do not independently rebuild expectations or use cumulative ratios.
+
+Return Ticket Metric is incidents divided by tickets with >=1 return, a numeric
+average (8/5 = 1.6), not a percentage. Zero returned tickets gives N/A with explicit
+population/zero-incident context. Return buckets are 0/1/2/3/>=4; repeat buckets
+are 1/2/>=3 and use only tickets with at least one repeat as denominator. Merge
+Conflict stays included. Team counts aggregate before dividing. Shared current
+owner/visibility/period eligibility and native Return Count rules are unchanged.
+
+Live's primary cards/comparison/five monthly snapshots/owner leaderboard now use
+returned open tickets as denominator. Its all-open distribution population is
+unchanged, including Ongoing; the old 10%/50% thresholds and percentage units no
+longer apply. Existing non-Merge incidents/all-open tickets remains separately
+labelled as a legacy percentage pending Hadi's review, not plotted on the numeric
+metric axis. Unknown reasons still make it unavailable. The shared classifier now
+recognizes the server's `Merge / Integration Conflict` spelling too, correcting
+audit flags/legacy exclusion without changing raw incident counts.
+
+These newer rules supersede older denominator/threshold/Planned statements below.
+Runtime, deployed visuals, installed-plugin requests and measured memory/latency
+remain unverified. Hadi's confirmation of provisional defaults is still pending.
+
 ## Periodic Tickets — provisional implementation, 2026-10-27
 
 The user authorized implementation of the recommendations while awaiting Hadi.

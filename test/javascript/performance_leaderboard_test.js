@@ -4,7 +4,7 @@ const vm = require('node:vm');
 const test = require('node:test');
 const source = fs.readFileSync(require('node:path').join(__dirname, '../../assets/javascripts/performance_leaderboard.js'), 'utf8');
 
-function page(loading = false, empty = false, targetOwners = []) {
+function page(loading = false, empty = false, targetOwners = [], includeTeam = false) {
   const buttons = ['1', '2'].map(id => ({
     dataset: { leaderboardToggle: id, ownerName: 'Owner ' + id },
     attributes: { 'aria-pressed': 'true' }, listeners: [],
@@ -12,7 +12,7 @@ function page(loading = false, empty = false, targetOwners = []) {
     setAttribute(name, value) { this.attributes[name] = value; },
     addEventListener(_name, callback) { this.listeners.push(callback); }
   }));
-  const series = ['1', '2'].map(id => ({
+  const series = (includeTeam ? ['team', '1', '2'] : ['1', '2']).map(id => ({
     dataset: { leaderboardSeries: id }, hidden: false,
     classList: { toggle(_name, hidden) { series.find(item => item.dataset.leaderboardSeries === id).hidden = hidden; } }
   }));
@@ -60,6 +60,14 @@ test('initialization waits for the DOM and avoids duplicate listeners', () => {
 
 test('single-owner and initial pages without leaderboards initialize safely', () => {
   assert.doesNotThrow(() => page(false, true));
+});
+
+test('Periodic Returns team line remains visible when every individual owner is hidden', () => {
+  const p = page(false, false, [], true);
+  p.buttons.forEach(button => button.listeners[0]());
+  assert.equal(p.series.find(item => item.dataset.leaderboardSeries === 'team').hidden, false);
+  assert.equal(p.series.find(item => item.dataset.leaderboardSeries === '1').hidden, true);
+  assert.equal(p.series.find(item => item.dataset.leaderboardSeries === '2').hidden, true);
 });
 
 test('shared target stays visible until every owner using it is hidden and restores on show', () => {

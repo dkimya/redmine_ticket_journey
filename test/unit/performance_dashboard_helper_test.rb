@@ -77,8 +77,7 @@ class PerformanceDashboardHelperTest < ActiveSupport::TestCase
     points = Array.new(5) { { ratio: 50.0, adjusted_ratio: nil } }
     geometry = performance_return_trend_geometry(points)
     assert_equal [90, 260, 430, 600, 770], geometry[:series].first.map { |point| point[:x] }
-    assert_equal 5, geometry[:series].last.size
-    assert geometry[:series].last.all? { |point| point[:y].nil? }
+    assert_equal 1, geometry[:series].size
   end
 
   test 'delivery trend uses a fixed 0 to 100 percent axis' do
@@ -90,23 +89,26 @@ class PerformanceDashboardHelperTest < ActiveSupport::TestCase
     assert_nil geometry[:series].last.first[:y]
   end
 
-  test 'return ratio colors share inclusive orange thresholds and neutral missing values' do
-    assert_equal 'performance-return-positive', performance_return_ratio_class(0)
-    assert_equal 'performance-return-positive', performance_return_ratio_class(9.6)
-    assert_equal 'performance-return-warning', performance_return_ratio_class(10)
-    assert_equal 'performance-return-warning', performance_return_ratio_class(50)
-    assert_equal 'performance-return-negative', performance_return_ratio_class(50.01)
-    assert_equal 'performance-return-negative', performance_return_ratio_class(200)
-    assert_equal 'performance-return-unavailable', performance_return_ratio_class(nil)
+  test 'Periodic Returns detail parameters preserve range cohort and category' do
+    @selected_owner_ids = %w[1 2]
+    @period_start, @period_end, @date = Date.new(2026, 3, 1), Date.new(2026, 3, 31), Date.new(2026, 10, 1)
+    @periodic_returns, @trend_date = true, Date.new(2026, 3, 8)
+    context = performance_return_params(metric: 'trend_returned', page: 2)
+    assert_equal 'periodic', context[:dashboard_type]
+    assert_equal 'returns', context[:tab]
+    assert_equal '2026-03-01', context[:rsd]
+    assert_equal '2026-03-31', context[:red]
+    assert_equal '2026-03-08', context[:trend_date]
+    assert_equal 2, context[:page]
+    assert_equal %w[1 2], context[:owner_ids]
   end
 
-  test 'return trend scale has a zero baseline and accommodates ratios above 100 percent' do
-    points = [{ ratio: 0.0, adjusted_ratio: 0.0 }, { ratio: 125.0, adjusted_ratio: 100.0 },
-              { ratio: 350.0, adjusted_ratio: nil }]
+  test 'return trend scale has a zero baseline numeric units and gaps' do
+    points = [{ ratio: nil }, { ratio: 1.25 }, { ratio: 3.5 }]
     geometry = performance_return_trend_geometry(points)
-    assert_operator geometry[:maximum], :>=, 350
-    assert_equal 235, geometry[:series].first.first[:y]
-    assert_nil geometry[:series].last.last[:y]
+    assert_operator geometry[:maximum], :>=, 3.5
+    assert_operator geometry[:maximum], :<, 10
+    assert_nil geometry[:series].first.first[:y]
     assert_equal [90, 430, 770], geometry[:series].first.map { |point| point[:x] }
     assert geometry[:series].flatten.all? { |point| point[:y].nil? || (35..235).cover?(point[:y]) }
   end

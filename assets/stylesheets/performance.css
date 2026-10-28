@@ -324,6 +324,15 @@
 @media(max-width:950px){.performance-leaderboard-layout{grid-template-columns:minmax(0,1fr);gap:14px}}
 @media(max-width:1100px){.performance-ticket-trends{grid-template-columns:1fr}}
 .performance-page .performance-weight-note { font-size:12px; line-height:1.5; color:#536579; margin-top:8px; }
+.performance-return-metric{background:#fff7e9;border-color:#e5d1a6}
+.performance-return-metric .performance-return-value{color:#805013}
+.return-metric-denominator{display:block;font-size:11px;font-weight:normal;color:#536579;margin-top:5px}
+.periodic-return-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.periodic-return-kpis strong{display:block;font-size:30px;line-height:1.4}
+.periodic-return-kpis .performance-metric{overflow-wrap:anywhere}
+.periodic-page .periodic-bar-fill.periodic-return-bar{background:#a66316}
+@media(max-width:1100px){.periodic-return-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.periodic-return-kpis{grid-template-columns:1fr}}
 /* Live Time uses the shared cards, distribution tables and chart conventions. */
 .periodic-page .periodic-provisional{padding:12px 16px;border:1px solid #d8bd7f;background:#fff9e9;border-radius:8px;line-height:1.6}
 .periodic-page .periodic-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start}

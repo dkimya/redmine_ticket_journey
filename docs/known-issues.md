@@ -1,5 +1,26 @@
 # Known issues and evidence
 
+## Periodic Returns and revised Live metric — 2026-10-28
+
+Implemented locally on user authorization: Periodic Returns with exact Tickets
+completed populations, collapsed owner/team tables, primary/total-done metrics,
+correct return/repeat distributions, completion-cohort team/owner trends and
+new-tab audited contributor lists. Live's primary metric is now incidents per
+returned open ticket, without percentage units or old threshold lines. The prior
+non-Merge percentage remains separately labelled legacy. Actual configured
+`Merge / Integration Conflict` reasons are now recognized for audits and that
+legacy exclusion measure. Primary incidents remain unchanged by reason handling.
+See [the specification](periodic-returns-spec.md) for provisional event timing,
+cohort interpretation and N/A choices awaiting Hadi.
+
+Ruby model/history/helper/request tests were added/updated but are not run locally
+because Ruby and test Redmine are unavailable. Ten JavaScript navigation/legend
+tests pass, including keeping the team line visible while hiding all individual
+owners. Full requests, data checks, deployed layout and measured performance are
+pending. A user screenshot previously confirmed Periodic Tickets page rendering
+and displayed arithmetic, not ticket-level eligibility. Earlier statements that
+both Periodic Returns and Time are Planned are superseded; Time remains Planned.
+
 ## Periodic Tickets — provisional implementation, 2026-10-27
 
 User-authorized provisional Tickets calculations, collapsed summary/owner/team

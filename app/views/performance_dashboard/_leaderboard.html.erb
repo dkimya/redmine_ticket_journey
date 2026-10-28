@@ -1,14 +1,14 @@
 <section class="performance-section performance-leaderboard" data-performance-leaderboard>
-  <h3>Leaderboard — Individual Owner Trends <%= performance_tip(@return_mode ? 'One line per selected owner over the last five completed month ends. Return incidents, including Merge Conflict, divided by that owner’s open tickets at each date. Current Ticket Owner is used. No open tickets means N/A, shown as a gap. Compare workloads and sample sizes; no rank is assigned.' : 'One line per selected owner showing complexity points delivered during each of the last five completed months. Uses current Ticket Owner and visible current complexity weights. Tickets must be Done / Closed at month-end with their latest completion in that month; Archived and Ongoing are excluded. These are individual totals, not averages. No rank is assigned.') %></h3>
+  <h3>Leaderboard — Individual Owner Trends <%= performance_tip(@return_mode ? 'One line per owner: all incidents, including Merge Conflict, divided by open tickets with at least one return at each of five completed month ends. Current owner applies. No returned tickets means N/A/gap. Values are average incident counts, not percentages. No rank is assigned.' : 'One line per selected owner showing complexity points delivered during each of the last five completed months. Uses current Ticket Owner and visible current complexity weights. Tickets must be Done / Closed at month-end with their latest completion in that month; Archived and Ongoing are excluded. These are individual totals, not averages. No rank is assigned.') %></h3>
   <% metric = @return_mode ? :ratio : :delivered_weight %>
-  <h4><%= @return_mode ? 'Return Incidents / Open Tickets' : 'Monthly Delivered Complexity Points' %></h4>
+  <h4><%= @return_mode ? 'Return Incidents / Returned Open Tickets' : 'Monthly Delivered Complexity Points' %></h4>
   <p>Current Ticket Owner · Five completed months · Select an owner’s legend button to hide or show their line.</p>
-  <p><%= @return_mode ? 'Dashed lines: shared 10% and 50% thresholds for every owner.' : 'Solid colored lines: actual delivered points. Thin gray dashed lines: unique monthly targets. Targets are shown in parentheses beside owner names.' %></p>
+  <p><%= @return_mode ? 'Lower is better. The old percentage thresholds do not apply to this metric.' : 'Solid colored lines: actual delivered points. Thin gray dashed lines: unique monthly targets. Targets are shown in parentheses beside owner names.' %></p>
   <% dates = entries.first[:points].map { |point| point[:date] } %>
   <% keys = entries.map { |entry| entry[:owner].id.to_s } %>
   <% plot = dates.each_index.map { |index| entries.to_h { |entry| [entry[:owner].id.to_s, entry[:points][index][metric]] } } %>
-  <% scale_values = @return_mode ? [10.0, 50.0] : entries.map { |entry| entry[:target] } %>
-  <% geometry = performance_leaderboard_geometry(plot, keys: keys, scale_values: scale_values, percent: @return_mode) %>
+  <% scale_values = @return_mode ? [] : entries.map { |entry| entry[:target] } %>
+  <% geometry = performance_leaderboard_geometry(plot, keys: keys, scale_values: scale_values, percent: false) %>
   <div class="performance-leaderboard-layout">
   <div class="autoscroll">
     <svg class="performance-trend-chart performance-leaderboard-chart" viewBox="0 0 860 285" role="img" aria-labelledby="leaderboard-title leaderboard-description">
@@ -17,16 +17,10 @@
       <% geometry[:ticks].each do |tick| %>
         <% y = 235 - tick / geometry[:maximum] * 200 %>
         <line class="performance-trend-grid" x1="90" x2="770" y1="<%= y %>" y2="<%= y %>" />
-        <text x="78" y="<%= y + 5 %>" text-anchor="end"><%= performance_number(tick) %><%= '%' if @return_mode %></text>
+        <text x="78" y="<%= y + 5 %>" text-anchor="end"><%= performance_number(tick) %></text>
       <% end %>
       <% dates.each_with_index do |date, index| %><text x="<%= geometry[:series].first[index][:x] %>" y="268" text-anchor="middle"><%= date.strftime('%b %Y') %></text><% end %>
-      <% if @return_mode %>
-        <% [10, 50].each do |threshold| %>
-          <% threshold_y = 235 - threshold / geometry[:maximum] * 200 %>
-          <line class="performance-leaderboard-threshold" data-threshold="<%= threshold %>" x1="90" x2="770" y1="<%= threshold_y %>" y2="<%= threshold_y %>" tabindex="0" role="img" aria-label="Shared threshold: <%= threshold %>%"><title>Shared threshold: <%= threshold %>% for all owners</title></line>
-          <text class="performance-leaderboard-threshold-label" x="780" y="<%= threshold_y + 4 %>"><%= threshold %>%</text>
-        <% end %>
-      <% else %>
+      <% unless @return_mode %>
         <% entries.reject { |entry| entry[:target].nil? }.group_by { |entry| entry[:target] }.sort_by(&:first).each do |target, target_entries| %>
           <% target_y = 235 - target / geometry[:maximum] * 200 %>
           <% target_description = "Monthly point target #{performance_number(target)}: #{target_entries.map { |entry| entry[:owner].name }.join(', ')}" %>
@@ -43,7 +37,7 @@
           <% series.each do |coordinate| %>
             <% next unless coordinate[:y] %>
             <% point = entry[:points][coordinate[:index]] %>
-            <% detail = @return_mode ? "#{performance_number(point[:ratio])}%; #{point[:incidents]} return incidents / #{point[:open]} open tickets" : "#{performance_number(point[:delivered_weight])} complexity points; #{point[:delivered_count]} delivered tickets; #{point[:missing_completion]} tickets missing completion dates" %>
+            <% detail = @return_mode ? "#{performance_number(point[:ratio])} incidents per returned ticket; #{point[:incidents]} incidents / #{point[:returned]} returned open tickets; #{point[:open]} open overall" : "#{performance_number(point[:delivered_weight])} complexity points; #{point[:delivered_count]} delivered tickets; #{point[:missing_completion]} tickets missing completion dates" %>
             <% description = "#{owner.name} — #{format_date(point[:date])}: #{detail}" %>
             <circle cx="<%= coordinate[:x] %>" cy="<%= coordinate[:y] %>" r="5" tabindex="0" role="img" aria-label="<%= description %>"><title><%= description %></title></circle>
           <% end %>
@@ -58,11 +52,11 @@
     <% end %>
   </div>
   </div>
-  <p><%= @return_mode ? 'Includes Merge Conflict. N/A means no open tickets at that month-end. Ratios can exceed 100%; compare incident and ticket counts alongside the percentage.' : 'Points are actual monthly totals for each owner. Missing or hidden weights contribute no points; eligible delivered tickets still count.' %></p>
+  <p><%= @return_mode ? 'Includes Merge Conflict. N/A means no returned open tickets at that month-end. Compare the returned-ticket counts alongside the incident average; zero-return open tickets remain in the distribution.' : 'Points are actual monthly totals for each owner. Missing or hidden weights contribute no points; eligible delivered tickets still count.' %></p>
   <details class="performance-trend-values"><summary>View individual monthly values and counts</summary>
-    <div class="autoscroll"><table class="list"><thead><tr><th>Owner</th><th>Month</th><% if @return_mode %><th>Return Incidents</th><th>Open Tickets</th><th>Return Incidents / Open Tickets</th><% else %><th>Delivered Tickets</th><th>Delivered Complexity Points</th><th>Current Monthly Point Target</th><th>Missing Completion Dates</th><% end %></tr></thead>
+    <div class="autoscroll"><table class="list"><thead><tr><th>Owner</th><th>Month</th><% if @return_mode %><th>Return Incidents</th><th>Open Tickets</th><th>Returned Open Tickets</th><th>Incidents / Returned Open Tickets</th><% else %><th>Delivered Tickets</th><th>Delivered Complexity Points</th><th>Current Monthly Point Target</th><th>Missing Completion Dates</th><% end %></tr></thead>
       <tbody><% entries.each do |entry| %><% entry[:points].each do |point| %><tr><th><%= entry[:owner].name %></th><td><%= format_date(point[:date]) %></td>
-        <% if @return_mode %><td><%= point[:incidents] %></td><td><%= point[:open] %></td><td><%= point[:ratio].nil? ? 'N/A' : "#{performance_number(point[:ratio])}%" %></td>
+        <% if @return_mode %><td><%= point[:incidents] %></td><td><%= point[:open] %></td><td><%= point[:returned] %></td><td><%= performance_number(point[:ratio]) %></td>
         <% else %><td><%= point[:delivered_count] %></td><td><%= performance_number(point[:delivered_weight]) %></td><td><%= entry[:target].nil? ? 'Target not configured or unavailable' : performance_number(entry[:target]) %></td><td><%= point[:missing_completion] %></td><% end %>
       </tr><% end %><% end %></tbody>
     </table></div>

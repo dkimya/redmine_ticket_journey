@@ -1,0 +1,83 @@
+<% html_title 'Performance', 'Periodic Returns' %>
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'performance', plugin: 'redmine_ticket_journey' %>
+  <%= javascript_include_tag 'performance_owner_picker', plugin: 'redmine_ticket_journey', defer: true %>
+  <%= javascript_include_tag 'performance_navigation', plugin: 'redmine_ticket_journey', defer: true %>
+  <%= javascript_include_tag 'performance_leaderboard', plugin: 'redmine_ticket_journey', defer: true %>
+<% end %>
+<div class="performance-page periodic-page periodic-returns">
+  <%= render 'header', page_title: 'Periodic Performance — Returns' %>
+  <p class="periodic-provisional"><strong>Provisional rules — awaiting Hadi's confirmation.</strong> Expected Done Tickets match Periodic Tickets' Completed from Expectation. Return counts use full recorded history through RED, including earlier incidents. Trends group these tickets by completion period. <a href="#periodic-return-rules">Read the rules</a>.</p>
+  <p class="performance-context">Current Ticket Owner · Visible project hierarchy and tickets · Same tracker scope and RED exclusions as Periodic Tickets · Metric includes Merge Conflict</p>
+  <% if @periodic_return_report %>
+    <% result = @periodic_return_report; total = result[:total] %>
+    <p><strong><%= @owner_label %></strong><% if @selected_owners.any? { |owner| !owner.active? } %> · Includes inactive owners from saved selections; picker lists active users only.<% end %></p>
+    <section class="performance-section periodic-summary">
+      <h3><%= @selected_owners.size > 1 ? 'Owner Comparison and Team Results' : 'Return Quality Summary' %></h3>
+      <% [:expected, :total].each do |population| %>
+        <details><summary>Show <%= population == :expected ? 'Expected Done' : 'Total Done (Expected + Other)' %> results by owner and team</summary>
+          <%= render 'periodic_return_comparison', population: population %>
+        </details>
+      <% end %>
+      <details><summary>Show return distributions by owner</summary>
+        <div class="autoscroll"><table class="list"><thead><tr><th>Owner</th><th>Expected Done</th><% ['0', '1', '2', '3', '3+ (≥4)', '1 repeat', '2 repeats', '2+ repeats (≥3)'].each do |label| %><th><%= label %></th><% end %></tr></thead><tbody>
+          <% (@periodic_return_owners + [{ owner: nil, report: result }]).each do |entry| %><% ids = entry[:owner] ? [entry[:owner].id.to_s] : @selected_owner_ids; report = entry[:report][:expected] %>
+            <tr class="<%= 'periodic-total-row' unless entry[:owner] %>"><th><%= entry[:owner]&.name || 'Team total' %></th><td><%= performance_return_link(report[:population], 'returns_open', ids) %></td>
+              <% %w[returns_0 returns_1 returns_2 returns_3 returns_4 repeats_1 repeats_2 repeats_3].each do |key| %><td><%= performance_return_link(report[:sets][key].size, key, ids) %></td><% end %>
+            </tr>
+          <% end %>
+        </tbody></table></div>
+      </details>
+    </section>
+
+    <section class="performance-section"><h3>Expected Done Tickets — Return Quality</h3>
+      <div class="periodic-return-kpis">
+        <article class="performance-metric"><h4>Expected Done Tickets</h4><strong><%= performance_return_link(@returns[:population], 'returns_open') %></strong><p>Completed from Expectation</p></article>
+        <article class="performance-metric"><h4>Total Return Incidents</h4><strong><%= performance_return_link(@returns[:incidents], 'return_incidents') %></strong><p>Incidents, not ticket count</p></article>
+        <article class="performance-metric"><h4>Tickets with ≥1 Return</h4><strong><%= performance_return_link(@returns[:returned], 'return_incidents') %></strong><p><%= @returns[:population].zero? ? 'N/A — no Expected Done Tickets' : "#{performance_number(@returns[:returned] * 100.0 / @returns[:population])}% of Expected Done Tickets" %></p></article>
+        <article class="performance-metric performance-return-metric"><h4>Return Ticket Metric</h4><strong><%= performance_return_link(performance_number(@returns[:ratio]), 'return_incidents') %></strong><p>Incidents / tickets with ≥1 return</p><p><%= @returns[:ratio].nil? ? (@returns[:population].zero? ? 'No completed expected tickets.' : 'No returned tickets; zero incidents.') : 'Average incidents per returned ticket · Lower is better' %></p></article>
+      </div>
+      <p>Within <%= @returns[:population] %> Expected Done Tickets, <%= @returns[:returned] %> have at least one return, contributing <%= @returns[:incidents] %> incidents. The primary metric is a number, not a percentage.</p>
+    </section>
+
+    <div class="performance-return-distributions">
+      <%= render 'return_distribution', number: 1, title: 'Return Count Distribution (Expected Done Tickets)', keys: %w[returns_0 returns_1 returns_2 returns_3 returns_4], labels: ['0 Return', '1 Return', '2 Returns', '3 Returns', '3+ Returns'], denominator: @returns[:population], total_metric: 'returns_open', total_label: 'Expected Done Tickets' %>
+      <%= render 'return_distribution', number: 2, title: 'Consecutive Return Distribution (Expected Done Tickets)', keys: %w[repeats_1 repeats_2 repeats_3], labels: ['1 Consecutive Return', '2 Consecutive Returns', '2+ Consecutive Returns'], denominator: @returns[:with_repeats], total_metric: 'repeats_all', total_label: 'Tickets with Consecutive Returns' %>
+    </div>
+
+    <section class="performance-section"><h3>Return Metric — Total Done Tickets (Expected + Other)</h3>
+      <div class="periodic-return-kpis">
+        <article class="performance-metric"><h4>Total Done Tickets</h4><strong><%= performance_return_link(total[:population], 'total_open') %></strong></article>
+        <article class="performance-metric"><h4>Return Incidents</h4><strong><%= performance_return_link(total[:incidents], 'total_return_incidents') %></strong></article>
+        <article class="performance-metric"><h4>Tickets with ≥1 Return</h4><strong><%= performance_return_link(total[:returned], 'total_return_incidents') %></strong></article>
+        <article class="performance-metric performance-return-metric"><h4>Incidents / Returned Ticket</h4><strong><%= performance_return_link(performance_number(total[:ratio]), 'total_return_incidents') %></strong><p><%= total[:ratio].nil? ? (total[:population].zero? ? 'No completed tickets.' : 'No returned tickets; zero incidents.') : 'Includes Other Done; separate from the primary metric.' %></p></article>
+      </div>
+    </section>
+
+    <% if @selected_owners.size > 1 %>
+      <section class="performance-section"><h3>Return Ticket Metric by Owner</h3>
+        <p>Expected Done Tickets · Incidents per returned ticket · Lower is better · Owners are listed alphabetically, without ranks.</p>
+        <% maximum = [@periodic_return_owners.map { |entry| entry[:report][:expected][:ratio].to_f }.max.to_f, 1.0].max %>
+        <% @periodic_return_owners.each do |entry| %><% report = entry[:report][:expected] %>
+          <div class="periodic-bar-row"><span><%= entry[:owner].name %></span><div class="periodic-bar-track"><%= performance_return_link(content_tag(:span, '', class: 'periodic-bar-fill periodic-return-bar', style: "width:#{report[:ratio].to_f * 100 / maximum}%;"), 'return_incidents', [entry[:owner].id.to_s], 'aria-label': "#{entry[:owner].name}: #{performance_number(report[:ratio])} incidents per returned ticket") %></div><b><%= performance_return_link(performance_number(report[:ratio]), 'return_incidents', [entry[:owner].id.to_s]) %></b></div>
+        <% end %>
+        <p>Team metric: <strong><%= performance_number(@returns[:ratio]) %></strong> = <%= @returns[:incidents] %> incidents / <%= @returns[:returned] %> returned tickets. This is not an average of owner metrics.</p>
+      </section>
+    <% end %>
+    <%= render 'periodic_return_trend' %>
+    <section class="performance-section"><h3>Population and Data Quality</h3>
+      <p>Expected Done Tickets must match the <%= periodic_ticket_link('Completed from Expectation', 'completed') %> list on Tickets. Total Done must match <%= periodic_ticket_link('Total Actual Done', 'actual') %>.</p>
+      <p><%= periodic_ticket_link("Done tickets without recorded completion dates: #{@periodic_report[:sets]['missing_completion'].size}", 'missing_completion') %> · These do not increase delivered work or Returns denominators.</p>
+      <p><%= periodic_ticket_link("Tickets excluded by status at RED: #{@periodic_report[:sets]['excluded'].size}", 'excluded') %></p>
+      <p>Missing/hidden return reasons do not remove incidents from the primary metric. Audits show unavailable reasons without exposing hidden data. All returns through RED count, including those before RSD.</p>
+    </section>
+  <% else %><p class="nodata">Select Ticket Owner(s) and the reporting period, then click Apply. No tickets or return histories have been scanned.</p><% end %>
+  <details class="performance-notes" id="periodic-return-rules"><summary>Provisional Returns calculation rules</summary>
+    <p>The user authorized these defaults while awaiting Hadi. Periodic Tickets defines expectation, current owner, tracker, due dates and historical completion/status eligibility. Expected Done and Total Done reuse its exact sets.</p>
+    <p>Qualifying transitions into Returned use existing tracker/stage rules. Count full recorded history through RED, including before RSD, with Merge Conflict included. Progress, completion and reassignment never reset return totals. Native lifetime Return Count is unchanged.</p>
+    <p><%= performance_consecutive_returns_definition %> The consecutive-distribution denominator is only tickets with at least one consecutive repeat, not every returned ticket. “3+” means ≥4 returns; “2+” means ≥3 repeats.</p>
+    <p>Metric = incidents / tickets with ≥1 return. A zero denominator is N/A with an explicit empty/no-return explanation; zero incidents are still shown. Team ratios use combined counts. No new severity thresholds or adjusted Periodic metric are assumed.</p>
+    <p>Weekly completion cohorts (monthly for periods over 120 days) partition Expected Done from the final RED package. Each ticket's latest qualifying completion determines its cohort; return counts still run through RED. Trends are not cumulative and do not rebuild expectation separately each week. Cohort counts sum to the main result; cohort ratios must not be averaged to get the overall metric.</p>
+    <p>Metric changes to Live use returned open tickets as denominator while retaining its open scope and five month-end snapshots. Its legacy non-Merge percentage remains separately labelled pending Hadi's review.</p>
+  </details>
+</div>

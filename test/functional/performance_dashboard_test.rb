@@ -248,13 +248,12 @@ class PerformanceDashboardTest < ActionController::TestCase
     get :index, params: { project_id: @project.identifier, owner_ids: ['1', '2'], tab: 'returns' }
     assert_response :success
     entries = @controller.instance_variable_get(:@leaderboard_entries).to_h { |entry| [entry[:owner].id, entry[:points]] }
-    assert_equal 200.0, entries[1].last[:ratio]
-    assert_equal 100.0, entries[2].last[:ratio]
-    assert_equal 150.0, @controller.instance_variable_get(:@return_trend).last[:ratio]
+    assert_equal 2.0, entries[1].last[:ratio]
+    assert_equal 1.0, entries[2].last[:ratio]
+    assert_equal 1.5, @controller.instance_variable_get(:@return_trend).last[:ratio]
     assert_equal styles, css_select('[data-leaderboard-series]').map { |element| [element['data-leaderboard-series'], element['style']] }.to_h
     assert_select '.performance-leaderboard tbody tr', count: 10
-    assert_select '.performance-leaderboard-threshold[data-threshold="10"]', count: 1
-    assert_select '.performance-leaderboard-threshold[data-threshold="50"]', count: 1
+    assert_select '.performance-leaderboard-threshold', count: 0
     assert_select '.performance-leaderboard-target', count: 0
   end
 
@@ -275,7 +274,8 @@ class PerformanceDashboardTest < ActionController::TestCase
     assert_response :success
     assert_select '.performance-return-owner-row', count: 1
     assert_select '.performance-return-distributions .performance-donut', count: 2
-    assert_select '.performance-return-value', text: '300%', count: 2
+    assert_select '.performance-return-value', text: '3', count: 1
+    assert_select '.performance-return-value', text: '300%', count: 1
     assert_select '.performance-return-trend svg', count: 1
     assert_select '.performance-trend-values tbody tr', count: 5
     assert_operator @response.body.index('performance-return-ratios'), :<, @response.body.index('performance-return-trend')

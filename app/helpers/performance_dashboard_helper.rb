@@ -78,13 +78,6 @@ module PerformanceDashboardHelper
     palette[index] || "hsl(#{((index - palette.size) * 137.508 + 25) % 360}, 65%, 35%)"
   end
 
-  def performance_return_ratio_class(value)
-    return 'performance-return-unavailable' if value.nil?
-    return 'performance-return-positive' if value < 10
-
-    value <= 50 ? 'performance-return-warning' : 'performance-return-negative'
-  end
-
   def performance_leaderboard_geometry(points, keys:, scale_values:, percent:)
     values = points.flat_map { |point| keys.map { |key| point[key] } }.compact + scale_values.compact
     peak = [values.max.to_f, percent ? 10.0 : 1.0].max
@@ -101,9 +94,9 @@ module PerformanceDashboardHelper
     geometry.merge(step: step, ticks: (0..intervals).map { |index| index * step })
   end
 
-  def performance_return_trend_geometry(points, keys: [:ratio, :adjusted_ratio], maximum: nil, scale_values: [], minimum: 10.0)
+  def performance_return_trend_geometry(points, keys: [:ratio], maximum: nil, scale_values: [], minimum: 1.0)
     values = points.flat_map { |point| keys.map { |key| point[key] } }.compact + scale_values.compact
-    # A zero baseline, with a scale that also supports incident ratios over 100%.
+    # Zero baseline with a numeric scale that expands to include every value.
     peak = [values.max.to_f, minimum].max
     if maximum
       step = maximum / 4.0
@@ -127,11 +120,16 @@ module PerformanceDashboardHelper
   end
 
   def performance_return_params(overrides = {})
+    return periodic_ticket_params({ tab: 'returns', trend_date: @trend_date&.iso8601 }.merge(overrides)) if @periodic_returns
     performance_owner_params.merge(tab: 'returns', as_of: @date.iso8601).merge(overrides)
   end
 
-  def performance_return_link(label, metric, ids = @selected_owner_ids)
-    performance_drilldown_link label, performance_dashboard_path(@project, **performance_owner_params(ids), tab: 'returns', as_of: @date.iso8601, metric: metric)
+  def performance_return_link(label, metric, ids = @selected_owner_ids, **options)
+    if @periodic_returns
+      return performance_drilldown_link label, performance_dashboard_path(@project,
+        **periodic_ticket_params({ tab: 'returns', metric: metric }, ids: ids)), **options
+    end
+    performance_drilldown_link label, performance_dashboard_path(@project, **performance_owner_params(ids), tab: 'returns', as_of: @date.iso8601, metric: metric), **options
   end
 
   def performance_return_heading(label, key)

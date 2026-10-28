@@ -87,7 +87,8 @@ class TicketJourneyPerformanceReturnsTest < ActiveSupport::TestCase
     TicketJourneyPerformanceReturns.finish_trend!(points)
     assert_equal [1, 1, 1], points.map { |point| point[:open] }
     assert_equal [1, 2, 2], points.map { |point| point[:incidents] }
-    assert_equal [100.0, 200.0, 200.0], points.map { |point| point[:ratio] }
+    assert_equal [1.0, 2.0, 2.0], points.map { |point| point[:ratio] }
+    assert_equal [1, 1, 1], points.map { |point| point[:returned] }
     assert_equal [100.0, 200.0, 200.0], points.map { |point| point[:adjusted_ratio] }
     combined = TicketJourneyPerformanceReturns.trend_points(date).last(3)
     TicketJourneyPerformanceReturns.accumulate_trend!(combined, ticket, history, states, date, values, Set['10', '20'])
@@ -118,7 +119,7 @@ class TicketJourneyPerformanceReturnsTest < ActiveSupport::TestCase
     TicketJourneyPerformanceReturns.accumulate_trend!(points, ticket, [change(1, Date.new(2026, 8, 15), '1')], states, date, values, Set['10'])
     TicketJourneyPerformanceReturns.finish_trend!(points)
     assert_equal [0, 1, 1], points.map { |point| point[:open] }
-    assert_equal [nil, 100.0, 100.0], points.map { |point| point[:ratio] }
+    assert_equal [nil, 1.0, 1.0], points.map { |point| point[:ratio] }
     assert_equal [nil, nil, nil], points.map { |point| point[:adjusted_ratio] }
     assert_equal [0, 1, 1], points.map { |point| point[:unknown] }
   end
@@ -140,19 +141,21 @@ class TicketJourneyPerformanceReturnsTest < ActiveSupport::TestCase
       assert_equal 3, point[:open]
       assert_equal 2, point[:incidents]
       assert_equal 1, point[:non_merge]
-      assert_in_delta 200.0 / 3, point[:ratio], 0.001
+      assert_equal 2, point[:returned]
+      assert_equal 1.0, point[:ratio]
       assert_in_delta 100.0 / 3, point[:adjusted_ratio], 0.001
     end
   end
 
-  test 'distributions partition distinct eligible tickets and ratios may exceed 100 percent' do
+  test 'distributions partition eligible tickets while metric averages incidents over returned tickets only' do
     rows = [row(1, 0), row(2, 1), row(3, 2, 1), row(4, 3, 2), row(5, 4, 3)]
     report = TicketJourneyPerformanceReturns.calculate(rows + ['New', 'On-Hold', 'Archived', 'Done / Closed'].map { |status| row(6, 4, 3, status) })
     assert_equal 5, report[:open]
     assert_equal [1, 1, 1, 1, 1], (0..4).map { |i| report[:sets]["returns_#{i}"].size }
     assert_equal [1, 1, 1], (1..3).map { |i| report[:sets]["repeats_#{i}"].size }
     assert_equal 3, report[:with_repeats]
-    assert_equal 200, report[:ratio]
+    assert_equal 4, report[:returned]
+    assert_equal 2.5, report[:ratio]
     assert_equal 200, report[:adjusted_ratio]
   end
 
@@ -163,7 +166,8 @@ class TicketJourneyPerformanceReturnsTest < ActiveSupport::TestCase
     report = TicketJourneyPerformanceReturns.calculate(rows)
     assert_equal 2, report[:open]
     assert_equal [ongoing], report[:sets]['returns_0']
-    assert_equal 100, report[:ratio]
+    assert_equal 1, report[:returned]
+    assert_equal 2.0, report[:ratio]
     assert_equal 100, report[:adjusted_ratio]
     ticket_report = TicketJourneyPerformance.calculate(rows, Date.new(2026, 10, 21))
     assert_equal ticket_report[:groups].first.map { |ticket| ticket[:id] }, report[:sets]['returns_open'].map { |ticket| ticket[:id] }
@@ -178,7 +182,7 @@ class TicketJourneyPerformanceReturnsTest < ActiveSupport::TestCase
 
   test 'missing reasons block adjusted metric but not total distribution and zero populations show N A' do
     report = TicketJourneyPerformanceReturns.calculate([row(1, 2, 1, unknown: true)])
-    assert_equal 200, report[:ratio]
+    assert_equal 2.0, report[:ratio]
     assert_nil report[:adjusted_ratio]
     assert_equal 2, report[:unknown]
     empty = TicketJourneyPerformanceReturns.calculate([])
@@ -191,10 +195,23 @@ class TicketJourneyPerformanceReturnsTest < ActiveSupport::TestCase
     ticket[:events] = [{ merge_conflict: false }, { merge_conflict: true }, { merge_conflict: false }]
     report = TicketJourneyPerformanceReturns.calculate([ticket])
     assert_equal 3, report[:incidents]
-    assert_equal 300, report[:ratio]
+    assert_equal 3.0, report[:ratio]
     assert_equal 200, report[:adjusted_ratio]
     assert_equal [ticket], report[:sets]['returns_3']
     assert_equal [ticket], report[:sets]['repeats_2']
     assert_equal [ticket], report[:sets]['non_merge_incidents']
+  end
+
+  test 'no returns differs from empty population and duplicate rows cannot inflate the metric' do
+    no_returns = TicketJourneyPerformanceReturns.calculate([row(1, 0), row(2, 0)])
+    assert_equal 2, no_returns[:open]
+    assert_equal 0, no_returns[:returned]
+    assert_equal 0, no_returns[:incidents]
+    assert_nil no_returns[:ratio]
+    ticket = row(3, 2)
+    report = TicketJourneyPerformanceReturns.calculate([ticket, ticket, row(4, 0)])
+    assert_equal 2, report[:open]
+    assert_equal 1, report[:returned]
+    assert_equal 2.0, report[:ratio]
   end
 end

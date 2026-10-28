@@ -97,9 +97,9 @@ class PeriodicTicketsTest < ActionController::TestCase
     end
   end
 
-  test 'Periodic Returns and Time remain planned without scans' do
+  test 'Periodic Time remains planned without scans' do
     Issue.expects(:visible).never
-    %w[returns time].each do |tab|
+    %w[time].each do |tab|
       get :index, params: context.merge(tab: tab, owner_id: '1')
       assert_response :success
       assert_select '.performance-planned-section', count: 1

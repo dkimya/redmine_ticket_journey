@@ -20,14 +20,19 @@ class TicketJourneyPeriodicTickets
 
   # Status history must include future edits to rewind RED. Owner history is
   # needed only through RED for assignment evidence, independent of attribution.
-  def self.history_for(ids, last_day)
+  def self.history_for(ids, last_day, include_return_reason: false)
     result = Hash.new { |hash, id| hash[id] = [] }
     journals = {}
-    JournalDetail.joins(:journal)
+    scope = JournalDetail.joins(:journal)
       .where(journals: { journalized_type: 'Issue', journalized_id: ids })
       .where("(journal_details.property = ? AND journal_details.prop_key = ?) OR (journal_details.property = ? AND journal_details.prop_key = ? AND journals.created_on <= ?)",
         'attr', 'status_id', 'cf', '57', last_day.in_time_zone.end_of_day)
-      .order('journals.created_on', 'journals.id', 'journal_details.id')
+    if include_return_reason
+      reasons = JournalDetail.joins(:journal)
+        .where(journals: { journalized_type: 'Issue', journalized_id: ids }, property: 'cf', prop_key: '66')
+      scope = scope.or(reasons)
+    end
+    scope.order('journals.created_on', 'journals.id', 'journal_details.id')
       .pluck('journals.journalized_id', 'journals.id', 'journals.created_on', 'journal_details.property',
         'journal_details.prop_key', 'journal_details.old_value', 'journal_details.value', 'journal_details.id')
       .each do |issue_id, journal_id, at, property, key, old_value, value, detail_id|
@@ -84,7 +89,7 @@ class TicketJourneyPeriodicTickets
     due&.between?(first_day, last_day) ? due : row[:assigned_on]
   end
 
-  def self.calculate(rows, first_day, last_day)
+  def self.calculate(rows, first_day, last_day, with_trends: true)
     rows = rows.uniq { |row| row[:id] }
     excluded, eligible = rows.partition { |row| EXCLUDED_STATUSES.include?(row[:status_name]) }
     eligible = eligible.map do |row|
@@ -113,7 +118,7 @@ class TicketJourneyPeriodicTickets
       sets["completed_#{key}"] = completed.select { |row| row[:category] == key }
     end
     { sets: sets, summaries: sets.transform_values { |items| summary(items) },
-      trends: trend_dates(first_day, last_day).map { |day| trend_point(sets, day) } }
+      trends: with_trends ? trend_dates(first_day, last_day).map { |day| trend_point(sets, day) } : [] }
   end
 
   def self.summary(rows)

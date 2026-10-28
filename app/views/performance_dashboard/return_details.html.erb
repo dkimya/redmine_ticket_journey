@@ -5,26 +5,31 @@
 <% end %>
 <div class="performance-page">
   <%= render 'header', page_title: @detail_title, show_filters: false %>
-  <p><%= link_to '← Back to Performance Returns', performance_dashboard_path(@project, **performance_return_params), data: { performance_back: true } %></p>
-  <p><strong><%= @owner_label %></strong> · As of <%= format_date(@date) %> · <%= @detail_count %> matching tickets</p>
-  <p class="info">Current Ticket Owner is used; status is reconstructed at the selected date. Current subject, tracker and project are shown. New, On-Hold and closed tickets are excluded; Ongoing is included, matching the Tickets open population. Only qualifying return incidents through the report date count. Expand a ticket's audit to verify stages, reasons and accumulated repeats. A ratio numerator counts incidents, so it can exceed the number of contributor tickets shown here.</p>
-  <% if @metric == 'non_merge_incidents' %><p>Only known non-merge incidents are listed. Missing/hidden reasons are unknown and make the dashboard's adjusted ratio unavailable.</p><% end %>
+  <p><%= link_to '← Back to Performance Returns', performance_dashboard_path(@project, **performance_return_params(trend_date: nil)), data: { performance_back: true } %></p>
+  <p><strong><%= @owner_label %></strong> · <%= @periodic_returns ? "#{format_date(@period_start)} – #{format_date(@period_end)}" : "As of #{format_date(@date)}" %> · <%= @detail_count %> matching tickets<% if @trend_date %> · Completion cohort ending <%= format_date(@trend_date) %><% end %></p>
+  <% if @periodic_returns %>
+    <p class="info">Provisional Periodic rules. Expected Done and Total Done reuse Periodic Tickets' exact completed sets. Status is at RED; current owner, project and tracker apply. All recorded qualifying returns through RED count, including those before RSD. Completion-cohort links select the same tickets as their chart points. Current issue/field visibility applies; edits between requests can change results.</p>
+  <% else %>
+    <p class="info">Current Ticket Owner is used; status is reconstructed at the selected date. New, On-Hold and closed tickets are excluded; Ongoing remains included. The primary metric divides incidents by returned open tickets. The legacy non-Merge percentage retains all open tickets as denominator. Only qualifying incidents through the report date count.</p>
+  <% end %>
+  <% if @metric == 'non_merge_incidents' %><p>Only known non-merge incidents are listed. Missing/hidden reasons are unknown and make the dashboard's legacy adjusted percentage unavailable.</p><% end %>
   <%= form_tag performance_dashboard_path(@project), method: :get do %>
     <% performance_owner_params.each do |key, value| %><% Array(value).each do |id| %><%= hidden_field_tag(key == :owner_ids ? 'owner_ids[]' : 'owner_id', id, id: nil) %><% end %><% end %>
     <%= hidden_field_tag :tab, 'returns' %><%= hidden_field_tag :metric, @metric %><%= hidden_field_tag :as_of, @date.iso8601 %>
+    <% if @periodic_returns %><%= hidden_field_tag :dashboard_type, 'periodic' %><%= hidden_field_tag :rsd, @period_start.iso8601 %><%= hidden_field_tag :red, @period_end.iso8601 %><%= hidden_field_tag :trend_date, @trend_date&.iso8601 %><% end %>
     <%= label_tag :sort, 'Sort' %><%= select_tag :sort, options_for_select([['Ticket ID', 'id'], ['Total returns', 'return_count'], ['Consecutive returns', 'repeat_count']], @return_detail_sort) %>
     <%= select_tag :direction, options_for_select([['Ascending', 'asc'], ['Descending', 'desc']], @direction), aria: { label: 'Sort direction' } %>
     <%= label_tag :group_by, 'Group by' %><%= select_tag :group_by, options_for_select([['None', ''], ['Project', 'project'], ['Tracker', 'tracker'], ['Owner', 'owner'], ['Status', 'status']], @group_by) %><%= submit_tag 'Apply options', name: nil %>
   <% end %>
   <% if @detail_rows.empty? %><p class="nodata">No tickets match this metric.</p><% else %>
-    <div class="autoscroll"><table class="list"><thead><tr><th>Ticket</th><th>Subject</th><th>Project</th><th>Tracker</th><th>Owner (current)</th><th>Status (as of date)</th><th>Total Returns</th><th>Consecutive Returns <%= performance_tip(performance_consecutive_returns_definition) %></th><th>Return Audit</th></tr></thead><tbody>
+    <div class="autoscroll"><table class="list"><thead><tr><th>Ticket</th><th>Subject</th><th>Project</th><th>Tracker</th><th>Owner (current)</th><th>Status (<%= @periodic_returns ? 'at RED' : 'as of date' %>)</th><% if @periodic_returns %><th>Completion Date</th><th>Expectation / Other</th><% end %><th>Total Returns</th><th>Consecutive Returns <%= performance_tip(performance_consecutive_returns_definition) %></th><th>Return Audit</th></tr></thead><tbody>
       <% previous_group = nil; @detail_rows.each do |row| %>
         <% issue = @detail_issues.fetch(row[:id]); group = TicketJourneyPerformance.detail_group_key(row, @group_by) %>
-        <% if @group_by && group != previous_group %><tr class="group"><th colspan="9"><%= row[TicketJourneyPerformance::DETAIL_GROUPS[@group_by]] %></th></tr><% previous_group = group %><% end %>
-        <tr class="performance-return-ticket"><td><%= link_to "##{issue.id}", issue_path(issue) %></td><td><%= issue.subject %></td><td><%= issue.project.name %></td><td><%= issue.tracker.name %></td><td><%= row[:owner_name] %></td><td><%= row[:status_name] %></td><td><%= row[:return_count] %></td><td><%= row[:repeat_count] %></td>
+        <% if @group_by && group != previous_group %><tr class="group"><th colspan="<%= @periodic_returns ? 11 : 9 %>"><%= row[TicketJourneyPerformance::DETAIL_GROUPS[@group_by]] %></th></tr><% previous_group = group %><% end %>
+        <tr class="performance-return-ticket"><td><%= link_to "##{issue.id}", issue_path(issue) %></td><td><%= issue.subject %></td><td><%= issue.project.name %></td><td><%= issue.tracker.name %></td><td><%= row[:owner_name] %></td><td><%= row[:status_name] %></td><% if @periodic_returns %><td><%= format_date(row[:delivered_at]) %></td><td><%= row[:category] ? TicketJourneyPeriodicTickets::LABELS.fetch(row[:category]) : 'Other Done' %></td><% end %><td><%= row[:return_count] %></td><td><%= row[:repeat_count] %></td>
           <td><details><summary>Show incidents</summary><ol>
             <% row[:events].each do |event| %><% next if @metric == 'non_merge_incidents' && event[:merge_conflict] != false %>
-              <li><%= link_to format_time(event[:at]), issue_path(issue, anchor: "change-#{event[:journal_id]}") %>: <%= event[:from_status] %> → Returned · <%= event[:reason] || 'Reason unavailable' %><%= ' · Consecutive repeat +1' if event[:repeat] %></li>
+              <li><%= link_to format_time(event[:at]), issue_path(issue, anchor: "change-#{event[:journal_id]}") %>: <%= event[:from_status] %> → Returned · <%= event[:reason] || 'Reason unavailable' %><%= ' · Merge Conflict' if event[:merge_conflict] %><%= ' · Consecutive repeat +1' if event[:repeat] %></li>
             <% end %>
           </ol><% if row[:events].empty? %><p>No recorded qualifying returns.</p><% end %></details></td>
         </tr>

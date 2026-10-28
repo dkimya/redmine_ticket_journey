@@ -1,5 +1,60 @@
 # Deployment and verification
 
+## Periodic Returns and Live metric change — 2026-10-28
+
+Deploy the new TicketJourneyPeriodicReturns model and Periodic Returns views with
+the changed Tickets/history and Live Returns models, controller/helper, shared
+tabs/distribution/audit/leaderboard/trend partials and performance.css together.
+Reuse the existing performance_leaderboard.js for owner toggles. Restart Redmine,
+publish assets through the host's existing process, and hard-refresh. No migrations,
+new fields, settings or permissions are required. Keep the provisional notice
+visible; [the specification](periodic-returns-spec.md) documents Hadi-pending choices.
+
+1. Initial Periodic Returns must render filters without issue/history scans. Apply
+   must retain RSD/RED/owners across tabs and show expected/total-done populations
+   matching Tickets' exact Completed from Expectation/Total Actual Done sets.
+   Periodic Time must remain Planned and scan-free.
+2. Verify the 12-done/5-returned/8-incident example gives 1.6, not 66.7% or 160%.
+   Check zero completed tickets separately from completed tickets with zero returns:
+   both metric values are N/A, with different population explanations and explicit
+   zero incidents. Verify 3+ means >=4 and 2+ repeats means >=3. Consecutive donut
+   denominator must be repeat tickets only, not all returned tickets.
+3. Inspect a completion with returns before RSD, on RED, and after RED. Full history
+   through RED counts; later events do not. Confirm existing stage-family rules,
+   duplicate journal-detail protection, accumulated repeats, Merge Conflict
+   inclusion and hidden/missing reason behavior. Inspect the actual Merge /
+   Integration Conflict option in audits and legacy non-Merge calculations.
+4. Verify weekly completion cohorts partition the final expected-done set, including
+   partial Monday-based weeks, equal RSD/RED, month/year/leap-day boundaries and
+   >120-day calendar-month intervals. Population, returned counts and incident sums
+   must reconcile to headline totals. No future or opening-debt cohort. Each
+   point's full through-RED return history is disclosed; gaps mean N/A.
+5. Multi-owner: include a zero-output owner and different returned-ticket counts.
+   Team ratio must use combined counts. Confirm owner-only links do not retain a
+   competing team owner_ids parameter. Hide/show owner trend lines by keyboard;
+   the team line and values table must remain available. Check top tables default
+   collapsed, narrow screens, contrast, labels, hover/focus values and no percent
+   suffix on primary metrics. Distribution percentages remain percentages.
+6. Verify every card/bucket/bar/table/point contributor list, including Other Done,
+   completion date, classification, reason flags, journal links, selected range,
+   cohort, sorting/grouping/pagination/Back and full-set native Issues handoff.
+   Large ID-list URL limits remain. Recheck restricted/inactive/blank/hidden-owner,
+   issue and reason visibility with the installed plugin set.
+7. Live: unchanged open population/distributions; primary metric = incidents /
+   returned open tickets at the chosen date and each of five month ends. Compare
+   cards, owner comparison and leaderboard. No old threshold lines or percentage
+   suffix. Legacy non-Merge percentage remains separate with its original all-open
+   denominator and unknown-reason guard; do not plot mixed units on one axis.
+8. Recheck Live Tickets/Time, Periodic Tickets, native ticket/My page/Issues/saved
+   queries/Return Count numeric filtering/sorting and selected-column CSV. Run
+   `bundle exec rake redmine:plugins:test NAME=redmine_ticket_journey RAILS_ENV=test`
+   only from a configured test Redmine root, never against production data.
+   Measure full-request latency and peak memory; selected ticket/event retention
+   still grows and history batching alone does not establish safe performance.
+
+Local result: ten JavaScript tests and git diff --check pass. Ruby/request,
+deployed visual/installed-plugin and service performance verification are pending.
+
 ## Periodic Tickets — provisional implementation, 2026-10-27
 
 Deploy the new TicketJourneyPeriodicTickets model, controller/helper changes,

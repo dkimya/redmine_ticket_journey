@@ -1,7 +1,7 @@
 # Performance Returns uses dated journal events, never the native lifetime cache.
 # Consecutive repeats are a separate accumulated measure, not a resettable streak.
 class TicketJourneyPerformanceReturns
-  # Hadi confirmed that Tickets and Returns must share the open denominator.
+  # Open population matches Tickets; the metric denominator is returned tickets.
   EXCLUDED = TicketJourneyPerformance::OPEN_EXCLUDED_STATUSES
   LABELS = {
     'returns_open' => 'All Open Tickets — Returns',
@@ -10,7 +10,7 @@ class TicketJourneyPerformanceReturns
     'repeats_all' => 'Tickets with Consecutive Returns',
     'repeats_1' => '1 Consecutive Return', 'repeats_2' => '2 Consecutive Returns',
     'repeats_3' => '2+ Consecutive Returns (3 or more)',
-    'return_incidents' => 'Return Incidents per Open Ticket — Contributors',
+    'return_incidents' => 'Open Tickets with at Least One Return — Metric Contributors',
     'non_merge_incidents' => 'Non-Merge Return Incidents — Contributors'
   }.freeze
   COLORS = ['#00bc87', '#008fff', '#ffbd36', '#ff8b2d', '#f65362'].freeze
@@ -18,7 +18,7 @@ class TicketJourneyPerformanceReturns
   def self.trend_points(date)
     TicketJourneyPerformance.completed_month_ends(date).map do |day|
       { date: day,
-        open: 0, incidents: 0, non_merge: 0, unknown: 0 }
+        open: 0, returned: 0, incidents: 0, non_merge: 0, unknown: 0 }
     end
   end
 
@@ -43,6 +43,7 @@ class TicketJourneyPerformanceReturns
       destinations << owner_points.fetch(snapshots[index][:owner_id])[index] if owner_points
       destinations.each do |destination|
         destination[:open] += 1
+        destination[:returned] += 1 if events.any? { |event| event[:at] <= cutoff }
         events.each do |event|
           next if event[:at] > cutoff
 
@@ -57,7 +58,7 @@ class TicketJourneyPerformanceReturns
 
   def self.finish_trend!(points)
     points.each do |point|
-      point[:ratio] = point[:open].positive? ? point[:incidents] * 100.0 / point[:open] : nil
+      point[:ratio] = point[:returned].positive? ? point[:incidents].to_f / point[:returned] : nil
       point[:adjusted_ratio] = point[:open].positive? && point[:unknown].zero? ? point[:non_merge] * 100.0 / point[:open] : nil
     end
   end
@@ -96,13 +97,19 @@ class TicketJourneyPerformanceReturns
     events.each do |event|
       event[:repeat] = event[:counter_key] == previous
       previous = event[:counter_key]
-      event[:merge_conflict] = event[:reason] ? !!event[:reason].match(/\bmerge[\s_-]*conflicts?\b/i) : nil
+      event[:merge_conflict] = event[:reason] ? !!event[:reason].match(/\bmerge(?:[\s\/_-]+integration)?[\s\/_-]*conflicts?\b/i) : nil
     end
     events
   end
 
   def self.calculate(rows)
-    open = rows.select { |row| eligible?(row) }
+    summarize(rows.select { |row| eligible?(row) })
+  end
+
+  # Shared distributions for Live open tickets and Periodic completed cohorts.
+  # Caller owns population selection; return event/repeat definitions stay shared.
+  def self.summarize(open)
+    open = open.uniq { |row| row[:id] }
     sets = { 'returns_open' => open }
     0.upto(4) { |i| sets["returns_#{i}"] = open.select { |row| [row[:return_count], 4].min == i } }
     sets['repeats_all'] = open.select { |row| row[:repeat_count].positive? }
@@ -113,9 +120,10 @@ class TicketJourneyPerformanceReturns
     unknown = open.sum { |row| row[:events].count { |event| event[:merge_conflict].nil? } }
     non_merge = open.sum { |row| row[:events].count { |event| event[:merge_conflict] == false } }
     {
-      open: open.size, incidents: incidents, repeats: open.sum { |row| row[:repeat_count] },
+      open: open.size, population: open.size, returned: sets['return_incidents'].size,
+      incidents: incidents, repeats: open.sum { |row| row[:repeat_count] },
       with_repeats: sets['repeats_all'].size, non_merge: non_merge, unknown: unknown, sets: sets,
-      ratio: open.any? ? incidents * 100.0 / open.size : nil,
+      ratio: sets['return_incidents'].any? ? incidents.to_f / sets['return_incidents'].size : nil,
       adjusted_ratio: open.any? && unknown.zero? ? non_merge * 100.0 / open.size : nil
     }
   end

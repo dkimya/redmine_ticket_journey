@@ -10,16 +10,19 @@ class PerformanceDashboardController < ApplicationController
     return render_404 unless %w[tickets returns time].include?(@performance_tab)
     @metric = params[:metric].presence
     @periodic_tickets = @dashboard_type == 'periodic' && @performance_tab == 'tickets'
+    @periodic_returns = @dashboard_type == 'periodic' && @performance_tab == 'returns'
     @return_mode = @dashboard_type == 'live' && @performance_tab == 'returns'
     @time_mode = @dashboard_type == 'live' && @performance_tab == 'time'
     labels = if @periodic_tickets
       TicketJourneyPeriodicTickets::LABELS
+    elsif @periodic_returns
+      TicketJourneyPeriodicReturns::LABELS
     elsif @time_mode
       TicketJourneyPerformanceTime::LABELS
     else
       @return_mode ? TicketJourneyPerformanceReturns::LABELS : TicketJourneyPerformance::DETAIL_LABELS
     end
-    return render_404 if @metric && !labels.key?(@metric) && (@periodic_tickets || @metric != 'owner_changes')
+    return render_404 if @metric && !labels.key?(@metric) && (@periodic_tickets || @periodic_returns || @metric != 'owner_changes')
     @date = params[:as_of].present? ? Date.iso8601(params[:as_of]) : Date.current
     raise ArgumentError if @date > Date.current
     @time_month = nil
@@ -39,7 +42,7 @@ class PerformanceDashboardController < ApplicationController
       # Planned tabs retain context but must not run ticket/history/target scans.
       @owners = alphabetical_owners(User.active.where(id: Member.where(project_id: performance_project_ids).select(:user_id)))
       @selected_owner_ids = requested_owners.presence || [@owners.find { |user| user.id == User.current.id }&.id].compact.map(&:to_s)
-      return render_periodic_tickets(requested_owners) if @periodic_tickets
+      return render_periodic_tickets(requested_owners) if @periodic_tickets || @periodic_returns
       return render_404 if @metric
       return render :planned
     end
@@ -288,13 +291,18 @@ class PerformanceDashboardController < ApplicationController
   private
 
   def render_periodic_tickets(requested_owners)
-    return render(:periodic_tickets) if requested_owners.empty? && !@metric
+    return render(@periodic_returns ? :periodic_returns : :periodic_tickets) if requested_owners.empty? && !@metric
     return render_404 if requested_owners.empty?
 
     @trend_date = if @metric&.start_with?('trend_')
       Date.iso8601(params[:trend_date].to_s)
     end
-    if @trend_date && !TicketJourneyPeriodicTickets.trend_dates(@period_start, @period_end).include?(@trend_date)
+    valid_dates = if @periodic_returns
+      TicketJourneyPeriodicReturns.intervals(@period_start, @period_end).map(&:last)
+    else
+      TicketJourneyPeriodicTickets.trend_dates(@period_start, @period_end)
+    end
+    if @trend_date && !valid_dates.include?(@trend_date)
       return render_404
     end
     selected = requested_owners.to_set
@@ -309,7 +317,7 @@ class PerformanceDashboardController < ApplicationController
     started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     Issue.uncached do
       scope.find_in_batches(batch_size: TicketJourneyPerformance::BATCH_SIZE) do |batch|
-        values = TicketJourneyPerformance.batch_field_values(batch)
+        values = TicketJourneyPerformance.batch_field_values(batch, field_ids: @periodic_returns ? [57, 66, 70] : [57, 70])
         selected_batch = batch.select do |issue|
           owner = values.fetch(issue.id).find { |value| value.custom_field.id == 57 }&.value.to_s
           discovered << owner if owner.present?
@@ -317,16 +325,24 @@ class PerformanceDashboardController < ApplicationController
         end
         next if selected_batch.empty?
 
-        history = TicketJourneyPeriodicTickets.history_for(selected_batch.map(&:id), @period_end)
+        history = if @periodic_returns
+          TicketJourneyPeriodicTickets.history_for(selected_batch.map(&:id), @period_end, include_return_reason: true)
+        else
+          TicketJourneyPeriodicTickets.history_for(selected_batch.map(&:id), @period_end)
+        end
         selected_batch.each do |issue|
           owner = values.fetch(issue.id).find { |value| value.custom_field.id == 57 }.value.to_s
           row = TicketJourneyPeriodicTickets.row(issue, @period_start, @period_end, statuses,
             history.fetch(issue.id, []), values.fetch(issue.id), owner)
+          if @periodic_returns && row && row[:done] && row[:delivered_at]&.between?(@period_start, @period_end) &&
+              !TicketJourneyPeriodicTickets::EXCLUDED_STATUSES.include?(row[:status_name])
+            row = TicketJourneyPeriodicReturns.enrich(row, issue, history.fetch(issue.id, []), statuses, @period_end, values.fetch(issue.id))
+          end
           rows << row if row
         end
       end
     end
-    Rails.logger.info("Periodic Tickets scan: #{(Process.clock_gettime(Process::CLOCK_MONOTONIC) - started).round(3)}s")
+    Rails.logger.info("Periodic #{@periodic_returns ? 'Returns' : 'Tickets'} scan: #{(Process.clock_gettime(Process::CLOCK_MONOTONIC) - started).round(3)}s")
     member_ids = @owners.map { |owner| owner.id.to_s }
     return render_404 unless requested_owners.all? { |id| discovered.include?(id) || member_ids.include?(id) }
 
@@ -336,7 +352,8 @@ class PerformanceDashboardController < ApplicationController
 
     @selected_owner_ids = @selected_owners.map { |owner| owner.id.to_s }
     @owner_label = @selected_owners.map(&:name).join(', ')
-    @periodic_report = TicketJourneyPeriodicTickets.calculate(rows, @period_start, @period_end)
+    @periodic_report = TicketJourneyPeriodicTickets.calculate(rows, @period_start, @period_end, with_trends: !@periodic_returns)
+    return render_periodic_returns(rows) if @periodic_returns
     unless @metric
       @periodic_owners = @selected_owners.map do |owner|
         { owner: owner, report: TicketJourneyPeriodicTickets.calculate(rows.select { |row| row[:owner_id] == owner.id.to_s }, @period_start, @period_end) }
@@ -366,6 +383,28 @@ class PerformanceDashboardController < ApplicationController
       .includes(:project, :tracker, :priority).index_by(&:id)
     @detail_rows.select! { |row| @detail_issues.key?(row[:id]) }
     render :periodic_details
+  end
+
+  def render_periodic_returns(rows)
+    @periodic_return_report = TicketJourneyPeriodicReturns.calculate(@periodic_report, @period_start, @period_end)
+    @returns = @periodic_return_report[:expected]
+    unless @metric
+      @periodic_return_owners = @selected_owners.map do |owner|
+        tickets = TicketJourneyPeriodicTickets.calculate(rows.select { |row| row[:owner_id] == owner.id.to_s },
+          @period_start, @period_end, with_trends: false)
+        { owner: owner, report: TicketJourneyPeriodicReturns.calculate(tickets, @period_start, @period_end) }
+      end
+      return render :periodic_returns
+    end
+    @detail_title = TicketJourneyPeriodicReturns::LABELS.fetch(@metric)
+    records = if @trend_date
+      interval = TicketJourneyPeriodicReturns.intervals(@period_start, @period_end).find { |_first, last| last == @trend_date }
+      cohort = TicketJourneyPeriodicReturns.cohort_rows(@periodic_return_report[:sets]['returns_open'], *interval)
+      @metric == 'trend_returned' ? cohort.select { |row| row[:return_count].positive? } : cohort
+    else
+      @periodic_return_report[:sets].fetch(@metric)
+    end
+    render_return_details(records)
   end
 
   def time_daily_hours(owner_id)
@@ -473,11 +512,15 @@ class PerformanceDashboardController < ApplicationController
     return render(:returns) unless @metric
 
     @detail_title = TicketJourneyPerformanceReturns::LABELS.fetch(@metric)
+    render_return_details(@returns[:sets].fetch(@metric))
+  end
+
+  def render_return_details(records)
     @return_detail_sort = %w[id return_count repeat_count].include?(params[:sort]) ? params[:sort] : 'return_count'
     @direction = params[:direction] == 'asc' ? 'asc' : 'desc'
     @group_by = TicketJourneyPerformance::DETAIL_GROUPS.key?(params[:group_by]) ? params[:group_by] : nil
     names = @selected_owners.to_h { |owner| [owner.id.to_s, owner.name] }
-    @detail_rows = @returns[:sets].fetch(@metric).map { |row| row.merge(owner_name: names[row[:owner_id]]) }
+    @detail_rows = records.map { |row| row.merge(owner_name: names[row[:owner_id]]) }
     @detail_rows.sort_by! { |row| [row[@return_detail_sort.to_sym] * (@direction == 'asc' ? 1 : -1), row[:id]] }
     if @group_by
       @detail_rows = @detail_rows.each_with_index.sort_by { |row, index| [TicketJourneyPerformance.detail_group_key(row, @group_by), index] }.map(&:first)

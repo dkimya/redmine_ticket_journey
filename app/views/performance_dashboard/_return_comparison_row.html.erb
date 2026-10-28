@@ -2,5 +2,5 @@
   <th scope="row"><%= label %></th><td><%= performance_return_link(report[:open], 'returns_open', ids) %></td>
   <% %w[returns_0 returns_1 returns_2 returns_3 returns_4 repeats_1 repeats_2 repeats_3].each do |key| %><td><%= performance_return_link(report[:sets].fetch(key).size, key, ids) %></td><% end %>
   <td><%= performance_return_link(report[:incidents], 'return_incidents', ids) %></td>
-  <td><%= performance_return_link(report[:ratio].nil? ? 'N/A' : "#{performance_number(report[:ratio])}%", 'return_incidents', ids) %></td>
+  <td><%= performance_return_link(performance_number(report[:ratio]), 'return_incidents', ids) %><small class="return-metric-denominator"><%= report[:returned] %> returned tickets</small></td>
 </tr>

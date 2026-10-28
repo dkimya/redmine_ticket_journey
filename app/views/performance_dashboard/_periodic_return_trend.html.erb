@@ -1,0 +1,50 @@
+<% entries = [{ owner: nil, report: @periodic_return_report }] + (@selected_owners.size > 1 ? @periodic_return_owners : []) %>
+<% points = @periodic_return_report[:trends]; keys = entries.map { |entry| entry[:owner]&.id.to_s.presence || 'team' } %>
+<% plot = points.each_index.map { |index| entries.each_with_index.to_h { |entry, position| [keys[position], entry[:report][:trends][index][:ratio]] } } %>
+<% geometry = performance_leaderboard_geometry(plot, keys: keys, scale_values: [], percent: false) %>
+<section class="performance-section performance-leaderboard periodic-return-trend" data-performance-leaderboard>
+  <h3>Return Ticket Metric Trend — Expected Done Tickets</h3>
+  <p>Completion-period cohorts · Full ticket return history through RED · Incidents per returned ticket · Lower is better</p>
+  <div class="performance-leaderboard-layout"><div class="autoscroll">
+    <svg class="performance-trend-chart performance-leaderboard-chart" viewBox="0 0 860 300" role="img" aria-labelledby="periodic-return-trend-title">
+      <title id="periodic-return-trend-title">Incidents per returned Expected Done ticket, by completion cohort. Missing points mean no returned tickets. Exact counts are in the table below.</title>
+      <% geometry[:ticks].each do |tick| %><% y = 235 - tick / geometry[:maximum] * 200 %>
+        <line class="performance-trend-grid" x1="90" x2="770" y1="<%= y %>" y2="<%= y %>" /><text x="78" y="<%= y + 5 %>" text-anchor="end"><%= performance_number(tick) %></text>
+      <% end %>
+      <% label_step = [(points.size / 7.0).ceil, 1].max %>
+      <% points.each_with_index do |point, index| %><% next unless index % label_step == 0 || index == points.size - 1 %>
+        <text x="<%= geometry[:series].first[index][:x] %>" y="268" text-anchor="middle"><%= point[:date].strftime('%d %b %y') %></text>
+      <% end %>
+      <% entries.each_with_index do |entry, position| %>
+        <% key = keys[position]; owner = entry[:owner]; name = owner&.name || (@selected_owners.size > 1 ? 'Team' : @owner_label); ids = owner ? [owner.id.to_s] : @selected_owner_ids; color = owner ? performance_owner_color(owner.id) : '#17365d'; series = geometry[:series][position] %>
+        <g class="performance-trend-series" data-leaderboard-series="<%= key %>" style="stroke:<%= color %>;fill:<%= color %>">
+          <% series.each_cons(2) do |left, right| %><% if left[:y] && right[:y] %><line x1="<%= left[:x] %>" x2="<%= right[:x] %>" y1="<%= left[:y] %>" y2="<%= right[:y] %>" /><% end %><% end %>
+          <% series.each do |coordinate| %><% next unless coordinate[:y] %><% point = entry[:report][:trends][coordinate[:index]] %>
+            <% description = "#{name}: #{format_date(point[:start])} – #{format_date(point[:date])}; #{point[:population]} Expected Done; #{point[:incidents]} incidents / #{point[:returned]} returned tickets = #{performance_number(point[:ratio])}. Opens in a new tab." %>
+            <a href="<%= performance_dashboard_path(@project, **periodic_ticket_params({ tab: 'returns', metric: 'trend_returned', trend_date: point[:date].iso8601 }, ids: ids)) %>" target="_blank" rel="noopener" aria-label="<%= description %>"><circle cx="<%= coordinate[:x] %>" cy="<%= coordinate[:y] %>" r="5"><title><%= description %></title></circle></a>
+          <% end %>
+        </g>
+      <% end %>
+    </svg>
+  </div>
+  <div class="performance-leaderboard-legend" aria-label="Trend lines">
+    <p><span class="performance-leaderboard-swatch" style="border-color:#17365d"></span><%= @selected_owners.size > 1 ? 'Team — always visible' : @owner_label %></p>
+    <% entries.drop(1).each do |entry| %><% owner = entry[:owner] %>
+      <button type="button" data-leaderboard-toggle="<%= owner.id %>" data-owner-name="<%= owner.name %>" aria-pressed="true" aria-label="Hide <%= owner.name %> line"><span class="performance-leaderboard-swatch" style="border-color:<%= performance_owner_color(owner.id) %>"></span><span><%= owner.name %></span></button>
+    <% end %>
+  </div></div>
+  <details class="performance-trend-values"><summary>Show completion-period breakdown and exact metric values</summary>
+    <div class="autoscroll"><table class="list"><thead><tr><th>Owner / Team</th><th>Completion Period</th><th>Expected Done</th><th>Returned Tickets</th><th>Return Incidents</th><th>Incidents / Returned Ticket</th></tr></thead><tbody>
+      <% entries.each do |entry| %><% owner = entry[:owner]; ids = owner ? [owner.id.to_s] : @selected_owner_ids %><% entry[:report][:trends].each do |point| %>
+        <% base = periodic_ticket_params({ tab: 'returns', trend_date: point[:date].iso8601 }, ids: ids) %>
+        <tr><th><%= owner&.name || 'Team / selected owner total' %></th><td><%= format_date(point[:start]) %> – <%= format_date(point[:date]) %></td>
+          <td><%= performance_drilldown_link point[:population], performance_dashboard_path(@project, **base.merge(metric: 'trend_expected')) %></td>
+          <td><%= performance_drilldown_link point[:returned], performance_dashboard_path(@project, **base.merge(metric: 'trend_returned')) %></td>
+          <td><%= performance_drilldown_link point[:incidents], performance_dashboard_path(@project, **base.merge(metric: 'trend_returned')) %></td>
+          <td><%= point[:ratio].nil? ? (point[:population].zero? ? 'N/A — no Expected Done tickets' : 'N/A — no returned tickets') : performance_number(point[:ratio]) %></td>
+        </tr>
+      <% end %><% end %>
+    </tbody></table></div>
+  </details>
+  <p class="performance-weight-note">These are separate completion cohorts, not cumulative ratios or independent weekly expectation packages. Cohort counts and incidents sum to the selected-period totals. Monday-based weeks have partial first/last weeks; periods over 120 days use calendar months. Gaps mean N/A, not zero. Owner buttons hide lines without changing totals or the values table.</p>
+</section>
