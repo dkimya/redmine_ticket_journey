@@ -1,5 +1,13 @@
 # Known issues and evidence
 
+## Periodic owner-trend legend — local change, 2026-10-28
+
+Tickets/Complexity Weight owner charts now reuse the Live/Time selectable right
+legend, with paired Expected/Completed groups and a short line-style key. Existing
+responsive styles place the legend below on narrow screens. Breakdown values and
+report calculations are unchanged. Eleven JavaScript checks and diff checks pass;
+updated Ruby request assertions and deployed visual/request checks remain pending.
+
 ## Part 3 Time additions — local implementation, 2026-10-28
 
 Reviewed Time formulas are retained, with new activity/user evidence and archived

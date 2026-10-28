@@ -1,5 +1,18 @@
 # Deployment and verification
 
+## Periodic owner-trend legend — 2026-10-28
+
+Deploy the Periodic Tickets page, shared periodic trend partial and helper together;
+restart through the host process. The page now loads the existing leaderboard
+script and reuses its responsive legend styles; no migration or setting is needed.
+Verify both Tickets and Complexity Weight owner charts: one button per owner,
+all visible initially, both expected/completed polylines AND point links hidden
+together, keyboard focus/pressed labels, chart-independent toggles, legend below
+on narrow screens, and unchanged breakdown values/drill-downs. Team charts keep
+their static legend. Eleven JavaScript checks and diff checks pass locally; Ruby
+request assertions are updated but unrun without test Redmine. Deployed layout
+and full request verification remain pending.
+
 ## Part 3 activity and archived time — 2026-10-28
 
 Deploy the Periodic Time and new TimeMix models, controller/helper, new mix views,

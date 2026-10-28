@@ -72,7 +72,7 @@ test('Periodic Returns team line remains visible when every individual owner is 
   assert.equal(p.series.find(item => item.dataset.leaderboardSeries === '2').hidden, true);
 });
 
-test('Periodic Time toggles an owners actual and plan lines together', () => {
+test('Periodic Time and Tickets toggle an owners paired lines together', () => {
   const p = page(false, false, [], false, true);
   p.buttons[0].dataset.lineDescription = 'lines';
   p.buttons[0].listeners[0]();

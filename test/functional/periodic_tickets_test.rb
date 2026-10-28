@@ -32,6 +32,21 @@ class PeriodicTicketsTest < ActionController::TestCase
     assert_response :success
     assert_select '.periodic-kpi', count: 7
     assert_select '.periodic-trend', count: 4
+    assert_select '.periodic-trend[data-performance-leaderboard]', count: 2 do |charts|
+      charts.each do |chart|
+        assert_equal 2, chart.css('[data-leaderboard-toggle][aria-pressed="true"]').size
+        assert_equal 4, chart.css('g[data-leaderboard-series]').size
+        chart.css('[data-leaderboard-toggle]').each do |button|
+          owner_id = button['data-leaderboard-toggle']
+          assert_equal 2, chart.css("g[data-leaderboard-series='#{owner_id}']").size
+          assert_equal 'lines', button['data-line-description']
+        end
+        assert_empty chart.css('.performance-trend-legend')
+        assert_equal 1, chart.css('.performance-leaderboard-layout .performance-leaderboard-legend').size
+        assert_equal 1, chart.css('.performance-trend-values table').size
+      end
+    end
+    assert_select 'script[src*="performance_leaderboard"]', count: 1
     assert_select '.periodic-summary', count: 1
     assert_select '.periodic-summary details[open]', count: 0
     assert_select '.periodic-owner-table tbody tr', count: 2

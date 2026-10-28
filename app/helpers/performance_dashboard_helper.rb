@@ -114,6 +114,7 @@ module PerformanceDashboardHelper
   def periodic_trend_series(report, measure, ids = @selected_owner_ids, owner: nil)
     %w[expected completed].each_with_index.map do |kind, index|
       { label: [owner&.name, kind == 'expected' ? 'Expected' : 'Completed from Expectation'].compact.join(' — '),
+        owner_id: owner&.id&.to_s, owner_name: owner&.name,
         color: owner ? performance_owner_color(owner.id) : %w[#0072b2 #00865e][index],
         dashed: kind == 'expected', ids: ids, metric: "trend_#{kind}",
         points: report[:trends].map { |point| { date: point[:date], value: point.fetch("#{kind}_#{measure}".to_sym) } } }

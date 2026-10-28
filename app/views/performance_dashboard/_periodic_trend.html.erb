@@ -1,9 +1,10 @@
 <% all_points = series.flat_map { |entry| entry[:points] }; geometry = performance_leaderboard_geometry(all_points, keys: [:value], scale_values: [], percent: false) %>
 <% dates = series.first[:points].map { |point| point[:date] }; span = [(dates.last - dates.first).to_f, 1].max %>
-<% chart_id = "periodic-#{chart_key}" %>
-<section class="performance-section periodic-trend">
+<% chart_id = "periodic-#{chart_key}"; owners = series.select { |entry| entry[:owner_id] }.group_by { |entry| entry[:owner_id] } %>
+<section class="performance-section periodic-trend<%= ' performance-leaderboard' if owners.any? %>"<% if owners.any? %> data-performance-leaderboard<% end %>>
   <h3><%= title %></h3>
-  <ul class="performance-trend-legend"><% series.each do |entry| %><li><span class="performance-trend-swatch" style="border-color:<%= entry[:color] %>;border-top-style:<%= entry[:dashed] ? 'dashed' : 'solid' %>"></span><%= entry[:label] %></li><% end %></ul>
+  <% if owners.empty? %><ul class="performance-trend-legend"><% series.each do |entry| %><li><span class="performance-trend-swatch" style="border-color:<%= entry[:color] %>;border-top-style:<%= entry[:dashed] ? 'dashed' : 'solid' %>"></span><%= entry[:label] %></li><% end %></ul><% end %>
+  <div class="<%= owners.any? ? 'performance-leaderboard-layout' : 'periodic-team-chart' %>">
   <div class="autoscroll"><svg class="performance-trend-chart" viewBox="0 0 860 300" role="img" aria-labelledby="<%= chart_id %>-title">
     <title id="<%= chart_id %>-title"><%= title %>. Dashed lines are expected; solid lines are completed expectations. Exact values are in the table below.</title>
     <% geometry[:ticks].each do |value| %><% y = 235 - value / geometry[:maximum] * 200 %>
@@ -15,6 +16,7 @@
       <text x="<%= 90 + (day - dates.first).to_f / span * 680 %>" y="268" text-anchor="middle"><%= day.strftime('%d %b %y') %></text>
     <% end %>
     <% series.each do |entry| %>
+      <g data-leaderboard-series="<%= entry[:owner_id] %>">
       <% coordinates = entry[:points].map { |point| [90 + (point[:date] - dates.first).to_f / span * 680, 235 - point[:value] / geometry[:maximum] * 200] } %>
       <polyline points="<%= coordinates.map { |x, y| "#{x},#{y}" }.join(' ') %>" fill="none" stroke="<%= entry[:color] %>" stroke-width="2.5" stroke-dasharray="<%= entry[:dashed] ? '8 5' : 'none' %>" />
       <% entry[:points].each_with_index do |point, index| %>
@@ -23,8 +25,19 @@
           <circle cx="<%= coordinates[index][0] %>" cy="<%= coordinates[index][1] %>" r="<%= entry[:dashed] ? 6 : 3.5 %>" fill="<%= entry[:dashed] ? '#fff' : entry[:color] %>" stroke="<%= entry[:color] %>" stroke-width="2"><title><%= description %></title></circle>
         </a>
       <% end %>
+      </g>
     <% end %>
   </svg></div>
+  <% if owners.any? %>
+    <div class="performance-leaderboard-legend" aria-label="Selected owner lines">
+      <p>Dashed = Expected<br>Solid = Completed from Expectation</p>
+      <% owners.each do |id, entries| %><% entry = entries.first %>
+        <button type="button" data-leaderboard-toggle="<%= id %>" data-owner-name="<%= entry[:owner_name] %>" data-line-description="lines" aria-pressed="true" aria-label="Hide <%= entry[:owner_name] %> lines"><span class="performance-leaderboard-swatch" style="border-color:<%= entry[:color] %>" aria-hidden="true"></span><span><%= entry[:owner_name] %></span></button>
+      <% end %>
+      <p>Select an owner to hide/show both lines. The breakdown table keeps all values.</p>
+    </div>
+  <% end %>
+  </div>
   <details class="performance-trend-values"><summary>Show period breakdown</summary>
     <div class="autoscroll"><table class="list"><thead><tr><th>As of</th><% series.each do |entry| %><th><%= entry[:label] %></th><% end %></tr></thead>
       <tbody><% dates.each_with_index do |day, index| %><tr><th><%= day == @period_start - 1 ? 'Opening debt' : format_date(day) %></th>

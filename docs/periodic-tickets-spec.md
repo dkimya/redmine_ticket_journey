@@ -116,6 +116,14 @@ RED/current statuses, recorded assignment, latest To-Do and extraordinary reason
 with sorting, grouping, 100-row pagination, Back and full-set native Issues handoff.
 Large ID-list URL limitations remain. Details recheck current issue visibility.
 
+Individual-owner Tickets and Complexity Weight charts use the existing selectable
+right legend (below the chart on narrow screens). One button per owner hides/shows
+their expected AND completed lines and point links together. All start visible;
+the dashed/solid key is separate from owner colors. Buttons affect only that chart's
+visibility, leaving the breakdown table, counts and source sets unchanged. Team
+charts keep their static two-series legend. These trends compare commitments and
+delivery; they are not ranked leaderboards.
+
 ## PMO boundary alignment
 
 Hadi explicitly requested revising the old PMO beginning-debt boundary too. Ticket

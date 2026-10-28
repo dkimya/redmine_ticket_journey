@@ -1,5 +1,13 @@
 # Reporting rules
 
+## Periodic individual-owner legend — 2026-10-28
+
+Tickets and Complexity Weight individual-owner charts now use a selectable owner
+legend on the right, below the chart on narrow screens. Each owner toggles both
+Expected and Completed from Expectation lines and point links together. All owners
+start visible. The breakdown table, totals, contributor sets and calculations are
+unchanged. This is a display control, not a report filter or ranking.
+
 ## Part 3 Time review — 2026-10-28
 
 Supplied answers confirm calendar creation-to-completion DTC, all-contributor
