@@ -1,5 +1,15 @@
 # Known issues and evidence
 
+## V5 Part 4 — local implementation, 2026-10-28
+
+The remaining six Time answers are incorporated; see the current
+[Time spec](periodic-time-spec.md). The 90% ratio is tentative and configurable.
+Trend presentation is provisionally accepted pending joint deployed review.
+Activity visibility shows recorded effort, not proof of logging compliance. The
+archive/replace policy is operational; this change does not enforce it in editing.
+Ruby tests and deployed layout, full requests, source totals and performance remain
+unverified. Earlier dated notes below retain historical implementation states.
+
 ## Periodic owner-trend legend — local change, 2026-10-28
 
 Tickets/Complexity Weight owner charts now reuse the Live/Time selectable right

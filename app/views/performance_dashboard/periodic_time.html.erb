@@ -38,7 +38,7 @@
           <% if key == 'other_hours' %><p>Extra Work: <%= periodic_time_number(entry[:extra_hours], key) %> h · Unplanned: <%= periodic_time_number(entry[:unplanned_hours], key) %> h</p><% end %>
         </article>
       <% end %></div>
-      <p class="performance-weight-note">DTC targets and owner-share % are configured under Administration → Plugins → PMO Dashboard → Configure. Blank targets remain N/A. Ticket cost overrun within the configured <%= performance_number(@estimate_allowance) %>% allowance is amber; exceeding it is red. Other negative deviations are red. Low visible hours alone do not establish efficiency or completed work.</p>
+      <p class="performance-weight-note">DTC targets and owner-share % are configured under Administration → Plugins → PMO Dashboard → Configure. Initial targets are 7 calendar days for normal tickets, 3 for priority tickets and 90% Development to Total Ticket Time Estimation Ratio; configured overrides apply. Ticket cost overrun within the configured <%= performance_number(@estimate_allowance) %>% allowance is amber; exceeding it is red. Other negative deviations are red. Low visible hours alone do not establish efficiency or completed work.</p>
     </section>
 
     <div class="periodic-grid">
@@ -51,8 +51,9 @@
       <section class="performance-section"><h3>Personal Hours — Reconciliation</h3>
         <p>Known visible hours: <strong><%= periodic_time_number(report[:valid_visible_hours], 'total_hours') %> h</strong>. All categories below use logged users and work dates in the selected period, including paid archived/excluded effort.</p>
         <table class="list"><thead><tr><th>Category</th><th>Hours</th></tr></thead><tbody>
-          <% [['expected_done', 'Completed expected work', 'expected_done_all'], ['expected_unfinished', 'Unfinished expected work', 'expected_unfinished'], ['other', 'Other tickets (including cross-owner work)', 'other_hours'], ['archived', 'Archived — paid effort without delivery credit', 'archived_hours'], ['excluded', 'On-Hold / Ongoing — outside delivery package', 'excluded_hours'], ['unclassified', 'Ticket Owner unavailable', 'unclassified']].each do |key, label, metric| %><tr><th><%= label %></th><td><%= periodic_time_link(periodic_time_number(report[:breakdown][key], 'total_hours'), metric) %></td></tr><% end %>
+          <% [['expected_work', 'Expectation ticket package (including unfinished work and debt)', 'expected_work_hours'], ['other', 'Other tickets (including cross-owner work)', 'other_hours'], ['archived', 'Archived — paid effort without delivery credit', 'archived_hours'], ['ongoing', 'Ongoing — paid effort outside delivery package', 'ongoing_hours'], ['excluded', 'On-Hold — separately disclosed', 'excluded_hours'], ['unclassified', 'Ticket Owner unavailable — review', 'unclassified']].each do |key, label, metric| %><tr><th><%= label %></th><td><%= periodic_time_link(periodic_time_number(report[:reconciliation][key], 'total_hours'), metric) %></td></tr><% end %>
         </tbody></table>
+        <details><summary>Show completed and unfinished expected effort</summary><p>Completed expected: <%= periodic_time_link(performance_number(report[:breakdown]['expected_done']), 'expected_done_all') %> h · Unfinished expected: <%= periodic_time_link(performance_number(report[:breakdown]['expected_unfinished']), 'expected_unfinished') %> h. Both remain in the expectation-package total above.</p></details>
         <p>Expected Done comparable card: <%= periodic_time_number(report[:metrics]['expected_done_hours'][:actual], 'total_hours') %> h. All Expected Done hours: <%= periodic_time_number(report[:expected_done_raw_hours], 'total_hours') %> h. Missing estimates/time can explain the difference.</p>
         <p><%= periodic_time_link("Expected Done comparison exclusions: #{report[:sets]['expected_done_excluded'].size}", 'expected_done_excluded') %></p>
       </section>
@@ -92,12 +93,12 @@
       </details>
     <% end %>
     <section class="performance-section"><h3>Coverage and Settings</h3>
-      <% %w[cost_excluded expected_done_excluded efficiency_excluded dtc_excluded unclassified archived_hours excluded_hours ownership_review].each do |key| %><p><%= periodic_time_link("#{TicketJourneyPeriodicTime::LABELS[key]}: #{report[:sets][key].size}", key) %></p><% end %>
+      <% %w[cost_excluded expected_done_excluded efficiency_excluded dtc_excluded unclassified archived_hours ongoing_hours excluded_hours ownership_review].each do |key| %><p><%= periodic_time_link("#{TicketJourneyPeriodicTime::LABELS[key]}: #{report[:sets][key].size}", key) %></p><% end %>
       <p>When ownership must change after developer time was logged, the operating policy is to archive and replace the ticket. The report preserves all recorded users and separately shows archived effort; ticket edits are not blocked and no replacements are created automatically. Recorded owner changes are linked for review without assuming when the time was originally entered.</p>
       <p>Unavailable/invalid personal-time contributions: <%= report[:invalid_rows] %>. Invalid, negative and nonfinite time is excluded from comparisons, not presented as zero. Owner daily-hour fallbacks: <%= @time_hours_fallback.size %> owner(s).</p>
       <p>Efficiency uses <%= report[:metrics]['efficiency'][:rows].size %> paired ticket-owner contributions: delivered <%= performance_number(report[:metrics]['efficiency'][:delivered_weight]) %> CW / <%= performance_number(report[:metrics]['efficiency'][:actual_effort]) %> owner h. Planned <%= performance_number(report[:metrics]['efficiency'][:expected_weight]) %> CW / <%= performance_number(report[:metrics]['efficiency'][:planned_effort]) %> expected h.</p>
       <p>Totals cover visible tickets in the selected project and child projects, using the Performance tracker scope. Archived, On-Hold and Ongoing hours remain visible separately and count toward logged time, without delivery credit. Time without a ticket, on excluded trackers, or outside this hierarchy is outside these totals. Partial visibility may limit comparison with full configured capacity.</p>
     </section>
-  <% else %><p class="nodata">Select Ticket Owner(s), set the period, and click Apply. Initial navigation does not scan issues or time entries. Configure DTC targets and owner-share % before interpreting target comparisons.</p><% end %>
+  <% else %><p class="nodata">Select Ticket Owner(s), set the period, and click Apply. Initial navigation does not scan issues or time entries. Review configured DTC targets and the Development to Total Ticket Time Estimation Ratio before interpreting comparisons.</p><% end %>
   <%= render 'periodic_time_rules' %>
 </div>

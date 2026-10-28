@@ -1,4 +1,8 @@
 module TicketJourneyHelper
+  def ticket_age_label(value, precision: 0)
+    value.nil? ? 'N/A' : "#{number_with_precision(value, precision: precision, strip_insignificant_zeros: true)}d"
+  end
+
   def support_section_params
     support_section = params[:support_section].to_s
     support_section.present? ? { 'support_section' => support_section } : {}

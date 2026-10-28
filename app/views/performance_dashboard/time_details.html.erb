@@ -4,6 +4,7 @@
   <%= javascript_include_tag 'performance_navigation', plugin: 'redmine_ticket_journey', defer: true %>
 <% end %>
 <div class="performance-page">
+  <p class="performance-context">Ongoing tickets remain in time totals but have no aging value. Age buckets and age-eligible denominators exclude them.</p>
   <%= render 'header', page_title: @detail_title, show_filters: false %>
   <p><%= link_to '← Back to Performance Time', performance_dashboard_path(@project, **performance_time_params(time_month: nil)), data: { performance_back: true } %></p>
   <p><strong><%= @owner_label %></strong> · As of <%= format_date(@date) %> · <%= @detail_count %> matching tickets across all pages.</p>

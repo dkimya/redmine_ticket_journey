@@ -33,6 +33,8 @@ class TicketJourneyPeriodicTimeTest < ActiveSupport::TestCase
     assert_equal 10.0, result[:valid_visible_hours]
     assert_equal 4.0, result[:breakdown]['expected_done']
     assert_equal 6.0, result[:breakdown]['expected_unfinished']
+    assert_equal 10.0, result[:reconciliation]['expected_work']
+    assert_equal result[:valid_visible_hours], result[:reconciliation].values.sum
     assert_equal 10.0, result[:breakdown].values.sum
     assert_equal 9.0, result[:metrics]['expected_done_hours'][:plan]
     assert_in_delta 13.0 / 27, result[:metrics]['efficiency'][:plan]
@@ -90,7 +92,7 @@ class TicketJourneyPeriodicTimeTest < ActiveSupport::TestCase
     assert_equal 5.0, team[:metrics]['expected_done_hours'][:actual]
   end
 
-  test 'unavailable time never becomes zero while missing targets leave valid actuals usable' do
+  test 'unavailable time never becomes zero while unset targets use confirmed initial values' do
     denied = report([row(1, time_allowed: false, ticket_hours: nil, owner_logs: {})], '1', available: false, any: false)
     assert_nil denied[:metrics]['total_hours'][:actual]
     assert_nil denied[:metrics]['other_hours'][:actual]
@@ -98,11 +100,11 @@ class TicketJourneyPeriodicTimeTest < ActiveSupport::TestCase
     assert_nil denied[:metrics]['ticket_cost'][:actual]
     empty_targets = TicketJourneyPeriodicTime.owner_report([row(1)], '1', @first, @last, @calendar, {}, 8,
       total_available: true)
-    assert_nil empty_targets[:metrics]['dtc'][:plan]
+    assert_equal 7.0, empty_targets[:metrics]['dtc'][:plan]
     assert_equal 7.0, empty_targets[:metrics]['dtc'][:actual]
-    assert_nil empty_targets[:metrics]['expected_done_hours'][:plan]
+    assert_equal 9.0, empty_targets[:metrics]['expected_done_hours'][:plan]
     assert_equal 4.0, empty_targets[:metrics]['expected_done_hours'][:actual]
-    assert_nil empty_targets[:metrics]['efficiency'][:plan]
+    assert_in_delta 5.0 / 9, empty_targets[:metrics]['efficiency'][:plan]
     assert_equal 1.25, empty_targets[:metrics]['efficiency'][:actual]
   end
 
@@ -182,6 +184,12 @@ class TicketJourneyPeriodicTimeTest < ActiveSupport::TestCase
     assert_equal [2], archived[:sets]['ownership_review'].map { |entry| entry[:id] }
     assert_empty archived[:tickets][:sets]['actual']
     assert_nil archived[:metrics]['efficiency'][:actual]
+    ongoing = report([row(3, current_status_name: 'Ongoing')])
+    assert_equal 4.0, ongoing[:metrics]['total_hours'][:actual]
+    assert_equal 4.0, ongoing[:breakdown]['ongoing']
+    assert_equal 0.0, ongoing[:breakdown]['excluded']
+    assert_equal [3], ongoing[:sets]['ongoing_hours'].map { |entry| entry[:id] }
+    assert_empty ongoing[:tickets][:sets]['expected']
   end
 
   private

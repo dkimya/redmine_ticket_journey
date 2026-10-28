@@ -144,7 +144,7 @@ class PeriodicTimeTest < ActionController::TestCase
     assert_select '.periodic-time-mix-row', count: 0
   end
 
-  test 'archived effort stays paid without output and activity mapping remains explicit' do
+  test 'archived effort stays paid without output and only named Development activities are classified' do
     issues = prepare_scan(archived_second: true)
     get :index, params: context.merge(owner_id: '1')
     assert_response :success
@@ -152,11 +152,23 @@ class PeriodicTimeTest < ActionController::TestCase
     assert_equal 7.0, report[:metrics]['total_hours'][:actual]
     assert_equal 3.0, report[:breakdown]['archived']
     assert_equal 0.0, report[:metrics]['other_hours'][:actual]
-    assert_nil @controller.instance_variable_get(:@time_mix)[:package_summary][:development_share]
-    assert_select '.periodic-time-mix p', text: /Development activities have not been mapped/
+    assert_equal TicketJourney::PerformanceSettings.development_activities.pluck(:id).map(&:to_s).sort,
+      @controller.instance_variable_get(:@time_mix)[:development_ids].sort
     get :index, params: context.merge(owner_id: '1', metric: 'archived_hours')
     assert_response :success
     assert_equal [issues.last.id], @controller.instance_variable_get(:@matching_issue_ids)
+  end
+
+  test 'legacy unset targets use the confirmed seven three and ninety defaults' do
+    prepare_scan
+    Setting.plugin_redmine_ticket_journey = { 'performance_periodic_dtc_target' => '',
+      'performance_periodic_priority_dtc_target' => '', 'performance_periodic_owner_share' => '' }
+    get :index, params: context.merge(owner_id: '1')
+    assert_response :success
+    metrics = @controller.instance_variable_get(:@periodic_time_report)[:metrics]
+    assert_equal 7.0, metrics['dtc'][:plan]
+    assert_equal 3.0, metrics['priority_dtc'][:plan]
+    assert_equal 9.0, metrics['expected_done_hours'][:plan]
   end
 
   private

@@ -40,10 +40,12 @@ class TicketJourneyPerformanceTimeTest < ActiveSupport::TestCase
     rows << row(23, status_name: 'Ongoing', priority: 'Immediate')
     report = TicketJourneyPerformanceTime.calculate(rows)
     assert_equal 9, report[:open]
-    assert_equal [3, 2, 2, 1], 4.times.map { |index| report[:sets]["time_age_#{index}"].size }
+    assert_equal [2, 2, 2, 1], 4.times.map { |index| report[:sets]["time_age_#{index}"].size }
     assert_equal 1, report[:sets]['time_age_excluded'].size
     assert_equal [23], report[:sets]['time_immediate'].map { |entry| entry[:id] }
     assert_equal report[:open], report[:priority]
+    assert_equal [23], report[:sets]['time_ongoing'].map { |entry| entry[:id] }
+    assert_equal [23], report[:sets]['time_priority_ongoing'].map { |entry| entry[:id] }
   end
 
   test 'schedule exclusions remove both planned and actual hours while totals remain visible' do
@@ -100,6 +102,10 @@ class TicketJourneyPerformanceTimeTest < ActiveSupport::TestCase
     assert_nil result[:age]
     assert_nil result[:planned]
     assert_includes result[:exclusions], 'Start Date is after report date'
+    issue.stubs(:start_date).returns(date)
+    ongoing = TicketJourneyPerformanceTime.enrich(row(status_name: 'Ongoing'), issue, date, calendar, entries, true, 8)
+    assert_nil ongoing[:age]
+    assert_equal 5.0, ongoing[:spent]
   end
 
   test 'productivity reuses monthly completion scope and matches numerator denominator exclusions' do

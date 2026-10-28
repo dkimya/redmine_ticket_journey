@@ -3,6 +3,7 @@
 <% end %>
 
 <div id="tj-wrap">
+  <p class="tj-page-sub">Ongoing tickets are excluded from aging values and age-eligible averages. Other counts and logged effort remain separate.</p>
   <div class="tj-page-header">
     <div class="tj-page-header-left">
       <div>
@@ -149,8 +150,8 @@
                 <td class="tj-td-native <%= row[:overdue].positive? ? 'tj-counter-active' : 'tj-counter-zero' %>"><%= aging_risk_count_link(row, :overdue, row[:overdue]) %></td>
                 <td class="tj-td-native"><%= aging_risk_count_link(row, :priority_open, row[:priority_open]) %></td>
                 <td class="tj-td-native"><%= aging_risk_count_link(row, :no_due_date, row[:no_due_date]) %></td>
-                <td class="tj-td-native"><%= number_with_precision(row[:avg_age], precision: 1, strip_insignificant_zeros: true) %>d</td>
-                <td class="tj-td-native"><%= row[:oldest_age] %>d</td>
+                <td class="tj-td-native"><%= ticket_age_label(row[:avg_age], precision: 1) %></td>
+                <td class="tj-td-native"><%= ticket_age_label(row[:oldest_age]) %></td>
               </tr>
             <% end %>
             <tr class="tj-flow-total-row">
@@ -163,8 +164,8 @@
               <td class="tj-td-native"><%= @aging_risk_totals[:overdue] %></td>
               <td class="tj-td-native"><%= @aging_risk_totals[:priority_open] %></td>
               <td class="tj-td-native"><%= @aging_risk_totals[:no_due_date] %></td>
-              <td class="tj-td-native"><%= number_with_precision(@aging_risk_totals[:avg_age], precision: 1, strip_insignificant_zeros: true) %>d</td>
-              <td class="tj-td-native"><%= @aging_risk_totals[:oldest_age] %>d</td>
+              <td class="tj-td-native"><%= ticket_age_label(@aging_risk_totals[:avg_age], precision: 1) %></td>
+              <td class="tj-td-native"><%= ticket_age_label(@aging_risk_totals[:oldest_age]) %></td>
             </tr>
           </tbody>
         </table>

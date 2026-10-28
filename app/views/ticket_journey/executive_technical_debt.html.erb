@@ -3,6 +3,7 @@
 <% end %>
 
 <div id="tj-wrap">
+  <p class="tj-page-sub">Ongoing tickets are excluded from aging values and age-eligible averages. Other counts and logged effort remain separate.</p>
   <div class="tj-page-header">
     <div class="tj-page-header-left">
       <div>
@@ -105,7 +106,7 @@
         <div class="tj-sc-value <%= totals[:technical_debt].positive? ? 'tj-sc-red' : 'tj-sc-green' %>"><%= duration_report_drilldown_link(@query, drilldowns[:technical_debt], totals[:technical_debt]) %></div>
       </div>
       <div class="tj-summary-card">
-        <div class="tj-sc-label" title="Unfinished technical-debt tickets older than the current average technical-debt age (<%= number_with_precision(totals[:average_debt_age].to_f, precision: 1, strip_insignificant_zeros: true) %> days).">Debt Aging Risk</div>
+        <div class="tj-sc-label" title="Unfinished technical-debt tickets older than the current average technical-debt age (<%= ticket_age_label(totals[:average_debt_age], precision: 1) %>).">Debt Aging Risk</div>
         <div class="tj-sc-value <%= totals[:debt_aging_risk].positive? ? 'tj-sc-orange' : 'tj-sc-dim' %>"><%= duration_report_drilldown_link(@query, drilldowns[:debt_aging_risk], totals[:debt_aging_risk]) %></div>
       </div>
       <div class="tj-summary-card">
@@ -215,7 +216,7 @@
               <tr>
                 <td class="tj-health-label"><%= h(row[:project]) %></td>
                 <td class="tj-health-count"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:count]) %></td>
-                <td class="tj-health-percent">Stopped <%= row[:stopped] %> / Overdue <%= row[:overdue] %> / Oldest <%= row[:oldest_age] %>d</td>
+                <td class="tj-health-percent">Stopped <%= row[:stopped] %> / Overdue <%= row[:overdue] %> / Oldest <%= ticket_age_label(row[:oldest_age]) %></td>
               </tr>
             <% end %>
           </tbody>
@@ -233,7 +234,7 @@
               <tr>
                 <td class="tj-health-label"><%= h(row[:owner]) %></td>
                 <td class="tj-health-count"><%= duration_report_drilldown_link(@query, row[:issue_ids], row[:count]) %></td>
-                <td class="tj-health-percent">Stopped <%= row[:stopped] %> / Overdue <%= row[:overdue] %> / Oldest <%= row[:oldest_age] %>d</td>
+                <td class="tj-health-percent">Stopped <%= row[:stopped] %> / Overdue <%= row[:overdue] %> / Oldest <%= ticket_age_label(row[:oldest_age]) %></td>
               </tr>
             <% end %>
           </tbody>
@@ -302,7 +303,7 @@
                 <td class="tj-td-native <%= row[:stopped].positive? ? 'tj-counter-active' : '' %>"><%= row[:stopped].positive? ? row[:stopped] : '-' %></td>
                 <td class="tj-td-native <%= row[:overdue].positive? ? 'tj-counter-active' : '' %>"><%= row[:overdue].positive? ? row[:overdue] : '-' %></td>
                 <td class="tj-td-native <%= row[:priority_open].positive? ? 'tj-counter-active' : '' %>"><%= row[:priority_open].positive? ? row[:priority_open] : '-' %></td>
-                <td class="tj-td-native"><%= row[:oldest_age] %>d</td>
+                <td class="tj-td-native"><%= ticket_age_label(row[:oldest_age]) %></td>
               </tr>
             <% end %>
           </tbody>
@@ -375,7 +376,7 @@
                   <td class="tj-td-native"><%= h(row[:current_status]) %></td>
                   <td class="tj-td-native"><%= row[:due_date] ? format_date(row[:due_date]) : '-' %></td>
                   <td class="tj-td-native"><%= h(row[:original_sprint]) %></td>
-                  <td class="tj-td-native"><%= row[:age_days] %>d</td>
+                  <td class="tj-td-native"><%= ticket_age_label(row[:age_days]) %></td>
                   <td class="tj-td-native"><%= signals.any? ? h(signals.join(', ')) : '-' %></td>
                 </tr>
               <% end %>
@@ -418,7 +419,7 @@
                   <td class="tj-td-native"><%= row[:due_date] ? format_date(row[:due_date]) : '-' %></td>
                   <td class="tj-td-native"><%= row[:closed_at] ? format_date(row[:closed_at].to_date) : '-' %></td>
                   <td class="tj-td-native"><%= h(row[:original_sprint]) %></td>
-                  <td class="tj-td-native"><%= row[:debt_age_days] %>d</td>
+                  <td class="tj-td-native"><%= ticket_age_label(row[:debt_age_days]) %></td>
                 </tr>
               <% end %>
             </tbody>

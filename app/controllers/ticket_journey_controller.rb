@@ -841,7 +841,7 @@ class TicketJourneyController < ApplicationController
         []
       end
 
-    bugs.select { |issue| issue.closed_on.present? && issue.closed_on.to_date.between?(start_date, end_date) }
+    bugs.select { |issue| TicketJourneyPerformance.aging_eligible?(issue.status&.name) && issue.closed_on.present? && issue.closed_on.to_date.between?(start_date, end_date) }
         .select { |issue| issue.custom_value_for(BUG_IMPACT_RATING_CF_ID)&.value.to_i >= 3 || priority_performance_ticket?(issue) }
         .map do |issue|
       days_to_close = issue.created_on.present? ? (issue.closed_on.to_date - issue.created_on.to_date).to_f.round(1) : 0.0
@@ -923,7 +923,7 @@ class TicketJourneyController < ApplicationController
     open_rows, _open_totals = compute_owner_workload_report
     aged_open_issues = debt_issues.select { |issue| executive_debt_age_days(issue, end_date).to_i >= 30 }
     debt_age_days = debt_issues.filter_map { |issue| executive_debt_age_days(issue, end_date) }
-    average_debt_age = debt_age_days.any? ? (debt_age_days.sum.to_f / debt_age_days.size).round(1) : 0.0
+    average_debt_age = debt_age_days.any? ? (debt_age_days.sum.to_f / debt_age_days.size).round(1) : nil
     debt_aging_risk_issues = debt_issues.select do |issue|
       age_days = executive_debt_age_days(issue, end_date)
       next false unless age_days
@@ -1086,6 +1086,7 @@ class TicketJourneyController < ApplicationController
   end
 
   def executive_debt_age_days(issue, snapshot_date)
+    return unless TicketJourneyPerformance.aging_eligible?(issue.status&.name)
     return if issue.due_date.blank?
 
     [(snapshot_date - issue.due_date).to_i, 0].max
@@ -1093,6 +1094,7 @@ class TicketJourneyController < ApplicationController
 
   def executive_resolved_debt_age_days(item)
     issue = item[:issue]
+    return unless TicketJourneyPerformance.aging_eligible?(issue.status&.name)
     return if issue.due_date.blank? || item[:closed_at].blank?
 
     [(item[:closed_at].to_date - issue.due_date).to_i, 0].max
@@ -1155,7 +1157,7 @@ class TicketJourneyController < ApplicationController
         priority: issue.priority&.name || '-',
         due_date: issue.due_date,
         original_sprint: issue.custom_value_for(TICKET_ORIGINAL_SPRINT_CF_ID)&.value.presence || '-',
-        age_days: executive_debt_age_days(issue, snapshot_date).to_i,
+        age_days: executive_debt_age_days(issue, snapshot_date),
         updated_on: issue.updated_on,
         stopped: paused_status?(status_at_end),
         overdue: true
@@ -1177,13 +1179,13 @@ class TicketJourneyController < ApplicationController
         due_date: issue.due_date,
         closed_at: item[:closed_at],
         original_sprint: issue.custom_value_for(TICKET_ORIGINAL_SPRINT_CF_ID)&.value.presence || '-',
-        debt_age_days: executive_resolved_debt_age_days(item).to_i
+        debt_age_days: executive_resolved_debt_age_days(item)
       }
     end.sort_by { |row| [-row[:debt_age_days].to_i, row[:project].to_s.downcase, row[:issue_id].to_i] }
   end
 
   def executive_oldest_debt_age(issues, snapshot_date)
-    Array(issues).filter_map { |issue| executive_debt_age_days(issue, snapshot_date) }.max.to_i
+    Array(issues).filter_map { |issue| executive_debt_age_days(issue, snapshot_date) }.max
   end
 
   # ---------------------------------------------------------------
@@ -2878,15 +2880,16 @@ class TicketJourneyController < ApplicationController
         priority_open: 0,
         no_due_date: 0,
         age_sum: 0,
-        oldest_age: 0,
-        avg_age: 0.0
+        age_count: 0,
+        oldest_age: nil,
+        avg_age: nil
       }
     end
 
     issues.each do |issue|
       owner_value, owner_name = ticket_owner_info(issue)
       row = rows[[owner_value, owner_name]]
-      age_days = [(today - issue.created_on.to_date).to_i, 0].max
+      age_days = ticket_creation_age_days(issue, today)
 
       row[:total_open] += 1
       row[:technical_open] += 1 if technical_tracker?(issue.tracker&.name)
@@ -2896,12 +2899,15 @@ class TicketJourneyController < ApplicationController
       row[:overdue] += 1 if issue.due_date.present? && issue.due_date < today
       row[:priority_open] += 1 if priority_performance_ticket?(issue)
       row[:no_due_date] += 1 if issue.due_date.blank?
-      row[:age_sum] += age_days
-      row[:oldest_age] = [row[:oldest_age], age_days].max
+      if age_days
+        row[:age_sum] += age_days
+        row[:age_count] += 1
+        row[:oldest_age] = [row[:oldest_age], age_days].compact.max
+      end
     end
 
     owner_rows = rows.values.map do |row|
-      row[:avg_age] = row[:total_open].positive? ? row[:age_sum].to_f / row[:total_open] : 0.0
+      row[:avg_age] = row[:age_count].positive? ? row[:age_sum].to_f / row[:age_count] : nil
       row
     end
 
@@ -3299,7 +3305,7 @@ class TicketJourneyController < ApplicationController
     @query.issues(
       order: "#{Issue.table_name}.id ASC",
       include: [:status, :author, :tracker, :priority, { custom_values: :custom_field }]
-    ).reject { |issue| issue.status&.is_closed? }
+    ).reject { |issue| issue.status&.is_closed? || !TicketJourneyPerformance.aging_eligible?(issue.status&.name) }
   end
 
   def aging_calculation_param
@@ -3308,6 +3314,7 @@ class TicketJourneyController < ApplicationController
   end
 
   def aging_start_time(issue, transitions, calculation)
+    return unless TicketJourneyPerformance.aging_eligible?(issue.status&.name)
     case calculation
     when 'planning'
       return nil if first_todo_entry_time(transitions).present?
@@ -3318,6 +3325,11 @@ class TicketJourneyController < ApplicationController
     else
       first_todo_entry_time(transitions)
     end
+  end
+
+  def ticket_creation_age_days(issue, date)
+    return unless TicketJourneyPerformance.aging_eligible?(issue.status&.name) && issue.created_on
+    [(date - issue.created_on.to_date).to_i, 0].max
   end
 
   def first_todo_entry_time(transitions)
@@ -3359,8 +3371,8 @@ class TicketJourneyController < ApplicationController
       overdue: 0,
       priority_open: 0,
       no_due_date: 0,
-      avg_age: 0.0,
-      oldest_age: 0,
+      avg_age: nil,
+      oldest_age: nil,
       issue_ids_by_scope: Hash.new { |hash, key| hash[key] = [] }
     }
   end
@@ -3373,8 +3385,8 @@ class TicketJourneyController < ApplicationController
     end
 
     age_sum = rows.sum { |row| row[:age_sum].to_i }
-    totals[:avg_age] = totals[:total_open].positive? ? age_sum.to_f / totals[:total_open] : 0.0
-    totals[:oldest_age] = rows.map { |row| row[:oldest_age].to_i }.max.to_i
+    totals[:avg_age] = totals[:total_open].positive? ? age_sum.to_f / totals[:total_open] : nil
+    totals[:oldest_age] = rows.filter_map { |row| row[:oldest_age] }.max
     rows.each do |row|
       row[:issue_ids_by_scope].each do |scope, issue_ids|
         totals[:issue_ids_by_scope][scope].concat(issue_ids)
@@ -3459,7 +3471,7 @@ class TicketJourneyController < ApplicationController
 
       owner_value, owner_name = ticket_owner_info(issue)
       due_date = issue.due_date
-      age_days = [(today - issue.created_on.to_date).to_i, 0].max
+      age_days = ticket_creation_age_days(issue, today)
 
       {
         issue: issue,
@@ -3506,7 +3518,7 @@ class TicketJourneyController < ApplicationController
         overdue: owner_issues.count { |row| row[:overdue] },
         stopped: owner_issues.count { |row| row[:stopped] },
         no_due_date: owner_issues.count { |row| row[:no_due_date] },
-        oldest_age: owner_issues.map { |row| row[:age_days].to_i }.max.to_i
+        oldest_age: owner_issues.filter_map { |row| row[:age_days] }.max
       }
     end.sort_by { |row| [-row[:overdue].to_i, -row[:stopped].to_i, -row[:total_open].to_i, row[:owner].to_s.downcase] }
   end
@@ -3523,13 +3535,14 @@ class TicketJourneyController < ApplicationController
             owners: grouped_rows.map { |row| row[:owner] }.compact.uniq.sort.join(', '),
             overdue: grouped_rows.count { |row| row[:overdue] },
             stopped: grouped_rows.count { |row| row[:stopped] },
-            oldest_age: grouped_rows.map { |row| row[:age_days].to_i }.max.to_i
+            oldest_age: grouped_rows.filter_map { |row| row[:age_days] }.max
           }
         end.sort_by { |row| [-(row[:impact_rating] || 0), -row[:count].to_i, row[:related_page].to_s.downcase] }
   end
 
   def priority_risk_totals(rows, owner_rows)
     return empty_priority_risk_totals if rows.empty?
+    ages = rows.filter_map { |row| row[:age_days] }
 
     {
       owners: owner_rows.size,
@@ -3537,8 +3550,8 @@ class TicketJourneyController < ApplicationController
       overdue: rows.count { |row| row[:overdue] },
       stopped: rows.count { |row| row[:stopped] },
       no_due_date: rows.count { |row| row[:no_due_date] },
-      avg_age: rows.sum { |row| row[:age_days].to_i }.to_f / rows.size,
-      oldest_age: rows.map { |row| row[:age_days].to_i }.max.to_i
+      avg_age: ages.any? ? ages.sum.to_f / ages.size : nil,
+      oldest_age: ages.max
     }
   end
 
@@ -3549,8 +3562,8 @@ class TicketJourneyController < ApplicationController
       overdue: 0,
       stopped: 0,
       no_due_date: 0,
-      avg_age: 0.0,
-      oldest_age: 0
+      avg_age: nil,
+      oldest_age: nil
     }
   end
 
@@ -4923,9 +4936,10 @@ class TicketJourneyController < ApplicationController
       page = bug_related_page_value(issue).presence || '-'
       last_update_days = issue.updated_on.present? ? [(today - issue.updated_on.to_date).to_i, 0].max : nil
 
-      risk = if (today - issue.created_on.to_date).to_i > 14 || impact >= 4
+      age = ticket_creation_age_days(issue, today)
+      risk = if (age && age > 14) || impact >= 4
                'High'
-             elsif (today - issue.created_on.to_date).to_i > 7 || impact >= 3
+             elsif (age && age > 7) || impact >= 3
                'Medium'
              else
                'Low'

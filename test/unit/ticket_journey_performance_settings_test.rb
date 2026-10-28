@@ -2,7 +2,7 @@ require File.expand_path('../test_helper', __dir__)
 
 class TicketJourneyPerformanceSettingsTest < ActiveSupport::TestCase
   test 'development activities map existing records and allow an explicit empty selection' do
-    activity = TimeEntryActivity.create!(name: 'Periodic Test Development')
+    activity = TimeEntryActivity.find_by(name: 'Development') || TimeEntryActivity.create!(name: 'Development')
     setting = Setting.find_by(name: 'plugin_redmine_ticket_journey') || Setting.new(name: 'plugin_redmine_ticket_journey')
     setting.value = { 'performance_periodic_development_activity_ids' => ['', activity.id.to_s] }
     assert setting.valid?, setting.errors.full_messages.join(', ')
@@ -12,11 +12,14 @@ class TicketJourneyPerformanceSettingsTest < ActiveSupport::TestCase
       setting.value = { 'performance_periodic_development_activity_ids' => ids }
       assert_not setting.valid?
     end
+    qa = TimeEntryActivity.create!(name: 'Periodic Test QA')
+    setting.value = { 'performance_periodic_development_activity_ids' => [qa.id.to_s] }
+    assert_not setting.valid?
   end
-  test 'Periodic Time targets are optional finite and independently validated' do
+  test 'Periodic Time targets use confirmed defaults preserve overrides and reject invalid inputs' do
     setting = Setting.find_by(name: 'plugin_redmine_ticket_journey') || Setting.new(name: 'plugin_redmine_ticket_journey')
     %w[performance_periodic_dtc_target performance_periodic_priority_dtc_target].each do |key|
-      ['', nil].each { |value| assert_nil TicketJourney::PerformanceSettings.periodic_target({ key => value }, key) }
+      ['', nil].each { |value| assert_equal TicketJourney::PerformanceSettings::PERIODIC_DEFAULTS[key], TicketJourney::PerformanceSettings.periodic_target({ key => value }, key) }
       %w[-1 NaN Infinity invalid].each do |value|
         setting.value = { key => value }
         assert_not setting.valid?, "Expected invalid #{key}=#{value}"
@@ -37,6 +40,9 @@ class TicketJourneyPerformanceSettingsTest < ActiveSupport::TestCase
       setting.value = { 'performance_periodic_owner_share' => value }
       assert_not setting.valid?
     end
+    assert_equal 90.0, TicketJourney::PerformanceSettings.periodic_target({}, 'performance_periodic_owner_share')
+    assert_equal 7.0, TicketJourney::PerformanceSettings.periodic_target({}, 'performance_periodic_dtc_target')
+    assert_equal 3.0, TicketJourney::PerformanceSettings.periodic_target({}, 'performance_periodic_priority_dtc_target')
   end
 
   test 'time settings reject impossible calendars thresholds and field mappings' do

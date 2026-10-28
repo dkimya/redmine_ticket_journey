@@ -1,6 +1,12 @@
 module TicketJourney
   module PerformanceSettings
     DEFAULT_DELIVERY_TARGET = 90.0
+    PERIODIC_DEFAULTS = {
+      'performance_periodic_dtc_target' => 7.0,
+      'performance_periodic_priority_dtc_target' => 3.0,
+      # Retain the stored key for existing installations and explicit overrides.
+      'performance_periodic_owner_share' => 90.0
+    }.freeze
 
     def self.parse_target(value)
       number = Float(value.to_s, exception: false)
@@ -16,9 +22,16 @@ module TicketJourney
     end
 
     def self.periodic_target(settings, key)
-      return parse_target(settings[key]) if key == 'performance_periodic_owner_share'
-      number = Float(settings[key].to_s, exception: false)
+      value = settings[key].blank? ? PERIODIC_DEFAULTS[key] : settings[key]
+      return parse_target(value) if key == 'performance_periodic_owner_share'
+      number = Float(value.to_s, exception: false)
       number if number && number.finite? && number >= 0
+    end
+
+    # Classification is now a confirmed business rule, not a configurable guess.
+    # Include project-specific and inactive activities used by historical entries.
+    def self.development_activities
+      TimeEntryActivity.where(name: 'Development')
     end
 
     def self.included(base)
@@ -32,8 +45,8 @@ module TicketJourney
       return unless name == 'plugin_redmine_ticket_journey' && value.is_a?(Hash)
       config = value
       activity_ids = Array(config['performance_periodic_development_activity_ids']).map(&:to_s).reject(&:blank?).uniq
-      if activity_ids.any? && (activity_ids.any? { |id| !id.match?(/\A[1-9]\d*\z/) } || TimeEntryActivity.where(id: activity_ids).count != activity_ids.size)
-        errors.add(:base, 'Development activities must be selected from existing time-entry activities.')
+      if activity_ids.any? && (activity_ids.any? { |id| !id.match?(/\A[1-9]\d*\z/) } || TicketJourney::PerformanceSettings.development_activities.where(id: activity_ids).count != activity_ids.size)
+        errors.add(:base, 'Development activity mapping must use existing activities named Development.')
       end
       %w[performance_periodic_dtc_target performance_periodic_priority_dtc_target performance_periodic_owner_share].each do |key|
         next if config[key].blank?

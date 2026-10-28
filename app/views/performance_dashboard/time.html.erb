@@ -6,7 +6,7 @@
 <% end %>
 <div class="performance-page">
   <%= render 'header' %>
-  <p class="performance-context">Selected project and all subprojects · Current Ticket Owners and schedule fields · Visible direct logged hours only <%= performance_tip('Same tracker and open-status scope as Tickets and Returns: New, On-Hold and closed statuses excluded; Ongoing included. No child-ticket time rollups. All entry authors are included under current time-entry visibility, using work dates through the report date. Backdated entries and current calendar/schedule edits can change historical results.') %></p>
+  <p class="performance-context">Selected project and all subprojects · Current Ticket Owners and schedule fields · Visible direct logged hours only <%= performance_tip('Same tracker and open-status scope as Tickets and Returns: New, On-Hold and closed statuses excluded; Ongoing remains in open/time totals but is excluded from every age calculation. No child-ticket time rollups. All entry authors are included under current time-entry visibility, using work dates through the report date. Backdated entries and current calendar/schedule edits can change historical results.') %></p>
   <% if @time_report %>
     <% report = @time_report %>
     <% if @selected_owners.any? { |owner| !owner.active? } %><p>Includes inactive owners retained by this report link. The picker lists active users only.</p><% end %>

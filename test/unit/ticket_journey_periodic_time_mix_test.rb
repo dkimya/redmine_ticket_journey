@@ -9,16 +9,17 @@ class TicketJourneyPeriodicTimeMixTest < ActiveSupport::TestCase
     rows = [row(1, entries: [entry('1', '10', 6), entry('2', '20', 2)]),
       row(2, owner_id: '2', due: nil, entries: [entry('1', '20', 3)]),
       row(3, current_status_name: 'Archived', entries: [entry('1', '10', 4), entry('3', '20', 2)]),
-      row(4, current_status_name: 'On-Hold', entries: [entry('1', '20', 1)])]
+      row(4, current_status_name: 'On-Hold', entries: [entry('1', '20', 1)]),
+      row(5, current_status_name: 'Ongoing', entries: [entry('1', '20', 2)])]
     result = calculate(rows)
-    assert_equal 14.0, result[:personal_summary][:total]
+    assert_equal 16.0, result[:personal_summary][:total]
     assert_equal 8.0, result[:package_summary][:total]
     assert_equal 75.0, result[:package_summary][:development_share]
     assert_equal 75.0, result[:package_summary][:owner_share]
     assert_equal ['1', '2'], result[:package].map { |item| item[:user_id] }
-    assert_equal %w[expected_unfinished other archived excluded], result[:personal].map { |item| item[:category] }
+    assert_equal %w[expected_unfinished other archived excluded ongoing], result[:personal].map { |item| item[:category] }
     assert_equal 1, result[:package_summary][:tickets]
-    assert_equal 4, result[:personal_summary][:tickets]
+    assert_equal 5, result[:personal_summary][:tickets]
     assert_equal 6.0, TicketJourneyPeriodicTimeMix.summarize(result[:archived], ['10'])[:total]
     assert_equal ['1', '3'], result[:archived].map { |item| item[:user_id] }
   end

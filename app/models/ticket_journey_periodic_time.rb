@@ -1,7 +1,7 @@
 # Periodic Time: ticket attribution is current owner; personal time
 # always follows TimeEntry.user_id. All loaders are read-only and batch bounded.
 class TicketJourneyPeriodicTime
-  WORK_CATEGORIES = %w[expected_done expected_unfinished other archived excluded unclassified].freeze
+  WORK_CATEGORIES = %w[expected_done expected_unfinished other archived ongoing excluded unclassified].freeze
   GROUP_FIELDS = { 'actor' => :report_owner_name, 'project' => :project_name,
     'tracker' => :tracker_name, 'status' => :status_name }.freeze
 
@@ -21,10 +21,12 @@ class TicketJourneyPeriodicTime
   }.freeze
   LABELS = METRICS.transform_values(&:first).merge(
     'expected_done_all' => 'All Owner Hours on Completed Expected Work',
+    'expected_work_hours' => 'Logged Hours on the Full Expectation Package',
     'expected_unfinished' => 'Owner Hours on Unfinished Expected Work',
     'unclassified' => 'Owner Hours with Unavailable Ticket Owner',
     'archived_hours' => 'Logged Hours on Currently Archived Tickets',
-    'excluded_hours' => 'Logged Hours on Current On-Hold or Ongoing Tickets',
+    'ongoing_hours' => 'Logged Hours on Current Ongoing Tickets',
+    'excluded_hours' => 'Logged Hours on Current On-Hold Tickets',
     'time_mix' => 'Logged Time by Activity and User',
     'ownership_review' => 'Logged Time on Tickets with Recorded Owner Changes',
     'cost_excluded' => 'Done Tickets Excluded from Cost Comparison',
@@ -100,10 +102,17 @@ class TicketJourneyPeriodicTime
 
   def self.work_category(row, expected_ids, completed_ids)
     return 'archived' if TicketJourneyPeriodicTickets.current_status(row) == 'Archived'
+    return 'ongoing' if TicketJourneyPeriodicTickets.current_status(row) == 'Ongoing'
     return 'excluded' if TicketJourneyPeriodicTickets.excluded?(row)
     return 'unclassified' unless row[:owner_visible]
     return 'expected_done' if completed_ids.include?(row[:id])
     expected_ids.include?(row[:id]) ? 'expected_unfinished' : 'other'
+  end
+
+  def self.reconciliation(breakdown)
+    parts = %w[expected_done expected_unfinished].map { |key| breakdown[key] }
+    breakdown.except('expected_done', 'expected_unfinished').merge(
+      'expected_work' => parts.any?(&:nil?) ? nil : finite_sum(parts.sum))
   end
 
   def self.owner_report(rows, owner_id, first_day, last_day, calendar, settings, daily_hours,
@@ -172,15 +181,18 @@ class TicketJourneyPeriodicTime
     }
     sets = result.transform_values { |entry| entry[:rows] }.merge(
       'expected_done_all' => logs.fetch('expected_done', []),
+      'expected_work_hours' => logs.fetch('expected_done', []) + logs.fetch('expected_unfinished', []),
       'expected_unfinished' => logs.fetch('expected_unfinished', []), 'unclassified' => logs.fetch('unclassified', []),
       'archived_hours' => logs.fetch('archived', []), 'excluded_hours' => logs.fetch('excluded', []),
+      'ongoing_hours' => logs.fetch('ongoing', []),
       'time_mix' => personal,
       'ownership_review' => personal.select { |row| Array(row[:extraordinary_reasons]).include?('Ticket Owner changed') },
       'cost_excluded' => done - cost_rows, 'efficiency_excluded' => expected - efficiency_rows,
       'expected_done_excluded' => tickets[:sets]['completed'].reject { |row| expected_done.any? { |item| item[:id] == row[:id] } },
       'dtc_excluded' => done - dtc_rows)
+    breakdown = WORK_CATEGORIES.to_h { |key| [key, any_time_available ? sum_logs.call(logs.fetch(key, [])) : nil] }
     { metrics: result, sets: sets, tickets: tickets, personal: personal,
-      breakdown: WORK_CATEGORIES.to_h { |key| [key, any_time_available ? sum_logs.call(logs.fetch(key, [])) : nil] },
+      breakdown: breakdown, reconciliation: reconciliation(breakdown),
       durations: durations, priority_durations: priority_durations, days: days, capacity: capacity,
       done_count: done.size, expected_done_count: tickets[:sets]['completed'].size,
       valid_visible_hours: any_time_available ? sum_logs.call(personal) : nil,
@@ -230,11 +242,12 @@ class TicketJourneyPeriodicTime
       end
       [key, entry]
     end
+    breakdown = WORK_CATEGORIES.to_h do |key|
+      values = reports.map { |report| report[:breakdown][key] }
+      [key, values.any?(&:nil?) ? nil : values.sum]
+    end
     { metrics: metrics, sets: LABELS.keys.to_h { |key| [key, reports.flat_map { |report| report[:sets].fetch(key) }] },
-      breakdown: WORK_CATEGORIES.to_h do |key|
-        values = reports.map { |report| report[:breakdown][key] }
-        [key, values.any?(&:nil?) ? nil : values.sum]
-      end,
+      breakdown: breakdown, reconciliation: reconciliation(breakdown),
       valid_visible_hours: reports.any? { |report| report[:valid_visible_hours].nil? } ? nil : reports.sum { |report| report[:valid_visible_hours] },
       expected_done_raw_hours: reports.any? { |report| report[:expected_done_raw_hours].nil? } ? nil : reports.sum { |report| report[:expected_done_raw_hours] },
       all_done_visible_cost: reports.any? { |report| report[:all_done_visible_cost].nil? } ? nil : reports.sum { |report| report[:all_done_visible_cost] },

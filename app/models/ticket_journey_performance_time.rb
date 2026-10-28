@@ -6,6 +6,8 @@ class TicketJourneyPerformanceTime
     'time_open' => 'All Open Tickets — Time', 'time_priority' => 'Priority Open Tickets',
     'time_immediate' => 'Immediate / Hot Fix Open Tickets', 'time_age_excluded' => 'Open Tickets with Missing or Future Start Dates',
     'time_priority_age_excluded' => 'Priority Open Tickets with Missing or Future Start Dates',
+    'time_ongoing' => 'Ongoing Open Tickets — Excluded from Aging',
+    'time_priority_ongoing' => 'Priority Ongoing Tickets — Excluded from Aging',
     'time_sv' => 'Schedule Variance Contributors', 'time_sv_excluded' => 'Open Tickets Excluded from SV',
     'time_estimate_excluded' => 'Open Tickets Without Usable PM Estimates',
     'time_balance' => 'Estimate Balance Contributors',
@@ -39,7 +41,7 @@ class TicketJourneyPerformanceTime
     start = issue.start_date
     estimate = positive(issue.estimated_hours)
     hours = can_view_time ? spent(entries, date) : nil
-    age = calendar.age(start, date)
+    age = TicketJourneyPerformance.aging_eligible?(row[:status_name]) ? calendar.age(start, date) : nil
     fraction = calendar.elapsed_fraction(start, issue.due_date, date, daily_hours: daily_hours)
     reasons = []
     reasons << 'Set Start Date' unless start
@@ -67,12 +69,16 @@ class TicketJourneyPerformanceTime
   def self.calculate(rows, month: nil)
     open = rows.select { |row| row[:open] && !TicketJourneyPerformance::OPEN_EXCLUDED_STATUSES.include?(row[:status_name]) }
     priority = open.select { |row| priority?(row) }
+    age_eligible = open.select { |row| TicketJourneyPerformance.aging_eligible?(row[:status_name]) }
+    priority_age_eligible = priority.select { |row| TicketJourneyPerformance.aging_eligible?(row[:status_name]) }
     sets = {
       'time_open' => open, 'time_priority' => priority,
       # Hot Fix is the Immediate view, not an invented tracker/custom-field rule.
       'time_immediate' => open.select { |row| row[:priority].match?(/immediate/i) },
-      'time_age_excluded' => open.select { |row| row[:age].nil? },
-      'time_priority_age_excluded' => priority.select { |row| row[:age].nil? },
+      'time_ongoing' => open - age_eligible,
+      'time_priority_ongoing' => priority - priority_age_eligible,
+      'time_age_excluded' => age_eligible.select { |row| row[:age].nil? },
+      'time_priority_age_excluded' => priority_age_eligible.select { |row| row[:age].nil? },
       'time_sv' => open.select { |row| row[:exclusions].empty? },
       'time_sv_excluded' => open.reject { |row| row[:exclusions].empty? },
       'time_estimate_excluded' => open.reject { |row| row[:estimate] },
@@ -86,8 +92,8 @@ class TicketJourneyPerformanceTime
       sets['time_delivered_excluded'] += missing_completion
     end
     4.times do |index|
-      sets["time_age_#{index}"] = open.select { |row| bucket(row[:age]) == index }
-      sets["time_priority_#{index}"] = priority.select { |row| bucket(row[:age]) == index }
+      sets["time_age_#{index}"] = age_eligible.select { |row| bucket(row[:age]) == index }
+      sets["time_priority_#{index}"] = priority_age_eligible.select { |row| bucket(row[:age]) == index }
     end
     sv = sets['time_sv']
     planned = sv.sum { |row| row[:planned] }

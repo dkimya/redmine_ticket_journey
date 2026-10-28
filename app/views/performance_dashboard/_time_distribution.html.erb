@@ -1,11 +1,11 @@
 <% report = @time_report; prefix = priority ? 'time_priority' : 'time_age'; population = report[:sets][priority ? 'time_priority' : 'time_open']; counts = 4.times.map { |index| report[:sets]["#{prefix}_#{index}"].size }; aged = counts.sum; excluded = population.size - aged %>
 <section class="performance-section">
-  <h3><span class="performance-step"><%= priority ? 2 : 1 %></span> <%= priority ? 'Priority Tickets' : 'Ticket' %> Age Distribution (Open Tickets) <%= performance_tip('Working days after current Start Date through As of Date; Start Date is age zero. Pauses included. Missing or future Start Dates are excluded from age buckets and explicitly counted. Bucket percentages use age-eligible tickets; coverage is shown below.') %></h3>
+  <h3><span class="performance-step"><%= priority ? 2 : 1 %></span> <%= priority ? 'Priority Tickets' : 'Ticket' %> Age Distribution (Open Tickets) <%= performance_tip('Working days after current Start Date through As of Date; Start Date is age zero. Pauses included. Ongoing tickets are excluded from aging. Missing or future Start Dates are excluded from age buckets and explicitly counted. Bucket percentages use age-eligible tickets; coverage is shown below.') %></h3>
   <div class="performance-return-distribution">
     <div class="performance-time-chart">
       <div class="performance-donut" role="img" aria-label="<%= population.size %> total tickets, <%= aged %> age-eligible; exact values in adjacent table" style="background:<%= performance_time_gradient(counts) %>"><div>
         <% if aged.zero? && population.any? %>
-          <strong><%= performance_time_link(population.size, priority ? 'time_priority' : 'time_open') %></strong><span><%= priority ? 'Priority' : 'Open' %> <%= population.size == 1 ? 'Ticket' : 'Tickets' %><br>No eligible Start Date</span>
+          <strong><%= performance_time_link(population.size, priority ? 'time_priority' : 'time_open') %></strong><span><%= priority ? 'Priority' : 'Open' %> <%= population.size == 1 ? 'Ticket' : 'Tickets' %><br>No age-eligible tickets</span>
         <% else %>
           <strong><%= aged %></strong><span><%= population.empty? ? (priority ? 'No Priority Tickets' : 'No Open Tickets') : (priority ? 'Age-eligible Priority Tickets' : 'Age-eligible Open Tickets') %></span>
         <% end %>
@@ -22,8 +22,8 @@
   </div>
   <p><%= aged %> of <%= performance_time_link(population.size, priority ? 'time_priority' : 'time_open') %> <%= priority ? 'priority open' : 'open' %> tickets have an eligible Start Date.
     <% if excluded.positive? %>
-      <% missing = population.count { |row| row[:start_date].nil? } %>
-      <strong><%= excluded %> excluded:</strong> <%= missing %> missing Start Date; <%= excluded - missing %> Start Date after report date.
+      <% ongoing = population.count { |row| !TicketJourneyPerformance.aging_eligible?(row[:status_name]) }; missing = population.count { |row| TicketJourneyPerformance.aging_eligible?(row[:status_name]) && row[:start_date].nil? } %>
+      <strong><%= excluded %> excluded:</strong> <%= performance_time_link("#{ongoing} Ongoing", priority ? 'time_priority_ongoing' : 'time_ongoing') %>; <%= missing %> missing Start Date; <%= excluded - missing - ongoing %> Start Date after report date.
       <%= performance_time_link('Investigate Start Dates', priority ? 'time_priority_age_excluded' : 'time_age_excluded') %>.
     <% end %>
   </p>

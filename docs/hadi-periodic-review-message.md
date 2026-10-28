@@ -1,3 +1,20 @@
+# Review status after V5 Part 4
+
+The last six questions have been answered. Do not resend the historical drafts
+below. No further business-definition confirmation is required for these six.
+Only deployed review and data validation remain; no message has been sent.
+
+Optional follow-up after deployment:
+
+“Thank you. The six answers are incorporated: Development-only activity
+classification, configurable initial 90% effort ratio, 7/3-day DTC targets,
+all-contributor time visibility, separate archived/ongoing paid effort, and
+Ongoing excluded from aging. The recorded hours remain attributed to their booked
+users. Please review the trend labels and activity/package breakdowns with us on
+the deployed page; the 90% estimate can be refined using the observed data.”
+
+## Historical drafts (superseded where answered)
+
 # Draft message to Hadi
 
 Part 3 status, 2026-10-28: creation-to-completion calendar DTC, time windows,

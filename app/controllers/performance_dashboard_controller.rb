@@ -431,7 +431,7 @@ class PerformanceDashboardController < ApplicationController
     packages = @periodic_time_owners.to_h { |entry| [entry[:owner].id.to_s, entry[:report][:tickets]] }
     @estimate_allowance = TicketJourney::PerformanceSettings.time_threshold(@settings, 'performance_estimate_allowance')
     if !@metric || @metric == 'time_mix'
-      development_ids = Array(@settings['performance_periodic_development_activity_ids']).map(&:to_s).reject(&:blank?)
+      development_ids = TicketJourney::PerformanceSettings.development_activities.pluck(:id).map(&:to_s)
       @time_mix = TicketJourneyPeriodicTimeMix.calculate(rows, @periodic_time_owners, @period_start, @period_end, development_ids, available: @periodic_time_available)
       records = @time_mix[:personal] + @time_mix[:package] + @time_mix[:archived]
       @time_mix_users = User.where(id: records.map { |entry| entry[:user_id] }.uniq).to_h { |user| [user.id.to_s, user.name] }

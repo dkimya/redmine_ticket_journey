@@ -13,7 +13,8 @@ module PerformanceDashboardHelper
     when :user_id then @time_mix_users[value] || "User ##{value.presence || 'unavailable'}"
     when :category then { 'expected_done' => 'Completed expected work', 'expected_unfinished' => 'Unfinished expected work',
       'other' => 'Other Work', 'archived' => 'Archived — paid effort without delivery credit',
-      'excluded' => 'On-Hold / Ongoing — outside delivery package', 'unclassified' => 'Ticket Owner unavailable' }[value] || value
+      'ongoing' => 'Ongoing — paid effort outside delivery package',
+      'excluded' => 'On-Hold — outside delivery package', 'unclassified' => 'Ticket Owner unavailable' }[value] || value
     else value
     end
   end

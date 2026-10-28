@@ -1,5 +1,15 @@
 # Reporting rules
 
+## V5 Part 4 answers — 2026-10-28
+
+The last six answers are applied locally. The authoritative current definitions
+are in [Periodic Time](periodic-time-spec.md); older dated notes below describe
+previous states. Targets now default to 7/3 calendar days and tentative 90% effort
+share, preserving explicit overrides. Development classification uses existing
+activities named Development. Ongoing paid hours are separate and Ongoing is
+excluded from aging calculations across the audited reports. No workflow editing
+restriction or automatic archive/replacement is introduced.
+
 ## Periodic individual-owner legend — 2026-10-28
 
 Tickets and Complexity Weight individual-owner charts now use a selectable owner

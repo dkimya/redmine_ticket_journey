@@ -1,5 +1,24 @@
 # Deployment and verification
 
+## V5 Part 4 implementation — 2026-10-28
+
+Deploy the changed controllers, models, helpers, views, settings module and init.rb
+together, then restart the host process. No migration, new field or enumeration is
+needed. Blank/absent stored Time targets use effective defaults 7/3/90 without
+rewriting settings; explicit overrides, including valid zero, remain intact. The
+ratio retains its existing stored key. Existing Development activities (including
+project-specific records) are resolved automatically; previously supplied IDs
+9/20/29 remain stored and are not rewritten.
+
+On a configured TEST Redmine, run the plugin test task, verify full requests and
+review activity/user/package/tracker totals against source time entries. Confirm
+expected + other + archived + ongoing plus On-Hold/unknown review categories
+reconcile, archived/ongoing effort earns no delivery credit, and Ongoing is absent
+from aging buckets/averages while remaining in appropriate counts and paid totals.
+Review desktop/mobile layout and trend explanations together after deployment.
+These changes have not been verified on the server; local JavaScript and whitespace
+checks do not validate Ruby behavior or installed-plugin compatibility.
+
 ## Periodic owner-trend legend — 2026-10-28
 
 Deploy the Periodic Tickets page, shared periodic trend partial and helper together;

@@ -3,6 +3,11 @@ class TicketJourneyPerformance
   BATCH_SIZE = 100
   TREND_MONTHS = 5
 
+  # Ongoing remains visible in non-aging populations and logged-time totals.
+  def self.aging_eligible?(status_name)
+    status_name.to_s.strip != 'Ongoing'
+  end
+
   def self.completed_month_ends(date)
     TREND_MONTHS.downto(1).map { |months| (date.beginning_of_month << (months - 1)) - 1 }
   end

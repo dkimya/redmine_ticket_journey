@@ -3,6 +3,7 @@
 <% end %>
 
 <div id="tj-wrap">
+  <p class="tj-page-sub">Ongoing tickets are excluded from aging values and age-eligible averages. Other counts and logged effort remain separate.</p>
   <div class="tj-page-header">
     <div class="tj-page-header-left">
       <div>
@@ -63,7 +64,7 @@
       </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label">Oldest Age</div>
-        <div class="tj-sc-value tj-sc-red"><%= @priority_risk_totals[:oldest_age] %>d</div>
+        <div class="tj-sc-value tj-sc-red"><%= ticket_age_label(@priority_risk_totals[:oldest_age]) %></div>
       </div>
     </div>
 
@@ -125,7 +126,7 @@
                   <td class="tj-td-title"><%= h(row[:owners].presence || '-') %></td>
                   <td class="tj-td-native <%= row[:overdue].to_i.positive? ? 'tj-counter-active' : 'tj-counter-zero' %>"><%= row[:overdue].to_i.positive? ? row[:overdue] : '-' %></td>
                   <td class="tj-td-native <%= row[:stopped].to_i.positive? ? 'tj-counter-active' : 'tj-counter-zero' %>"><%= row[:stopped].to_i.positive? ? row[:stopped] : '-' %></td>
-                  <td class="tj-td-native"><%= row[:oldest_age] %>d</td>
+                  <td class="tj-td-native"><%= ticket_age_label(row[:oldest_age]) %></td>
                 </tr>
               <% end %>
             </tbody>
@@ -163,7 +164,7 @@
                 <td class="tj-td-native"><%= h(row[:status]) %></td>
                 <td class="tj-td-native"><%= h(row[:tracker]) %></td>
                 <td class="tj-td-native"><%= row[:due_date].present? ? format_date(row[:due_date]) : '-' %></td>
-                <td class="tj-td-native"><%= row[:age_days] %>d</td>
+                <td class="tj-td-native"><%= ticket_age_label(row[:age_days]) %></td>
                 <td class="tj-td-native <%= row[:overdue] ? 'tj-counter-active' : 'tj-counter-zero' %>"><%= row[:overdue] ? 'Yes' : '-' %></td>
                 <td class="tj-td-native <%= row[:stopped] ? 'tj-counter-active' : 'tj-counter-zero' %>"><%= row[:stopped] ? 'Yes' : '-' %></td>
                 <td class="tj-td-native <%= row[:no_due_date] ? 'tj-counter-active' : 'tj-counter-zero' %>"><%= row[:no_due_date] ? 'Yes' : '-' %></td>
@@ -177,7 +178,7 @@
               <td class="tj-td-native">-</td>
               <td class="tj-td-native">-</td>
               <td class="tj-td-native">-</td>
-              <td class="tj-td-native"><%= number_with_precision(@priority_risk_totals[:avg_age], precision: 1, strip_insignificant_zeros: true) %>d avg</td>
+              <td class="tj-td-native"><%= ticket_age_label(@priority_risk_totals[:avg_age], precision: 1) %> avg</td>
               <td class="tj-td-native"><%= @priority_risk_totals[:overdue] %></td>
               <td class="tj-td-native"><%= @priority_risk_totals[:stopped] %></td>
               <td class="tj-td-native"><%= @priority_risk_totals[:no_due_date] %></td>
