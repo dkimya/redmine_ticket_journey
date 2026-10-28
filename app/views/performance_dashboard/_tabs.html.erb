@@ -5,7 +5,7 @@
     <% context[:tab] = @performance_tab unless @performance_tab == 'tickets' %>
     <% context[:dashboard_type] = key unless key == 'live' %>
     <% context.merge!(rsd: @period_start.iso8601, red: @period_end.iso8601) if key == 'periodic' && @period_start && @period_end %>
-    <%= link_to performance_dashboard_path(@project, **context), class: "performance-tab#{' is-active' if @dashboard_type == key}", title: (key == 'live' ? 'View a dashboard snapshot at the selected As of Date; this page does not automatically refresh.' : 'Tickets follow Hadi-confirmed Part 1 rules; Returns and Time have additional provisional definitions.'), aria: { current: (@dashboard_type == key ? 'page' : nil) } do %>
+    <%= link_to performance_dashboard_path(@project, **context), class: "performance-tab#{' is-active' if @dashboard_type == key}", title: (key == 'live' ? 'View a dashboard snapshot at the selected As of Date; this page does not automatically refresh.' : 'Part 1 rules have been confirmed for Tickets; Returns and Time have additional provisional definitions.'), aria: { current: (@dashboard_type == key ? 'page' : nil) } do %>
       <%= label %><% if key == 'periodic' %><span class="performance-tab-planned">Provisional</span><% end %>
     <% end %>
   <% end %>
@@ -17,7 +17,7 @@
     <% context[:dashboard_type] = @dashboard_type if @dashboard_type == 'periodic' %>
     <% context.merge!(rsd: @period_start.iso8601, red: @period_end.iso8601) if @dashboard_type == 'periodic' && @period_start && @period_end %>
     <%= link_to performance_dashboard_path(@project, **context), class: "performance-tab#{' is-active' if @performance_tab == key}", aria: { current: (@performance_tab == key ? 'page' : nil) } do %>
-      <%= label %><% if @dashboard_type == 'periodic' %><span class="performance-tab-planned"><%= key == 'tickets' ? 'Confirmed' : 'Provisional' %></span><% end %>
+      <%= label %><% if @dashboard_type == 'periodic' && key != 'tickets' %><span class="performance-tab-planned">Provisional</span><% end %>
     <% end %>
   <% end %>
 </nav>

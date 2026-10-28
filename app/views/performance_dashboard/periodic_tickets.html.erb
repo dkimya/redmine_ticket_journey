@@ -6,7 +6,7 @@
 <% end %>
 <div class="performance-page periodic-page">
   <%= render 'header', page_title: 'Periodic Performance — Tickets' %>
-  <p class="periodic-provisional"><strong>Part 1 rules confirmed by Hadi.</strong> Current owner, due date, priority, usable weight and status checks apply. Reopened tickets cannot count as delivered, including historical reports. <a href="#periodic-calculation-notes">Read calculation rules and coverage</a>.</p>
+  <p class="periodic-provisional"><strong>Part 1 rules have been confirmed.</strong> Current owner, due date, priority, usable weight and status checks apply. Reopened tickets cannot count as delivered, including historical reports. <a href="#periodic-calculation-notes">Read calculation rules and coverage</a>.</p>
   <p class="performance-context">Selected project and visible descendant projects · Bug, Feature, Change Request / Improvement, Task (Business Jobs) · Current Archived, Ongoing and On-Hold excluded</p>
   <% if @periodic_report %>
     <p><strong><%= @owner_label %></strong><% if @selected_owners.any? { |owner| !owner.active? } %> · Includes inactive owners from saved selections; picker lists active users only.<% end %></p>

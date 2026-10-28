@@ -7,7 +7,7 @@
 <% end %>
 <div class="performance-page periodic-page periodic-returns">
   <%= render 'header', page_title: 'Periodic Performance — Returns' %>
-  <p class="periodic-provisional"><strong>Provisional rules — awaiting Hadi's confirmation.</strong> Expected Done Tickets match Periodic Tickets' Completed from Expectation. Return counts use full recorded history through RED, including earlier incidents. Trends group these tickets by completion period. <a href="#periodic-return-rules">Read the rules</a>.</p>
+  <p class="periodic-provisional"><strong>Provisional rules — confirmation pending.</strong> Expected Done Tickets match Periodic Tickets' Completed from Expectation. Return counts use full recorded history through RED, including earlier incidents. Trends group these tickets by completion period. <a href="#periodic-return-rules">Read the rules</a>.</p>
   <p class="performance-context">Current Ticket Owner · Visible project hierarchy and tickets · Same tracker scope and current-status exclusions as Periodic Tickets · Metric includes Merge Conflict</p>
   <% if @periodic_return_report %>
     <% result = @periodic_return_report; total = result[:total] %>
@@ -73,11 +73,11 @@
     </section>
   <% else %><p class="nodata">Select Ticket Owner(s) and the reporting period, then click Apply. No tickets or return histories have been scanned.</p><% end %>
   <details class="performance-notes" id="periodic-return-rules"><summary>Provisional Returns calculation rules</summary>
-    <p>Returns-specific defaults await Hadi. The confirmed Part 1 rules define expectation, current owner, due dates and status checks. Delivery requires Done at RED and now; current excluded statuses are removed. Expected Done and Total Done reuse those exact sets.</p>
+    <p>Returns-specific defaults are pending confirmation. The confirmed Part 1 rules define expectation, current owner, due dates and status checks. Delivery requires Done at RED and now; current excluded statuses are removed. Expected Done and Total Done reuse those exact sets.</p>
     <p>Qualifying transitions into Returned use existing tracker/stage rules. Count full recorded history through RED, including before RSD, with Merge Conflict included. Progress, completion and reassignment never reset return totals. Native lifetime Return Count is unchanged.</p>
     <p><%= performance_consecutive_returns_definition %> The consecutive-distribution denominator is only tickets with at least one consecutive repeat, not every returned ticket. “3+” means ≥4 returns; “2+” means ≥3 repeats.</p>
     <p>Metric = incidents / tickets with ≥1 return. A zero denominator is N/A with an explicit empty/no-return explanation; zero incidents are still shown. Team ratios use combined counts. No new severity thresholds or adjusted Periodic metric are assumed.</p>
     <p>Weekly completion cohorts (monthly for periods over 120 days) partition Expected Done from the final RED package. Each ticket's latest qualifying completion determines its cohort; return counts still run through RED. Trends are not cumulative and do not rebuild expectation separately each week. Cohort counts sum to the main result; cohort ratios must not be averaged to get the overall metric.</p>
-    <p>Metric changes to Live use returned open tickets as denominator while retaining its open scope and five month-end snapshots. Its legacy non-Merge percentage remains separately labelled pending Hadi's review.</p>
+    <p>Metric changes to Live use returned open tickets as denominator while retaining its open scope and five month-end snapshots. Its legacy non-Merge percentage remains separately labelled pending review.</p>
   </details>
 </div>

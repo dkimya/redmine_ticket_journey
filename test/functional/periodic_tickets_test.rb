@@ -17,10 +17,10 @@ class PeriodicTicketsTest < ActionController::TestCase
     get :index, params: context
     assert_response :success
     assert_select '.nodata', text: /click Apply/
-    assert_select '.periodic-provisional', text: /confirmed by Hadi/
+    assert_select '.periodic-provisional', text: /rules have been confirmed/
     assert_select '.periodic-flow', count: 0
     assert_select 'input[name="rsd"][value=?]', @first.iso8601
-    assert_select '.performance-tabs a[aria-current="page"]', text: /Tickets.*Confirmed/
+    assert_select '.performance-tabs a[aria-current="page"]', text: 'Tickets'
   end
 
   test 'dashboard renders all visual blocks and owner-specific links without team parameter leakage' do

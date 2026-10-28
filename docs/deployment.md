@@ -5,7 +5,9 @@
 Deploy the shared Periodic Tickets model, Time eligibility change, Performance
 controller/views/tabs, and PMO Ticket Owner Performance controller/view together.
 Restart Redmine and hard-refresh. No schema, settings or stored-event migration.
-Tickets is labelled Confirmed; Returns/Time-specific rules remain provisional.
+The tab is labelled Tickets without a confirmation badge; confirmation is noted
+in the page text and calculation notes. User-facing notices use passive wording
+without personal names. Returns/Time-specific rules remain provisional.
 See [the current Tickets specification](periodic-tickets-spec.md).
 
 1. Run the complete plugin tests from a configured TEST Redmine root. Added Ruby

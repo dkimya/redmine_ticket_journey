@@ -8,7 +8,7 @@
   <p>Only public monthly target fields are shown to non-administrators. Monthly employee targets are separate from the shared delivery percentage. No Extra Tasks adjustment applies.</p>
 </fieldset>
 <fieldset><legend>Periodic Time — Targets</legend>
-  <p>Provisional definitions pending Hadi. Blank targets are unavailable, not zero. Current settings also apply to past reports. Reuses the working calendar, daily/weekly hours and ticket estimate allowance below.</p>
+  <p>Provisional definitions are pending confirmation. Blank targets are unavailable, not zero. Current settings also apply to past reports. Reuses the working calendar, daily/weekly hours and ticket estimate allowance below.</p>
   <% [['performance_periodic_dtc_target', 'Average Days to Close target (calendar days)'], ['performance_periodic_priority_dtc_target', 'Priority Days to Close target (calendar days)'], ['performance_periodic_owner_share', 'Expected owner time (% of PM Estimate)']].each do |key, label| %>
     <p><%= label_tag "settings_#{key}", label %><%= number_field_tag "settings[#{key}]", settings[key], id: "settings_#{key}", min: 0, max: (100 if key.end_with?('owner_share')), step: 'any' %></p>
   <% end %>

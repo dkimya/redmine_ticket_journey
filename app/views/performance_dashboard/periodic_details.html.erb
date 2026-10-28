@@ -4,7 +4,7 @@
   <%= render 'header', page_title: @detail_title, show_filters: false %>
   <p><%= link_to '← Back to Periodic Tickets', performance_dashboard_path(@project, **periodic_ticket_params), data: { performance_back: true } %></p>
   <p><strong><%= @owner_label %></strong> · <%= @detail_count %> tickets · Total usable CW: <%= performance_number(@detail_weight) %><% if @trend_date %> · Cumulative through <%= @trend_date == @period_start - 1 ? 'opening debt' : format_date(@trend_date) %><% end %></p>
-  <p class="periodic-provisional">Part 1 confirmed by Hadi. RED status is shown alongside current status; delivery also requires still Done now. Latest To-Do uses the current owner tenure. Extraordinary reasons use recorded history including changes after RED. These sets recalculate with current visibility and fields.</p>
+  <p class="periodic-provisional">Part 1 rules have been confirmed. RED status is shown alongside current status; delivery also requires still Done now. Latest To-Do uses the current owner tenure. Extraordinary reasons use recorded history including changes after RED. These sets recalculate with current visibility and fields.</p>
   <%= form_tag performance_dashboard_path(@project), method: :get, class: 'periodic-detail-options' do %>
     <% performance_detail_params.except(:group_by).each do |key, value| %><% Array(value).each do |item| %><%= hidden_field_tag(key == :owner_ids ? 'owner_ids[]' : key, item, id: nil) %><% end %><% end %>
     <%= label_tag :group_by, 'Group by' %><%= select_tag :group_by, options_for_select([['None', ''], ['Project', 'project'], ['Tracker', 'tracker'], ['Current Owner', 'owner'], ['Status at RED', 'status']], @group_by) %><%= submit_tag 'Apply grouping', name: nil %>
