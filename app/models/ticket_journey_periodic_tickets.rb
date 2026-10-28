@@ -1,5 +1,5 @@
-# Provisional Periodic Tickets rules. Keep population decisions here, not in views.
-# Current owner/due/weight/priority; historical status and recorded event dates.
+# Hadi-confirmed Part 1 populations. Keep business decisions here, not in views.
+# Current owner/due/weight/priority/status; historical boundaries and event dates.
 class TicketJourneyPeriodicTickets
   EXCLUDED_STATUSES = ['Archived', 'Ongoing', 'On-Hold'].freeze
   HOTFIX_PRIORITY = 'Immediate/Hot Fix'.freeze
@@ -10,23 +10,29 @@ class TicketJourneyPeriodicTickets
     'actual' => 'Total Actual Done', 'debt' => 'Debt at RED', 'still_open' => 'Still Open Now',
     'missing_weight' => 'Tickets Without Usable Complexity Weight',
     'missing_assignment' => 'Tickets Without Recorded Assignment to Current Owner by RED',
+    'missing_todo' => 'Tickets Without Recorded To-Do for Current Owner by RED',
     'missing_due' => 'Tickets Without Due Dates',
     'missing_completion' => 'Done Tickets Without Recorded Completion Dates',
-    'excluded' => 'Tickets Excluded by Status at RED',
+    'excluded' => 'Tickets Excluded by Current Status',
+    'excluded_during_period' => 'Expected Tickets Excluded by a Status Change During the Period',
+    'extraordinary' => 'Extraordinary Tickets',
+    'newly_assigned' => 'Scheduled Tickets Entering To-Do During the Period',
+    'earlier_assigned' => 'Scheduled Tickets Entering To-Do Before the Period',
+    'extra_other' => 'Other Done — Extra Work', 'unplanned_other' => 'Other Done — Unplanned Work',
     'trend_expected' => 'Cumulative Expected Work', 'trend_completed' => 'Cumulative Completed Expected Work',
     'completed_beginning' => 'Completed Beginning Debt', 'completed_planned' => 'Completed Planned Tasks',
     'completed_hotfix' => 'Completed Assigned Hotfixes'
   }.freeze
 
-  # Status history must include future edits to rewind RED. Owner history is
-  # needed only through RED for assignment evidence, independent of attribution.
+  # Future owner/status/due edits are needed for current-tenure responsibility
+  # and extraordinary-ticket diagnostics, without restoring old due dates.
   def self.history_for(ids, last_day, include_return_reason: false)
     result = Hash.new { |hash, id| hash[id] = [] }
     journals = {}
     scope = JournalDetail.joins(:journal)
       .where(journals: { journalized_type: 'Issue', journalized_id: ids })
-      .where("(journal_details.property = ? AND journal_details.prop_key = ?) OR (journal_details.property = ? AND journal_details.prop_key = ? AND journals.created_on <= ?)",
-        'attr', 'status_id', 'cf', '57', last_day.in_time_zone.end_of_day)
+      .where("(journal_details.property = ? AND journal_details.prop_key IN (?)) OR (journal_details.property = ? AND journal_details.prop_key = ?)",
+        'attr', %w[status_id due_date], 'cf', '57')
     if include_return_reason
       reasons = JournalDetail.joins(:journal)
         .where(journals: { journalized_type: 'Issue', journalized_id: ids }, property: 'cf', prop_key: '66')
@@ -46,6 +52,56 @@ class TicketJourneyPeriodicTickets
     result
   end
 
+  def self.current_status(row)
+    row.fetch(:current_status_name, row[:status_name])
+  end
+
+  def self.excluded?(row)
+    EXCLUDED_STATUSES.include?(current_status(row))
+  end
+
+  def self.delivered?(row, first_day, last_day)
+    row[:done] && row.fetch(:current_done, row[:done]) && row[:delivered_at]&.between?(first_day, last_day)
+  end
+
+  # A To-Do entry belongs to the owner after all changes in that journal.
+  # Reassignment ends the previous tenure, even if the ticket later returns.
+  # No initial status or missing transition is invented from ticket creation.
+  def self.responsibility(history, owner_id, statuses, first_day, last_day)
+    ordered = history.sort_by { |entry| [entry.created_on, entry.id] }
+    owner_change = ordered.flat_map(&:details).find { |detail| detail.property == 'cf' && detail.prop_key == '57' && detail.old_value.to_s != detail.value.to_s }
+    owner = owner_change ? owner_change.old_value.to_s : owner_id.to_s
+    todo_on = nil
+    todo_count = 0
+    reasons = []
+    excluded_during = false
+    ordered.each do |entry|
+      entry.details.each do |detail|
+        next if detail.old_value.to_s == detail.value.to_s
+        if detail.property == 'cf' && detail.prop_key == '57'
+          reasons << 'Ticket Owner changed' if detail.old_value.present?
+          owner = detail.value.to_s
+          todo_on = nil
+        elsif detail.property == 'attr' && detail.prop_key == 'due_date'
+          reasons << 'Due date changed' if detail.old_value.present?
+        end
+      end
+      entry.details.each do |detail|
+        next unless detail.property == 'attr' && detail.prop_key == 'status_id' && detail.old_value.to_s != detail.value.to_s
+        old_name = statuses[detail.old_value.to_s]&.name.to_s.strip
+        name = statuses[detail.value.to_s]&.name.to_s.strip
+        if name == 'To-Do'
+          todo_count += 1
+          todo_on = entry.created_on.in_time_zone.to_date if owner == owner_id.to_s && entry.created_on <= last_day.in_time_zone.end_of_day
+        end
+        reasons << 'Reopened after Done / Closed' if old_name == 'Done / Closed' && name != old_name
+        excluded_during ||= EXCLUDED_STATUSES.include?(name) && entry.created_on.in_time_zone.to_date.between?(first_day, last_day)
+      end
+    end
+    reasons << 'Repeated To-Do entry' if todo_count > 1
+    { todo_on: todo_on, extraordinary_reasons: reasons.uniq, excluded_during_period: excluded_during }
+  end
+
   def self.assignment_date(history, owner_id, last_day)
     history.select { |entry| entry.created_on <= last_day.in_time_zone.end_of_day }
       .select do |entry|
@@ -63,12 +119,18 @@ class TicketJourneyPeriodicTickets
 
     beginning = TicketJourneyPerformance.snapshot(issue, first_day - 1, statuses,
       history: history, visible_values: values, owner_value: owner_id)
-    ending.merge(
-      beginning_open: beginning && beginning[:open] && !EXCLUDED_STATUSES.include?(beginning[:status_name]),
+    current_status = statuses[issue.status_id.to_s]&.name.to_s.strip
+    diagnostic = responsibility(history, owner_id, statuses, first_day, last_day)
+    if ending[:done] && current_status != 'Done / Closed'
+      diagnostic[:extraordinary_reasons] |= ['No longer Done / Closed']
+    end
+    ending.merge(diagnostic).merge(
+      beginning_open: beginning && beginning[:open],
       closed_before: beginning && !beginning[:open],
       assigned_on: assignment_date(history, owner_id, last_day),
       hotfix: issue.priority&.name.to_s.strip == HOTFIX_PRIORITY,
       current_open: statuses[issue.status_id.to_s] && !statuses[issue.status_id.to_s].is_closed,
+      current_done: current_status == 'Done / Closed', current_status_name: current_status,
       project_id: issue.project_id, project_name: issue.project.name,
       tracker_name: issue.tracker.name, subject: issue.subject
     )
@@ -77,27 +139,25 @@ class TicketJourneyPeriodicTickets
   def self.category(row, first_day, last_day)
     return 'beginning' if row[:beginning_open] && row[:due] && row[:due] < first_day
     return if row[:closed_before]
-    return 'hotfix' if row[:hotfix] && row[:assigned_on]&.between?(first_day, last_day)
+    return 'hotfix' if row[:hotfix] && row[:todo_on]&.between?(first_day, last_day) && row[:due] && row[:due] <= last_day
     return 'planned' if row[:due]&.between?(first_day, last_day)
   end
 
   def self.expected_date(row, first_day, last_day)
     return first_day if row[:category] == 'beginning'
-    # A hotfix assigned within the period is expected in this period even when
-    # its current due date is absent/outside it. Use recorded assignment then.
-    due = row[:due]
-    due&.between?(first_day, last_day) ? due : row[:assigned_on]
+    # Missing dates never acquire a creation/assignment-date substitute.
+    [row[:due], first_day].max
   end
 
   def self.calculate(rows, first_day, last_day, with_trends: true)
     rows = rows.uniq { |row| row[:id] }
-    excluded, eligible = rows.partition { |row| EXCLUDED_STATUSES.include?(row[:status_name]) }
+    excluded, eligible = rows.partition { |row| excluded?(row) }
     eligible = eligible.map do |row|
       item = row.merge(category: category(row, first_day, last_day))
       item.merge(expected_on: item[:category] ? expected_date(item, first_day, last_day) : nil)
     end
     expected, outside = eligible.partition { |row| row[:category] }
-    delivered = lambda { |row| row[:done] && row[:delivered_at]&.between?(first_day, last_day) }
+    delivered = ->(row) { delivered?(row, first_day, last_day) }
     completed, debt = expected.partition(&delivered)
     other = outside.select(&delivered)
     relevant = (expected + completed + other).uniq { |row| row[:id] }
@@ -110,10 +170,17 @@ class TicketJourneyPeriodicTickets
       'still_open' => debt.select { |row| row[:current_open] },
       'missing_weight' => relevant.select { |row| row[:missing_weight] },
       'missing_assignment' => eligible.select { |row| row[:assigned_on].nil? },
+      'missing_todo' => eligible.select { |row| row[:todo_on].nil? },
       'missing_due' => eligible.select { |row| row[:due].nil? },
       'missing_completion' => eligible.select { |row| row[:done] && row[:delivered_at].nil? },
-      'excluded' => excluded
+      'excluded' => excluded,
+      'excluded_during_period' => excluded.select { |row| row[:excluded_during_period] && category(row, first_day, last_day) },
+      'extraordinary' => rows.select { |row| Array(row[:extraordinary_reasons]).any? },
+      'newly_assigned' => expected.select { |row| row[:due]&.between?(first_day, last_day) && row[:todo_on]&.between?(first_day, last_day) },
+      'earlier_assigned' => expected.select { |row| row[:due]&.between?(first_day, last_day) && row[:todo_on] && row[:todo_on] < first_day }
     }
+    extra_owners = expected.group_by { |row| row[:owner_id] }.keys.reject { |owner| debt.any? { |row| row[:owner_id] == owner } }
+    sets['extra_other'], sets['unplanned_other'] = other.partition { |row| extra_owners.include?(row[:owner_id]) }
     %w[beginning planned hotfix].each do |key|
       sets["completed_#{key}"] = completed.select { |row| row[:category] == key }
     end

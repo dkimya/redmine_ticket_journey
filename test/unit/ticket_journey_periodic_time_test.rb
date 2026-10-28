@@ -164,6 +164,17 @@ class TicketJourneyPeriodicTimeTest < ActiveSupport::TestCase
     assert_nil TicketJourneyPeriodicTime.personal_hours(overflowing, '1', @first, @last)
   end
 
+  test 'later reopening keeps personal effort but removes delivered output and cost' do
+    result = report([row(1, current_done: false, current_open: true)])
+    assert_equal 4.0, result[:metrics]['total_hours'][:actual]
+    assert_equal 4.0, result[:breakdown]['expected_unfinished']
+    assert_equal 0.0, result[:metrics]['ticket_cost'][:actual]
+    assert_equal 0.0, result[:metrics]['efficiency'][:actual]
+    assert_nil result[:metrics]['dtc'][:actual]
+    excluded = report([row(1, current_status_name: 'On-Hold')])
+    assert_equal 0.0, excluded[:metrics]['total_hours'][:actual]
+  end
+
   private
 
   def report(items, owner = '1', daily: 8, available: true, any: true)

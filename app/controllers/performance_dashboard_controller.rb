@@ -358,8 +358,8 @@ class PerformanceDashboardController < ApplicationController
             row = TicketJourneyPeriodicTime.enrich(row, issue, hours,
               @periodic_project_time_permissions.fetch(issue.project_id, false), !owner_value.nil?)
           end
-          if @periodic_returns && row && row[:done] && row[:delivered_at]&.between?(@period_start, @period_end) &&
-              !TicketJourneyPeriodicTickets::EXCLUDED_STATUSES.include?(row[:status_name])
+          if @periodic_returns && row && TicketJourneyPeriodicTickets.delivered?(row, @period_start, @period_end) &&
+              !TicketJourneyPeriodicTickets.excluded?(row)
             row = TicketJourneyPeriodicReturns.enrich(row, issue, history.fetch(issue.id, []), statuses, @period_end, values.fetch(issue.id))
           end
           rows << row if row

@@ -1,5 +1,29 @@
 # Reporting rules
 
+## Hadi Part 1 confirmations — 2026-10-28
+
+The Q&A Part 1 document and follow-up answers supplied by the user confirm the
+Tickets business definitions. See [the Tickets specification](periodic-tickets-spec.md)
+for the authoritative current rules. They supersede prior provisional assignment,
+hotfix fallback, RED-only exclusions and reopening statements below. Implemented
+locally; deployment/source-data verification remains pending.
+
+Use latest recorded To-Do for the current owner's tenure, required hotfix due dates
+on/before RED, current status exclusions, and Done at RED AND now for delivery.
+Reopening after RED invalidates delivery while currently reopened. Extraordinary
+lists show recorded owner/due changes, repeated To-Do and reopenings, including
+later changes. Missing dates/history are flagged, never assumed. Scheduled due-date
+commitments remain independent of missing To-Do. Current due/owner/weight policies
+remain unchanged. In-period exclusion explanations and new-work drill-downs reuse
+exact sets. Other Done has separate per-owner Extra/Unplanned assessment; logged
+Other Work remains a distinct unfinished-or-finished time measure.
+
+Returns and Time inherit the corrected Tickets populations; their own formulas,
+targets and event windows remain provisional. Their native events are not reset.
+PMO Ticket Owner Performance now uses due < RSD and pre-RSD opening status, due
+within RSD–RED for new commitment, inclusive RSD-day delivery and current closed
+delivery checks. Its other mappings and end-debt rules are retained.
+
 ## Periodic Time — provisional implementation, 2026-10-28
 
 The user authorized the Time recommendations pending Hadi. All three Periodic

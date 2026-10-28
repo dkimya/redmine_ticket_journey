@@ -1,5 +1,37 @@
 # Deployment and verification
 
+## Hadi-confirmed Part 1 changes — 2026-10-28
+
+Deploy the shared Periodic Tickets model, Time eligibility change, Performance
+controller/views/tabs, and PMO Ticket Owner Performance controller/view together.
+Restart Redmine and hard-refresh. No schema, settings or stored-event migration.
+Tickets is labelled Confirmed; Returns/Time-specific rules remain provisional.
+See [the current Tickets specification](periodic-tickets-spec.md).
+
+1. Run the complete plugin tests from a configured TEST Redmine root. Added Ruby
+   unit/history/request and PMO boundary tests are unrun locally without Ruby.
+   Eleven JavaScript navigation/legend checks pass; `git diff --check` passes.
+2. Inspect latest To-Do for current owner after multiple entries/reassignments,
+   including same-journal changes and reassignment after RED. No initial-status,
+   creation-date or missing-date fallback. Due-in-period commitments still count
+   without To-Do, but hotfix classification requires valid To-Do and due <= RED.
+3. Reopen a test ticket after RED: prior delivery/Returns/time cost/DTC/efficiency
+   output must disappear while current status is not Done; logged effort must
+   remain in unfinished expected effort unless the current status is excluded.
+4. Check current On-Hold/Ongoing/Archived exclusions, historical open status versus
+   current eligibility, and exact excluded-during-period explanations. Inspect
+   Expected = Completed + Debt after exclusions across all three sections.
+5. Verify Extraordinary links, reasons, latest To-Do, RED/current status, new-work
+   subsets, per-owner Other Done Extra/Unplanned, sorting/grouping/pagination/Back
+   and full-set native Issues handoff under restricted issue/field visibility.
+   Recorded due edits diagnose irregularity without restoring historical values.
+6. PMO: due on RSD belongs to new commitment, due before RSD to opening debt;
+   closures on RSD qualify. Current reopened tickets cannot count as delivered.
+   Check single-day periods and historical reruns with current-field edits.
+7. Verify all installed-plugin requests, native issue/My page/Issues/query/CSV
+   integration, deployed layout and measured memory/latency on test data. These
+   changes are not verified by earlier screenshots or partial renders.
+
 ## Periodic Time — 2026-10-28
 
 Deploy the new Periodic Time model/views with controller/helper, shared tabs,

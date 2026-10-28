@@ -97,12 +97,13 @@ class TicketJourneyOwnerPerformanceTest < ActiveSupport::TestCase
     issues = [
       issue_type.new(101, Date.new(2026, 10, 10), created_on, status_type.new(false)),
       issue_type.new(102, Date.new(2026, 9, 5), created_on, status_type.new(false)),
-      issue_type.new(103, Date.new(2026, 9, 20), created_on, status_type.new(false)),
+      issue_type.new(103, start_date, created_on, status_type.new(false)),
       issue_type.new(104, nil, created_on, status_type.new(false)),
       issue_type.new(105, Date.new(2026, 9, 20), created_on, status_type.new(true)),
       issue_type.new(106, Date.new(2026, 9, 20), created_on, status_type.new(true))
     ]
-    done_at = Time.utc(2026, 9, 25, 12)
+    # Due on RSD is new commitment, and RSD-day completions must be included.
+    done_at = start_date.in_time_zone + 12.hours
     transitions = { 106 => [{ synthetic: false, from_status: 'Final Check', to_status: 'Done / Closed', changed_at: done_at }] }
 
     query = mock('query')
@@ -203,6 +204,12 @@ class TicketJourneyOwnerPerformanceTest < ActiveSupport::TestCase
     assert_equal [106], other_done_report.dig(:completion, :other_done, :issue_ids)
     assert_equal 5.0, other_done_report[:delivery_rows].first.dig(:committed_points, :points)
     assert_equal 13.0, other_done_report[:delivery_rows].first.dig(:completed_points, :points)
+
+    # A later reopen removes historical delivery, even if RED was closed.
+    issues[5].status = status_type.new(false)
+    reopened_report = @controller.send(:compute_ticket_owner_performance_report, start_date, end_date,
+                                      role_id: nil, include_locked_users: true)
+    assert_empty reopened_report.dig(:completion, :total_done, :issue_ids)
   end
 
   test 'complexity points count distinct tickets once and keep missing weights separate' do

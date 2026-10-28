@@ -5423,10 +5423,10 @@ class TicketJourneyController < ApplicationController
     status_changes = load_attribute_changes(issue_ids, 'status_id')
     owner_changes = load_custom_field_changes(issue_ids, TICKET_OWNER_CF_ID)
     closed_status_ids = IssueStatus.where(is_closed: true).pluck(:id).map(&:to_s).to_set
-    start_snapshot = start_date.end_of_day
+    start_snapshot = (start_date - 1).end_of_day
     end_snapshot = end_date.end_of_day
     period_start = start_date.beginning_of_day
-    commitment_period_start = (start_date + 1).beginning_of_day
+    commitment_period_start = period_start
     period_end = (end_date + 1).beginning_of_day
     allowed_owner_values = ticket_owner_values_for_role(role_id)
     selected_owner_value = owner_user_id.to_s.presence
@@ -5457,7 +5457,7 @@ class TicketJourneyController < ApplicationController
 
       # Current due dates and Ticket Owner; status remains historical.
       due_date = issue.due_date
-      next unless due_date && due_date <= start_date
+      next unless due_date && due_date < start_date
       next if historically_closed?(issue, status_changes[issue.id], start_snapshot, closed_status_ids)
 
       owner_value = owner_performance_owner_value_at(issue, owner_changes[issue.id], start_snapshot)
@@ -5485,7 +5485,7 @@ class TicketJourneyController < ApplicationController
       next if issue.created_on <= start_snapshot && historically_closed?(issue, status_changes[issue.id], start_snapshot, closed_status_ids)
 
       due_date = issue.due_date
-      next unless due_date && due_date > start_date && due_date <= end_date
+      next unless due_date && due_date >= start_date && due_date <= end_date
 
       owner_value = owner_performance_owner_value_at(issue, owner_changes[issue.id], due_date.end_of_day)
       next unless owner_allowed.call(owner_value)
@@ -5509,6 +5509,7 @@ class TicketJourneyController < ApplicationController
           transition[:changed_at] < period_end
       end
       next unless done_event
+      next unless issue.status&.is_closed?
       next unless historically_closed?(issue, status_changes[issue.id], end_snapshot, closed_status_ids)
 
       done_at_by_issue[issue.id] = done_event[:changed_at]

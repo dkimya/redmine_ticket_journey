@@ -1,5 +1,29 @@
 # Known issues and evidence
 
+## Hadi Part 1 confirmed and applied locally — 2026-10-28
+
+Confirmed source: Q&A Part 1.docx plus the user's follow-up answers. Tickets now
+uses latest current-owner To-Do, mandatory hotfix deadlines, current exclusions
+and current-Done delivery checks. Extraordinary/current-status and missing-data
+audits explain changes to past results. New scheduled-work review subsets and
+per-owner Other Done Extra/Unplanned are distinct from logged Other Work. Returns
+and Time inherit corrected populations. PMO RSD debt/delivery boundaries align
+with Hadi's explicit request. [Current rules](periodic-tickets-spec.md) supersede
+older assumptions below; Returns/Time-specific questions remain open.
+
+Eleven JavaScript checks pass; diff whitespace checks pass. Ruby is unavailable,
+so added/updated Ruby history/model/request and PMO tests are unrun. Full requests,
+source-data reconciliation and deployed visuals/performance remain pending.
+The user supplied a Periodic Time screenshot too: it confirms rendering and
+displayed arithmetic, not source-ticket/time-entry correctness. None of the new
+Part 1 revisions are server-confirmed. No fields/counters/native events changed.
+
+Extraordinary detection covers recorded owner/due edits, repeated To-Do and
+reopening; it cannot infer unspecified or missing irregular activities. Later
+history is retained for those diagnostics, increasing report work: batch bounds
+alone do not prove safe memory or latency. Missing initial To-Do journals remain
+missing evidence; they are not reconstructed from creation timestamps.
+
 ## Periodic Time — local implementation, 2026-10-28
 
 All three Periodic sections are now implemented provisionally. Time adds eight

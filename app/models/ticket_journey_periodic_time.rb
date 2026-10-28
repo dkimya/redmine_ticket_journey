@@ -89,7 +89,7 @@ class TicketJourneyPeriodicTime
     comparison_first, comparison_last = comparison_range || [first_day, last_day]
     own = rows.select { |row| row[:owner_visible] && row[:owner_id] == owner_id }
     tickets = package || TicketJourneyPeriodicTickets.calculate(own, first_day, last_day, with_trends: false)
-    eligible = rows.reject { |row| TicketJourneyPeriodicTickets::EXCLUDED_STATUSES.include?(row[:status_name]) }
+    eligible = rows.reject { |row| TicketJourneyPeriodicTickets.excluded?(row) }
     done = tickets[:sets]['actual']
     done = done.select { |row| row[:delivered_at].between?(*completion_range) } if completion_range
     expected = tickets[:sets]['expected']

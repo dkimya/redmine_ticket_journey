@@ -6,8 +6,8 @@
 <% end %>
 <div class="performance-page periodic-page">
   <%= render 'header', page_title: 'Periodic Performance — Tickets' %>
-  <p class="periodic-provisional"><strong>Provisional calculation rules — awaiting Hadi's confirmation.</strong> Current Ticket Owner, due date, priority and visible complexity weight apply. Status is historical. <a href="#periodic-calculation-notes">Read calculation rules and assumptions</a>.</p>
-  <p class="performance-context">Selected project and visible descendant projects · Bug, Feature, Change Request / Improvement, Task (Business Jobs) · Archived, Ongoing and On-Hold at RED excluded</p>
+  <p class="periodic-provisional"><strong>Part 1 rules confirmed by Hadi.</strong> Current owner, due date, priority, usable weight and status checks apply. Reopened tickets cannot count as delivered, including historical reports. <a href="#periodic-calculation-notes">Read calculation rules and coverage</a>.</p>
+  <p class="performance-context">Selected project and visible descendant projects · Bug, Feature, Change Request / Improvement, Task (Business Jobs) · Current Archived, Ongoing and On-Hold excluded</p>
   <% if @periodic_report %>
     <p><strong><%= @owner_label %></strong><% if @selected_owners.any? { |owner| !owner.active? } %> · Includes inactive owners from saved selections; picker lists active users only.<% end %></p>
     <% report = @periodic_report; summaries = report[:summaries] %>
@@ -55,6 +55,9 @@
         <% end %>
       </div>
       <p class="performance-weight-note">Debt at RSD + Planned Assigned Tasks + Assigned Hotfixes = Expected Total. Completed from Expectation + Other Done = Total Actual Done.</p>
+      <p>Other Done assessment: <span class="performance-good"><%= periodic_summary_link(report, 'extra_other', :count) %> Extra Work tickets</span> · <%= periodic_summary_link(report, 'unplanned_other', :count) %> Unplanned Work tickets. Assessed per owner; raw Other Done deviation stays P−A.</p>
+      <details><summary>Show newly introduced scheduled workload</summary><p><%= periodic_ticket_link("Latest To-Do during period: #{summaries['newly_assigned'][:count]}", 'newly_assigned') %> · <%= periodic_ticket_link("Latest To-Do before period: #{summaries['earlier_assigned'][:count]}", 'earlier_assigned') %>. Includes scheduled hotfixes where applicable; these review subsets do not add to Expected Total.</p></details>
+      <p><%= link_to 'Review Other Work hours, including unfinished tickets → Periodic Time', performance_dashboard_path(@project, **periodic_ticket_params({ tab: 'time', metric: 'other_hours' })) %></p>
     </section>
 
     <div class="periodic-grid">
@@ -101,8 +104,8 @@
     <% end %>
 
     <section class="performance-section periodic-data-quality"><h3>Data Quality and Scope</h3>
-      <% %w[missing_weight missing_assignment missing_due missing_completion excluded].each do |key| %><p><%= periodic_ticket_link("#{TicketJourneyPeriodicTickets::LABELS[key]}: #{summaries[key][:count]}", key) %></p><% end %>
-      <p>Missing assignment history never falls back to ticket creation. Scheduled tickets due during the period can still be planned work; hotfix eligibility needs recorded assignment. Excluded statuses remove tickets from the entire package at RED. A Done ticket without a recorded period completion cannot increase actual delivery; expected work without qualifying completion remains unresolved in debt. Missing weights do not remove ticket counts.</p>
+      <% %w[extraordinary missing_weight missing_todo missing_assignment missing_due missing_completion excluded excluded_during_period].each do |key| %><p><%= periodic_ticket_link("#{TicketJourneyPeriodicTickets::LABELS[key]}: #{summaries[key][:count]}", key) %></p><% end %>
+      <p>Missing To-Do, due dates and completion evidence remain visible for correction. Current status exclusions remove tickets from the package; in-period exclusions have a separate audit list. Expected = Completed + Debt after exclusions. Extraordinary changes can alter past reports. Missing weights retain ticket counts.</p>
     </section>
   <% else %>
     <p class="nodata">Select Ticket Owner(s), choose the report period, and click Apply.</p>

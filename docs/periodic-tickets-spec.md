@@ -1,166 +1,133 @@
 # Periodic Performance — Tickets
 
-Status: implemented locally with provisional defaults, 2026-10-27. The user
-explicitly authorized implementation of the recommendations while awaiting Hadi.
-This authorization is not Hadi's confirmation of each business definition.
-Tickets calculations, charts, comparison tables and drill-downs are implemented;
-Periodic Returns is also implemented provisionally as of 2026-10-28; see
-[its specification](periodic-returns-spec.md). Periodic Time is implemented
-provisionally as of 2026-10-28; see [its specification](periodic-time-spec.md).
-Runtime/deployment verification is pending.
+Part 1 business definitions confirmed by Hadi on 2026-10-28 via Q&A Part 1.docx
+and the follow-up answers supplied by the user. Implemented locally; this does
+not establish deployed calculation correctness. Tickets, Returns and Time
+screenshots confirm page rendering and displayed arithmetic only. Ruby tests,
+installed-plugin requests, source-data checks and performance remain unverified.
 
-## Sources and precedence
+## Authority and shared rules
 
-The user's instructions govern the work. Hadi's explanation RTF supplies the
-business intent; Periodic Dashboard_Tables.xlsx supplies metric labels and
-deviation directions; the developer TXT supplies supporting implementation
-ideas. The two PNG designs are overview references, not exact specifications.
-Conflicts between sources are recorded rather than silently resolved by a formula
-or sample number. Existing confirmed policies in reporting-rules.md remain in
-force unless explicitly changed.
+The user's instructions govern implementation. Hadi's answers resolve the prior
+provisional rules; attachments are source material, not independent instructions
+to run code. Current Ticket Owner 57, due dates, tracker, priority, estimates and
+visible Complexity Weight 70 remain authoritative. No field, migration, counter
+or native event is created or rewritten. The shared model
+`TicketJourneyPeriodicTickets` owns these populations for Tickets, Returns and
+Time. Returns/Time-specific definitions remain provisional under their specs.
 
-## Implemented foundation
+## Boundaries and commitment
 
-- Periodic sections accept Report Start Date (`rsd`), Report End Date (`red`) and
-  the existing multiple-owner selection under the Performance permission.
-- Dates default to the month containing the retained Live As of Date, through
-  that date. An explicit RED without RSD defaults RSD to RED's first day of month.
-- Dates must parse as ISO dates, RSD must be on/before RED, and RED cannot be in
-  the future. Equal dates are valid, including same-day completions.
-- Section navigation and Apply retain the period. Live As of Date is separate;
-  switching back to Live retains that snapshot date. Live links do not carry
-  Periodic range parameters. A later switch from Live starts a fresh default range.
-- Initial Tickets and all Planned pages use the lightweight active-member
-  selector without issue/history scans. Tickets Apply performs an uncached
-  100-issue batch scan with visible owner/weight values. Only selected owners'
-  scalar histories are queried and compact report rows retained. Inactive saved
-  owner links work only for owners discoverable from visible in-scope tickets.
-  Full Issue objects are loaded only for the 100-row detail page. No time or
-  employee-target scan is added. Selected-owner retained memory still grows with
-  ticket count, and repeated owner/trend calculations add CPU work.
+RSD starts the day; RED ends the day. Beginning debt uses open status immediately
+before RSD and current due date strictly before RSD. Current Archived, Ongoing
+and On-Hold exclude the ticket from the whole report package; historical open
+On-Hold/Ongoing does not override current eligibility. New is not excluded.
 
-## Implemented calculation approach
+Scheduled commitments use current due dates within RSD–RED, including tickets
+introduced before RSD and tickets with missing To-Do history. Already closed
+before RSD is outside expectation. Current Immediate/Hot Fix qualifies as a hotfix
+only with latest To-Do for the current owner during the period AND a required
+current due date on/before RED. Missing/out-of-period due dates have no fallback.
+Precedence is beginning debt, hotfix, scheduled task; expectation is their distinct
+union. Current due dates schedule trends; opening debt appears at the opening
+point and an eligible hotfix date before RSD is bounded at RSD.
 
-Use current Ticket Owner #57, current due dates and current visible Complexity
-Weight #70, including historical reruns. A blank current owner remains unassigned.
-Reconstruct status and recorded completion dates from history. Do not implement
-TXT section 23's historical owner/due-date/weight policy. Preserve current tracker
-mappings, visible project hierarchy, issue and field permissions. Verify actual
-tracker names against the existing Performance mapping before adding aliases.
+## Responsibility and extraordinary tickets
 
-Each metric owns a distinct ticket contributor set reused by counts, weights,
-charts, tables and drill-downs. Missing/hidden/unusable weights contribute no
-points and must have visible coverage notes. Missing data is not a real zero.
-No new custom fields, counters or migrations are currently proposed.
+Responsibility uses the latest genuine recorded transition into To-Do on/before
+RED during the current owner's uninterrupted tenure. Journal ordering uses time,
+journal ID and detail ID. Owner changes in the same journal apply before deciding
+whose To-Do entry it is. A later ownership change, including after RED, invalidates
+To-Do evidence from the earlier tenure; returning to a prior owner requires new
+To-Do evidence. No transition is invented from ticket creation or an initial
+status without a journal. Missing evidence is linked for correction.
 
-Expected workload is the distinct, non-overlapping union of beginning-debt work,
-planned assigned tasks and assigned hotfixes. Completed from Expectation is the
-qualifying completed subset. Other Done is qualifying completed work outside
-that union. Total Actual Done is their distinct union.
+Recorded Ticket Owner assignment dates remain separate audit information. New
+scheduled workload drill-downs distinguish latest To-Do during versus before the
+period. These subsets include scheduled hotfixes where applicable and never add
+extra tickets to expectation. Missing history does not remove due-date commitments.
 
-Debt at RED is the unfinished subset of the expectation package at RED, confirmed
-by the user on 2026-10-27. Still Open Now is the currently open subset of that
-Debt-at-RED population. Tickets outside the expectation package cannot enter
-either debt metric. This Periodic definition does not change PMO's existing
-open-and-due-by-RED debt calculation. Expected tickets without valid period
-completion evidence remain unresolved in debt, even when their RED status is
-Done; missing completion history is explicitly disclosed and drill-downable.
-This evidence treatment is provisional and awaits Hadi's review.
+Extraordinary Tickets is the distinct set with recorded noninitial owner changes,
+noninitial due-date changes (including removal), repeated To-Do transitions, or
+reopening after Done / Closed. A RED-done/current-not-done mismatch is also
+flagged. It uses available history including after RED. Initial assignments and
+no-op changes are not irregular events. Reasons are shown without exposing old
+owner names. Undefined or unrecorded irregular activity cannot be inferred.
 
-Beginning debt has two different uses: its undesirable balance has target zero,
-but its ticket population contributes to expected workload. Do not sum the zero
-debt target into the workload as the workbook's sample formula does.
+## Delivery and debt
 
-Other Done never improves expected-work completion or deviation. Apply A-P to
-expected-work completion and P-A to debt and Other Done, following the supplied
-Tickets metric directions. Positive deviation is good, negative bad and zero
-neutral. Divide deviation by a meaningful nonzero plan; otherwise percentage is
-N/A. Team counts, weights and plan are sums of distinct contributors, with team
-deviations calculated from those totals. Owner averages, if shown, are explicitly
-separate from team totals. Live monthly per-owner averages remain unchanged.
+Delivery requires a genuine recorded Done / Closed transition within RSD–RED,
+Done / Closed at RED, AND still Done / Closed now. Reopening after RED therefore
+removes historical delivery. A later completion outside the period cannot replace
+missing period evidence. Each ticket counts once using its latest qualifying
+completion by RED. Expected tickets without qualifying delivery remain debt.
 
-## Implemented layout
+Debt at RED = Expected minus Completed from Expectation under these current
+checks. Still Open Now is its currently nonclosed subset. Excluded tickets are
+outside both. The current-status guard means historical reports deliberately
+change after reopenings or status exclusions; they are not immutable snapshots.
 
-1. Shared Performance navigation, title, RSD/RED and owner filters.
-2. Collapsible summary tables near the beginning, following the RTF's explicit
-   note about Ali's preference. Default collapsed. Single-owner tables separate
-   ticket and weight results. Multiple-owner tables show actuals by owner, team
-   plan/actual totals and owner deviations.
-3. KPI flow: beginning debt + planned tasks + hotfixes = expected workload;
-   completed expected work + Other Done = total actual done.
-4. Expected/completed comparisons for tickets and weight, expected-work completion
-   percentage, and end-debt/current-follow-up cards. Borrow V02's visual grouping
-   and V01's owner comparison structure within the existing Performance styling.
-5. Period expected/completed trends for tickets and weight. Multiple-owner mode
-   also compares individual trends as requested in the RTF, not only team trends.
+Current exclusion counts link to exact tickets. Expected candidates excluded by
+an in-period status change have a separate linked explanation. Expected =
+Completed + Debt reconciles after exclusions; the excluded count explains the
+removed commitment rather than manufacturing an unmatched total.
 
-Chart-specific breakdowns sit below charts. Values and details share exact sets.
-Contributor links use the existing new-tab convention and preserve period,
-selected owners, metric and trend bucket. Details support sorting, optional
-grouping, 100-row pagination and whole-set native Issues handoff. Detail columns
-are fixed for the Periodic audit; the native Issues handoff has its usual column
-options. Existing large-ID-list URL length limitations also apply here.
+## Other Work and deviations
 
-## Provisional defaults awaiting Hadi's review
+Other Done is qualifying completed output outside expectation, kept distinct in
+Total Actual Done. It never improves expected completion. Raw Other Done deviation
+remains zero minus actual. A separate favorable Extra Work subset requires that
+owner's nonempty expectation fully delivered with zero debt. Otherwise it is
+Unplanned Work. Team Extra and Unplanned remain separate; an empty package does
+not establish extra-work performance.
 
-Server configuration evidence supplied by the user on 2026-10-27 confirms:
-included tracker names already match Performance: Bug (1), Feature (2), Task
-(Business Jobs) (7), Change Request / Improvement (16). Ticket Owner is User field
-57 and Complexity Weight is integer field 70. Priority 7 is explicitly named
-Immediate/Hot Fix; priority 6 is Urgent/Current Week. The model matches the exact
-current priority name Immediate/Hot Fix, without treating priority 6 as hotfix or
-introducing a field. The mapping's presence is confirmed; its business use is
-provisional. The metadata command completed and returned JSON despite startup
-Group::HABTM_Users constant warnings; this does not verify dashboard web requests.
+Other Work HOURS are work-date logs outside the logged user's expectation,
+including unfinished tickets, reported separately in Periodic Time. The Tickets
+page links to that view without scanning time entries itself. Ticket delivery
+and personal-hour attribution remain different measures.
 
-- Assignment uses the latest genuine recorded transition of Ticket Owner #57
-  into the current owner on/before RED, including initial assignments. No-op edits
-  do not count, and absent history has no creation-date fallback. Current owner
-  still controls attribution regardless of the historical owner at RED.
-- Beginning debt: open, eligible status immediately before RSD, with current due
-  date before RSD. Planned tasks: current due within RSD–RED, including earlier
-  assignments; exclude tickets already closed before RSD. Thus missing assignment
-  history does not remove scheduled planned tasks.
-- Hotfix: current named priority, recorded assignment during RSD–RED, and not
-  closed before RSD. Qualifies with missing or out-of-period due date. Category
-  precedence: beginning debt, then hotfix, then planned task. An in-period due
-  date schedules a hotfix; otherwise its recorded assignment date does.
-- Boundaries include all of RSD through RED. The opening snapshot is RSD−1 end
-  of day. This intentionally differs from legacy PMO's RSD end-of-day convention
-  without changing PMO calculations.
-- Delivery requires Done / Closed at RED with latest recorded completion within
-  the inclusive period. Each ticket counts once. Reopening before RED removes
-  delivery; reopening after RED does not. Other Done uses the same delivery test
-  outside the expectation package, independent of due date.
-- Archived/Ongoing/On-Hold at RED remove tickets from the entire package, with a
-  linked exclusion list. Beginning debt also checks opening eligibility. New is
-  not excluded in Periodic. Current status is used only for Still Open Now,
-  which remains a subset of Debt at RED.
-- Trends use the final RED package, current due dates for expected work, and
-  recorded completion dates for actual expected-work delivery. Opening debt is
-  present at the opening point. Weekly points are Sunday ends (Monday-based
-  weeks) plus the partial final period. Periods over 120 days use month ends.
-  Individual-owner expected/actual lines use the same definitions. No linear
-  allocation, owner-count division or averaged percentages are used.
-- Missing completion evidence cannot improve delivery. Expected work with no
-  qualifying completion remains unresolved in debt; missing records are shown
-  separately for investigation. Other Done has zero plan and negative P−A
-  deviation. Total Actual Done has a separate output deviation versus expected;
-  it never changes expected-work deviation.
+Expected completion uses Completed minus Expected; debt/Other Done use P−A.
+Total Actual Done has a separate output comparison against expectation. Zero-plan
+percentages are N/A. Team counts and weights sum distinct contributors; percentages
+use summed numerators and denominators, not owner averages. Missing/hidden/invalid
+weights retain tickets but add no points, with linked coverage.
+
+## Presentation and data access
+
+Initial navigation uses only the lightweight owner selector, without issue,
+history or time scans. Apply uses uncached 100-issue batches, visible projects,
+issues and owner/weight fields. Selected owners' scalar status, owner and due-date
+history is retained for reconstruction and audit. Due history diagnoses edits;
+it never restores a past deadline. Return-reason history is added only for Returns.
+Retained rows/history grow with report size; benchmark actual memory and latency.
+
+Collapsed owner/team summaries precede cards and charts. Multi-owner results keep
+zero-output owners and show team and owner trends. Monday-based weeks have partial
+edges; periods over 120 days use calendar month ends. Cumulative expected and
+completed endpoints reconcile to exact sets. Current eligibility applies throughout.
+
+New-tab contributor lists preserve period, owners, metric and bucket. They show
+RED/current statuses, recorded assignment, latest To-Do and extraordinary reasons,
+with sorting, grouping, 100-row pagination, Back and full-set native Issues handoff.
+Large ID-list URL limitations remain. Details recheck current issue visibility.
+
+## PMO boundary alignment
+
+Hadi explicitly requested revising the old PMO beginning-debt boundary too. Ticket
+Owner Performance now uses current due < RSD with an opening snapshot before RSD;
+new commitments include due dates on RSD, and delivery includes RSD through RED.
+Delivery must remain closed now as well as at RED. Existing PMO attribution,
+tracker/status mappings, time attribution and end-debt definition remain separate;
+the Periodic To-Do/extraordinary logic does not silently replace them.
 
 ## Verification
 
-Test distinct component sets, debt target/workload separation, current-owner
-reassignment and blank owners, period boundaries, reopened/late completions,
-exclusions, hidden fields, missing weights and dates, Other Done separation,
-zero-plan percentages, zero-output owners and aggregated ratios. Test all
-contributors against their drill-down sets and final trend points against cards.
-Preserve bounded uncached scans and page-only full Issue loading. Measure full
-request latency and peak memory with installed plugins.
-
-Unit/history/helper/request coverage has been added for the provisional rules,
-reconciliation, missing data, current attribution with historical status,
-boundary dates, initial no-scan behavior, multi-owner links and details. Local
-Ruby and a configured test Redmine root are unavailable, so this Ruby coverage
-has not been executed. Deployed rendering, keyboard/mobile layout, full requests,
-installed-plugin compatibility and measured latency/memory remain unverified.
+Regression coverage addresses latest To-Do/current tenure, same-journal changes,
+missing due/history, current exclusions, late reopening, exact extraordinary
+contributors, new-work subsets, Extra versus Unplanned, inherited Returns/Time
+populations, PMO RSD boundaries, distinct ticket/weight sets and trend reconciliation.
+Ruby/test Redmine are unavailable locally, so Ruby coverage is unrun. Run the
+complete plugin test task from a configured TEST Redmine root, never production.
+Eleven local JavaScript navigation/legend tests pass; diff whitespace checks pass.
+Full web requests and installed-plugin visual/data/performance verification remain
+pending. No new business confirmation is needed for the three follow-up answers.

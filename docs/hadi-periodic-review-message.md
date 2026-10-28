@@ -1,5 +1,13 @@
 # Draft message to Hadi
 
+Part 1 status, 2026-10-28: Hadi answered the original Tickets questions and all
+three follow-ups. Do not resend Tickets questions 1–6 below; the body is retained
+as the earlier draft. Latest To-Do for current owner, current-status completion,
+required hotfix due dates and extraordinary audits are confirmed and applied
+locally. See [the confirmed Tickets spec](periodic-tickets-spec.md). Questions
+specific to Returns and Time remain pending; Part 1 answers do not confirm their
+other formulas or target values. No message has been sent automatically.
+
 Hi Hadi,
 
 We have implemented provisional Periodic Tickets, Returns and Time based on your

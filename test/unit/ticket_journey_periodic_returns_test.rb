@@ -34,6 +34,14 @@ class TicketJourneyPeriodicReturnsTest < ActiveSupport::TestCase
     assert_equal [1, 1, 0], (1..3).map { |index| result[:sets]["repeats_#{index}"].size }
   end
 
+  test 'current reopened and excluded tickets cannot enter either done population or trends' do
+    result = calculate([row(1, 3, current_done: false), row(2, 4, current_status_name: 'On-Hold'), row(3, 1)])
+    assert_equal [3], result[:sets]['returns_open'].map { |item| item[:id] }
+    assert_equal [3], result[:sets]['total_open'].map { |item| item[:id] }
+    assert_equal 1, result[:trends].sum { |point| point[:population] }
+    assert_equal 1, result[:expected][:incidents]
+  end
+
   test 'repeat distribution uses repeat tickets not all returned tickets and upper buckets are exclusive' do
     result = calculate([row(1, 1), row(2, 2, repeats: 1), row(3, 3, repeats: 2), row(4, 5, repeats: 4)])[:expected]
     assert_equal 4, result[:returned]

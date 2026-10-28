@@ -1,5 +1,11 @@
 # Periodic Returns and revised Live Return Ticket Metric
 
+Part 1 update, 2026-10-28: Tickets' [confirmed rules](periodic-tickets-spec.md)
+now control these populations: current exclusions and Done at RED AND now.
+Reopened-after-RED tickets leave the completed sets while currently reopened.
+This supersedes RED-only status/reopening statements below. Returns-specific
+event-window, ratio and cohort questions remain provisional.
+
 Implemented locally on user authorization, 2026-10-28. Business choices marked
 provisional await Hadi's confirmation. Ruby/request, deployed visual and service
 performance checks remain unverified. Periodic Time is also implemented

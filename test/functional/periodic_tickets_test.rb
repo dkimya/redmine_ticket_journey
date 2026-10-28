@@ -11,16 +11,16 @@ class PeriodicTicketsTest < ActionController::TestCase
     @first, @last = Date.new(2020, 1, 1), Date.new(2020, 1, 31)
   end
 
-  test 'initial Tickets loads filters and provisional rules without scans or metrics' do
+  test 'initial Tickets loads confirmed rules without scans or metrics' do
     Issue.expects(:visible).never
     TicketJourneyPeriodicTickets.expects(:history_for).never
     get :index, params: context
     assert_response :success
     assert_select '.nodata', text: /click Apply/
-    assert_select '.periodic-provisional', text: /awaiting Hadi/
+    assert_select '.periodic-provisional', text: /confirmed by Hadi/
     assert_select '.periodic-flow', count: 0
     assert_select 'input[name="rsd"][value=?]', @first.iso8601
-    assert_select '.performance-tabs a[aria-current="page"]', text: /Tickets.*Provisional/
+    assert_select '.performance-tabs a[aria-current="page"]', text: /Tickets.*Confirmed/
   end
 
   test 'dashboard renders all visual blocks and owner-specific links without team parameter leakage' do
@@ -108,13 +108,29 @@ class PeriodicTicketsTest < ActionController::TestCase
     end
   end
 
+  test 'extraordinary audit links to exact tickets and shows responsibility and reasons' do
+    issue = prepare_scan(todo_on: @first + 1, current_done: false, current_open: true,
+      current_status_name: 'In Progress', extraordinary_reasons: ['Reopened after Done / Closed', 'Due date changed'])
+    get :index, params: context.merge(owner_id: '1', metric: 'extraordinary')
+    assert_response :success
+    assert_equal [issue.id], @controller.instance_variable_get(:@matching_issue_ids)
+    assert_select '.performance-ticket-row', count: 1
+    assert_select 'th', text: 'Latest To-Do for Current Owner'
+    assert_select 'td', text: /Reopened after Done.*Due date changed/
+    get :index, params: context.merge(owner_id: '1')
+    report = @controller.instance_variable_get(:@periodic_report)
+    assert_empty report[:sets]['completed']
+    assert_equal [issue.id], report[:sets]['debt'].map { |row| row[:id] }
+    assert_select '.periodic-data-quality a', text: /Extraordinary Tickets: 1/
+  end
+
   private
 
   def context
     { project_id: @project.identifier, dashboard_type: 'periodic', rsd: @first.iso8601, red: @last.iso8601 }
   end
 
-  def prepare_scan
+  def prepare_scan(**overrides)
     issue = Issue.find(1)
     issue.tracker.update!(name: 'Bug')
     Issue.stubs(:visible).returns(Issue.where(id: issue.id))
@@ -126,7 +142,7 @@ class PeriodicTicketsTest < ActionController::TestCase
       beginning_open: false, closed_before: false, hotfix: false, assigned_on: @first,
       done: true, delivered_at: @first + 3, status_name: 'Done / Closed', current_open: false,
       weight: 8.0, missing_weight: false, project_id: issue.project_id, project_name: issue.project.name,
-      tracker_name: 'Bug', subject: issue.subject })
+      tracker_name: 'Bug', subject: issue.subject }.merge(overrides))
     issue
   end
 end

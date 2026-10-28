@@ -8,7 +8,7 @@
 <div class="performance-page periodic-page periodic-returns">
   <%= render 'header', page_title: 'Periodic Performance — Returns' %>
   <p class="periodic-provisional"><strong>Provisional rules — awaiting Hadi's confirmation.</strong> Expected Done Tickets match Periodic Tickets' Completed from Expectation. Return counts use full recorded history through RED, including earlier incidents. Trends group these tickets by completion period. <a href="#periodic-return-rules">Read the rules</a>.</p>
-  <p class="performance-context">Current Ticket Owner · Visible project hierarchy and tickets · Same tracker scope and RED exclusions as Periodic Tickets · Metric includes Merge Conflict</p>
+  <p class="performance-context">Current Ticket Owner · Visible project hierarchy and tickets · Same tracker scope and current-status exclusions as Periodic Tickets · Metric includes Merge Conflict</p>
   <% if @periodic_return_report %>
     <% result = @periodic_return_report; total = result[:total] %>
     <p><strong><%= @owner_label %></strong><% if @selected_owners.any? { |owner| !owner.active? } %> · Includes inactive owners from saved selections; picker lists active users only.<% end %></p>
@@ -68,12 +68,12 @@
     <section class="performance-section"><h3>Population and Data Quality</h3>
       <p>Expected Done Tickets must match the <%= periodic_ticket_link('Completed from Expectation', 'completed') %> list on Tickets. Total Done must match <%= periodic_ticket_link('Total Actual Done', 'actual') %>.</p>
       <p><%= periodic_ticket_link("Done tickets without recorded completion dates: #{@periodic_report[:sets]['missing_completion'].size}", 'missing_completion') %> · These do not increase delivered work or Returns denominators.</p>
-      <p><%= periodic_ticket_link("Tickets excluded by status at RED: #{@periodic_report[:sets]['excluded'].size}", 'excluded') %></p>
+      <p><%= periodic_ticket_link("Tickets excluded by current status: #{@periodic_report[:sets]['excluded'].size}", 'excluded') %> · <%= periodic_ticket_link("Extraordinary tickets: #{@periodic_report[:sets]['extraordinary'].size}", 'extraordinary') %></p>
       <p>Missing/hidden return reasons do not remove incidents from the primary metric. Audits show unavailable reasons without exposing hidden data. All returns through RED count, including those before RSD.</p>
     </section>
   <% else %><p class="nodata">Select Ticket Owner(s) and the reporting period, then click Apply. No tickets or return histories have been scanned.</p><% end %>
   <details class="performance-notes" id="periodic-return-rules"><summary>Provisional Returns calculation rules</summary>
-    <p>The user authorized these defaults while awaiting Hadi. Periodic Tickets defines expectation, current owner, tracker, due dates and historical completion/status eligibility. Expected Done and Total Done reuse its exact sets.</p>
+    <p>Returns-specific defaults await Hadi. The confirmed Part 1 rules define expectation, current owner, due dates and status checks. Delivery requires Done at RED and now; current excluded statuses are removed. Expected Done and Total Done reuse those exact sets.</p>
     <p>Qualifying transitions into Returned use existing tracker/stage rules. Count full recorded history through RED, including before RSD, with Merge Conflict included. Progress, completion and reassignment never reset return totals. Native lifetime Return Count is unchanged.</p>
     <p><%= performance_consecutive_returns_definition %> The consecutive-distribution denominator is only tickets with at least one consecutive repeat, not every returned ticket. “3+” means ≥4 returns; “2+” means ≥3 repeats.</p>
     <p>Metric = incidents / tickets with ≥1 return. A zero denominator is N/A with an explicit empty/no-return explanation; zero incidents are still shown. Team ratios use combined counts. No new severity thresholds or adjusted Periodic metric are assumed.</p>

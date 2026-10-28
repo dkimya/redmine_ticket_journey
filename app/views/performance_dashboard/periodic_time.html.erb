@@ -8,7 +8,7 @@
 <div class="performance-page periodic-page periodic-time-page">
   <%= render 'header', page_title: 'Periodic Performance — Time' %>
   <p class="periodic-provisional"><strong>Provisional Time rules — awaiting Hadi.</strong> Ticket costs include visible direct hours from all contributors through RED. Personal hours follow the logged user (time-entry user_id) and use RSD–RED work dates. <a href="#periodic-time-rules">Read the time windows and calculation rules</a>.</p>
-  <p class="performance-context">Same Periodic expectation package, visible project hierarchy and tracker scope · Historical status/completion · Current owners, estimates, weights, priority and calendar settings</p>
+  <p class="performance-context">Same Periodic expectation package, visible project hierarchy and tracker scope · Recorded completion with current-status checks · Current owners, estimates, weights, priority and calendar settings</p>
   <% if @periodic_time_report %>
     <% report = @periodic_time_report %>
     <p><strong><%= @owner_label %></strong> · Workdays per owner: <%= @calendar.days(@period_start, @period_end) %><% if @selected_owners.any? { |owner| !owner.active? } %> · Includes inactive owners from saved selections.<% end %></p>
@@ -90,7 +90,7 @@
       <% %w[cost_excluded expected_done_excluded efficiency_excluded dtc_excluded unclassified].each do |key| %><p><%= periodic_time_link("#{TicketJourneyPeriodicTime::LABELS[key]}: #{report[:sets][key].size}", key) %></p><% end %>
       <p>Unavailable/invalid personal-time contributions: <%= report[:invalid_rows] %>. Invalid, negative and nonfinite time is excluded from comparisons, not presented as zero. Owner daily-hour fallbacks: <%= @time_hours_fallback.size %> owner(s).</p>
       <p>Efficiency uses <%= report[:metrics]['efficiency'][:rows].size %> paired ticket-owner contributions: delivered <%= performance_number(report[:metrics]['efficiency'][:delivered_weight]) %> CW / <%= performance_number(report[:metrics]['efficiency'][:actual_effort]) %> owner h. Planned <%= performance_number(report[:metrics]['efficiency'][:expected_weight]) %> CW / <%= performance_number(report[:metrics]['efficiency'][:planned_effort]) %> expected h.</p>
-      <p>Totals cover visible issues in the selected project hierarchy, included trackers and RED status scope. Time without a ticket, on excluded trackers/statuses, or outside this hierarchy is outside these totals. The capacity plan still represents configured owner availability; partial issue/private-entry visibility may limit logged-hour comparisons.</p>
+      <p>Totals cover visible issues in the selected project hierarchy, included trackers and current status scope. Time without a ticket, on excluded trackers/statuses, or outside this hierarchy is outside these totals. The capacity plan still represents configured owner availability; partial issue/private-entry visibility may limit logged-hour comparisons.</p>
     </section>
   <% else %><p class="nodata">Select Ticket Owner(s), set the period, and click Apply. Initial navigation does not scan issues or time entries. Configure DTC targets and owner-share % before interpreting target comparisons.</p><% end %>
   <%= render 'periodic_time_rules' %>

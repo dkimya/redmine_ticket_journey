@@ -1,5 +1,12 @@
 # Periodic Performance — Time
 
+Part 1 update, 2026-10-28: use Tickets' [confirmed populations](periodic-tickets-spec.md),
+including current exclusions, mandatory hotfix dates and current-Done delivery
+checks. Currently reopened tickets leave completion-based metrics while their
+valid personal effort remains unfinished expectation effort. Other Work still
+includes unfinished out-of-package logged tickets. This supersedes RED-only
+status statements below; Time-specific formulas/targets remain provisional.
+
 Implemented locally on user authorization, 2026-10-28. Business choices below
 are provisional pending Hadi. Ruby tests, full Redmine requests, deployed layout
 and measured performance remain unverified. Tickets and Returns screenshots

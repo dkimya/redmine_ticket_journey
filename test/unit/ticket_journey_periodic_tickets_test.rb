@@ -8,7 +8,7 @@ class TicketJourneyPeriodicTicketsTest < ActiveSupport::TestCase
 
   test 'distinct package categories reconcile counts weights delivery and debt' do
     rows = [row(1, due: @first - 1, beginning_open: true, hotfix: true, done: true, delivered_at: @first),
-      row(2, hotfix: true, assigned_on: @first + 1, done: true, delivered_at: @last),
+      row(2, hotfix: true, todo_on: @first + 1, done: true, delivered_at: @last),
       row(3, assigned_on: @first - 10),
       row(4, due: nil, done: true, delivered_at: @last),
       row(5, due: @last + 1, done: true, delivered_at: @last),
@@ -32,16 +32,73 @@ class TicketJourneyPeriodicTicketsTest < ActiveSupport::TestCase
     assert_in_delta(-100.0 / 3, expected_metric[:deviation][:percent])
   end
 
-  test 'hotfix timing needs recorded assignment and has an explicit date fallback' do
-    report = calculate([row(1, hotfix: true, due: nil, assigned_on: @first),
-      row(2, hotfix: true, due: @last + 2, assigned_on: @last),
-      row(3, hotfix: true, due: nil, assigned_on: nil),
-      row(4, hotfix: true, due: nil, assigned_on: @first - 1),
-      row(5, hotfix: true, due: @last, assigned_on: nil)])
-    assert_equal [1, 2], ids(report, 'hotfix')
-    assert_equal [5], ids(report, 'planned')
-    assert_equal [3, 5], ids(report, 'missing_assignment')
-    assert_equal [@first, @last], report[:sets]['hotfix'].map { |item| item[:expected_on] }
+  test 'hotfix requires current owner To-Do during period and a real due date by RED' do
+    report = calculate([row(1, hotfix: true, due: nil, todo_on: @first),
+      row(2, hotfix: true, due: @last + 2, todo_on: @last),
+      row(3, hotfix: true, due: @last, todo_on: nil),
+      row(4, hotfix: true, due: @last, todo_on: @first - 1),
+      row(5, hotfix: true, due: @last, todo_on: @first)])
+    assert_equal [5], ids(report, 'hotfix')
+    assert_equal [3, 4], ids(report, 'planned')
+    assert_equal [3], ids(report, 'missing_todo')
+    assert_equal [1], ids(report, 'missing_due')
+    assert_equal [@last], report[:sets]['hotfix'].map { |item| item[:expected_on] }
+    assert_equal [5], ids(report, 'newly_assigned')
+    assert_equal [4], ids(report, 'earlier_assigned')
+  end
+
+  test 'current status controls exclusions and reopening invalidates past delivery' do
+    report = calculate([row(1, done: true, delivered_at: @last, current_done: false, current_open: true,
+        extraordinary_reasons: ['Reopened after Done / Closed']),
+      row(2, current_status_name: 'On-Hold', excluded_during_period: true),
+      row(3, status_name: 'On-Hold', current_status_name: 'In Progress')])
+    assert_empty ids(report, 'completed')
+    assert_equal [1, 3], ids(report, 'debt')
+    assert_equal [2], ids(report, 'excluded')
+    assert_equal [2], ids(report, 'excluded_during_period')
+    assert_equal [1], ids(report, 'extraordinary')
+    assert_equal 0, report[:trends].last[:completed_count]
+  end
+
+  test 'Other Done favorable classification is per owner with a nonempty completed package' do
+    report = calculate([row(1, done: true, delivered_at: @first),
+      row(2, due: @last + 1, done: true, delivered_at: @last),
+      row(3, owner_id: '2'),
+      row(4, owner_id: '2', due: @last + 1, done: true, delivered_at: @last),
+      row(5, owner_id: '3', due: @last + 1, done: true, delivered_at: @last)])
+    assert_equal [2], ids(report, 'extra_other')
+    assert_equal [4, 5], ids(report, 'unplanned_other')
+    assert_equal(-3, TicketJourneyPeriodicTickets.metric_rows(report, :count).find { |entry| entry[:key] == 'other' }[:deviation][:value])
+  end
+
+  test 'latest To-Do is tied to current owner tenure and records extraordinary reasons' do
+    statuses = { '1' => stub(name: 'New'), '2' => stub(name: 'To-Do'),
+      '3' => stub(name: 'In Progress'), '5' => stub(name: 'Done / Closed') }
+    status = ->(id, day, old, value) { TicketJourneyPerformance::HistoryJournal.new(id, day.in_time_zone,
+      [TicketJourneyPerformance::HistoryDetail.new('attr', 'status_id', old, value, id)]) }
+    history = [change(1, @first - 3, '', '1'), status.call(2, @first - 2, '1', '2'),
+      status.call(3, @first, '2', '3'), change(4, @first + 1, '1', '2'), change(5, @first + 2, '2', '1'),
+      status.call(6, @first + 3, '3', '2'), status.call(7, @first + 4, '2', '5'),
+      status.call(8, @last + 1, '5', '3')]
+    diagnostic = TicketJourneyPeriodicTickets.responsibility(history, '1', statuses, @first, @last)
+    assert_equal @first + 3, diagnostic[:todo_on]
+    assert_includes diagnostic[:extraordinary_reasons], 'Ticket Owner changed'
+    assert_includes diagnostic[:extraordinary_reasons], 'Repeated To-Do entry'
+    assert_includes diagnostic[:extraordinary_reasons], 'Reopened after Done / Closed'
+    history << change(9, @last + 2, '1', '2')
+    history << change(10, @last + 3, '2', '1')
+    assert_nil TicketJourneyPeriodicTickets.responsibility(history, '1', statuses, @first, @last)[:todo_on]
+    assert_nil TicketJourneyPeriodicTickets.responsibility([], '1', statuses, @first, @last)[:todo_on]
+  end
+
+  test 'same journal assignment and To-Do belongs to resulting owner and deadline changes are audited' do
+    details = [TicketJourneyPerformance::HistoryDetail.new('attr', 'status_id', '1', '2', 1),
+      TicketJourneyPerformance::HistoryDetail.new('cf', '57', '1', '2', 2),
+      TicketJourneyPerformance::HistoryDetail.new('attr', 'due_date', @first.to_s, @last.to_s, 3)]
+    history = [TicketJourneyPerformance::HistoryJournal.new(1, @first.in_time_zone, details)]
+    diagnostic = TicketJourneyPeriodicTickets.responsibility(history, '2', { '2' => stub(name: 'To-Do') }, @first, @last)
+    assert_equal @first, diagnostic[:todo_on]
+    assert_includes diagnostic[:extraordinary_reasons], 'Due date changed'
   end
 
   test 'RSD and RED completions qualify but reopened or outside-period closures do not' do
