@@ -42,12 +42,15 @@
           <h4>Total Visible Spent Time</h4>
           <div class="performance-spent-summary">
             <strong><%= performance_time_hours(report[:spent]) %></strong>
+            <span class="performance-spent-equals" aria-hidden="true">=</span>
+            <svg class="performance-spent-brace" viewBox="0 0 16 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="M15 1 C5 1 5 8 5 18 L5 38 C5 46 2 50 1 50 C2 50 5 54 5 62 L5 82 C5 92 5 99 15 99" fill="none" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke" /></svg>
             <dl class="performance-spent-breakdown" aria-label="Visible spent time breakdown">
               <% [['Active', :active_spent], ['Ongoing', :ongoing_spent], ['Archived', :archived_spent]].each do |label, key| %>
                 <div class="<%= 'is-zero' if report[key] == 0 %>"><dt><%= label %></dt><dd><%= performance_time_hours(report[key]) %></dd></div>
               <% end %>
             </dl>
           </div>
+          <p class="performance-spent-formula">Total = Active + Ongoing + Archived</p>
           <p>Through <%= format_date(@date) %>; all entry authors.</p>
           <p><%= report[:time_unavailable] %> tickets lack time-view permission. Other visibility restrictions may yield partial hours.</p>
         </article>

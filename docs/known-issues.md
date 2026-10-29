@@ -1,5 +1,11 @@
 # Known issues and evidence
 
+Live Time spent summary now uses an equals sign and a subtle brace spanning the
+three categories instead of the vertical divider. Narrow layouts show the total
+above the categories with “Total = Active + Ongoing + Archived” below. Decorative
+symbols are hidden from assistive technology. Calculations unchanged; implemented
+locally, deployed visual verification pending.
+
 Live Time spent card layout: total is on the left, Active/Ongoing/Archived detail
 on the right with a light divider, aligned numeric hours and muted zero rows.
 Narrow cards stack detail below the total. Calculation and permission disclosure
