@@ -1,5 +1,10 @@
 # Known issues and evidence
 
+Ticket Owner Time below Area 3 now uses a native collapsible section, initially
+closed. Its cards, explanations and comparison bars expand together via the
+keyboard-accessible summary. Calculations unchanged; deployed visual verification
+pending.
+
 Live owner-time comparison added below Area 3, with independent 90% default PM
 estimate share setting. Uses each ticket's current owner's booked hours only,
 with active balance/SV and active/Ongoing/Archived reconciliation. Model coverage

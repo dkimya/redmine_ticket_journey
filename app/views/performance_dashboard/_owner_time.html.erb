@@ -1,5 +1,5 @@
-<section class="performance-section">
-  <h3>Ticket Owner Time — Estimation, Spent Time &amp; Schedule Variance</h3>
+<details class="performance-section performance-owner-time">
+  <summary><strong>Ticket Owner Time — Estimation, Spent Time &amp; Schedule Variance</strong></summary>
   <p>Only time booked by each ticket's current Ticket Owner on their own scoped tickets, through <%= format_date(@date) %>. Other contributors and time the selected users booked on other owners' tickets are excluded. This is not all personal logged time.</p>
   <p>Owner estimate = current PM estimate × <strong><%= performance_number(@live_owner_share) %>%</strong> (configurable in plugin settings). Active-ticket comparisons use the same eligibility rules as Area 3.</p>
   <div class="performance-time-cards">
@@ -28,4 +28,4 @@
     <% bars.each do |label, value, color| %><div class="performance-time-bar-row"><span><%= label %></span><div><span style="width:<%= value * 100.0 / maximum %>%;background:<%= color %>"></span></div><strong><%= performance_time_hours(value) %></strong></div><% end %>
   </div>
   <p><%= report[:sets]['time_estimate_excluded'].size %> active tickets lack usable PM estimates; <%= report[:sets]['time_sv_excluded'].size %> are excluded from owner SV. Ongoing and Archived hours remain in the spent breakdown only. Current ownership and settings also apply to past report dates.</p>
-</section>
+</details>
