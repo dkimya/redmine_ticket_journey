@@ -1,5 +1,10 @@
 # Known issues and evidence
 
+Spent-summary alignment: the user screenshot confirms the brace renders. The
+total now aligns to the top of the summary row, matching the other cards' main
+values; the equals sign and brace retain their alignment with the breakdown.
+Implemented locally; deployed alignment verification pending.
+
 Live Time spent summary now uses an equals sign and a subtle brace spanning the
 three categories instead of the vertical divider. Narrow layouts show the total
 above the categories with “Total = Active + Ongoing + Archived” below. Decorative

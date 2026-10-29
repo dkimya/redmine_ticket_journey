@@ -405,7 +405,7 @@
 .performance-time-cards .performance-metric { min-width: 0; overflow-wrap: anywhere; }
 .performance-time-cards strong { display: block; font-size: 28px; }
 .performance-spent-summary{display:grid;grid-template-columns:minmax(0,2fr) auto 14px minmax(0,3fr);align-items:center;gap:8px}
-.performance-spent-summary>strong{white-space:nowrap}
+.performance-spent-summary>strong{white-space:nowrap;align-self:start}
 .performance-spent-equals{color:#627f9e;font-size:18px}
 .performance-spent-brace{width:14px;height:100%;min-height:88px;color:#8ba7c2;align-self:stretch}
 .performance-spent-formula{display:none;font-size:12px;color:#536579}
