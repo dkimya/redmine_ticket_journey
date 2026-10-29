@@ -38,7 +38,19 @@
       <% end %>
       <div class="performance-time-cards">
         <article class="performance-metric"><h4>Total PM Estimate for Active Tickets</h4><strong><%= performance_time_hours(report[:estimate]) %></strong><p><%= report[:sets]['time_active'].size - report[:sets]['time_estimate_excluded'].size %> of <%= report[:sets]['time_active'].size %> active tickets have usable estimates.</p></article>
-        <article class="performance-metric"><h4>Total Visible Spent Time</h4><p>Ongoing tickets: <%= performance_time_hours(report[:ongoing_spent]) %><br>Archived tickets: <%= performance_time_hours(report[:archived_spent]) %><br>Active tickets: <%= performance_time_hours(report[:active_spent]) %></p><strong><%= performance_time_hours(report[:spent]) %></strong><p>Through <%= format_date(@date) %>; all entry authors.</p><p><%= report[:time_unavailable] %> tickets lack time-view permission. Other visibility restrictions may yield partial hours.</p></article>
+        <article class="performance-metric">
+          <h4>Total Visible Spent Time</h4>
+          <div class="performance-spent-summary">
+            <strong><%= performance_time_hours(report[:spent]) %></strong>
+            <dl class="performance-spent-breakdown" aria-label="Visible spent time breakdown">
+              <% [['Active', :active_spent], ['Ongoing', :ongoing_spent], ['Archived', :archived_spent]].each do |label, key| %>
+                <div class="<%= 'is-zero' if report[key] == 0 %>"><dt><%= label %></dt><dd><%= performance_time_hours(report[key]) %></dd></div>
+              <% end %>
+            </dl>
+          </div>
+          <p>Through <%= format_date(@date) %>; all entry authors.</p>
+          <p><%= report[:time_unavailable] %> tickets lack time-view permission. Other visibility restrictions may yield partial hours.</p>
+        </article>
         <article class="performance-metric <%= performance_time_state(report[:balance_percent], @estimate_allowance, inclusive: false) %>"><h4>Estimate Balance for Active Tickets</h4><strong><%= performance_time_hours(report[:balance]) %></strong><p><%= report[:balance_percent].nil? ? 'N/A' : "#{performance_number(report[:balance_percent])}%" %></p><p><%= report[:balance].nil? ? 'Unavailable' : (report[:balance].zero? ? 'At estimate' : (report[:balance].positive? ? 'Remaining Estimate' : 'Above Estimate')) %></p><p><%= performance_time_link("#{report[:sets]['time_balance'].size} comparable tickets", 'time_balance') %>; estimate <%= performance_time_hours(report[:balance_estimate]) %>, visible spent <%= performance_time_hours(report[:balance_spent]) %>. Overrun allowance: <%= performance_number(@estimate_allowance) %>%.</p></article>
         <article class="performance-metric <%= performance_time_state(report[:sv], @sv_warning) %>"><h4>Time-Based Schedule Variance</h4><strong><%= report[:sv].nil? ? 'N/A' : "#{performance_number(report[:sv])}%" %></strong><p><%= report[:sv].nil? ? 'No positive planned effort' : (report[:sv].zero? ? 'At planned time consumption' : (report[:sv].positive? ? 'Below planned time consumption' : 'Above planned time consumption')) %></p><p>Visible Actual Spent Time on Active Tickets: <%= performance_time_hours(report[:actual]) %><br>Planned Effort: <%= performance_time_hours(report[:planned]) %></p><p><%= performance_time_link("SV calculated for #{report[:sets]['time_sv'].size} of #{report[:sets]['time_active'].size} active tickets", 'time_sv') %>. Warning threshold: <%= performance_number(@sv_warning) %>%.</p></article>
       </div>

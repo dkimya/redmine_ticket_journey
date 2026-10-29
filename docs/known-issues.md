@@ -1,5 +1,10 @@
 # Known issues and evidence
 
+Live Time spent card layout: total is on the left, Active/Ongoing/Archived detail
+on the right with a light divider, aligned numeric hours and muted zero rows.
+Narrow cards stack detail below the total. Calculation and permission disclosure
+are unchanged. Implemented locally; deployed visual verification pending.
+
 Live Time Area 3: added active/Ongoing/Archived spent-hour reconciliation, active-only
 PM estimate/balance/SV contributor sets, explicit labels and actual/planned/estimate
 bar order. Archived hours now enter the displayed spent total only. Regression
