@@ -3,7 +3,11 @@
   <% metric = @return_mode ? :ratio : :delivered_weight %>
   <h4><%= @return_mode ? 'Return Incidents / Returned Open Tickets' : 'Monthly Delivered Complexity Points' %></h4>
   <p>Current Ticket Owner · Five completed months · Select an owner’s legend button to hide or show their line.</p>
-  <p><%= @return_mode ? 'Lower is better. The old percentage thresholds do not apply to this metric.' : 'Solid colored lines: actual delivered points. Thin gray dashed lines: unique monthly targets. Targets are shown in parentheses beside owner names.' %></p>
+  <% if @return_mode %>
+    <p><strong class="performance-favorable-direction">↓ Lower is better</strong></p>
+  <% else %>
+    <p>Solid colored lines: actual delivered points. Thin gray dashed lines: unique monthly targets. Targets are shown in parentheses beside owner names.</p>
+  <% end %>
   <% dates = entries.first[:points].map { |point| point[:date] } %>
   <% keys = entries.map { |entry| entry[:owner].id.to_s } %>
   <% plot = dates.each_index.map { |index| entries.to_h { |entry| [entry[:owner].id.to_s, entry[:points][index][metric]] } } %>
