@@ -22,7 +22,8 @@
       </table></div>
     </details>
     <%= render 'leaderboard', entries: @leaderboard_entries if @leaderboard_entries %>
-    <h3>Combined Results for selected owners (team)</h3>
+    <%= render 'return_types' %>
+    <h3 class="performance-team-heading">Combined Results for selected owners (team)</h3>
     <div class="performance-return-distributions">
       <%= render 'return_distribution', number: 1, title: 'Return Count Distribution (Open Tickets)', keys: %w[returns_0 returns_1 returns_2 returns_3 returns_4], labels: ['0 Return', '1 Return', '2 Returns', '3 Returns', '3+ Returns'], denominator: @returns[:open], total_metric: 'returns_open', total_label: 'Total Open Tickets' %>
       <%= render 'return_distribution', number: 2, title: 'Consecutive Return Distribution (Open Tickets)', keys: %w[repeats_1 repeats_2 repeats_3], labels: ['1 Consecutive Return', '2 Consecutive Returns', '2+ Consecutive Returns'], denominator: @returns[:with_repeats], total_metric: 'repeats_all', total_label: 'Tickets with Consecutive Returns' %>

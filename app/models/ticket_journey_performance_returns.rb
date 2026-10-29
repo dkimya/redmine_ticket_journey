@@ -16,6 +16,28 @@ class TicketJourneyPerformanceReturns
     'unknown_return_reasons' => 'Returned Tickets with Unavailable Incident Reasons'
   }.freeze
   COLORS = ['#00bc87', '#008fff', '#ffbd36', '#ff8b2d', '#f65362'].freeze
+  RETURN_TYPES = {
+    C1: ['R1', 'Feedback → Returned'], C2: ['R2', 'Review → Returned'],
+    C3: ['R3', 'Ready to Merge → Returned'], C4: ['R4', 'Final Check → Returned'],
+    C5: ['R5', 'Done / Closed → Returned']
+  }.freeze
+
+  def self.return_types(report)
+    counts = RETURN_TYPES.keys.to_h { |key| [key, 0] }
+    reasons = Hash.new(0)
+    report[:sets].fetch('returns_open').each do |row|
+      row[:events].each do |event|
+        counts[event[:counter_key]] += 1 if counts.key?(event[:counter_key])
+        reasons[event[:reason].to_s.strip.presence || 'Reason unavailable'] += 1
+      end
+    end
+    maximum = reasons.values.max
+    {
+      stages: counts,
+      rate: report[:open].positive? ? 100.0 * report[:returned] / report[:open] : nil,
+      top_reasons: reasons.select { |_reason, count| count == maximum }.sort_by { |reason, _count| reason.downcase }
+    }
+  end
 
   def self.trend_points(date)
     TicketJourneyPerformance.completed_month_ends(date).map do |day|

@@ -1,0 +1,10 @@
+<% types = TicketJourneyPerformanceReturns.return_types(report) %>
+<tr>
+  <th scope="row"><%= label %></th>
+  <td><%= performance_return_link(report[:open], 'returns_open', ids) %></td>
+  <td><%= performance_return_link(report[:returned], 'return_incidents', ids) %></td>
+  <td><%= types[:rate].nil? ? 'N/A' : "#{performance_number(types[:rate])}%" %></td>
+  <% TicketJourneyPerformanceReturns::RETURN_TYPES.each_key do |key| %><td><%= types[:stages].fetch(key) %></td><% end %>
+  <td><%= performance_return_link(report[:incidents], 'return_incidents', ids) %></td>
+  <td><%= types[:top_reasons].empty? ? '—' : types[:top_reasons].map { |reason, count| "#{reason} (#{count})" }.join('; ') %></td>
+</tr>

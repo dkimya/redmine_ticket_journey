@@ -14,7 +14,7 @@
   <% if @report %>
     <%= render 'comparison' %>
     <%= render 'leaderboard', entries: @leaderboard_entries if @leaderboard_entries %>
-    <h3>Combined Results for selected owners (team)</h3>
+    <h3 class="performance-team-heading">Combined Results for selected owners (team)</h3>
     <% groups = @report[:groups]; total_weight = TicketJourneyPerformance.weight(groups.first) %>
     <section class="performance-section">
       <h3><span class="performance-step">1</span> Open Tickets <%= performance_tip('New and On-Hold at the selected report date are excluded from open-ticket counts, weights, breakdowns, and Due Soon. Other non-closed statuses, including Pending and Ongoing, remain included. Stopped means Pending only and is a subset of Total Open Tickets. Archived is closed and is not a delivery. Missing due dates are included in Not Overdue; due today is not overdue. Not Touched means the ticket has not been In Progress by the report date. Logged time, comments, and later workflow stages alone do not establish Started. Earlier In Progress history, including before reassignment, still counts. Section 2 retains its separate rules.') %></h3>

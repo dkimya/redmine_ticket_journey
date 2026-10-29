@@ -1,6 +1,24 @@
 require File.expand_path('../test_helper', __dir__)
 
 class TicketJourneyPerformanceReturnsTest < ActiveSupport::TestCase
+  test 'return types count stages and tied reasons over exact open population' do
+    rows = [row(1, 2), row(2, 0), row(3, 1, 0, 'Done / Closed')]
+    rows[0][:events] = [
+      { counter_key: :C1, reason: 'Fix', merge_conflict: false },
+      { counter_key: :C3, reason: 'Merge Conflict', merge_conflict: true }
+    ]
+    result = TicketJourneyPerformanceReturns.return_types(TicketJourneyPerformanceReturns.calculate(rows))
+    assert_equal({ C1: 1, C2: 0, C3: 1, C4: 0, C5: 0 }, result[:stages])
+    assert_equal 50.0, result[:rate]
+    assert_equal [['Fix', 1], ['Merge Conflict', 1]], result[:top_reasons]
+    rows[0][:events][0][:reason] = nil
+    result = TicketJourneyPerformanceReturns.return_types(TicketJourneyPerformanceReturns.calculate(rows))
+    assert_includes result[:top_reasons], ['Reason unavailable', 1]
+    empty = TicketJourneyPerformanceReturns.return_types(TicketJourneyPerformanceReturns.calculate([]))
+    assert_nil empty[:rate]
+    assert_empty empty[:top_reasons]
+  end
+
   def issue(tracker = 'Bug')
     stub(tracker: stub(name: tracker))
   end

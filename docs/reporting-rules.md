@@ -1,5 +1,19 @@
 # Reporting rules
 
+## Live Returns — Return Types
+
+An initially collapsed Return Types table follows the leaderboard, before Combined
+Results. It reuses the exact Live open-ticket population, current-owner attribution
+and qualifying return events through the selected date. Owner rows and team Total
+show Open Tickets, distinct Returned Tickets, Return Rate (returned / open × 100;
+N/A for no open tickets), R1–R5 incidents, Total Returns and Top Reason. R1–R5 map
+to shared C1–C5 stages: Feedback, Review, Ready to Merge, Final Check and Done /
+Closed transitioning into Returned, preserving tracker-family rules. Each has a
+tooltip. Merge incidents remain included. Top Reason counts incidents and shows
+all ties; missing/hidden reasons are labelled Reason unavailable. Rework Time is
+omitted. No additional history scan or stored counters. Implemented locally;
+runtime and deployed visual verification pending.
+
 ## V5 Part 4 answers — 2026-10-28
 
 The last six answers are applied locally. The authoritative current definitions

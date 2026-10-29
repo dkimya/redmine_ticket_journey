@@ -1,5 +1,11 @@
 # Known issues and evidence
 
+Live Returns Return Types: initially collapsed owner/team table added after the
+leaderboard and before Combined Results, using existing open-ticket event sets.
+Includes R1–R5 tooltips, returned/open percentage and tied top incident reasons;
+omits Rework Time. Regression coverage added; Ruby/host Redmine tests and deployed
+visual verification remain pending.
+
 ## V5 Part 4 — local implementation, 2026-10-28
 
 The remaining six Time answers are incorporated; see the current
@@ -294,3 +300,7 @@ Monthly Day 0 rules superseded on user approval: both metrics now use the three 
 Returns comparison last-column presentation: heading now reads Incidents (excl. merge conflicts) / Returned Open Tickets. The linked returned-ticket count uses the same block-level second-line styling as the preceding ratio column, including the Total row. Calculations are unchanged. Implemented locally; deployed visual verification pending.
 
 Returns individual-owner trend direction now shows a bold dark-green “↓ Lower is better” badge on a pale green background. Removed the confusing sentence about old percentage thresholds from this chart. Calculations are unchanged. Implemented locally; deployed visual verification pending.
+
+User screenshot confirms the updated Returns heading and second-line denominator render, but the last column remains right-aligned. Both final ratio columns now explicitly center their values and denominator lines for owner rows and Total. Implemented locally; deployed alignment verification pending.
+
+Combined Results for selected owners (team) now uses a shared light-blue heading banner with dark bold text and a blue left accent on Tickets, Returns and Time. Implemented locally; deployed visual verification pending.

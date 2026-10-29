@@ -17,7 +17,7 @@
           <tr><th><%= owner.name %></th><td><%= performance_time_link(own[:open], 'time_open', [owner.id.to_s]) %></td><td><%= performance_time_hours(own[:estimate]) %></td><td><%= performance_time_hours(own[:spent]) %></td><td><%= performance_time_link("#{own[:sets]['time_sv'].size} / #{own[:open]}", 'time_sv', [owner.id.to_s]) %></td><td><%= own[:sv].nil? ? 'N/A' : "#{performance_number(own[:sv])}%" %></td></tr>
         <% end %></tbody><tfoot><tr class="performance-comparison-total"><th>Total</th><td><%= report[:open] %></td><td><%= performance_time_hours(report[:estimate]) %></td><td><%= performance_time_hours(report[:spent]) %></td><td><%= report[:sets]['time_sv'].size %> / <%= report[:open] %></td><td><%= report[:sv].nil? ? 'N/A' : "#{performance_number(report[:sv])}%" %></td></tr></tfoot>
       </table></div></details>
-      <h3>Combined Results for selected owners (team)</h3>
+      <h3 class="performance-team-heading">Combined Results for selected owners (team)</h3>
     <% end %>
     <div class="performance-return-distributions">
       <%= render 'time_distribution', priority: false %>

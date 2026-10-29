@@ -1,0 +1,18 @@
+<details class="performance-section performance-return-types">
+  <summary><strong>Return Types</strong></summary>
+  <p>Open tickets at the selected date, attributed to the current Ticket Owner. R1–R5 count qualifying return incidents through that date, including Merge Conflict. Return Rate is returned open tickets / all open tickets. Top Reason counts incidents; ties are shown together. Unavailable reasons are labelled explicitly.</p>
+  <div class="autoscroll"><table class="list">
+    <thead><tr><th>Ticket Owner</th><th>Open Tickets</th><th>Returned Tickets</th><th>Return Rate</th>
+      <% TicketJourneyPerformanceReturns::RETURN_TYPES.each_value do |label, stage| %>
+        <th><%= label %> <%= performance_tip("#{stage}: each recorded transition into Returned counts once, subject to the ticket's tracker-family rules. Counts incidents, not distinct tickets.") %></th>
+      <% end %>
+      <th>Total Returns</th><th>Top Reason</th>
+    </tr></thead>
+    <tbody>
+      <% @return_comparison.each do |entry| %>
+        <%= render 'return_types_row', report: entry[:report], label: entry[:owner].name, ids: [entry[:owner].id.to_s] %>
+      <% end %>
+    </tbody>
+    <tfoot><%= render 'return_types_row', report: @returns, label: 'Total', ids: @selected_owner_ids %></tfoot>
+  </table></div>
+</details>
