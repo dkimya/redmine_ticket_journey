@@ -1,5 +1,29 @@
 # Reporting rules
 
+## Live Ticket Owner Time comparison
+
+A separate section below Live Time Area 3 compares current Ticket Owner hours
+with a configurable share of PM estimates. Only visible direct entries booked by
+each ticket's own current owner through the report date count; entry creator is
+irrelevant. Other contributors, and selected users' entries on other owners'
+tickets, do not count. This is not total personal effort. Reassignment moves
+attribution to the new current owner and uses that user's entries only.
+
+Live Ticket Owner PM Estimate Share (%) defaults to 90, accepts finite 0–100,
+and applies to current estimates even for past dates. It is separate from the
+Development activity ratio and delivery target. Owner estimate and scheduled
+planned effort both multiply PM values by the share. Actual owner hours are not
+scaled. The same active eligibility, paired balance/SV populations, calendar and
+permission rules as Area 3 apply. Zero planned effort gives N/A SV. Ongoing and
+Archived owner hours appear only in spent reconciliation. No entries means zero
+when time is visible; unavailable time remains unavailable. The section has no
+drill-down links that could misleadingly display all-contributor hours.
+
+One additional batch-bounded visible-time aggregate by ticket/booked-user supplies
+this section; no stored counters, fields or migrations. Initial navigation still
+does not scan. Implemented locally; host/runtime, source-data and deployed visual
+verification remain pending.
+
 ## Live Time Area 3 — active comparisons and spent breakdown
 
 Active means the existing Live open population excluding Ongoing. PM estimate,

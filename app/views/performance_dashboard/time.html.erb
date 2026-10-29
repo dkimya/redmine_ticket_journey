@@ -45,12 +45,12 @@
             <span class="performance-spent-equals" aria-hidden="true">=</span>
             <svg class="performance-spent-brace" viewBox="0 0 16 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="M15 1 C5 1 5 8 5 18 L5 38 C5 46 2 50 1 50 C2 50 5 54 5 62 L5 82 C5 92 5 99 15 99" fill="none" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke" /></svg>
             <dl class="performance-spent-breakdown" aria-label="Visible spent time breakdown">
-              <% [['Active', :active_spent], ['Ongoing', :ongoing_spent], ['Archived', :archived_spent]].each do |label, key| %>
+              <% [['on Active tickets', :active_spent], ['on Ongoing tickets', :ongoing_spent], ['on Archived tickets', :archived_spent]].each do |label, key| %>
                 <div class="<%= 'is-zero' if report[key] == 0 %>"><dt><%= label %></dt><dd><%= performance_time_hours(report[key]) %></dd></div>
               <% end %>
             </dl>
           </div>
-          <p class="performance-spent-formula">Total = Active + Ongoing + Archived</p>
+          <p class="performance-spent-formula">Total = time on Active + Ongoing + Archived tickets</p>
           <p>Through <%= format_date(@date) %>; all entry authors.</p>
           <p><%= report[:time_unavailable] %> tickets lack time-view permission. Other visibility restrictions may yield partial hours.</p>
         </article>
@@ -65,6 +65,7 @@
       <p><%= performance_time_link("#{report[:sets]['time_sv_excluded'].size} tickets excluded from SV — investigate missing data", 'time_sv_excluded') %> · <%= performance_time_link("#{report[:sets]['time_estimate_excluded'].size} without usable PM estimates", 'time_estimate_excluded') %>.</p>
       <p>Visible early logged work: <%= performance_time_hours(report[:early_hours]) %>. Future-start tickets remain outside SV until their scheduled start. A positive balance or SV does not prove delivery or savings.</p>
     </section>
+    <%= render 'owner_time', report: @owner_time_report if @owner_time_report %>
     <%= render 'time_productivity' if @time_trend %>
     <%= render 'owner_change_note' %>
     <details class="performance-section"><summary>Calculation notes and calendar</summary>

@@ -1,6 +1,24 @@
 require File.expand_path('../test_helper', __dir__)
 
 class TicketJourneyPerformanceTimeTest < ActiveSupport::TestCase
+  test 'owner report scales estimate and planned effort but uses only owner hours' do
+    source = row(estimate: 100.0, planned: 80.0, spent: 70.0, owner_spent: 30.0)
+    report = TicketJourneyPerformanceTime.owner_report([source], 90.0)
+    assert_equal 90.0, report[:estimate]
+    assert_equal 72.0, report[:planned]
+    assert_equal 30.0, report[:spent]
+    assert_equal 60.0, report[:balance]
+    assert_in_delta (72.0 - 30.0) / 72.0 * 100, report[:sv], 0.001
+    assert_equal 70.0, source[:spent]
+    assert_equal 100.0, source[:estimate]
+    zero = TicketJourneyPerformanceTime.owner_report([source.merge(owner_spent: 0.0)], 0.0)
+    assert_equal 0.0, zero[:spent]
+    assert_nil zero[:sv]
+    hidden = TicketJourneyPerformanceTime.owner_report([source.merge(spent: nil, owner_spent: nil, exclusions: ['Time unavailable'])], 90.0)
+    assert_nil hidden[:spent]
+    assert_empty hidden[:sets]['time_balance']
+  end
+
   test 'area three reconciles active ongoing and archived hours with active-only comparisons' do
     report = TicketJourneyPerformanceTime.calculate([
       row(spent: 28.5, estimate: 66.0, planned: 55.1),

@@ -39,6 +39,22 @@ class TicketJourneyPerformanceTime
     entries.sum { |day, hours| day <= date ? hours : 0.0 }
   end
 
+  # Bounded to the current issue batch; booked user, never entry creator.
+  def self.owner_hours_for(ids, owner_ids, date)
+    TimeEntry.visible(User.current).where(issue_id: ids, user_id: owner_ids)
+      .where('time_entries.spent_on <= ? AND time_entries.hours >= 0 AND time_entries.hours <= ?', date, Float::MAX)
+      .group(:issue_id, :user_id).sum(:hours)
+  end
+
+  def self.owner_report(rows, share)
+    factor = share / 100.0
+    calculate(rows.map do |row|
+      row.merge(spent: row[:owner_spent],
+        estimate: row[:estimate] && row[:estimate] * factor,
+        planned: row[:planned] && row[:planned] * factor)
+    end)
+  end
+
   def self.enrich(row, issue, date, calendar, entries, can_view_time, daily_hours)
     start = issue.start_date
     estimate = positive(issue.estimated_hours)

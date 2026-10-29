@@ -1,0 +1,31 @@
+<section class="performance-section">
+  <h3>Ticket Owner Time — Estimation, Spent Time &amp; Schedule Variance</h3>
+  <p>Only time booked by each ticket's current Ticket Owner on their own scoped tickets, through <%= format_date(@date) %>. Other contributors and time the selected users booked on other owners' tickets are excluded. This is not all personal logged time.</p>
+  <p>Owner estimate = current PM estimate × <strong><%= performance_number(@live_owner_share) %>%</strong> (configurable in plugin settings). Active-ticket comparisons use the same eligibility rules as Area 3.</p>
+  <div class="performance-time-cards">
+    <article class="performance-metric"><h4>PM Estimate Share for Active Ticket Owners</h4><strong><%= performance_time_hours(report[:estimate]) %></strong><p><%= report[:sets]['time_active'].size - report[:sets]['time_estimate_excluded'].size %> of <%= report[:sets]['time_active'].size %> active tickets have usable estimates.</p></article>
+    <article class="performance-metric">
+      <h4>Total Visible Owner Spent Time</h4>
+      <div class="performance-spent-summary">
+        <strong><%= performance_time_hours(report[:spent]) %></strong>
+        <span class="performance-spent-equals" aria-hidden="true">=</span>
+        <svg class="performance-spent-brace" viewBox="0 0 16 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="M15 1 C5 1 5 8 5 18 L5 38 C5 46 2 50 1 50 C2 50 5 54 5 62 L5 82 C5 92 5 99 15 99" fill="none" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke" /></svg>
+        <dl class="performance-spent-breakdown" aria-label="Owner spent time breakdown">
+          <% [['on Active tickets', :active_spent], ['on Ongoing tickets', :ongoing_spent], ['on Archived tickets', :archived_spent]].each do |label, key| %>
+            <div class="<%= 'is-zero' if report[key] == 0 %>"><dt><%= label %></dt><dd><%= performance_time_hours(report[key]) %></dd></div>
+          <% end %>
+        </dl>
+      </div>
+      <p class="performance-spent-formula">Total = time on Active + Ongoing + Archived tickets</p>
+      <p><%= report[:time_unavailable] %> tickets lack time-view permission. Other visibility restrictions may yield partial hours.</p>
+    </article>
+    <article class="performance-metric <%= performance_time_state(report[:balance_percent], @estimate_allowance, inclusive: false) %>"><h4>Owner Estimate Balance — Active Tickets</h4><strong><%= performance_time_hours(report[:balance]) %></strong><p><%= report[:balance_percent].nil? ? 'N/A' : "#{performance_number(report[:balance_percent])}%" %></p><p>Owner estimate share minus visible owner spent time.</p><p><%= report[:sets]['time_balance'].size %> comparable tickets; owner estimate <%= performance_time_hours(report[:balance_estimate]) %>, owner spent <%= performance_time_hours(report[:balance_spent]) %>.</p></article>
+    <article class="performance-metric <%= performance_time_state(report[:sv], @sv_warning) %>"><h4>Owner Time-Based Schedule Variance</h4><strong><%= report[:sv].nil? ? 'N/A' : "#{performance_number(report[:sv])}%" %></strong><p>Actual owner spent: <%= performance_time_hours(report[:actual]) %><br>Planned owner effort: <%= performance_time_hours(report[:planned]) %></p><p><%= report[:sets]['time_sv'].size %> of <%= report[:sets]['time_active'].size %> active tickets qualify. Positive means below planned time consumption, not proof of delivery.</p></article>
+  </div>
+  <% bars = [['Visible Owner Spent Time on Active Tickets', report[:actual], '#48bd82'], ['Planned Owner Effort (by report date)', report[:planned], '#009e73'], ['PM Estimate Share for Active Ticket Owners', report[:sets]['time_sv'].sum { |row| row[:estimate] }, '#008fff']]; maximum = [bars.map { |bar| bar[1] }.max, 1].max %>
+  <div class="performance-time-bars">
+    <h4>Comparable Owner Hours — Active Tasks (SV Contributors Only)</h4>
+    <% bars.each do |label, value, color| %><div class="performance-time-bar-row"><span><%= label %></span><div><span style="width:<%= value * 100.0 / maximum %>%;background:<%= color %>"></span></div><strong><%= performance_time_hours(value) %></strong></div><% end %>
+  </div>
+  <p><%= report[:sets]['time_estimate_excluded'].size %> active tickets lack usable PM estimates; <%= report[:sets]['time_sv_excluded'].size %> are excluded from owner SV. Ongoing and Archived hours remain in the spent breakdown only. Current ownership and settings also apply to past report dates.</p>
+</section>

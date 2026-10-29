@@ -17,6 +17,10 @@ module TicketJourney
       parse_target(settings['performance_delivery_target']) || DEFAULT_DELIVERY_TARGET
     end
 
+    def self.live_owner_share(settings)
+      parse_target(settings['performance_live_owner_share']) || 90.0
+    end
+
     def self.time_threshold(settings, key)
       parse_target(settings[key]) || 10.0
     end
@@ -54,7 +58,7 @@ module TicketJourney
           errors.add(:base, "#{key.humanize} must be finite and nonnegative (owner share allows 0 through 100%).")
         end
       end
-      %w[performance_estimate_allowance performance_sv_warning].each do |key|
+      %w[performance_estimate_allowance performance_sv_warning performance_live_owner_share].each do |key|
         if config.key?(key) && !TicketJourney::PerformanceSettings.parse_target(config[key])
           errors.add(:base, "#{key.humanize} must be a number between 0 and 100.")
         end

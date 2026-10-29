@@ -1,6 +1,20 @@
 require File.expand_path('../test_helper', __dir__)
 
 class TicketJourneyPerformanceSettingsTest < ActiveSupport::TestCase
+  test 'Live owner share defaults to ninety and validates finite percentages including zero' do
+    assert_equal 90.0, TicketJourney::PerformanceSettings.live_owner_share({})
+    assert_equal 0.0, TicketJourney::PerformanceSettings.live_owner_share('performance_live_owner_share' => '0')
+    setting = Setting.find_by(name: 'plugin_redmine_ticket_journey') || Setting.new(name: 'plugin_redmine_ticket_journey')
+    %w[0 85.5 100].each do |share|
+      setting.value = { 'performance_live_owner_share' => share }
+      assert setting.valid?, setting.errors.full_messages.join(', ')
+    end
+    %w[-1 101 NaN Infinity invalid].each do |share|
+      setting.value = { 'performance_live_owner_share' => share }
+      assert_not setting.valid?
+    end
+  end
+
   test 'development activities map existing records and allow an explicit empty selection' do
     activity = TimeEntryActivity.find_by(name: 'Development') || TimeEntryActivity.create!(name: 'Development')
     setting = Setting.find_by(name: 'plugin_redmine_ticket_journey') || Setting.new(name: 'plugin_redmine_ticket_journey')

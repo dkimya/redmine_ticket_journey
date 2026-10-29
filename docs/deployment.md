@@ -1,5 +1,17 @@
 # Deployment and verification
 
+## Live owner-time comparison
+
+Deploy the Performance controller, Time model, settings module/form, Time view and
+new owner-time partial together. No migration required. Missing owner-share setting
+defaults to 90%; verify settings save, rejection outside 0–100 and valid zero.
+On test Redmine verify multiple owners' entries on the same ticket count only for
+its current owner, reassignment, no-entry zero versus unavailable permission,
+historical cutoff, active/Ongoing/Archived totals and paired estimate/SV sets.
+Run plugin tests from the configured test host. Check full requests and responsive
+layout, plus added query cost on the installed plugin set. These checks have not
+been run locally without Ruby/Redmine.
+
 ## V5 Part 4 implementation — 2026-10-28
 
 Deploy the changed controllers, models, helpers, views, settings module and init.rb

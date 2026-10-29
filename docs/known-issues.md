@@ -1,5 +1,16 @@
 # Known issues and evidence
 
+Live owner-time comparison added below Area 3, with independent 90% default PM
+estimate share setting. Uses each ticket's current owner's booked hours only,
+with active balance/SV and active/Ongoing/Archived reconciliation. Model coverage
+added; Ruby/test Redmine runtime, query performance, permissions and desktop/mobile
+rendering remain unverified. Existing all-contributor Area 3 is retained.
+
+Spent breakdown labels now read “on Active tickets”, “on Ongoing tickets” and
+“on Archived tickets” to clarify ticket-based hours. The narrow-layout sum wording
+also refers to time on tickets. Calculations unchanged; deployed layout verification
+pending for the longer labels.
+
 Spent-summary alignment: the user screenshot confirms the brace renders. The
 total now aligns to the top of the summary row, matching the other cards' main
 values; the equals sign and brace retain their alignment with the breakdown.

@@ -106,6 +106,7 @@ class PerformanceDashboardController < ApplicationController
         field_values = TicketJourneyPerformance.batch_field_values(batch, field_ids: @return_mode ? [57, 66, 70] : [57, 70])
         if @time_mode && @metric != 'owner_changes'
           time_entries = TicketJourneyPerformanceTime.hours_for(batch.map(&:id), @date)
+          owner_hours = TicketJourneyPerformanceTime.owner_hours_for(batch.map(&:id), requested_owners, @date) unless @metric
           time_projects = batch.map(&:project).uniq(&:id).to_h { |project| [project.id, User.current.allowed_to?(:view_time_entries, project)] }
         end
         batch.each do |issue|
@@ -158,6 +159,9 @@ class PerformanceDashboardController < ApplicationController
             if @time_mode
               row = TicketJourneyPerformanceTime.enrich(row, issue, snapshot_date, @calendar, time_entries[issue.id],
                 time_projects[issue.project_id], time_daily_hours(row[:owner_id]))
+              unless @metric
+                row = row.merge(owner_spent: time_projects[issue.project_id] ? owner_hours.fetch([issue.id, row[:owner_id].to_i], 0).to_f : nil)
+              end
               if @time_month
                 reasons = []
                 reasons << 'Set a positive visible Complexity Weight' if row[:missing_weight]
@@ -573,6 +577,8 @@ class PerformanceDashboardController < ApplicationController
     @estimate_allowance = TicketJourney::PerformanceSettings.time_threshold(@settings, 'performance_estimate_allowance')
     @sv_warning = TicketJourney::PerformanceSettings.time_threshold(@settings, 'performance_sv_warning')
     unless @metric
+      @live_owner_share = TicketJourney::PerformanceSettings.live_owner_share(@settings)
+      @owner_time_report = TicketJourneyPerformanceTime.owner_report(rows, @live_owner_share)
       @time_comparison = @selected_owners.map do |owner|
         { owner: owner, report: TicketJourneyPerformanceTime.calculate(rows.select { |row| row[:owner_id] == owner.id.to_s }) }
       end
