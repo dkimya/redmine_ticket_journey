@@ -1,6 +1,26 @@
 require File.expand_path('../test_helper', __dir__)
 
 class TicketJourneyPerformanceTimeTest < ActiveSupport::TestCase
+  test 'area three reconciles active ongoing and archived hours with active-only comparisons' do
+    report = TicketJourneyPerformanceTime.calculate([
+      row(spent: 28.5, estimate: 66.0, planned: 55.1),
+      row(2, status_name: 'Ongoing', spent: 21.7),
+      row(3, status_name: 'Archived', open: false, spent: 5.0)
+    ])
+    assert_in_delta 55.2, report[:spent], 0.001
+    assert_equal 28.5, report[:active_spent]
+    assert_equal 21.7, report[:ongoing_spent]
+    assert_equal 5.0, report[:archived_spent]
+    assert_equal 66.0, report[:estimate]
+    assert_equal 37.5, report[:balance]
+    assert_equal [1], report[:sets]['time_sv'].map { |ticket| ticket[:id] }
+    assert_equal [1], report[:sets]['time_balance'].map { |ticket| ticket[:id] }
+    assert_in_delta (55.1 - 28.5) / 55.1 * 100, report[:sv], 0.001
+    hidden = TicketJourneyPerformanceTime.calculate([row(status_name: 'Archived', open: false, spent: nil)])
+    assert_nil hidden[:archived_spent]
+    assert_nil hidden[:spent]
+  end
+
   def calendar(settings = {})
     TicketJourney::WorkingCalendar.new(settings)
   end

@@ -8,9 +8,11 @@ class TicketJourneyPerformanceTime
     'time_priority_age_excluded' => 'Priority Open Tickets with Missing or Future Start Dates',
     'time_ongoing' => 'Ongoing Open Tickets — Excluded from Aging',
     'time_priority_ongoing' => 'Priority Ongoing Tickets — Excluded from Aging',
-    'time_sv' => 'Schedule Variance Contributors', 'time_sv_excluded' => 'Open Tickets Excluded from SV',
-    'time_estimate_excluded' => 'Open Tickets Without Usable PM Estimates',
+    'time_sv' => 'Active Ticket Schedule Variance Contributors', 'time_sv_excluded' => 'Active Tickets Excluded from SV',
+    'time_estimate_excluded' => 'Active Tickets Without Usable PM Estimates',
     'time_balance' => 'Estimate Balance Contributors',
+    'time_active' => 'Active Open Tickets — Time',
+    'time_archived' => 'Archived Tickets — Time',
     'time_delivered' => 'Monthly Productivity Contributors',
     'time_delivered_excluded' => 'Monthly Productivity Data Review'
   }.merge((0..3).to_h { |index| ["time_age_#{index}", BUCKETS[index]] })
@@ -70,19 +72,23 @@ class TicketJourneyPerformanceTime
     open = rows.select { |row| row[:open] && !TicketJourneyPerformance::OPEN_EXCLUDED_STATUSES.include?(row[:status_name]) }
     priority = open.select { |row| priority?(row) }
     age_eligible = open.select { |row| TicketJourneyPerformance.aging_eligible?(row[:status_name]) }
+    active = age_eligible
+    archived = rows.select { |row| row[:status_name].to_s.strip == 'Archived' }
+    spent_population = open + archived
     priority_age_eligible = priority.select { |row| TicketJourneyPerformance.aging_eligible?(row[:status_name]) }
     sets = {
       'time_open' => open, 'time_priority' => priority,
+      'time_active' => active, 'time_archived' => archived,
       # Hot Fix is the Immediate view, not an invented tracker/custom-field rule.
       'time_immediate' => open.select { |row| row[:priority].match?(/immediate/i) },
       'time_ongoing' => open - age_eligible,
       'time_priority_ongoing' => priority - priority_age_eligible,
       'time_age_excluded' => age_eligible.select { |row| row[:age].nil? },
       'time_priority_age_excluded' => priority_age_eligible.select { |row| row[:age].nil? },
-      'time_sv' => open.select { |row| row[:exclusions].empty? },
-      'time_sv_excluded' => open.reject { |row| row[:exclusions].empty? },
-      'time_estimate_excluded' => open.reject { |row| row[:estimate] },
-      'time_balance' => open.select { |row| row[:estimate] && !row[:spent].nil? }
+      'time_sv' => active.select { |row| row[:exclusions].empty? },
+      'time_sv_excluded' => active.reject { |row| row[:exclusions].empty? },
+      'time_estimate_excluded' => active.reject { |row| row[:estimate] },
+      'time_balance' => active.select { |row| row[:estimate] && !row[:spent].nil? }
     }
     monthly = month ? rows.select { |row| TicketJourneyPerformance.monthly_delivery?(row, month.beginning_of_month, month) } : []
     sets['time_delivered'] = monthly.select { |row| !row[:missing_weight] && !row[:spent].nil? }
@@ -101,12 +107,17 @@ class TicketJourneyPerformanceTime
     balance_rows = sets['time_balance']
     balance_estimate = balance_rows.sum { |row| row[:estimate] }
     balance_spent = balance_rows.sum { |row| row[:spent] }
-    estimates = open.filter_map { |row| row[:estimate] }
-    hours = open.filter_map { |row| row[:spent] }
+    estimates = active.filter_map { |row| row[:estimate] }
+    hours = spent_population.filter_map { |row| row[:spent] }
+    spent_groups = { active_spent: active, ongoing_spent: open - active, archived_spent: archived }.transform_values do |group|
+      values = group.filter_map { |row| row[:spent] }
+      group.any? && values.empty? ? nil : values.sum
+    end
     excluded_estimate_hours = sets['time_estimate_excluded'].filter_map { |row| row[:spent] }
     { sets: sets, open: open.size, priority: priority.size,
       estimate: estimates.empty? ? nil : estimates.sum, spent: hours.empty? ? nil : hours.sum,
-      time_unavailable: open.count { |row| row[:spent].nil? },
+      **spent_groups,
+      time_unavailable: spent_population.count { |row| row[:spent].nil? },
       estimate_excluded_spent: excluded_estimate_hours.empty? ? nil : excluded_estimate_hours.sum,
       balance: balance_rows.empty? ? nil : balance_estimate - balance_spent,
       balance_percent: balance_estimate.positive? ? (balance_estimate - balance_spent) * 100 / balance_estimate : nil,

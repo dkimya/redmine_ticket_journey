@@ -1,5 +1,10 @@
 # Known issues and evidence
 
+Live Time Area 3: added active/Ongoing/Archived spent-hour reconciliation, active-only
+PM estimate/balance/SV contributor sets, explicit labels and actual/planned/estimate
+bar order. Archived hours now enter the displayed spent total only. Regression
+tests added; Ruby/host runtime and deployed visuals remain unverified.
+
 Live Time age-distribution tables now add 8px spacing on both sides of their
 colored markers, separating circles from age labels in both normal and priority
 tables. Implemented locally; deployed visual verification pending.

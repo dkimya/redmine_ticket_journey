@@ -1,5 +1,20 @@
 # Reporting rules
 
+## Live Time Area 3 — active comparisons and spent breakdown
+
+Active means the existing Live open population excluding Ongoing. PM estimate,
+Estimate Balance and SV use active tickets only, retaining paired estimate/time
+and schedule eligibility. Their drill-downs use the same sets. Total Visible
+Spent Time now reconciles active open + Ongoing open + Archived tickets at the
+report date, with separate category hours. All use current owner, visible direct
+lifetime entries through the selected date and existing tracker/project scope.
+Done, New and On-Hold remain outside this total. Empty categories show zero;
+categories with tickets but no time permission show unavailable. Partially visible
+hours remain labelled visible, with permission gaps disclosed. Archived is included
+only in spent totals, never active comparisons. Bars show active SV-contributor
+actual spent, planned effort, then PM estimate; the SV card shows actual before
+planned. Implemented locally; runtime and deployed verification pending.
+
 ## Live Returns — Return Types
 
 An initially collapsed Return Types table follows the leaderboard, before Combined
