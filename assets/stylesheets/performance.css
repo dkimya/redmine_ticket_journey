@@ -255,8 +255,6 @@
 .performance-page .performance-return-comparison tbody a{font-weight:400}
 .performance-page .performance-return-comparison tbody tr>td,
 .performance-page .performance-return-comparison tfoot tr>td{text-align:center}
-.performance-page .performance-return-comparison tbody tr>td:last-child,
-.performance-page .performance-return-comparison tfoot tr>td:last-child{text-align:right}
 /* Explicitly include row-header cells, overriding the host's gray th fill. */
 .performance-page .performance-return-comparison tbody tr:nth-child(odd)>*{background:#fff}
 .performance-page .performance-return-comparison tbody tr:nth-child(even)>*{background:#f8fbff}
@@ -318,6 +316,7 @@
 .performance-leaderboard-target{stroke:#627386;stroke-width:1;stroke-dasharray:6 5;fill:none}
 .performance-leaderboard-target-label{fill:#536579;font-size:12px}
 .performance-page .performance-leaderboard h4{font-weight:700}
+.performance-age-table .performance-dot{margin-inline:8px;vertical-align:middle}
 .performance-page .performance-team-heading{background:#eaf4ff;color:#17365d;border:1px solid #c5ddf5;border-left:4px solid #1685d1;border-radius:6px;padding:12px 16px;margin:24px 0 14px;font-weight:700;line-height:1.4}
 .performance-favorable-direction{display:inline-block;color:#146338;background:#eaf7ee;border:1px solid #a3cfb2;border-radius:5px;padding:6px 12px;font-size:15px;font-weight:700}
 .performance-leaderboard-threshold{stroke:#627386;stroke-width:2;stroke-dasharray:4 4}

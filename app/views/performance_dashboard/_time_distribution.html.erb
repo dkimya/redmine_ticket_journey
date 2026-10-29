@@ -15,7 +15,7 @@
         <% if count.positive? %><span class="performance-time-segment" style="left:<%= 50 + Math.sin(angle) * 46 %>%;top:<%= 50 - Math.cos(angle) * 46 %>%"><%= performance_time_link("#{performance_number(percent)}%", "#{prefix}_#{index}") %></span><% end %>
       <% end %>
     </div>
-    <table class="list"><thead><tr><th>Age</th><th>No. of Tickets</th><th>Percentage</th></tr></thead>
+    <table class="list performance-age-table"><thead><tr><th>Age</th><th>No. of Tickets</th><th>Percentage</th></tr></thead>
       <tbody><% counts.each_with_index do |count, index| %><tr><td><span class="performance-dot" style="background:<%= TicketJourneyPerformanceTime::COLORS[index] %>"></span><%= performance_time_link(TicketJourneyPerformanceTime::BUCKETS[index], "#{prefix}_#{index}") %></td><td><%= performance_time_link(count, "#{prefix}_#{index}") %></td><td><%= aged.zero? ? 'N/A' : "#{performance_number(count * 100.0 / aged)}%" %></td></tr><% end %></tbody>
       <tfoot><tr><th>Age-eligible Total</th><td><%= aged %></td><td><%= aged.zero? ? 'N/A' : '100%' %></td></tr></tfoot>
     </table>

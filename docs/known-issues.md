@@ -1,5 +1,14 @@
 # Known issues and evidence
 
+Live Time age-distribution tables now add 8px spacing on both sides of their
+colored markers, separating circles from age labels in both normal and priority
+tables. Implemented locally; deployed visual verification pending.
+
+Returns alignment follow-up: a later last-child CSS rule overrode the earlier
+centering fix. Removed that right-alignment override so the last ratio column
+inherits the same centered alignment as all other numeric cells, including Total.
+Implemented locally; deployed visual verification pending.
+
 Live Returns Return Types: initially collapsed owner/team table added after the
 leaderboard and before Combined Results, using existing open-ticket event sets.
 Includes R1–R5 tooltips, returned/open percentage and tied top incident reasons;
