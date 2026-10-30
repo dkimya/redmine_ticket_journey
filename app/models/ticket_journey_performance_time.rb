@@ -40,10 +40,17 @@ class TicketJourneyPerformanceTime
   end
 
   # Bounded to the current issue batch; booked user, never entry creator.
-  def self.owner_hours_for(ids, owner_ids, date)
-    TimeEntry.visible(User.current).where(issue_id: ids, user_id: owner_ids)
+  def self.owner_hours_for(ids, owner_ids, date, by_day: false)
+    scope = TimeEntry.visible(User.current).where(issue_id: ids, user_id: owner_ids)
       .where('time_entries.spent_on <= ? AND time_entries.hours >= 0 AND time_entries.hours <= ?', date, Float::MAX)
-      .group(:issue_id, :user_id).sum(:hours)
+    return scope.group(:issue_id, :user_id).sum(:hours) unless by_day
+
+    result = Hash.new { |hash, key| hash[key] = [] }
+    scope.group(:issue_id, :user_id, :spent_on).sum(:hours).each do |(issue_id, user_id, day), hours|
+      value = hours.to_f
+      result[[issue_id, user_id]] << [day.to_date, value] if value.finite?
+    end
+    result
   end
 
   def self.owner_report(rows, share)

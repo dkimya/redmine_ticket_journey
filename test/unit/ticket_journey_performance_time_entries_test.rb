@@ -23,6 +23,13 @@ class TicketJourneyPerformanceTimeEntriesTest < ActiveSupport::TestCase
     result = TicketJourneyPerformanceTime.hours_for([issue.id], date)
     assert_equal 5.0, TicketJourneyPerformanceTime.spent(result[issue.id], date)
     assert_equal 2.0, TicketJourneyPerformanceTime.spent(result[issue.id], date - 1)
+    owners = TicketJourneyPerformanceTime.owner_hours_for([issue.id], [1, 2], date, by_day: true)
+    assert_equal 2.0, TicketJourneyPerformanceTime.spent(owners.fetch([issue.id, 1]), date)
+    assert_equal 0.0, TicketJourneyPerformanceTime.spent(owners.fetch([issue.id, 2]), date - 1)
+    assert_equal 3.0, TicketJourneyPerformanceTime.spent(owners.fetch([issue.id, 2]), date)
+    logged = TicketJourneyPerformanceTimeTrends.logged_hours_for([issue.project_id], [2], date - 1, date)
+    assert_equal({ [2, date] => 3.0 }, logged)
+    assert_empty TicketJourneyPerformanceTimeTrends.logged_hours_for([], [1, 2], date - 1, date)
     assert result.keys.all? { |id| id == issue.id }, 'Only requested direct issue IDs may contribute'
     TimeEntry.expects(:visible).with(User.current).returns(TimeEntry.none)
     assert_empty TicketJourneyPerformanceTime.hours_for([issue.id], date)

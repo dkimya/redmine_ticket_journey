@@ -313,6 +313,7 @@
 .performance-leaderboard-swatch{display:inline-block;width:24px;border-top:3px solid;flex-shrink:0}
 .performance-leaderboard .is-hidden{display:none}
 .performance-leaderboard-chart{min-width:500px}
+.performance-time-owner-chart+.performance-time-owner-chart{border-top:1px solid #dce6ef;margin-top:24px;padding-top:20px}
 .performance-leaderboard-target{stroke:#627386;stroke-width:1;stroke-dasharray:6 5;fill:none}
 .performance-leaderboard-target-label{fill:#536579;font-size:12px}
 .performance-page .performance-leaderboard h4{font-weight:700}

@@ -1,0 +1,61 @@
+<section class="performance-section performance-time-owner-trends">
+  <h3>Leaderboard — Individual Owner Time Trends</h3>
+  <p>Five completed calendar months before the report month. One line per selected owner; select a legend button to hide or show that owner's line. Exact values and calculation coverage are available below each chart.</p>
+  <p>Only visible direct time entries are counted. <%= @time_trend_restricted_projects %> scoped project(s) lack time-view permission; other visibility restrictions may also make hours partial. Missing values leave gaps.</p>
+  <% charts = [
+    { key: :weekly_average, title: 'Average Weekly Logged Time', unit: 'h/week',
+      note: 'All hours booked by each selected user on visible tickets in the project hierarchy, regardless of Ticket Owner, tracker or status. Each monthly point = that month’s logged hours ÷ (calendar days in the month / 7), including zero-log days and weeks. This is a monthly average weekly rate, not a weekly time series.' },
+    { key: :productivity, title: 'Delivered Complexity per Logged Hour', unit: 'points/h',
+      note: 'Each owner’s tickets Done / Closed at month-end with their latest completion in that month. Current owner and Complexity Weight apply. Divide usable delivered points by all contributors’ visible lifetime hours on the same tickets through month-end, including earlier work. Existing delivery tracker/status rules apply. Missing weight or time excludes both points and hours; zero hours gives N/A.' },
+    { key: :open_average, title: 'Average Owner Spent Time on Open Tickets', unit: 'h/ticket',
+      note: 'At each month-end: cumulative visible hours booked by each ticket’s current owner on their own open tickets ÷ that owner’s open-ticket count. The existing Live tracker/open scope applies: New, On-Hold and closed tickets are excluded; Ongoing is included. Zero-hour tickets remain in the denominator. No open tickets, or a time-permission gap on any contributing ticket, gives N/A. This is not limited to hours logged during that month.' }
+  ] %>
+  <% dates = entries.first[:points].map { |point| point[:date] }; keys = entries.map { |entry| entry[:owner].id.to_s } %>
+  <% charts.each do |chart| %>
+    <% metric = chart[:key]; chart_id = "time-owner-#{metric}"; plot = dates.each_index.map { |index| entries.to_h { |entry| [entry[:owner].id.to_s, entry[:points][index][metric]] } }; geometry = performance_leaderboard_geometry(plot, keys: keys, scale_values: [], percent: false) %>
+    <article class="performance-leaderboard performance-time-owner-chart" data-performance-leaderboard>
+      <h4><%= chart[:title] %> (<%= chart[:unit] %>) <%= performance_tip(chart[:note]) %></h4>
+      <p><%= chart[:note] %></p>
+      <div class="performance-leaderboard-layout">
+        <div class="autoscroll">
+          <svg class="performance-trend-chart performance-leaderboard-chart" viewBox="0 0 860 285" role="img" aria-labelledby="<%= chart_id %>-title <%= chart_id %>-description">
+            <title id="<%= chart_id %>-title"><%= chart[:title] %></title>
+            <desc id="<%= chart_id %>-description">One line per owner over five completed months, in <%= chart[:unit] %>. Unavailable values leave gaps. Exact values and coverage are in the table below.</desc>
+            <% geometry[:ticks].each do |tick| %><% y = 235 - tick / geometry[:maximum] * 200 %>
+              <line class="performance-trend-grid" x1="90" x2="770" y1="<%= y %>" y2="<%= y %>" />
+              <text x="78" y="<%= y + 5 %>" text-anchor="end"><%= number_with_precision(tick, precision: 3, strip_insignificant_zeros: true) %></text>
+            <% end %>
+            <% dates.each_with_index do |date, index| %><text x="<%= geometry[:series].first[index][:x] %>" y="268" text-anchor="middle"><%= date.strftime('%b %Y') %></text><% end %>
+            <% entries.each_with_index do |entry, index| %><% owner = entry[:owner]; series = geometry[:series][index] %>
+              <g class="performance-trend-series" data-leaderboard-series="<%= owner.id %>" style="stroke:<%= performance_owner_color(owner.id) %>;fill:<%= performance_owner_color(owner.id) %>">
+                <% series.each_cons(2) do |left, right| %><% if left[:y] && right[:y] %><line x1="<%= left[:x] %>" y1="<%= left[:y] %>" x2="<%= right[:x] %>" y2="<%= right[:y] %>" /><% end %><% end %>
+                <% series.each do |coordinate| %><% next unless coordinate[:y] %>
+                  <% point = entry[:points][coordinate[:index]]; description = "#{owner.name} — #{format_date(point[:date])}: #{number_with_precision(point[metric], precision: 3, strip_insignificant_zeros: true)} #{chart[:unit]}" %>
+                  <circle cx="<%= coordinate[:x] %>" cy="<%= coordinate[:y] %>" r="5" tabindex="0" role="img" aria-label="<%= description %>"><title><%= description %></title></circle>
+                <% end %>
+              </g>
+            <% end %>
+          </svg>
+        </div>
+        <div class="performance-leaderboard-legend" aria-label="<%= chart[:title] %> owner lines">
+          <% entries.each do |entry| %><% owner = entry[:owner] %>
+            <button type="button" data-leaderboard-toggle="<%= owner.id %>" data-owner-name="<%= owner.name %>" aria-pressed="true" aria-label="Hide <%= owner.name %> line"><span class="performance-leaderboard-swatch" style="border-color:<%= performance_owner_color(owner.id) %>" aria-hidden="true"></span><span><%= owner.name %></span></button>
+          <% end %>
+        </div>
+      </div>
+      <details class="performance-trend-values"><summary>View monthly values and coverage</summary><div class="autoscroll"><table class="list">
+        <thead><tr><th>Owner</th><th>Month end</th><th><%= chart[:unit] %></th>
+          <% if metric == :weekly_average %><th>Visible Logged Hours</th><th>Calendar-week Equivalents</th>
+          <% elsif metric == :productivity %><th>Delivered Tickets</th><th>Delivered Points</th><th>All-contributor Ticket Hours</th><th>Excluded: Weight / Time</th><th>Missing Completion Record</th>
+          <% else %><th>Owner Hours on Open Tickets</th><th>Open Tickets</th><th>Tickets with Unavailable Time</th><% end %>
+        </tr></thead>
+        <tbody><% entries.each do |entry| %><% entry[:points].each do |point| %><tr>
+          <th><%= entry[:owner].name %></th><td><%= format_date(point[:date]) %></td><td><%= point[metric].nil? ? 'N/A' : number_with_precision(point[metric], precision: 3, strip_insignificant_zeros: true) %></td>
+          <% if metric == :weekly_average %><td><%= performance_time_hours(point[:weekly_average].nil? ? nil : point[:logged_hours]) %></td><td><%= number_with_precision(point[:week_equivalents], precision: 3, strip_insignificant_zeros: true) %></td>
+          <% elsif metric == :productivity %><td><%= point[:count] %></td><td><%= performance_number(point[:weight]) %></td><td><%= performance_time_hours(point[:hours]) %></td><td><%= point[:excluded] %></td><td><%= point[:missing_completion] %></td>
+          <% else %><td><%= performance_time_hours(point[:open_unavailable].positive? ? nil : point[:open_owner_hours]) %></td><td><%= point[:open_count] %></td><td><%= point[:open_unavailable] %></td><% end %>
+        </tr><% end %><% end %></tbody>
+      </table></div></details>
+    </article>
+  <% end %>
+</section>

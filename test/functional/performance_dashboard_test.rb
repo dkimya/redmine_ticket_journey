@@ -80,7 +80,11 @@ class PerformanceDashboardTest < ActionController::TestCase
     get :index, params: { project_id: @project.identifier, owner_id: '1', tab: 'time', as_of: date.iso8601 }
     assert_response :success
     assert_select '.performance-time-productivity tbody tr', count: 5
-    assert_select '.performance-time-cards', count: 1
+    assert_select '.performance-time-cards', count: 2
+    assert_select '.performance-time-owner-trends .performance-time-owner-chart', count: 3
+    assert_select '.performance-time-owner-trends svg', count: 3
+    assert_select '.performance-time-owner-trends [data-leaderboard-toggle]', count: 3
+    assert_select '.performance-time-owner-trends tbody tr', count: 15
     assert_select '.performance-owner-change-note', count: 1
     assert_select '.performance-header p', text: /Open ticket time analysis/
     assert_select '.performance-header p', text: /Planned report/, count: 0

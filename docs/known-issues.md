@@ -1,5 +1,15 @@
 # Known issues and evidence
 
+Live Time leaderboard: three five-completed-month owner comparisons added between
+Developer Comparison and Combined Results: monthly average weekly logged hours,
+delivered points/all-contributor ticket hours and cumulative own hours/open ticket.
+Independent legends reuse existing JavaScript; detail tables show denominators
+and exclusions. Owner/date scopes are documented in reporting-rules.md. One
+five-month user/work-date aggregate covers all visible scoped-ticket entries;
+owner-candidate snapshots and date-grouped owner hours are reused. Regression
+coverage added; Ruby/host requests, permissions, source reconciliation, responsive
+visuals and measured query/memory behavior remain pending.
+
 Live Time multi-owner headings/tooltips updated per screenshot. SV Coverage is
 now Active Tickets to Calculate SV with numeric counts; SV has a formula tooltip.
 Visible Logged Time on Open Tickets now excludes Archived hours and sorts by

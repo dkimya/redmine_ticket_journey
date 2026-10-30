@@ -1,5 +1,20 @@
 # Deployment and verification
 
+## Live Time owner leaderboard
+
+Deploy the controller, Time model, new TimeTrends model, Time view, new
+time_owner_trends partial and performance stylesheet together; keep the shared
+leaderboard JavaScript available. No migration or setting change. On TEST Redmine
+run plugin tests and verify five completed months, including leap February,
+zero-log months, multi-owner cross-ticket work, booked user versus entry author,
+reassignments, historical closures/reopenings, Ongoing open inclusion and paired
+weight/time exclusions. Confirm independent chart legends, point tooltips,
+coverage tables, mobile scroll/legend layout and absence on initial/drill-down
+requests. Weekly logs must include tickets outside the selected-owner candidates,
+while still respecting project/issue/time visibility. Compare Area 3 owner totals
+before/after the date-grouped query change. Measure latency/memory for large
+project hierarchies and long ticket histories. Ruby/host/deployed checks pending.
+
 ## Live owner-time comparison
 
 Deploy the Performance controller, Time model, settings module/form, Time view and

@@ -1,5 +1,48 @@
 # Reporting rules
 
+## Live Time individual-owner leaderboard trends
+
+Three charts appear after Developer Comparison and before Combined Results (also
+available for a single owner). They use the same five completed calendar months
+as the existing Time productivity chart, excluding the report month. For example,
+an October 2026 report plots May–September 2026. Each chart has an independent
+selectable owner legend, stable selection colors, accessible point tooltips and
+an expandable values/coverage table. Missing values leave gaps; toggling a line
+does not change calculations or other charts. These charts do not assign ranks.
+
+1. Average Weekly Logged Time: all visible direct time entries booked by each
+   selected user on visible linked tickets in the selected project hierarchy,
+   regardless of current Ticket Owner, tracker or ticket status. Unlinked entries
+   and outside projects are excluded. Each monthly point is month work-date hours
+   / (calendar days in that month / 7). This calendar-week-equivalent denominator
+   includes zero-log weeks and prorates the month boundary; it is not an average
+   over only weeks with entries or a weekly-resolution series. No time permission
+   in any scoped project gives N/A; otherwise visible hours may be partial and the
+   page discloses excluded projects and time-entry visibility limitations.
+2. Delivered Complexity per Logged Hour: existing Time productivity formula,
+   separately for each current owner. Tickets must satisfy existing delivery
+   tracker/status scope, be Done / Closed at month-end with latest completion in
+   that month. Sum usable current weights / all contributors' visible direct
+   lifetime ticket hours through month-end, including pre-month effort. Weight or
+   time gaps exclude both numerator and denominator with coverage counts. Zero
+   denominator is N/A. It does not use owner-only logged hours or the 90% share.
+3. Average Owner Spent Time on Open Tickets: at each month-end, sum visible direct
+   lifetime hours booked by the current owner on their own open tickets through
+   that date / their distinct open-ticket count. Existing Live tracker/open scope
+   applies (New/On-Hold/closed excluded, Ongoing included). Zero-hour open tickets
+   stay in the denominator. No open tickets or any contributing ticket with no
+   time-view permission gives N/A rather than silently averaging a subset.
+
+Current owner/weight policies and historical status reconstruction stay in force.
+Time entries use booked user, not entry creator, and spent_on, not created_on.
+Weekly logs are independently queried across all scoped tickets; the two ticket
+metrics reuse the existing owner-candidate batch snapshots/history. Owner hours
+are grouped by work date in the existing bounded owner-time query, preserving the
+Area 3 owner-only section. Only five aggregate points per selected owner persist
+beyond each batch. No settings, fields, counters or migrations are added. Initial
+navigation and drill-downs do not load these charts. Implemented locally; Ruby,
+full host requests, source-data, visuals and query-cost verification pending.
+
 ## Live Time multi-owner comparison labels
 
 Visible Logged Time on Open Tickets uses only the existing open population

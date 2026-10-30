@@ -78,6 +78,7 @@ class PerformanceDashboardController < ApplicationController
     @return_trend = @return_mode && !@metric ? TicketJourneyPerformanceReturns.trend_points(@date) : nil
     @delivery_trend = !@return_mode && !@time_mode && !@metric ? TicketJourneyPerformance.delivery_trend_points(@date) : nil
     @time_trend = @time_mode && !@metric ? TicketJourneyPerformanceTime.trend_points(@date) : nil
+    @time_owner_trends = requested_owners.to_h { |id| [id, TicketJourneyPerformanceTimeTrends.points(@date)] } if @time_trend
     @calendar = TicketJourney::WorkingCalendar.new(@settings) if @time_mode
     @time_owner_hours = {}
     @time_hours_fallback = Set.new
@@ -106,7 +107,7 @@ class PerformanceDashboardController < ApplicationController
         field_values = TicketJourneyPerformance.batch_field_values(batch, field_ids: @return_mode ? [57, 66, 70] : [57, 70])
         if @time_mode && @metric != 'owner_changes'
           time_entries = TicketJourneyPerformanceTime.hours_for(batch.map(&:id), @date)
-          owner_hours = TicketJourneyPerformanceTime.owner_hours_for(batch.map(&:id), requested_owners, @date) unless @metric
+          owner_hours = TicketJourneyPerformanceTime.owner_hours_for(batch.map(&:id), requested_owners, @date, by_day: true) unless @metric
           time_projects = batch.map(&:project).uniq(&:id).to_h { |project| [project.id, User.current.allowed_to?(:view_time_entries, project)] }
         end
         batch.each do |issue|
@@ -141,13 +142,17 @@ class PerformanceDashboardController < ApplicationController
               history.fetch(issue.id, []), statuses, @date, visible_values, requested_set, owner_points: @leaderboard_points)
           end
           if @time_trend
-            @time_trend.each do |point|
+            @time_trend.each_with_index do |point, point_index|
               snapshot = TicketJourneyPerformance.snapshot(issue, point[:date], statuses,
                 history: history.fetch(issue.id, []), visible_values: visible_values,
                 owner_value: visible_values.find { |value| value.custom_field.id == 57 }&.value.to_s)
               next unless snapshot && requested_set.include?(snapshot[:owner_id])
               hours = time_projects[issue.project_id] ? TicketJourneyPerformanceTime.spent(time_entries[issue.id], point[:date]) : nil
               TicketJourneyPerformanceTime.add_productivity!(point, snapshot, hours)
+              owner_entries = owner_hours.fetch([issue.id, snapshot[:owner_id].to_i], [])
+              owner_spent = time_projects[issue.project_id] ? TicketJourneyPerformanceTime.spent(owner_entries, point[:date]) : nil
+              TicketJourneyPerformanceTimeTrends.accumulate!(@time_owner_trends.fetch(snapshot[:owner_id])[point_index],
+                snapshot, ticket_hours: hours, owner_hours: owner_spent)
             end
           end
           snapshot_date = @time_month || @date
@@ -160,7 +165,7 @@ class PerformanceDashboardController < ApplicationController
               row = TicketJourneyPerformanceTime.enrich(row, issue, snapshot_date, @calendar, time_entries[issue.id],
                 time_projects[issue.project_id], time_daily_hours(row[:owner_id]))
               unless @metric
-                row = row.merge(owner_spent: time_projects[issue.project_id] ? owner_hours.fetch([issue.id, row[:owner_id].to_i], 0).to_f : nil)
+                row = row.merge(owner_spent: time_projects[issue.project_id] ? TicketJourneyPerformanceTime.spent(owner_hours.fetch([issue.id, row[:owner_id].to_i], []), snapshot_date) : nil)
               end
               if @time_month
                 reasons = []
@@ -577,6 +582,7 @@ class PerformanceDashboardController < ApplicationController
     @estimate_allowance = TicketJourney::PerformanceSettings.time_threshold(@settings, 'performance_estimate_allowance')
     @sv_warning = TicketJourney::PerformanceSettings.time_threshold(@settings, 'performance_sv_warning')
     unless @metric
+      prepare_time_owner_trends
       @live_owner_share = TicketJourney::PerformanceSettings.live_owner_share(@settings)
       @owner_time_report = TicketJourneyPerformanceTime.owner_report(rows, @live_owner_share)
       @time_comparison = @selected_owners.map do |owner|
@@ -624,6 +630,23 @@ class PerformanceDashboardController < ApplicationController
       .includes(:project, :tracker).index_by(&:id)
     @detail_rows.select! { |row| @detail_issues.key?(row[:id]) }
     render :time_details
+  end
+
+  def prepare_time_owner_trends
+    return unless @time_owner_trends
+
+    project_ids = performance_project_ids
+    visible_time_projects = Project.where(id: project_ids).select { |project| User.current.allowed_to?(:view_time_entries, project) }.map(&:id)
+    @time_trend_restricted_projects = project_ids.size - visible_time_projects.size
+    dates = @time_trend.map { |point| point[:date] }
+    totals = TicketJourneyPerformanceTimeTrends.logged_hours_for(visible_time_projects, @selected_owner_ids,
+      dates.first.beginning_of_month, dates.last)
+    TicketJourneyPerformanceTimeTrends.add_logged_hours!(@time_owner_trends, totals)
+    @time_trend_entries = @selected_owners.map do |owner|
+      points = @time_owner_trends.fetch(owner.id.to_s)
+      TicketJourneyPerformanceTimeTrends.finish!(points, time_visible: visible_time_projects.any?)
+      { owner: owner, points: points }
+    end
   end
 
   def alphabetical_owners(users)
