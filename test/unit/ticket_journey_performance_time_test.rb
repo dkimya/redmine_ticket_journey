@@ -26,6 +26,7 @@ class TicketJourneyPerformanceTimeTest < ActiveSupport::TestCase
       row(3, status_name: 'Archived', open: false, spent: 5.0)
     ])
     assert_in_delta 55.2, report[:spent], 0.001
+    assert_in_delta 50.2, report[:open_spent], 0.001
     assert_equal 28.5, report[:active_spent]
     assert_equal 21.7, report[:ongoing_spent]
     assert_equal 5.0, report[:archived_spent]

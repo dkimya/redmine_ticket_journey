@@ -1,5 +1,11 @@
 # Known issues and evidence
 
+Live Time multi-owner headings/tooltips updated per screenshot. SV Coverage is
+now Active Tickets to Calculate SV with numeric counts; SV has a formula tooltip.
+Visible Logged Time on Open Tickets now excludes Archived hours and sorts by
+that same open-only value. Area 3 spent totals unchanged. Regression assertion
+added; Ruby/host and deployed visual verification pending.
+
 Ticket Owner Time below Area 3 now uses a native collapsible section, initially
 closed. Its cards, explanations and comparison bars expand together via the
 keyboard-accessible summary. Calculations unchanged; deployed visual verification

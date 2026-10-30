@@ -125,6 +125,7 @@ class TicketJourneyPerformanceTime
     balance_spent = balance_rows.sum { |row| row[:spent] }
     estimates = active.filter_map { |row| row[:estimate] }
     hours = spent_population.filter_map { |row| row[:spent] }
+    open_hours = open.filter_map { |row| row[:spent] }
     spent_groups = { active_spent: active, ongoing_spent: open - active, archived_spent: archived }.transform_values do |group|
       values = group.filter_map { |row| row[:spent] }
       group.any? && values.empty? ? nil : values.sum
@@ -132,6 +133,7 @@ class TicketJourneyPerformanceTime
     excluded_estimate_hours = sets['time_estimate_excluded'].filter_map { |row| row[:spent] }
     { sets: sets, open: open.size, priority: priority.size,
       estimate: estimates.empty? ? nil : estimates.sum, spent: hours.empty? ? nil : hours.sum,
+      open_spent: open_hours.empty? ? nil : open_hours.sum,
       **spent_groups,
       time_unavailable: spent_population.count { |row| row[:spent].nil? },
       estimate_excluded_spent: excluded_estimate_hours.empty? ? nil : excluded_estimate_hours.sum,

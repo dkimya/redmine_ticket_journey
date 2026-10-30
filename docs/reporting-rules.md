@@ -1,5 +1,16 @@
 # Reporting rules
 
+## Live Time multi-owner comparison labels
+
+Visible Logged Time on Open Tickets uses only the existing open population
+(including Ongoing), excluding Archived hours. Its sorting uses the same hours.
+Area 3 retains its separate open + Archived spent reconciliation. Active Tickets
+to Calculate SV shows a single eligible-contributor count, not a count/open ratio.
+The header tooltip defines active as the existing open scope excluding Ongoing,
+and explains estimate/time/schedule eligibility. The SV header explains the
+paired all-contributor formula, sign, zero denominator and combined team hours.
+Implemented locally; runtime and deployed verification pending.
+
 ## Live Ticket Owner Time comparison
 
 A separate section below Live Time Area 3 compares current Ticket Owner hours

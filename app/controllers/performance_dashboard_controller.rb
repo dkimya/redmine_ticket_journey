@@ -585,8 +585,9 @@ class PerformanceDashboardController < ApplicationController
       @time_sort = %w[owner open estimate spent sv].include?(params[:time_sort]) ? params[:time_sort] : 'owner'
       @time_direction = params[:time_direction] == 'desc' ? 'desc' : 'asc'
       @time_comparison.sort! do |a, b|
-        x = @time_sort == 'owner' ? a[:owner].name.downcase : a[:report][@time_sort.to_sym]
-        y = @time_sort == 'owner' ? b[:owner].name.downcase : b[:report][@time_sort.to_sym]
+        value_key = @time_sort == 'spent' ? :open_spent : @time_sort.to_sym
+        x = @time_sort == 'owner' ? a[:owner].name.downcase : a[:report][value_key]
+        y = @time_sort == 'owner' ? b[:owner].name.downcase : b[:report][value_key]
         result = if x.nil? || y.nil?
           (x.nil? ? 1 : 0) <=> (y.nil? ? 1 : 0)
         else
