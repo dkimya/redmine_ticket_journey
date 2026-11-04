@@ -30,22 +30,27 @@
       </details>
     </section>
 
-    <section class="performance-section"><h3>Expected Done Tickets — Return Quality</h3>
+    <section class="performance-section">
+      <h3>Done Tickets — Return Quality</h3>
+      <p class="performance-weight-note">From the expected workload for the reporting period</p>
       <div class="periodic-return-kpis">
-        <article class="performance-metric"><h4>Expected Done Tickets</h4><strong><%= performance_return_link(@returns[:population], 'returns_open') %></strong><p>Completed from Expectation</p></article>
+        <article class="performance-metric"><h4>Done Tickets</h4><strong><%= performance_return_link(@returns[:population], 'returns_open') %></strong><p>Completed from Expectation</p></article>
         <article class="performance-metric"><h4>Total Return Incidents</h4><strong><%= performance_return_link(@returns[:incidents], 'return_incidents') %></strong><p>Incidents, not ticket count</p></article>
-        <article class="performance-metric"><h4>Tickets with ≥1 Return</h4><strong><%= performance_return_link(@returns[:returned], 'return_incidents') %></strong><p><%= @returns[:population].zero? ? 'N/A — no Expected Done Tickets' : "#{performance_number(@returns[:returned] * 100.0 / @returns[:population])}% of Expected Done Tickets" %></p></article>
+        <article class="performance-metric"><h4>Tickets with ≥1 Return</h4><strong><%= performance_return_link(@returns[:returned], 'return_incidents') %></strong><p><%= @returns[:population].zero? ? 'N/A — no tickets completed from expectation' : "#{performance_number(@returns[:returned] * 100.0 / @returns[:population])}% of tickets completed from expectation" %></p></article>
         <article class="performance-metric performance-return-metric"><h4>Return Ticket Metric</h4><strong><%= performance_return_link(performance_number(@returns[:ratio]), 'return_incidents') %></strong><p>Incidents / tickets with ≥1 return</p><p><%= performance_return_metric_note(@returns) %></p></article>
       </div>
-      <p>Within <%= @returns[:population] %> Expected Done Tickets, <%= @returns[:returned] %> have at least one return, contributing <%= @returns[:incidents] %> incidents. The primary metric is a number, not a percentage.</p>
+      <p>Of the <%= @returns[:population] %> tickets completed from expectation, <%= @returns[:returned] %> have at least one return, contributing <%= @returns[:incidents] %> incidents.</p>
     </section>
 
-    <section class="performance-section"><h3>Non-Merge Return Metrics</h3>
-      <div class="performance-return-ratios">
-        <%= render 'return_non_merge_metric', report: @returns, title: 'Expected Done — Non-Merge Incidents per Returned Ticket', numerator_metric: 'non_merge_incidents', denominator_metric: 'non_merge_denominator', unknown_metric: 'unknown_return_reasons' %>
-        <%= render 'return_non_merge_metric', report: total, title: 'Total Done — Non-Merge Incidents per Returned Ticket', numerator_metric: 'total_non_merge_incidents', denominator_metric: 'total_non_merge_denominator', unknown_metric: 'total_unknown_return_reasons' %>
-      </div>
-      <p>Both denominators retain tickets with merge-only returns. Values are incident averages, not percentages. A known zero numerator gives 0 with a nonzero denominator; missing reasons remain unavailable.</p>
+    <section class="performance-section periodic-summary">
+      <details>
+        <summary>Non-Merge Return Metrics</summary>
+        <div class="performance-return-ratios">
+          <%= render 'return_non_merge_metric', report: @returns, title: 'Expected Done — Non-Merge Incidents per Returned Ticket', numerator_metric: 'non_merge_incidents', denominator_metric: 'non_merge_denominator', unknown_metric: 'unknown_return_reasons' %>
+          <%= render 'return_non_merge_metric', report: total, title: 'Total Done — Non-Merge Incidents per Returned Ticket', numerator_metric: 'total_non_merge_incidents', denominator_metric: 'total_non_merge_denominator', unknown_metric: 'total_unknown_return_reasons' %>
+        </div>
+        <p>Both denominators retain tickets with merge-only returns. Values are incident averages, not percentages. A known zero numerator gives 0 with a nonzero denominator; missing reasons remain unavailable.</p>
+      </details>
     </section>
 
     <div class="performance-return-distributions">

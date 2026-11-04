@@ -3,8 +3,15 @@
 <% points = @periodic_return_report[:trends]; keys = entries.map { |entry| entry[:owner]&.id.to_s.presence || 'team' } %>
 <% plot = points.each_index.map { |index| entries.each_with_index.to_h { |entry, position| [keys[position], entry[:report][:trends][index][metric_key]] } } %>
 <% geometry = performance_leaderboard_geometry(plot, keys: keys, scale_values: [], percent: false) %>
+<% multi_owner = @selected_owners.size > 1 %>
+<% heading = "#{metric_title} Trend — #{multi_owner ? 'Done Tickets (in Expected Work)' : 'Expected Done Tickets'}" %>
 <section class="performance-section performance-leaderboard periodic-return-trend" data-performance-leaderboard>
-  <h3><%= metric_title %> Trend — Expected Done Tickets</h3>
+  <% if adjusted && multi_owner %>
+    <details>
+      <summary><%= heading %></summary>
+  <% else %>
+    <h3><%= heading %></h3>
+  <% end %>
   <p>Completion-period cohorts · Full ticket return history through RED · <%= adjusted ? 'Non-merge incidents' : 'All incidents' %> per returned ticket · Lower is better</p>
   <div class="performance-leaderboard-layout"><div class="autoscroll">
     <svg class="performance-trend-chart performance-leaderboard-chart" viewBox="0 0 860 300" role="img" aria-labelledby="<%= chart_id %>">
@@ -50,4 +57,7 @@
     </tbody></table></div>
   </details>
   <p class="performance-weight-note">These are separate completion cohorts, not cumulative ratios or independent weekly expectation packages. Cohort counts and incidents sum to the selected-period totals. Monday-based weeks have partial first/last weeks; periods over 120 days use calendar months. Gaps mean N/A, not zero. Owner buttons hide lines without changing totals or the values table.</p>
+  <% if adjusted && multi_owner %>
+    </details>
+  <% end %>
 </section>
