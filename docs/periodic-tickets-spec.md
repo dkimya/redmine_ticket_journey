@@ -79,6 +79,11 @@ membership does not change current-status exclusion or delivery eligibility.
 
 ## Other Work and deviations
 
+Total Actual Done uses actual minus plan, capped at zero when Expected Total
+deviation is nonzero for the same measure. Deviation links show the associated
+tickets. Total Actual Done links to both unfinished expected work and Other Done
+so the two sides of the comparison can be reviewed.
+
 Other Done is qualifying completed output outside expectation, kept distinct in
 Total Actual Done. It never improves expected completion. Raw Other Done deviation
 remains zero minus actual. A separate favorable Extra Work subset requires that

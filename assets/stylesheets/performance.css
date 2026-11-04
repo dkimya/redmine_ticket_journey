@@ -394,7 +394,10 @@
 .periodic-deviation-fill{position:absolute;top:4px;height:16px}
 .periodic-negative{background:#bd3543}.periodic-positive{background:#00865e}
 .periodic-page .periodic-details td{text-align:left;overflow-wrap:anywhere}
-.periodic-page .periodic-details th{white-space:nowrap}
+.periodic-page .periodic-details thead th,
+.periodic-page .periodic-details thead th a{white-space:normal}
+.periodic-page .periodic-details .periodic-detail-id{min-width:4.5em;white-space:nowrap}
+.periodic-page .periodic-details .periodic-detail-date{min-width:7.5em;white-space:nowrap}
 .periodic-page .periodic-detail-options{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:20px 0}
 .periodic-page #periodic-calculation-notes li{margin:10px 0;line-height:1.6}
 .periodic-page .periodic-trend .performance-trend-legend{max-height:170px;overflow:auto}

@@ -22,7 +22,16 @@ class TicketJourneyPeriodicTickets
     'extra_other' => 'Other Done — Extra Work', 'unplanned_other' => 'Other Done — Unplanned Work',
     'trend_expected' => 'Cumulative Expected Work', 'trend_completed' => 'Cumulative Completed Expected Work',
     'completed_beginning' => 'Completed Beginning Debt', 'completed_planned' => 'Completed Planned Tasks',
-    'completed_hotfix' => 'Completed Assigned Hotfixes'
+    'completed_hotfix' => 'Completed Assigned Hotfixes',
+    'unfinished_planned' => 'Unfinished Planned Assigned Tasks',
+    'unfinished_hotfix' => 'Unfinished Assigned Hotfixes',
+    'actual_deviation' => 'Total Actual Done Deviation — Unfinished Expected Work and Other Done'
+  }.freeze
+
+  DEVIATION_METRICS = {
+    'beginning' => 'beginning', 'planned' => 'unfinished_planned',
+    'hotfix' => 'unfinished_hotfix', 'expected' => 'debt', 'other' => 'other',
+    'actual' => 'actual_deviation', 'debt' => 'debt', 'still_open' => 'still_open'
   }.freeze
 
   # Future owner/status/due edits are needed for current-tenure responsibility
@@ -195,6 +204,10 @@ class TicketJourneyPeriodicTickets
     %w[beginning planned hotfix].each do |key|
       sets["completed_#{key}"] = completed.select { |row| row[:category] == key }
     end
+    %w[planned hotfix].each do |key|
+      sets["unfinished_#{key}"] = debt.select { |row| row[:category] == key }
+    end
+    sets['actual_deviation'] = debt + other
     { sets: sets, summaries: sets.transform_values { |items| summary(items) },
       trends: with_trends ? trend_dates(first_day, last_day).map { |day| trend_point(sets, day) } : [] }
   end
@@ -223,7 +236,11 @@ class TicketJourneyPeriodicTickets
       ['debt', 0, amount.call(sets['debt']), :plan_minus_actual],
       ['still_open', 0, amount.call(sets['still_open']), :plan_minus_actual]]
     rows.map do |key, plan, actual, direction|
-      { key: key, plan: plan, actual: actual, deviation: deviation(plan, actual, direction), direction: direction }
+      comparison_actual = actual
+      if key == 'actual' && amount.call(sets['completed']) != plan
+        comparison_actual = [actual, plan].min
+      end
+      { key: key, plan: plan, actual: actual, deviation: deviation(plan, comparison_actual, direction), direction: direction }
     end
   end
 
