@@ -32,7 +32,7 @@
             <tbody><% (@periodic_owners + [{ owner: nil, report: report }]).each do |entry| %><% item = entry[:report]; ids = entry[:owner] ? [entry[:owner].id.to_s] : @selected_owner_ids %>
               <tr class="<%= 'periodic-total-row' unless entry[:owner] %>"><th><%= entry[:owner]&.name || 'Team total' %></th>
                 <% [:count, :weight].each do |measure| %><% delta = TicketJourneyPeriodicTickets.deviation(item[:summaries]['expected'][measure], item[:summaries]['completed'][measure]) %>
-                  <td><%= periodic_summary_link(item, 'expected', measure, ids) %></td><td><%= periodic_summary_link(item, 'completed', measure, ids) %></td><td><%= periodic_ticket_link(periodic_deviation(delta[:value]), 'debt', ids) %></td><td><%= delta[:percent].nil? ? 'N/A' : safe_join([periodic_deviation(delta[:percent]), '%']) %></td>
+                  <td><%= periodic_summary_link(item, 'expected', measure, ids) %></td><td><%= periodic_summary_link(item, 'completed', measure, ids) %></td><td><%= periodic_ticket_link(periodic_deviation(delta[:value]), 'debt', ids) %></td><td><%= periodic_deviation(delta[:percent], percentage: true) %></td>
                 <% end %>
                 <% %w[debt still_open].each do |key| %>
                   <td><%= periodic_summary_link(item, key, :count, ids) %></td>

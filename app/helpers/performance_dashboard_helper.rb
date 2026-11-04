@@ -103,8 +103,10 @@ module PerformanceDashboardHelper
       **periodic_ticket_params({ metric: metric }, ids: ids)), **options
   end
 
-  def periodic_deviation(value)
-    content_tag(:span, "#{'+' if value.positive?}#{performance_number(value)}",
+  def periodic_deviation(value, percentage: false)
+    return 'N/A' if value.nil?
+
+    content_tag(:span, "#{'+' if value.positive?}#{performance_number(value)}#{'%' if percentage}",
       class: value.positive? ? 'performance-good' : (value.negative? ? 'performance-bad' : 'performance-neutral'))
   end
 
