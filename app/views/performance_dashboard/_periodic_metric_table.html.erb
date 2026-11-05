@@ -3,8 +3,15 @@
   <thead><tr><th>Metric</th><th>Plan / Expectation</th><th>Actual</th><th>Deviation</th><th>Deviation calculation</th><th>Deviation %</th></tr></thead>
   <tbody><% TicketJourneyPeriodicTickets.metric_rows(report, measure).each do |row| %>
     <tr class="<%= 'periodic-total-row' if %w[expected actual].include?(row[:key]) %>">
-      <th><%= TicketJourneyPeriodicTickets::LABELS.fetch(row[:key]) %></th>
-      <td><%= row[:plan].positive? ? periodic_ticket_link(performance_number(row[:plan]), row[:key] == 'actual' ? 'expected' : row[:key]) : performance_number(row[:plan]) %></td>
+      <th><%= row[:key] == 'actual' ? 'Total Done' : TicketJourneyPeriodicTickets::LABELS.fetch(row[:key]) %></th>
+      <% plan_tip = {
+        'expected' => 'Expected Total = Debt at RSD + Planned Assigned Tasks + Assigned Hotfixes.',
+        'actual' => 'Total Done plan = Completed from Expectation + Debt at RED. Total Done actual = Completed from Expectation + Other Done.'
+      }[row[:key]] %>
+      <td>
+        <%= row[:plan].positive? ? periodic_ticket_link(performance_number(row[:plan]), row[:key] == 'actual' ? 'expected' : row[:key], title: plan_tip) : performance_number(row[:plan]) %>
+        <%= performance_tip(plan_tip) if plan_tip %>
+      </td>
       <% actual_metric = %w[planned hotfix].include?(row[:key]) ? "completed_#{row[:key]}" : (row[:key] == 'expected' ? 'completed' : row[:key]) %>
       <td><%= periodic_ticket_link(performance_number(row[:actual]), actual_metric) %></td>
       <td><%= periodic_ticket_link(periodic_deviation(row[:deviation][:value]), TicketJourneyPeriodicTickets::DEVIATION_METRICS.fetch(row[:key])) %></td>
@@ -13,4 +20,4 @@
     </tr>
   <% end %></tbody>
 </table></div>
-<p class="performance-weight-note">P = Plan / Expectation. A = Actual. Debt's target is zero, while its opening workload contributes to Expected Total. Weight sums use usable visible values. * Total Actual Done includes Other Done. Its deviation is capped at zero when Expected Total deviation is nonzero.</p>
+<p class="performance-weight-note">P = Plan / Expectation. A = Actual. Debt's target is zero, while its opening workload contributes to Expected Total. Weight sums use usable visible values. * Total Done includes Other Done. Its deviation is capped at zero when Expected Total deviation is nonzero.</p>
