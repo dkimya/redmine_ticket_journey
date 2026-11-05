@@ -1,5 +1,5 @@
 <div class="autoscroll"><table class="list periodic-return-comparison">
-  <thead><tr><th>Ticket Owner</th><th><%= population == :expected ? 'Expected Done Tickets' : 'Total Done Tickets' %></th><th>Tickets with ≥1 Return</th><th>Total Return Incidents</th><th>Incidents / Returned Ticket</th><th>Known Non-Merge Incidents</th><th>Non-Merge Incidents / Returned Ticket</th></tr></thead>
+  <thead><tr><th>Ticket Owner</th><th><%= population == :expected ? 'Expected Done Tickets' : 'Total Done Tickets' %></th><th>Tickets with ≥1 Return</th><th>Total Return Incidents</th><th>Incidents / Returned Ticket</th><th>Non-Merge Return Incidents</th><th>Non-Merge Incidents / Returned Ticket</th></tr></thead>
   <tbody><% (@periodic_return_owners + [{ owner: nil, report: @periodic_return_report }]).each do |entry| %>
     <% report = entry[:report][population]; ids = entry[:owner] ? [entry[:owner].id.to_s] : @selected_owner_ids; all_metric, returned_metric = population == :expected ? %w[returns_open return_incidents] : %w[total_open total_return_incidents] %>
     <% non_merge_metric = population == :expected ? 'non_merge_incidents' : 'total_non_merge_incidents' %>

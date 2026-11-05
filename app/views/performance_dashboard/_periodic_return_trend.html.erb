@@ -6,7 +6,7 @@
 <% multi_owner = @selected_owners.size > 1 %>
 <% heading = "#{metric_title} Trend — #{multi_owner ? 'Done Tickets (in Expected Work)' : 'Expected Done Tickets'}" %>
 <section class="performance-section performance-leaderboard periodic-return-trend" data-performance-leaderboard>
-  <% if adjusted && multi_owner %>
+  <% if adjusted %>
     <details>
       <summary><%= heading %></summary>
   <% else %>
@@ -41,6 +41,28 @@
       <button type="button" data-leaderboard-toggle="<%= owner.id %>" data-owner-name="<%= owner.name %>" aria-pressed="true" aria-label="Hide <%= owner.name %> line"><span class="performance-leaderboard-swatch" style="border-color:<%= performance_owner_color(owner.id) %>"></span><span><%= owner.name %></span></button>
     <% end %>
   </div></div>
+  <% missing_entries = entries.select { |entry| entry[:report][:trends].any? { |point| point[metric_key].nil? } } %>
+  <% if missing_entries.any? %>
+    <div class="performance-notes">
+      <p><strong>Why are there gaps in the chart?</strong> A point is shown only when the return metric can be calculated for that completion period.</p>
+      <ul>
+        <% missing_entries.each do |entry| %>
+          <% entry[:report][:trends].select { |point| point[metric_key].nil? }.each do |point| %>
+            <li>
+              <strong><%= entry[:owner]&.name || (multi_owner ? 'Team' : @owner_label) %> · <%= format_date(point[:start]) %> – <%= format_date(point[:date]) %></strong>
+              <% if point[:population].zero? %>
+                — No tickets from the expected workload were completed in this period.
+              <% elsif point[:returned].zero? %>
+                — <%= point[:population] %> tickets from the expected workload were completed, all with zero recorded returns through the report end date. There are no returned tickets to use as the denominator.
+              <% else %>
+                — The non-merge metric is unavailable because <%= point[:unknown] %> return incidents have missing or hidden reasons.
+              <% end %>
+            </li>
+          <% end %>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
   <details class="performance-trend-values"><summary>Show completion-period breakdown and exact metric values</summary>
     <div class="autoscroll"><table class="list"><thead><tr><th>Owner / Team</th><th>Completion Period</th><th>Expected Done</th><th>Returned Tickets</th><th>Return Incidents</th><th>Incidents / Returned Ticket</th><th>Known Non-Merge Incidents</th><th>Non-Merge Incidents / Returned Ticket</th></tr></thead><tbody>
       <% entries.each do |entry| %><% owner = entry[:owner]; ids = owner ? [owner.id.to_s] : @selected_owner_ids %><% entry[:report][:trends].each do |point| %>
@@ -57,7 +79,7 @@
     </tbody></table></div>
   </details>
   <p class="performance-weight-note">These are separate completion cohorts, not cumulative ratios or independent weekly expectation packages. Cohort counts and incidents sum to the selected-period totals. Monday-based weeks have partial first/last weeks; periods over 120 days use calendar months. Gaps mean N/A, not zero. Owner buttons hide lines without changing totals or the values table.</p>
-  <% if adjusted && multi_owner %>
+  <% if adjusted %>
     </details>
   <% end %>
 </section>

@@ -36,11 +36,13 @@ module PerformanceDashboardHelper
     end
     "conic-gradient(#{stops.join(', ')})"
   end
-  def performance_return_metric_note(report, adjusted: false)
+  def performance_return_metric_note(report, adjusted: false, emphasize_direction: false)
     return 'Unavailable — missing or hidden Return Reason; known non-merge incidents are only a partial count.' if adjusted && report[:unknown].positive?
     return 'Not applicable — no tickets in this population; 0 return incidents.' if report[:population].to_i.zero? && report[:open].to_i.zero?
     return 'Not applicable — no returned tickets; 0 return incidents.' if report[:returned].zero?
-    adjusted ? 'Non-merge incidents / all returned tickets, including merge-only tickets · Lower is better' : 'All incidents / returned tickets · Lower is better'
+    description = adjusted ? 'Non-merge incidents / all returned tickets, including merge-only tickets' : 'All incidents / returned tickets'
+    direction = emphasize_direction ? content_tag(:strong, 'Lower is better') : 'Lower is better'
+    safe_join([description, direction], ' · ')
   end
 
   def periodic_time_params(overrides = {}, ids: @selected_owner_ids, **context)

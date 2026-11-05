@@ -20,7 +20,15 @@
         </details>
       <% end %>
       <details><summary>Show return distributions by owner</summary>
-        <div class="autoscroll"><table class="list"><thead><tr><th>Owner</th><th>Expected Done</th><% ['0', '1', '2', '3', '3+ (≥4)', '1 repeat', '2 repeats', '2+ repeats (≥3)'].each do |label| %><th><%= label %></th><% end %></tr></thead><tbody>
+        <div class="autoscroll"><table class="list"><thead>
+          <tr>
+            <th rowspan="2" scope="col">Owner</th>
+            <th rowspan="2" scope="col">Expected Done</th>
+            <th colspan="5" scope="colgroup"># of Tickets with Returns</th>
+            <th colspan="3" scope="colgroup"># of Tickets with Consecutive Returns</th>
+          </tr>
+          <tr><% ['0', '1', '2', '3', '3+ (≥4)', '1 repeat', '2 repeats', '2+ repeats (≥3)'].each do |label| %><th scope="col"><%= label %></th><% end %></tr>
+        </thead><tbody>
           <% (@periodic_return_owners + [{ owner: nil, report: result }]).each do |entry| %><% ids = entry[:owner] ? [entry[:owner].id.to_s] : @selected_owner_ids; report = entry[:report][:expected] %>
             <tr class="<%= 'periodic-total-row' unless entry[:owner] %>"><th><%= entry[:owner]&.name || 'Team total' %></th><td><%= performance_return_link(report[:population], 'returns_open', ids) %></td>
               <% %w[returns_0 returns_1 returns_2 returns_3 returns_4 repeats_1 repeats_2 repeats_3].each do |key| %><td><%= performance_return_link(report[:sets][key].size, key, ids) %></td><% end %>
@@ -36,8 +44,18 @@
       <div class="periodic-return-kpis">
         <article class="performance-metric"><h4>Done Tickets</h4><strong><%= performance_return_link(@returns[:population], 'returns_open') %></strong><p>Completed from Expectation</p></article>
         <article class="performance-metric"><h4>Total Return Incidents</h4><strong><%= performance_return_link(@returns[:incidents], 'return_incidents') %></strong><p>Incidents, not ticket count</p></article>
-        <article class="performance-metric"><h4>Tickets with ≥1 Return</h4><strong><%= performance_return_link(@returns[:returned], 'return_incidents') %></strong><p><%= @returns[:population].zero? ? 'N/A — no tickets completed from expectation' : "#{performance_number(@returns[:returned] * 100.0 / @returns[:population])}% of tickets completed from expectation" %></p></article>
-        <article class="performance-metric performance-return-metric"><h4>Return Ticket Metric</h4><strong><%= performance_return_link(performance_number(@returns[:ratio]), 'return_incidents') %></strong><p>Incidents / tickets with ≥1 return</p><p><%= performance_return_metric_note(@returns) %></p></article>
+        <article class="performance-metric">
+          <h4>Tickets with ≥1 Return</h4>
+          <strong><%= performance_return_link(@returns[:returned], 'return_incidents') %></strong>
+          <% if @returns[:population].zero? %>
+            <p>N/A — no Done tickets</p>
+            <p><small>First-time pass: N/A</small></p>
+          <% else %>
+            <p><%= performance_number(@returns[:returned] * 100.0 / @returns[:population]) %>% of Done tickets</p>
+            <p><small class="performance-good"><%= performance_number((@returns[:population] - @returns[:returned]) * 100.0 / @returns[:population]) %>%: first-time pass</small></p>
+          <% end %>
+        </article>
+        <article class="performance-metric performance-return-metric"><h4>Return Ticket Metric</h4><strong><%= performance_return_link(performance_number(@returns[:ratio]), 'return_incidents') %></strong><p>Incidents / tickets with ≥1 return</p><p><%= performance_return_metric_note(@returns, emphasize_direction: true) %></p></article>
       </div>
       <p>Of the <%= @returns[:population] %> tickets completed from expectation, <%= @returns[:returned] %> have at least one return, contributing <%= @returns[:incidents] %> incidents.</p>
     </section>
