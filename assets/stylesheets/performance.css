@@ -332,6 +332,7 @@
 .return-metric-denominator{display:block;font-size:11px;font-weight:normal;color:#536579;margin-top:5px}
 .periodic-return-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
 .periodic-return-kpis strong{display:block;font-size:30px;line-height:1.4}
+.periodic-return-kpis p strong{display:inline;font-size:inherit;line-height:inherit;font-weight:bold}
 .periodic-return-kpis .performance-metric{overflow-wrap:anywhere}
 .periodic-time-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
 .periodic-time-kpi{overflow-wrap:anywhere}
