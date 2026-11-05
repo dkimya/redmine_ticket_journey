@@ -6,7 +6,7 @@
     <% context[:dashboard_type] = key unless key == 'live' %>
     <% context.merge!(rsd: @period_start.iso8601, red: @period_end.iso8601) if key == 'periodic' && @period_start && @period_end %>
     <%= link_to performance_dashboard_path(@project, **context), class: "performance-tab#{' is-active' if @dashboard_type == key}", title: (key == 'live' ? 'View a dashboard snapshot at the selected As of Date; this page does not automatically refresh.' : 'Tickets and Returns rules are confirmed. Reviewed Time formulas are applied; activity mapping, targets and trend presentation are described in the page notes.'), aria: { current: (@dashboard_type == key ? 'page' : nil) } do %>
-      <%= label %><% if key == 'periodic' %><span class="performance-tab-planned">Provisional</span><% end %>
+      <%= label %>
     <% end %>
   <% end %>
 </nav>
