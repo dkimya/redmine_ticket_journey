@@ -81,7 +81,7 @@
         <article class="performance-metric"><h4>Total Done Tickets</h4><strong><%= performance_return_link(total[:population], 'total_open') %></strong></article>
         <article class="performance-metric"><h4>Return Incidents</h4><strong><%= performance_return_link(total[:incidents], 'total_return_incidents') %></strong></article>
         <article class="performance-metric"><h4>Tickets with ≥1 Return</h4><strong><%= performance_return_link(total[:returned], 'total_return_incidents') %></strong></article>
-        <article class="performance-metric performance-return-metric"><h4>Incidents / Returned Ticket</h4><strong><%= performance_return_link(performance_number(total[:ratio]), 'total_return_incidents') %></strong><p><%= performance_return_metric_note(total) %></p></article>
+        <article class="performance-metric performance-return-metric"><h4>Incidents / Returned Ticket</h4><strong><%= performance_return_link(performance_number(total[:ratio]), 'total_return_incidents') %></strong><p><%= performance_return_metric_note(total, emphasize_direction: true) %></p></article>
       </div>
     </section>
 
