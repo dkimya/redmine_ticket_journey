@@ -11,11 +11,6 @@
   <% end %>
   <% if @matching_issue_ids.any? %><p><%= link_to 'Open matching tickets in Issues (current values)', performance_current_issues_path %></p><% end %>
   <% if @detail_rows.empty? %><p class="nodata">No tickets match this metric.</p><% else %>
-    <details>
-      <summary>What do Recorded Assignment and Expected Date mean?</summary>
-      <p><strong>Recorded Assignment</strong> is the latest journaled assignment to the current Ticket Owner on or before the report end date. An assignment can be missing from the journal even when the ticket has an owner.</p>
-      <p><strong>Expected Date</strong> is when the ticket enters the cumulative expected workload. Opening debt enters on the report start date. Planned tasks and hotfixes use the current due date or the report start date, whichever is later. Tickets outside expectation show N/A.</p>
-    </details>
     <div class="autoscroll"><table class="list issues periodic-details"><thead><tr>
       <th class="periodic-detail-id"><%= performance_sort_heading('Ticket', 'id') %></th>
       <th>Project</th>
@@ -26,15 +21,14 @@
       <th><%= performance_sort_heading('Status at RED', 'status') %> / Now</th>
       <th><%= performance_sort_heading('Current Due Date', 'due') %></th>
       <th><%= performance_sort_heading('CW (Points)', 'weight') %></th>
-      <th>Recorded Assignment</th>
+      <th>Work Ready Date <%= performance_tip('Latest journaled assignment to the current Ticket Owner on or before the report end date. Shows Not recorded when no matching assignment is available in the history. Latest To-Do is shown separately.') %></th>
       <th>Latest To-Do for Current Owner</th>
       <th>Category</th>
-      <th>Expected Date</th>
       <th><%= performance_sort_heading('Last Completion by RED', 'completion') %></th>
       <th>Extraordinary Reasons</th>
     </tr></thead><tbody>
       <% @detail_rows.group_by { |row| TicketJourneyPerformance.detail_group_key(row, @group_by) }.each do |group_key, group| %>
-        <% if @group_by %><tr class="group"><th colspan="15"><%= group.first[TicketJourneyPerformance::DETAIL_GROUPS.fetch(@group_by)].presence || 'Unknown' %> · <%= @group_totals[group_key][:count] %> tickets · <%= performance_number(@group_totals[group_key][:weight]) %> CW (all pages)</th></tr><% end %>
+        <% if @group_by %><tr class="group"><th colspan="14"><%= group.first[TicketJourneyPerformance::DETAIL_GROUPS.fetch(@group_by)].presence || 'Unknown' %> · <%= @group_totals[group_key][:count] %> tickets · <%= performance_number(@group_totals[group_key][:weight]) %> CW (all pages)</th></tr><% end %>
         <% group.each do |row| %><% issue = @detail_issues.fetch(row[:id]) %>
           <tr class="performance-ticket-row">
             <td class="periodic-detail-id"><%= link_to "##{issue.id}", issue_path(issue) %></td>
@@ -49,7 +43,6 @@
             <td class="periodic-detail-date"><%= row[:assigned_on] ? format_date(row[:assigned_on]) : 'Not recorded' %></td>
             <td class="periodic-detail-date"><%= row[:todo_on] ? format_date(row[:todo_on]) : 'Not recorded' %></td>
             <td><%= row[:category] ? TicketJourneyPeriodicTickets::LABELS.fetch(row[:category]) : 'Outside expectation' %></td>
-            <td class="periodic-detail-date"><%= row[:expected_on] ? format_date(row[:expected_on]) : 'N/A' %></td>
             <td class="periodic-detail-date"><%= row[:delivered_at] ? format_date(row[:delivered_at]) : 'Not recorded' %></td>
             <td><%= Array(row[:extraordinary_reasons]).join('; ').presence || 'None recorded' %></td>
           </tr>

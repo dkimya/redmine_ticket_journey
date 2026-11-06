@@ -6,14 +6,18 @@
       <th><%= row[:key] == 'actual' ? 'Total Done' : TicketJourneyPeriodicTickets::LABELS.fetch(row[:key]) %></th>
       <% plan_tip = {
         'expected' => 'Expected Total = Debt at RSD + Planned Assigned Tasks + Assigned Hotfixes.',
-        'actual' => 'Total Done plan = Completed from Expectation + Debt at RED. Total Done actual = Completed from Expectation + Other Done.'
+        'actual' => 'Total Done plan = Completed from Expectation + Debt at RED.'
       }[row[:key]] %>
       <td>
         <%= row[:plan].positive? ? periodic_ticket_link(performance_number(row[:plan]), row[:key] == 'actual' ? 'expected' : row[:key], title: plan_tip) : performance_number(row[:plan]) %>
         <%= performance_tip(plan_tip) if plan_tip %>
       </td>
       <% actual_metric = %w[planned hotfix].include?(row[:key]) ? "completed_#{row[:key]}" : (row[:key] == 'expected' ? 'completed' : row[:key]) %>
-      <td><%= periodic_ticket_link(performance_number(row[:actual]), actual_metric) %></td>
+      <% actual_tip = row[:key] == 'actual' ? 'Total Done actual = Completed from Expectation + Other Done.' : nil %>
+      <td>
+        <%= periodic_ticket_link(performance_number(row[:actual]), actual_metric, title: actual_tip) %>
+        <%= performance_tip(actual_tip) if actual_tip %>
+      </td>
       <td><%= periodic_ticket_link(periodic_deviation(row[:deviation][:value]), TicketJourneyPeriodicTickets::DEVIATION_METRICS.fetch(row[:key])) %></td>
       <td><%= row[:direction] == :plan_minus_actual ? 'P−A' : 'A−P' %><%= '*' if row[:key] == 'actual' %></td>
       <td><%= periodic_deviation(row[:deviation][:percent], percentage: true) %></td>
