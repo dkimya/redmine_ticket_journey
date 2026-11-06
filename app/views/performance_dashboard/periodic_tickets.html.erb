@@ -49,17 +49,26 @@
 
     <section class="performance-section">
       <h3>Expected Work and Actual Delivery<%= ' — Team' if @selected_owners.size > 1 %></h3>
-      <div class="periodic-flow">
-        <% %w[beginning planned hotfix expected completed other actual].each do |key| %>
-          <article class="periodic-kpi periodic-<%= key %>">
-            <h4><%= TicketJourneyPeriodicTickets::LABELS.fetch(key) %></h4>
-            <strong><%= periodic_summary_link(report, key, :count) %></strong><span>Tickets</span>
-            <p><%= periodic_summary_link(report, key, :weight) %> CW</p>
-            <% if summaries[key][:missing_weight].positive? %><small><%= summaries[key][:missing_weight] %> without usable weight</small><% end %>
-          </article>
-        <% end %>
-      </div>
-      <p class="performance-weight-note">Debt at RSD + Planned Assigned Tasks + Assigned Hotfixes = Expected Total. Completed from Expectation + Other Done = Total Actual Done.</p>
+      <% [
+        ['Expected Workload', %w[beginning planned hotfix expected], ['+', '+', '=']],
+        ['Delivery Status of Expected Work', %w[expected completed debt], ['=', '+']],
+        ['Total Delivery', %w[other completed actual], ['+', '=']]
+      ].each do |heading, keys, operators| %>
+        <div class="periodic-delivery-row">
+          <h4><%= heading %></h4>
+          <div class="periodic-delivery-equation">
+            <% keys.each_with_index do |key, index| %>
+              <% if index.positive? %><span class="periodic-delivery-operator"><%= operators[index - 1] %></span><% end %>
+              <article class="periodic-kpi periodic-<%= key %>">
+                <h4><%= key == 'actual' ? 'Total Done' : TicketJourneyPeriodicTickets::LABELS.fetch(key) %></h4>
+                <strong><%= periodic_summary_link(report, key, :count) %></strong><span>Tickets</span>
+                <p><%= periodic_summary_link(report, key, :weight) %> usable CW</p>
+                <% if summaries[key][:missing_weight].positive? %><small><%= summaries[key][:missing_weight] %> without usable weight</small><% end %>
+              </article>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
       <p>Other Done assessment: <span class="performance-good"><%= periodic_summary_link(report, 'extra_other', :count) %> Extra Work tickets</span> · <%= periodic_summary_link(report, 'unplanned_other', :count) %> Unplanned Work tickets. Assessed per owner; raw Other Done deviation stays P−A.</p>
       <details><summary>Show newly introduced scheduled workload</summary><p><%= periodic_ticket_link("Latest To-Do during period: #{summaries['newly_assigned'][:count]}", 'newly_assigned') %> · <%= periodic_ticket_link("Latest To-Do before period: #{summaries['earlier_assigned'][:count]}", 'earlier_assigned') %>. Includes scheduled hotfixes where applicable; these review subsets do not add to Expected Total.</p></details>
       <p><%= link_to 'Review Other Work hours, including unfinished tickets → Periodic Time', performance_dashboard_path(@project, **periodic_ticket_params({ tab: 'time', metric: 'other_hours' })) %></p>

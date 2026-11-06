@@ -1,7 +1,13 @@
 <div class="autoscroll"><table class="list periodic-time-table">
   <thead><tr><th>Metric</th><th>Unit</th><th>Plan / Target</th><th>Actual</th><th>Deviation</th><th>Deviation Calculation</th><th>Deviation %</th><th>Contributing Tickets</th></tr></thead>
-  <tbody><% TicketJourneyPeriodicTime::METRICS.each do |key, (label, unit, direction)| %><% entry = report[:metrics][key] %>
-    <tr><th><%= label %> <%= performance_tip(periodic_time_metric_tip(key)) %></th>
+  <% table_labels = {
+    'dtc' => 'Closed Tickets Ave. DTC',
+    'priority_dtc' => 'Priority Tickets Ave. DTC',
+    'ticket_cost' => 'Closed Tickets Log Time',
+    'total_hours' => 'Total Logged time by Owner'
+  } %>
+  <tbody><% TicketJourneyPeriodicTime::METRICS.except('expected_done_hours', 'other_hours').each do |key, (label, unit, direction)| %><% entry = report[:metrics][key] %>
+    <tr><th><%= table_labels.fetch(key, label) %> <%= performance_tip(periodic_time_metric_tip(key)) %></th>
       <td><%= unit %></td>
       <td><%= periodic_time_number(entry[:plan], key) %></td><td><%= periodic_time_link(periodic_time_number(entry[:actual], key), key, ids) %></td>
       <td><%= periodic_time_link(periodic_time_deviation(key, entry), key, ids, class: periodic_time_class(key, entry)) %></td>
@@ -11,4 +17,4 @@
     </tr>
   <% end %></tbody>
 </table></div>
-<p class="performance-weight-note">P = Plan / Target. A = Actual. Cost and completed-expected owner hours compare matching ticket sets. Hover or focus the information icons for populations and time windows. CW/h uses the matching full expectation portfolio. Other Work's raw P−A is <%= periodic_time_number(report[:metrics]['other_hours'][:deviation]&.fetch(:value), 'other_hours') %> h. Favorable Extra Work is assessed separately at period end. Zero-plan percentages are <span style="white-space:nowrap">N/A.</span></p>
+<p class="performance-weight-note">P = Plan / Target. A = Actual. DTC = Days to Close. Closed Tickets Log Time compares PM estimates with all contributors' visible direct hours through the report end date on matching completed tickets. Total Logged time by Owner uses scoped work-date hours within the report period. Hover or focus the information icons for populations and time windows. CW/h uses the matching full expectation portfolio. Zero-plan percentages are <span style="white-space:nowrap">N/A.</span></p>

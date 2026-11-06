@@ -38,6 +38,12 @@ is a scoped visible-hours measure, not an all-project payroll statement.
 
 ## Eight primary metrics
 
+The summary table displays six rows, omitting completed-expected owner hours and
+Other Work hours. Its requested labels are Closed Tickets Ave. DTC, Priority
+Tickets Ave. DTC, Closed Tickets Log Time and Total Logged time by Owner.
+The table note and tooltips explain their populations and different time windows.
+Implemented locally; deployed verification remains pending.
+
 The Plan / Actual Time Results table displays units and deviation calculation
 directions in separate columns, with population/time-window tooltips and linked
 deviation contributor lists. Percentages use the same status color as deviations,

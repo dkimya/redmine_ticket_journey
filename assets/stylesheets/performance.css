@@ -334,7 +334,7 @@
 .periodic-return-kpis strong{display:block;font-size:30px;line-height:1.4}
 .periodic-return-kpis p strong{display:inline;font-size:inherit;line-height:inherit;font-weight:bold}
 .periodic-return-kpis .performance-metric{overflow-wrap:anywhere}
-.periodic-time-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.periodic-time-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 .periodic-time-kpi{overflow-wrap:anywhere}
 .periodic-time-kpi h4{min-height:60px}
 .periodic-time-kpi strong{display:block;font-size:27px;line-height:1.4}
@@ -369,6 +369,15 @@
 .periodic-page th small{display:block;color:#536579;font-weight:400;font-size:11px}
 .periodic-total-row,.periodic-page tfoot{background:#eaf4ff;font-weight:700}
 .periodic-flow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:12px}
+.periodic-delivery-row{margin:18px 0;padding:16px;border:1px solid #c8ddef;border-radius:10px}
+.periodic-delivery-row>h4{margin:0 0 14px;font-size:17px}
+.periodic-delivery-equation{display:flex;align-items:stretch;gap:12px}
+.periodic-delivery-equation>.periodic-kpi{flex:1}
+.periodic-delivery-operator{align-self:center;font-size:26px;font-weight:bold}
+.periodic-delivery-equation>.periodic-completed{background:#eaf9f0}
+.periodic-delivery-equation>.periodic-debt{background:#fff5e3}
+.periodic-delivery-equation>.periodic-other{background:#f3ecff}
+@media(max-width:800px){.periodic-delivery-equation{flex-direction:column}.periodic-delivery-equation>.periodic-kpi{flex:auto}}
 .periodic-kpi{background:#edf6ff;border:1px solid #c8ddef;border-radius:9px;padding:16px 12px;min-width:0}
 .periodic-kpi h4{font-size:14px;min-height:44px;line-height:1.5;margin:0 0 14px}
 .periodic-kpi strong{display:block;font-size:32px;line-height:1.2}

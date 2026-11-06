@@ -30,12 +30,11 @@
     </section>
 
     <section class="performance-section"><h3>Time Performance</h3>
-      <div class="periodic-time-kpis"><% TicketJourneyPeriodicTime::METRICS.each do |key, (label, unit, _direction)| %><% entry = report[:metrics][key] %>
+      <div class="periodic-time-kpis"><% TicketJourneyPeriodicTime::METRICS.except('expected_done_hours', 'other_hours').each do |key, (label, unit, _direction)| %><% entry = report[:metrics][key] %>
         <article class="performance-metric periodic-time-kpi"><h4><%= label %></h4><strong><%= periodic_time_link(periodic_time_number(entry[:actual], key), key) %> <small><%= unit %></small></strong>
           <p>Plan / Target: <b><%= periodic_time_number(entry[:plan], key) %></b> <%= unit %></p>
           <p class="<%= periodic_time_class(key, entry) %>"><b><%= periodic_time_deviation(key, entry) %></b><% if entry[:deviation] && entry[:deviation][:percent] %> · <%= performance_number(entry[:deviation][:percent]) %>%<% end %></p>
           <small><%= periodic_time_link("#{entry[:rows].size} ticket-owner contributions", key) %></small>
-          <% if key == 'other_hours' %><p>Extra Work: <%= periodic_time_number(entry[:extra_hours], key) %> h · Unplanned: <%= periodic_time_number(entry[:unplanned_hours], key) %> h</p><% end %>
         </article>
       <% end %></div>
       <p class="performance-weight-note">DTC targets and owner-share % are configured under Administration → Plugins → PMO Dashboard → Configure. Initial targets are 7 calendar days for normal tickets, 3 for priority tickets and 90% Development to Total Ticket Time Estimation Ratio; configured overrides apply. Ticket cost overrun within the configured <%= performance_number(@estimate_allowance) %>% allowance is amber; exceeding it is red. Other negative deviations are red. Low visible hours alone do not establish efficiency or completed work.</p>
