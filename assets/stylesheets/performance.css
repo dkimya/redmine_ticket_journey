@@ -340,6 +340,10 @@
 .periodic-time-kpi strong{display:block;font-size:27px;line-height:1.4}
 .periodic-time-kpi strong small{font-size:13px;font-weight:normal}
 .periodic-time-warning{color:#946000}
+.periodic-time-table a.performance-good{color:#00865e}
+.periodic-time-table a.performance-bad{color:#c93143}
+.periodic-time-table a.periodic-time-warning{color:#946000}
+.periodic-time-table a.performance-neutral{color:inherit}
 .periodic-time-page .periodic-grid>.performance-section{margin-top:0}
 .periodic-time-details td{overflow-wrap:anywhere;text-align:left}
 .periodic-time-details th{white-space:nowrap}

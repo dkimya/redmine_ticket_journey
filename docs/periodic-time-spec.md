@@ -38,6 +38,16 @@ is a scoped visible-hours measure, not an all-project payroll statement.
 
 ## Eight primary metrics
 
+The Plan / Actual Time Results table displays units and deviation calculation
+directions in separate columns, with population/time-window tooltips and linked
+deviation contributor lists. Percentages use the same status color as deviations,
+including the ticket-cost allowance. Daily hours display two decimal places;
+nonzero magnitudes below display precision show approximately zero.
+Expected Done personal hours is labelled Owner Hours on Completed Expected
+Tickets. Its tooltip explains matching estimates/time and the period-only actual
+window. These presentation changes are implemented locally; host runtime and
+deployed visual checks remain pending.
+
 | Metric | Plan | Actual | Deviation |
 | --- | --- | --- | --- |
 | Days to Close | Configurable target (initial 7 days) | Mean creation-to-latest-qualifying-completion calendar days on Total Actual Done | P−A |

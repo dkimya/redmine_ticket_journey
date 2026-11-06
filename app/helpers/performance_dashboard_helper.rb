@@ -55,7 +55,25 @@ module PerformanceDashboardHelper
   end
 
   def periodic_time_number(value, key)
-    value.nil? ? 'N/A' : number_with_precision(value, precision: key == 'efficiency' ? 3 : 1, strip_insignificant_zeros: true)
+    return 'N/A' if value.nil?
+
+    precision = { 'efficiency' => 3, 'daily_hours' => 2 }.fetch(key, 1)
+    return '≈0' if !value.zero? && value.abs < 0.5 * 10**(-precision)
+
+    number_with_precision(value, precision: precision, strip_insignificant_zeros: true)
+  end
+
+  def periodic_time_metric_tip(key)
+    {
+      'dtc' => 'Mean calendar days from ticket creation to qualifying completion for all tickets delivered in the report period, including Other Done. Compared with the configured days-to-close target.',
+      'priority_dtc' => 'The same calendar-day average for completed tickets with current Urgent or Immediate priority.',
+      'ticket_cost' => 'Matching completed tickets with positive PM estimates and available time data. Plan sums PM estimates. Actual sums all contributors’ visible direct lifetime hours through the report end date, including earlier work.',
+      'expected_done_hours' => 'Matching completed expected tickets with positive PM estimates and available owner-time data. Plan is the configured owner share of their PM estimates. Actual is the selected owner’s logged hours dated within the report period on those tickets. Earlier work is outside actual. Low or zero period hours alone do not establish an effort saving.',
+      'other_hours' => 'Owner hours dated within the period on tickets outside the owner’s expected package, including work on other owners’ tickets. Archived, Ongoing and On-Hold hours are disclosed separately. Plan is zero. Extra Work classification requires full expected delivery.',
+      'total_hours' => 'All visible scoped hours booked to the selected owner within the period, including Archived, Ongoing and On-Hold effort. Plan is configured workdays multiplied by daily hours. Unlinked time and tickets outside the report scope are excluded.',
+      'daily_hours' => 'Scoped owner hours divided by configured owner-workdays. Plan is configured daily hours. Hours logged on nonworking days remain in the numerator.',
+      'efficiency' => 'Matching expected tickets, including unfinished work, with usable weights, positive estimates and available owner time. Plan is portfolio weight divided by the owner share of estimates. Actual is delivered expected weight divided by owner period hours on the whole matching portfolio. Zero actual hours gives N/A.'
+    }.fetch(key)
   end
 
   def periodic_time_class(key, entry)
