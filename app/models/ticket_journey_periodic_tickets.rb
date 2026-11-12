@@ -272,10 +272,9 @@ class TicketJourneyPeriodicTickets
   end
 
   def self.trend_rows(sets, kind, day)
-    if kind == 'expected'
-      sets['expected'].select { |row| row[:expected_on] <= day || (row[:category] == 'beginning' && row[:expected_on] == day + 1) }
-    else
-      sets['completed'].select { |row| row[:delivered_at] <= day }
+    sets.fetch(kind).select do |row|
+      expected_by_day = row[:expected_on] <= day || (row[:category] == 'beginning' && row[:expected_on] == day + 1)
+      expected_by_day && (kind == 'expected' || row[:delivered_at] <= day)
     end
   end
 end

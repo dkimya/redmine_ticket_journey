@@ -140,6 +140,9 @@ class TicketJourneyPeriodicTicketsTest < ActiveSupport::TestCase
     assert_equal 0, opening[:completed_count]
     assert_equal [1], TicketJourneyPeriodicTickets.trend_rows(report[:sets], 'expected', opening[:date]).map { |item| item[:id] }
     report[:trends].each do |point|
+      expected_ids = TicketJourneyPeriodicTickets.trend_rows(report[:sets], 'expected', point[:date]).map { |item| item[:id] }
+      completed_ids = TicketJourneyPeriodicTickets.trend_rows(report[:sets], 'completed', point[:date]).map { |item| item[:id] }
+      assert_empty completed_ids - expected_ids
       %w[expected completed].each do |kind|
         contributors = TicketJourneyPeriodicTickets.trend_rows(report[:sets], kind, point[:date])
         assert_equal contributors.size, point["#{kind}_count".to_sym]
@@ -148,6 +151,8 @@ class TicketJourneyPeriodicTicketsTest < ActiveSupport::TestCase
     end
     assert_equal 1, report[:trends][1][:expected_count]
     assert_equal 1, report[:trends][1][:completed_count]
+    week_after_early_completion = report[:trends][2]
+    assert_equal [1], TicketJourneyPeriodicTickets.trend_rows(report[:sets], 'completed', week_after_early_completion[:date]).map { |item| item[:id] }
     ending = report[:trends].last
     assert_equal @last, ending[:date]
     [:count, :weight].each do |measure|

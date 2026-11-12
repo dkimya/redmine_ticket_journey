@@ -30,7 +30,10 @@ only with latest To-Do for the current owner during the period AND a required
 current due date on/before RED. Missing/out-of-period due dates have no fallback.
 Precedence is beginning debt, hotfix, scheduled task; expectation is their distinct
 union. Current due dates schedule trends; opening debt appears at the opening
-point and an eligible hotfix date before RSD is bounded at RSD.
+point and an eligible hotfix date before RSD is bounded at RSD. At each trend
+date, Completed from Expectation includes only tickets expected by that date
+with qualifying completion by that date. Early completions enter the trend on
+their expected dates. Chart totals and drill-downs use the same ticket sets.
 
 ## Responsibility and extraordinary tickets
 
