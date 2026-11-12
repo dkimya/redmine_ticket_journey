@@ -34,6 +34,9 @@ point and an eligible hotfix date before RSD is bounded at RSD. At each trend
 date, Completed from Expectation includes only tickets expected by that date
 with qualifying completion by that date. Early completions enter the trend on
 their expected dates. Chart totals and drill-downs use the same ticket sets.
+Single-owner charts offer an initially hidden gray series that adds Other Done
+completions through each trend date to that date's Completed from Expectation.
+The breakdown includes the combined values and their ticket lists.
 
 ## Responsibility and extraordinary tickets
 

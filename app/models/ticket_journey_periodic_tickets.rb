@@ -21,6 +21,7 @@ class TicketJourneyPeriodicTickets
     'earlier_assigned' => 'Scheduled Tickets Entering To-Do Before the Period',
     'extra_other' => 'Other Done — Extra Work', 'unplanned_other' => 'Other Done — Unplanned Work',
     'trend_expected' => 'Cumulative Expected Work', 'trend_completed' => 'Cumulative Completed Expected Work',
+    'trend_completed_with_other' => 'Cumulative Completed Expected Work and Other Done',
     'completed_beginning' => 'Completed Beginning Debt', 'completed_planned' => 'Completed Planned Tasks',
     'completed_hotfix' => 'Completed Assigned Hotfixes',
     'unfinished_planned' => 'Unfinished Planned Assigned Tasks',
@@ -267,11 +268,19 @@ class TicketJourneyPeriodicTickets
   def self.trend_point(sets, day)
     expected = trend_rows(sets, 'expected', day)
     completed = trend_rows(sets, 'completed', day)
+    with_other = completed + trend_other_done(sets, day)
     { date: day, expected_count: expected.size, completed_count: completed.size,
-      expected_weight: TicketJourneyPerformance.weight(expected), completed_weight: TicketJourneyPerformance.weight(completed) }
+      expected_weight: TicketJourneyPerformance.weight(expected), completed_weight: TicketJourneyPerformance.weight(completed),
+      completed_with_other_count: with_other.size, completed_with_other_weight: TicketJourneyPerformance.weight(with_other) }
+  end
+
+  def self.trend_other_done(sets, day)
+    sets.fetch('other').select { |row| row[:delivered_at] <= day }
   end
 
   def self.trend_rows(sets, kind, day)
+    return trend_rows(sets, 'completed', day) + trend_other_done(sets, day) if kind == 'completed_with_other'
+
     sets.fetch(kind).select do |row|
       expected_by_day = row[:expected_on] <= day || (row[:category] == 'beginning' && row[:expected_on] == day + 1)
       expected_by_day && (kind == 'expected' || row[:delivered_at] <= day)

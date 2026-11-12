@@ -1,8 +1,12 @@
 <% all_points = series.flat_map { |entry| entry[:points] }; geometry = performance_leaderboard_geometry(all_points, keys: [:value], scale_values: [], percent: false) %>
 <% dates = series.first[:points].map { |point| point[:date] }; span = [(dates.last - dates.first).to_f, 1].max %>
 <% chart_id = "periodic-#{chart_key}"; owners = series.select { |entry| entry[:owner_id] }.group_by { |entry| entry[:owner_id] } %>
-<section class="performance-section periodic-trend<%= ' performance-leaderboard' if owners.any? %>"<% if owners.any? %> data-performance-leaderboard<% end %>>
+<% optional_series = series.find { |entry| entry[:toggle_id] } %>
+<section class="performance-section periodic-trend<%= ' performance-leaderboard' if owners.any? || optional_series %>"<% if owners.any? || optional_series %> data-performance-leaderboard<% end %>>
   <h3><%= title %></h3>
+  <% if optional_series %>
+    <button type="button" data-leaderboard-toggle="<%= optional_series[:toggle_id] %>" data-owner-name="Completed from Expectation + Other Done" aria-pressed="false" aria-label="Show Completed from Expectation + Other Done line">Toggle Other Done line</button>
+  <% end %>
   <% if owners.empty? %><ul class="performance-trend-legend"><% series.each do |entry| %><li><span class="performance-trend-swatch" style="border-color:<%= entry[:color] %>;border-top-style:<%= entry[:dashed] ? 'dashed' : 'solid' %>"></span><%= entry[:label] %></li><% end %></ul><% end %>
   <div class="<%= owners.any? ? 'performance-leaderboard-layout' : 'periodic-team-chart' %>">
   <div class="autoscroll"><svg class="performance-trend-chart" viewBox="0 0 860 300" role="img" aria-labelledby="<%= chart_id %>-title">
@@ -15,8 +19,8 @@
     <% dates.each_with_index do |day, index| %><% next unless index % label_step == 0 || index == dates.size - 1 %>
       <text x="<%= 90 + (day - dates.first).to_f / span * 680 %>" y="268" text-anchor="middle"><%= day.strftime('%d %b %y') %></text>
     <% end %>
-    <% series.each do |entry| %>
-      <g data-leaderboard-series="<%= entry[:owner_id] %>">
+    <% (series.select { |entry| entry[:toggle_id] } + series.reject { |entry| entry[:toggle_id] }).each do |entry| %>
+      <g data-leaderboard-series="<%= entry[:toggle_id] || entry[:owner_id] %>"<% if entry[:toggle_id] %> class="is-hidden"<% end %>>
       <% coordinates = entry[:points].map { |point| [90 + (point[:date] - dates.first).to_f / span * 680, 235 - point[:value] / geometry[:maximum] * 200] } %>
       <polyline points="<%= coordinates.map { |x, y| "#{x},#{y}" }.join(' ') %>" fill="none" stroke="<%= entry[:color] %>" stroke-width="2.5" stroke-dasharray="<%= entry[:dashed] ? '8 5' : 'none' %>" />
       <% entry[:points].each_with_index do |point, index| %>
@@ -45,5 +49,6 @@
       </tr><% end %></tbody>
     </table></div>
   </details>
+  <% if optional_series %><p class="performance-weight-note">The optional gray line adds cumulative Other Done to the completed expected tickets at each date. The breakdown keeps all values visible.</p><% end %>
   <p class="performance-weight-note">Each point compares work expected by that date with qualifying completions from that same set. Early completions enter the chart when their tickets become expected. Opening debt is present at the opening point. Completion requires Done / Closed at RED and now. Other Done is reported separately. Periods over 120 days use month ends. Shorter periods use Sunday week ends and a final partial week.</p>
 </section>

@@ -153,6 +153,8 @@ class TicketJourneyPeriodicTicketsTest < ActiveSupport::TestCase
     assert_equal 1, report[:trends][1][:completed_count]
     week_after_early_completion = report[:trends][2]
     assert_equal [1], TicketJourneyPeriodicTickets.trend_rows(report[:sets], 'completed', week_after_early_completion[:date]).map { |item| item[:id] }
+    assert_equal [1, 3], TicketJourneyPeriodicTickets.trend_rows(report[:sets], 'completed_with_other', week_after_early_completion[:date]).map { |item| item[:id] }
+    assert_equal 2, week_after_early_completion[:completed_with_other_count]
     ending = report[:trends].last
     assert_equal @last, ending[:date]
     [:count, :weight].each do |measure|
