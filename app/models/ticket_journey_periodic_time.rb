@@ -12,7 +12,7 @@ class TicketJourneyPeriodicTime
   METRICS = {
     'dtc' => ['Average Days to Close', 'days', :plan_minus_actual],
     'priority_dtc' => ['Priority Average Days to Close', 'days', :plan_minus_actual],
-    'ticket_cost' => ['Ticket Cost — PM vs Actual', 'h', :plan_minus_actual],
+    'ticket_cost' => ['Ticket Cost (Est. vs Actual)', 'h', :plan_minus_actual],
     'expected_done_hours' => ['Owner Hours on Completed Expected Tickets', 'h', :plan_minus_actual],
     'other_hours' => ['Owner Logged Time — Other Tickets', 'h', :plan_minus_actual],
     'total_hours' => ['Visible Scoped Owner Logged Time', 'h', :actual_minus_plan],
