@@ -459,7 +459,7 @@ class PerformanceDashboardController < ApplicationController
   end
 
   def prepare_work_rework(owner_ids, date)
-    @work_rework = owner_ids.to_h { |id| [id, TicketJourneyWorkRework.summary] }
+    @work_rework = owner_ids.to_h { |id| [id, TicketJourneyWorkRework.summary.merge(review: [])] }
     @work_rework_months = {}
     return unless owner_ids.size > 1
 

@@ -45,6 +45,30 @@
       </table>
     <% end %>
   </div>
+  <% review_hours = @work_rework.values.sum { |summary| calculator.total(summary, :unknown) } %>
+  <% if review_hours.positive? %>
+    <details>
+      <summary>Review <%= hours.call(review_hours) %> of unclassified time</summary>
+      <p>Hours are grouped by ticket and work date. Check the ticket’s Spent time entries for the activities logged on that date.</p>
+      <div class="autoscroll"><table class="list">
+        <thead><tr><th scope="col">Owner</th><th scope="col">Ticket</th><th scope="col">Work Date</th><th scope="col">Hours</th><th scope="col">Statuses</th><th scope="col">Reason</th></tr></thead>
+        <tbody>
+          <% @selected_owners.each do |owner| %>
+            <% @work_rework.fetch(owner.id.to_s).fetch(:review).sort_by { |entry| [entry[:date], entry[:id]] }.each do |entry| %>
+              <tr>
+                <td><%= owner.name %></td>
+                <td><%= performance_drilldown_link "##{entry[:id]}", issue_path(entry[:id]) %></td>
+                <td><%= format_date(entry[:date]) %></td>
+                <td><%= hours.call(entry[:hours]) %></td>
+                <td><%= entry[:statuses].join(' → ') %></td>
+                <td><%= entry[:reason] %></td>
+              </tr>
+            <% end %>
+          <% end %>
+        </tbody>
+      </table></div>
+    </details>
+  <% end %>
   <p>Rework % divides rework hours by classified work plus rework hours. Unclassified hours are included in visible totals. Missing time access makes ratios and averages unavailable. Time-entry visibility can also limit totals. Hours per CW requires usable weights for every ticket.</p>
   <%= render 'work_rework_trend' if @work_rework_months.any? %>
 </section>
