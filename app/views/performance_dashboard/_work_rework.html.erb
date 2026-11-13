@@ -1,0 +1,50 @@
+<% calculator = TicketJourneyWorkRework %>
+<% hours = ->(value) { value.nil? ? 'N/A' : "#{performance_number(value)} h" } %>
+<% percent = ->(value) { value.nil? ? 'N/A' : "#{performance_number(value)}%" } %>
+<section class="performance-section">
+  <h3>Work / Rework Time</h3>
+  <p><%= @periodic_time ? 'Tickets completed during the report period, with visible hours through the report end date.' : 'Tickets open at the report date, with visible hours through that date.' %> Ticket groups use the current Ticket Owner.</p>
+  <p>Rework counts hours logged after a qualifying return in a status already reached before that return. Review rolls up under Development. Feedback, Ready to Merge and Final Check roll up under Test. Unmapped statuses and work dates spanning different classifications appear under Unclassified.</p>
+  <div class="autoscroll">
+    <% if @selected_owners.one? %>
+      <% summary = @work_rework.fetch(@selected_owners.first.id.to_s) %>
+      <% time_visible = summary[:count].zero? || summary[:unavailable] < summary[:count] %>
+      <% columns = [*calculator::PHASES, nil] %>
+      <p><strong><%= summary[:count] %> tickets · <%= performance_number(summary[:weight]) %> usable CW</strong> · <%= summary[:missing_weight] %> without usable weight</p>
+      <table class="list">
+        <thead><tr><th scope="col">Logged effort</th><% columns.each do |phase| %><th scope="col"><%= phase ? phase.to_s.capitalize : 'Total' %></th><% end %></tr></thead>
+        <tbody>
+          <% { work: 'Work', rework: 'Rework', unknown: 'Unclassified', nil => 'Total visible hours' }.each do |kind, label| %>
+            <tr><th scope="row"><%= label %></th><% columns.each do |phase| %><td><%= hours.call(time_visible ? calculator.total(summary, kind, phase) : nil) %></td><% end %></tr>
+          <% end %>
+          <tr><th scope="row">Rework %</th><% columns.each do |phase| %><td><%= percent.call(calculator.rework_percent(summary, phase)) %></td><% end %></tr>
+          <% { count: 'Average hours per ticket', weight: 'Average hours per CW' }.each do |denominator, label| %>
+            <% available = summary[:unavailable].zero? && summary[denominator].positive? && (denominator != :weight || summary[:missing_weight].zero?) %>
+            <tr><th scope="row"><%= label %></th><% columns.each do |phase| %>
+              <td><%= hours.call(available ? calculator.total(summary, nil, phase) / summary[denominator] : nil) %></td>
+            <% end %></tr>
+          <% end %>
+        </tbody>
+      </table>
+      <p>Owner-booked hours on these tickets (<%= hours.call(time_visible ? summary[:owner_hours] : nil) %>) · <%= summary[:unavailable] %> tickets without time-view access.</p>
+    <% else %>
+      <table class="list">
+        <thead><tr><th scope="col">Owner</th><th scope="col">Tickets</th><th scope="col">Usable CW</th><th scope="col">Total Logged Time on Tickets</th><th scope="col">Logged Time by Owner on These Tickets</th><th scope="col">Rework %</th><th scope="col">Average Hours per Ticket</th><th scope="col">Average Hours per CW</th><th scope="col">Unclassified Hours</th><th scope="col">Tickets Without Time Access</th></tr></thead>
+        <tbody><% @selected_owners.each do |owner| %>
+          <% summary = @work_rework.fetch(owner.id.to_s); total = calculator.total(summary); available = summary[:unavailable].zero? %>
+          <% time_visible = available || summary[:unavailable] < summary[:count] %>
+          <tr>
+            <th scope="row"><%= owner.name %></th>
+            <td><%= summary[:count] %></td><td><%= performance_number(summary[:weight]) %><% if summary[:missing_weight].positive? %> (<%= summary[:missing_weight] %> missing)<% end %></td>
+            <td><%= hours.call(time_visible ? total : nil) %></td><td><%= hours.call(time_visible ? summary[:owner_hours] : nil) %></td><td><%= percent.call(calculator.rework_percent(summary)) %></td>
+            <td><%= hours.call(available && summary[:count].positive? ? total / summary[:count] : nil) %></td>
+            <td><%= hours.call(available && summary[:weight].positive? && summary[:missing_weight].zero? ? total / summary[:weight] : nil) %></td>
+            <td><%= hours.call(time_visible ? calculator.total(summary, :unknown) : nil) %></td><td><%= summary[:unavailable] %></td>
+          </tr>
+        <% end %></tbody>
+      </table>
+    <% end %>
+  </div>
+  <p>Rework % divides rework hours by classified work plus rework hours. Unclassified hours are included in visible totals. Missing time access makes ratios and averages unavailable. Time-entry visibility can also limit totals. Hours per CW requires usable weights for every ticket.</p>
+  <%= render 'work_rework_trend' if @work_rework_months.any? %>
+</section>

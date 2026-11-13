@@ -1,5 +1,25 @@
 # Reporting rules
 
+## Time Work / Rework
+
+Live uses the existing open-ticket population as of the report date. Periodic
+uses qualifying completions in the selected period, including Other Done.
+Both use visible direct hours by work date through the cutoff and group by
+current Ticket Owner. Owner-booked hours include entries credited to that owner
+on the same tickets. Multi-owner trends use the five completed calendar months
+before the report month, with Live open snapshots or Periodic completion cohorts
+and hours through each month-end.
+
+Each qualifying Return Count event captures the statuses previously reached on
+that ticket. Later hours in one of those statuses count as rework. First visits
+after the return count as work. New and To-Do map to Design. In Progress and
+Review map to Development. Feedback, Ready to Merge, Final Check and Done map to
+Test. Returned and other unmapped statuses are Unclassified. Dates spanning
+different phase or work/rework classifications are also Unclassified.
+Rework percentage uses classified work plus rework hours. Visible totals include
+Unclassified. Permission gaps suppress averages and percentages. Hours per CW
+requires usable weights on the whole population.
+
 ## Live Time individual-owner leaderboard trends
 
 Three charts appear after Developer Comparison and before Combined Results (also

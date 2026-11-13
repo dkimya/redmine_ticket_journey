@@ -68,6 +68,7 @@
       <p>Visible early logged work: <%= performance_time_hours(report[:early_hours]) %>. Future-start tickets remain outside SV until their scheduled start. A positive balance or SV does not prove delivery or savings.</p>
     </section>
     <%= render 'owner_time', report: @owner_time_report if @owner_time_report %>
+    <%= render 'work_rework' %>
     <%= render 'time_productivity' if @time_trend %>
     <%= render 'owner_change_note' %>
     <details class="performance-section"><summary>Calculation notes and calendar</summary>

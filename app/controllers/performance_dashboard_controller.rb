@@ -79,6 +79,7 @@ class PerformanceDashboardController < ApplicationController
     @delivery_trend = !@return_mode && !@time_mode && !@metric ? TicketJourneyPerformance.delivery_trend_points(@date) : nil
     @time_trend = @time_mode && !@metric ? TicketJourneyPerformanceTime.trend_points(@date) : nil
     @time_owner_trends = requested_owners.to_h { |id| [id, TicketJourneyPerformanceTimeTrends.points(@date)] } if @time_trend
+    prepare_work_rework(requested_owners, @date) if @time_trend
     @calendar = TicketJourney::WorkingCalendar.new(@settings) if @time_mode
     @time_owner_hours = {}
     @time_hours_fallback = Set.new
@@ -142,6 +143,7 @@ class PerformanceDashboardController < ApplicationController
               history.fetch(issue.id, []), statuses, @date, visible_values, requested_set, owner_points: @leaderboard_points)
           end
           if @time_trend
+            classified_hours = nil
             @time_trend.each_with_index do |point, point_index|
               snapshot = TicketJourneyPerformance.snapshot(issue, point[:date], statuses,
                 history: history.fetch(issue.id, []), visible_values: visible_values,
@@ -153,6 +155,11 @@ class PerformanceDashboardController < ApplicationController
               owner_spent = time_projects[issue.project_id] ? TicketJourneyPerformanceTime.spent(owner_entries, point[:date]) : nil
               TicketJourneyPerformanceTimeTrends.accumulate!(@time_owner_trends.fetch(snapshot[:owner_id])[point_index],
                 snapshot, ticket_hours: hours, owner_hours: owner_spent)
+              if @work_rework_months.any? && TicketJourneyPerformanceReturns.eligible?(snapshot)
+                classified_hours ||= TicketJourneyWorkRework.classify(issue, history[issue.id], statuses, @date, time_entries[issue.id])
+                TicketJourneyWorkRework.add!(@work_rework_months.fetch(snapshot[:owner_id]).fetch(point[:date]),
+                  snapshot, classified_hours, owner_entries, point[:date], time_projects[issue.project_id])
+              end
             end
           end
           snapshot_date = @time_month || @date
@@ -166,6 +173,11 @@ class PerformanceDashboardController < ApplicationController
                 time_projects[issue.project_id], time_daily_hours(row[:owner_id]))
               unless @metric
                 row = row.merge(owner_spent: time_projects[issue.project_id] ? TicketJourneyPerformanceTime.spent(owner_hours.fetch([issue.id, row[:owner_id].to_i], []), snapshot_date) : nil)
+                if TicketJourneyPerformanceReturns.eligible?(row)
+                  classified_hours ||= TicketJourneyWorkRework.classify(issue, history[issue.id], statuses, @date, time_entries[issue.id])
+                  TicketJourneyWorkRework.add!(@work_rework.fetch(row[:owner_id]), row, classified_hours,
+                    owner_hours.fetch([issue.id, row[:owner_id].to_i], []), @date, time_projects[issue.project_id])
+                end
               end
               if @time_month
                 reasons = []
@@ -312,6 +324,7 @@ class PerformanceDashboardController < ApplicationController
       @periodic_project_time_permissions = periodic_time_project_permissions
       allowed = @periodic_project_time_permissions.values
       @periodic_time_available, @periodic_time_any_available = allowed.all?, allowed.any?
+      prepare_work_rework(requested_owners, @period_end) unless @metric
       @time_bucket = params[:time_bucket].present? ? Date.iso8601(params[:time_bucket]) : nil
       return render_404 if @time_bucket && (!@metric || !TicketJourneyPeriodicReturns.intervals(@period_start, @period_end).map(&:last).include?(@time_bucket))
       return render_404 if @metric == 'time_mix' && params[:mix_scope].present? && !%w[personal package archived].include?(params[:mix_scope])
@@ -359,6 +372,7 @@ class PerformanceDashboardController < ApplicationController
         else
           TicketJourneyPeriodicTickets.history_for(selected_batch.map(&:id), @period_end)
         end
+        rework_candidates = []
         selected_batch.each do |issue|
           owner_value = values.fetch(issue.id).find { |value| value.custom_field.id == 57 }
           owner = owner_value&.value.to_s
@@ -367,12 +381,36 @@ class PerformanceDashboardController < ApplicationController
           if @periodic_time && row
             row = TicketJourneyPeriodicTime.enrich(row, issue, hours,
               @periodic_project_time_permissions.fetch(issue.project_id, false), !owner_value.nil?)
+            if @work_rework && selected.include?(owner) && row[:current_done]
+              monthly = @work_rework_months.fetch(owner, {}).keys.filter_map do |day|
+                snapshot = TicketJourneyPerformance.snapshot(issue, day, statuses, history: history[issue.id],
+                  visible_values: values.fetch(issue.id), owner_value: owner)
+                [day, snapshot] if snapshot && TicketJourneyPeriodicTickets.delivered?(snapshot, day.beginning_of_month, day)
+              end
+              delivered = TicketJourneyPeriodicTickets.delivered?(row, @period_start, @period_end)
+              rework_candidates << [issue, row, delivered, monthly] if delivered || monthly.any?
+            end
           end
           if @periodic_returns && row && TicketJourneyPeriodicTickets.delivered?(row, @period_start, @period_end) &&
               !TicketJourneyPeriodicTickets.excluded?(row)
             row = TicketJourneyPeriodicReturns.enrich(row, issue, history.fetch(issue.id, []), statuses, @period_end, values.fetch(issue.id))
           end
           rows << row if row
+        end
+        if rework_candidates.any?
+          ids = rework_candidates.map { |issue, _row, _delivered, _monthly| issue.id }
+          lifetime_hours = TicketJourneyPerformanceTime.hours_for(ids, @period_end)
+          lifetime_owner_hours = TicketJourneyPerformanceTime.owner_hours_for(ids, requested_owners, @period_end, by_day: true)
+          rework_candidates.each do |issue, row, delivered, monthly|
+            owner = row[:owner_id]
+            entries = TicketJourneyWorkRework.classify(issue, history[issue.id], statuses, @period_end, lifetime_hours[issue.id])
+            booked = lifetime_owner_hours.fetch([issue.id, owner.to_i], [])
+            allowed = @periodic_project_time_permissions.fetch(issue.project_id, false)
+            TicketJourneyWorkRework.add!(@work_rework.fetch(owner), row, entries, booked, @period_end, allowed) if delivered
+            monthly.each do |day, snapshot|
+              TicketJourneyWorkRework.add!(@work_rework_months.fetch(owner).fetch(day), snapshot, entries, booked, day, allowed)
+            end
+          end
         end
       end
     end
@@ -418,6 +456,17 @@ class PerformanceDashboardController < ApplicationController
       .includes(:project, :tracker, :priority).index_by(&:id)
     @detail_rows.select! { |row| @detail_issues.key?(row[:id]) }
     render :periodic_details
+  end
+
+  def prepare_work_rework(owner_ids, date)
+    @work_rework = owner_ids.to_h { |id| [id, TicketJourneyWorkRework.summary] }
+    @work_rework_months = {}
+    return unless owner_ids.size > 1
+
+    dates = TicketJourneyPerformance.completed_month_ends(date)
+    @work_rework_months = owner_ids.to_h do |id|
+      [id, dates.to_h { |day| [day, TicketJourneyWorkRework.summary] }]
+    end
   end
 
   def render_periodic_time(rows)

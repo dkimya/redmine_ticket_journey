@@ -40,6 +40,7 @@
       <p class="performance-weight-note">DTC targets and owner-share % are configured under Administration → Plugins → PMO Dashboard → Configure. Initial targets are 7 calendar days for normal tickets, 3 for priority tickets and 90% Development to Total Ticket Time Estimation Ratio; configured overrides apply. Ticket cost overrun within the configured <%= performance_number(@estimate_allowance) %>% allowance is amber; exceeding it is red. Other negative deviations are red. Low visible hours alone do not establish efficiency or completed work.</p>
     </section>
 
+    <%= render 'work_rework' %>
     <div class="periodic-grid">
       <section class="performance-section"><h3>Ticket Cost (Plan vs Actual)</h3>
         <% cost = report[:metrics]['ticket_cost']; maximum = [[cost[:plan], cost[:actual]].compact.max.to_f, 1].max %>
