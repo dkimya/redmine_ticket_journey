@@ -11,7 +11,11 @@
       <% time_visible = summary[:count].zero? || summary[:unavailable] < summary[:count] %>
       <% columns = [*calculator::PHASES.excluding(:unclassified), nil] %>
       <p><strong><%= summary[:count] %> tickets · <%= performance_number(summary[:weight]) %> usable CW</strong> · <%= summary[:missing_weight] %> without usable weight</p>
-      <table class="list">
+      <table class="list performance-work-rework-phase-table">
+        <colgroup>
+          <col class="performance-work-rework-row-label">
+          <% columns.each do %><col><% end %>
+        </colgroup>
         <thead><tr><th scope="col">Logged effort</th><% columns.each do |phase| %><th scope="col"><%= calculator::PHASE_LABELS.fetch(phase, 'Total') %></th><% end %></tr></thead>
         <tbody>
           <% { work: 'Work', rework: 'Rework', nil => 'Total visible hours' }.each do |kind, label| %>

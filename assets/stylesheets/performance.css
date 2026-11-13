@@ -340,6 +340,9 @@
 .periodic-time-kpi strong{display:block;font-size:27px;line-height:1.4}
 .periodic-time-kpi strong small{font-size:13px;font-weight:normal}
 .periodic-time-warning{color:#946000}
+.performance-work-rework-phase-table{width:100%;table-layout:fixed}
+.performance-work-rework-phase-table .performance-work-rework-row-label{width:28%}
+.performance-work-rework-phase-table th{white-space:normal;overflow-wrap:anywhere}
 .periodic-time-table a.performance-good{color:#00865e}
 .periodic-time-table a.performance-bad{color:#c93143}
 .periodic-time-table a.periodic-time-warning{color:#946000}
