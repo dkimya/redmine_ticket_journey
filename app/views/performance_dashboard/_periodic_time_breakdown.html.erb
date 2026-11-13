@@ -3,9 +3,17 @@
   <% categories = [['expected_done', 'Expected Done', 'expected_done_all', '#0072b2'], ['expected_unfinished', 'Expected unfinished', 'expected_unfinished', '#d0a21b'], ['other', 'Other work', 'other_hours', '#b26716'], ['archived', 'Archived', 'archived_hours', '#c62828'], ['ongoing', 'Ongoing', 'ongoing_hours', '#7b2cbf'], ['excluded', 'On-Hold', 'excluded_hours', '#946000'], ['unclassified', 'Owner unavailable', 'unclassified', '#7a6a8b']]; maximum = [@periodic_time_trends.map { |point| point[:report][:valid_visible_hours] }.compact.max.to_f, 1].max %>
   <ul class="performance-trend-legend"><% categories.each do |_key, label, _metric, color| %><li><span class="performance-trend-swatch" style="border-color:<%= color %>"></span><%= label %></li><% end %></ul>
   <% @periodic_time_trends.each do |point| %><div class="periodic-bar-row"><span><%= point[:date].strftime('%d %b %y') %></span><div class="periodic-stacked-bar">
-    <% unless point[:report][:valid_visible_hours].nil? %><% categories.each do |key, label, metric, color| %><% value = point[:report][:breakdown][key] %>
-      <%= performance_drilldown_link content_tag(:span, '', class: 'periodic-bar-fill', style: "background:#{color}"), performance_dashboard_path(@project, **periodic_time_params({ metric: metric, time_bucket: point[:date].iso8601 })), style: "width:#{value.to_f * 100 / maximum}%;", 'aria-label': "#{label}: #{periodic_time_number(value, 'total_hours')} hours" %>
-    <% end %><% end %>
+    <% unless point[:report][:valid_visible_hours].nil? %>
+      <% categories.each do |key, label, metric, color| %>
+        <% value = point[:report][:breakdown][key] %>
+        <% next unless value&.positive? %>
+        <% segment_label = "#{label}: #{periodic_time_number(value, 'total_hours')} h" %>
+        <%= performance_drilldown_link content_tag(:span, '', class: 'periodic-bar-fill', style: "background:#{color}"),
+          performance_dashboard_path(@project, **periodic_time_params({ metric: metric, time_bucket: point[:date].iso8601 })),
+          style: "width:#{value * 100.0 / maximum}%;", title: "#{segment_label} · Click to see the tickets",
+          'aria-label': "#{segment_label} · View tickets for #{format_date(point[:start])} to #{format_date(point[:date])}" %>
+      <% end %>
+    <% end %>
   </div><b><%= periodic_time_number(point[:report][:valid_visible_hours], 'total_hours') %> h</b></div><% end %>
   <details><summary>Show breakdown table</summary><div class="autoscroll"><table class="list"><thead><tr><th>Work-Date Interval</th><% categories.each do |_key, label, _metric, _color| %><th><%= label %></th><% end %><th>Known Visible Hours</th></tr></thead><tbody>
     <% @periodic_time_trends.each do |point| %><tr><th><%= format_date(point[:start]) %> – <%= format_date(point[:date]) %></th><% categories.each do |key, _label, metric, _color| %><td><%= performance_drilldown_link periodic_time_number(point[:report][:breakdown][key], 'total_hours'), performance_dashboard_path(@project, **periodic_time_params({ metric: metric, time_bucket: point[:date].iso8601 })) %></td><% end %><td><%= periodic_time_number(point[:report][:valid_visible_hours], 'total_hours') %></td></tr><% end %>

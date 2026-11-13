@@ -103,7 +103,9 @@ module PerformanceDashboardHelper
     labels = {
       'dtc' => ['Ave. DTC (Actual)', 'Ave. DTC (Plan)'],
       'priority_dtc' => ['Priority Ave. DTC (Actual)', 'Priority Ave. DTC (Plan)'],
-      'ticket_cost' => ['Ticket Cost (Actual)', 'Ticket Cost (Estimation)']
+      'ticket_cost' => ['Ticket Cost (Actual)', 'Ticket Cost (Estimation)'],
+      'efficiency' => ['Delivered Expected Complexity Weight / Owner Hour (Actual)',
+                       'Delivered Expected Complexity Weight / Owner Hour (Plan)']
     }
     series = keys.each_with_index.map do |key, index|
       { key: key, kind: :actual, label: labels[key]&.first || TicketJourneyPeriodicTime::METRICS.fetch(key).first,
