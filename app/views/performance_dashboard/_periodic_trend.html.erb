@@ -5,7 +5,9 @@
 <section class="performance-section periodic-trend<%= ' performance-leaderboard' if owners.any? || optional_series %>"<% if owners.any? || optional_series %> data-performance-leaderboard<% end %>>
   <h3><%= title %></h3>
   <% if optional_series %>
-    <button type="button" data-leaderboard-toggle="<%= optional_series[:toggle_id] %>" data-owner-name="Completed from Expectation + Other Done" aria-pressed="false" aria-label="Show Completed from Expectation + Other Done line">Toggle Other Done line</button>
+    <button type="button" class="periodic-other-done-toggle" data-leaderboard-toggle="<%= optional_series[:toggle_id] %>" data-owner-name="Completed from Expectation + Other Done" aria-pressed="false" aria-label="Show Completed from Expectation + Other Done line">
+      <span class="periodic-other-done-show">Show Other Done line</span><span class="periodic-other-done-hide">Hide Other Done line</span>
+    </button>
   <% end %>
   <% if owners.empty? %><ul class="performance-trend-legend"><% series.each do |entry| %><li><span class="performance-trend-swatch" style="border-color:<%= entry[:color] %>;border-top-style:<%= entry[:dashed] ? 'dashed' : 'solid' %>"></span><%= entry[:label] %></li><% end %></ul><% end %>
   <div class="<%= owners.any? ? 'performance-leaderboard-layout' : 'periodic-team-chart' %>">
@@ -22,7 +24,7 @@
     <% (series.select { |entry| entry[:toggle_id] } + series.reject { |entry| entry[:toggle_id] }).each do |entry| %>
       <g data-leaderboard-series="<%= entry[:toggle_id] || entry[:owner_id] %>"<% if entry[:toggle_id] %> class="is-hidden"<% end %>>
       <% coordinates = entry[:points].map { |point| [90 + (point[:date] - dates.first).to_f / span * 680, 235 - point[:value] / geometry[:maximum] * 200] } %>
-      <polyline points="<%= coordinates.map { |x, y| "#{x},#{y}" }.join(' ') %>" fill="none" stroke="<%= entry[:color] %>" stroke-width="2.5" stroke-dasharray="<%= entry[:dashed] ? '8 5' : 'none' %>" />
+      <polyline points="<%= coordinates.map { |x, y| "#{x},#{y}" }.join(' ') %>" fill="none" stroke="<%= entry[:color] %>" stroke-width="<%= entry[:toggle_id] ? 6 : 2.5 %>" stroke-dasharray="<%= entry[:dashed] ? '8 5' : 'none' %>" />
       <% entry[:points].each_with_index do |point, index| %>
         <% description = "#{entry[:label]} · #{format_date(point[:date])}: #{performance_number(point[:value])} · Opens in a new tab" %>
         <a href="<%= performance_dashboard_path(@project, **periodic_ticket_params({ metric: entry[:metric], trend_date: point[:date].iso8601 }, ids: entry[:ids])) %>" target="_blank" rel="noopener" aria-label="<%= description %>">
