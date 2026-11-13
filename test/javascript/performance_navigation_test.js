@@ -5,26 +5,42 @@ const test = require('node:test');
 const source = fs.readFileSync(require('node:path').join(__dirname, '../../assets/javascripts/performance_navigation.js'), 'utf8');
 
 function page(url, referrer, storage, initialState = null, length = 3) {
-  let listener;
+  const listeners = {};
+  const status = { textContent: '' };
   const history = { state: initialState, length, go: function (steps) { this.destination = steps; },
     replaceState: function (state) { this.state = state; } };
   vm.runInNewContext(source, {
     URL, Date, Number, Object, JSON,
-    window: { location: { href: url }, history, sessionStorage: {
+    window: { location: { href: url }, history, addEventListener: (name, callback) => { listeners[name] = callback; }, sessionStorage: {
       getItem: key => storage.get(key), removeItem: key => storage.delete(key), setItem: (key, value) => storage.set(key, value)
     } },
-    document: { referrer, addEventListener: (_name, callback) => { listener = callback; } }
+    document: { referrer, querySelectorAll: () => [status], addEventListener: (name, callback) => { listeners[name] = callback; } }
   });
-  return { history, click(href, back = false, modifiers = {}, target = '') {
+  return { history, status, listeners, click(href, back = false, modifiers = {}, target = '') {
     const link = { href, target, hasAttribute: name => name === 'data-performance-back' && back };
     const event = Object.assign({ target: { closest: () => link }, button: 0, defaultPrevented: false,
       preventDefault() { this.defaultPrevented = true; } }, modifiers);
-    listener(event);
+    listeners.click(event);
     return event;
   } };
 }
 const dashboard = 'https://example.test/projects/a/performance?owner_id=1';
 const details = dashboard + '&metric=open';
+
+test('Apply shows a refresh indicator and allows submitting again after browser Back', () => {
+  const report = page(dashboard, '', new Map());
+  const event = {
+    target: { querySelector: () => report.status }, defaultPrevented: false,
+    preventDefault() { this.defaultPrevented = true; }
+  };
+  report.listeners.submit(event);
+  assert.equal(event.defaultPrevented, false);
+  assert.equal(report.status.textContent, 'Refreshing report…');
+  report.listeners.submit(event);
+  assert.equal(event.defaultPrevented, true);
+  report.listeners.pageshow();
+  assert.equal(report.status.textContent, '');
+});
 
 test('default new-tab drill downs leave dashboard history untouched and Back uses its normal URL', () => {
   const storage = new Map();

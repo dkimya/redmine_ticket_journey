@@ -465,3 +465,7 @@
   .performance-time-cards { grid-template-columns: 1fr; }
   .performance-time-bar-row { grid-template-columns: minmax(100px, 1fr) minmax(80px, 2fr) 70px; gap: 6px; }
 }
+.performance-refresh-status:not(:empty){display:flex;align-items:center;gap:8px;margin-top:8px;color:#17365d}
+.performance-refresh-status:not(:empty)::before{content:"";width:12px;height:12px;border:2px solid #bfd4e7;border-top-color:#0072b2;border-radius:50%;animation:performance-refresh-spin .8s linear infinite}
+@keyframes performance-refresh-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.performance-refresh-status::before{animation:none}}

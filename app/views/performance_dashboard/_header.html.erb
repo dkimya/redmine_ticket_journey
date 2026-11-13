@@ -25,7 +25,10 @@
         <% (@selected_owner_ids - known_ids).each { |id| owner_options << ["Selected owner ##{id}", id] } %>
       <% end %>
       <div class="performance-owner-field"><%= label_tag :owner_id, 'Ticket Owner(s)', id: 'performance-owner-label' %><%= select_tag 'owner_ids[]', options_for_select(owner_options, @selected_owner_ids), id: 'owner_id', multiple: true, size: 4, required: true, data: { performance_owner_picker: true } %><small class="performance-owner-fallback">Use Ctrl/Cmd to select multiple owners.</small></div>
-      <%= submit_tag 'Apply', name: nil %>
+      <div>
+        <%= submit_tag 'Apply', name: nil %>
+        <span class="performance-refresh-status" role="status" data-performance-refresh-status></span>
+      </div>
     <% end %>
     <% end %>
     </div>

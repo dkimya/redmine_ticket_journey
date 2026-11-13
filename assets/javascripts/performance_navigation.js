@@ -3,6 +3,22 @@
   var key = 'performance-navigation-pending';
   var current = new URL(window.location.href);
   var isDetails = current.searchParams.has('metric');
+
+  document.addEventListener('submit', function (event) {
+    var status = event.target.querySelector('[data-performance-refresh-status]');
+    if (!status || event.defaultPrevented) return;
+    if (status.textContent) {
+      event.preventDefault();
+      return;
+    }
+    status.textContent = 'Refreshing report…';
+  });
+
+  window.addEventListener('pageshow', function () {
+    document.querySelectorAll('[data-performance-refresh-status]').forEach(function (status) {
+      status.textContent = '';
+    });
+  });
   // A hand-off is written only for an ordinary same-tab click. Verify both the
   // target and referrer before trusting it, so bookmarks/new tabs use the href.
   try {
