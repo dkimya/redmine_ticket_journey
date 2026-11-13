@@ -54,10 +54,15 @@
         <p><%= periodic_time_link("Excluded done tickets: #{report[:sets]['cost_excluded'].size}", 'cost_excluded') %> · Full done-population visible cost: <%= periodic_time_number(report[:all_done_visible_cost], 'ticket_cost') %> h</p>
       </section>
       <section class="performance-section"><h3>Personal Hours (Reconciliation)</h3>
-        <p>Known visible hours: <strong><%= periodic_time_number(report[:valid_visible_hours], 'total_hours') %> h</strong>. All categories below use logged users and work dates in the selected period, including paid archived/excluded effort.</p>
+        <p>This table shows how the selected users’ visible logged hours add up across categories. It uses work dates within the selected report period and includes paid effort on archived and excluded tickets.</p>
         <table class="list"><thead><tr><th>Category</th><th>Hours</th></tr></thead><tbody>
           <% [['expected_work', 'Expectation ticket package (including unfinished work and debt)', 'expected_work_hours'], ['other', 'Other tickets (including cross-owner work)', 'other_hours'], ['archived', 'Archived (paid effort without delivery credit)', 'archived_hours'], ['ongoing', 'Ongoing (paid effort outside delivery package)', 'ongoing_hours'], ['excluded', 'On-Hold (separately disclosed)', 'excluded_hours'], ['unclassified', 'Ticket Owner unavailable (review)', 'unclassified']].each do |key, label, metric| %><tr><th><%= label %></th><td><%= periodic_time_link(periodic_time_number(report[:reconciliation][key], 'total_hours'), metric) %></td></tr><% end %>
-        </tbody></table>
+        </tbody><tfoot>
+          <tr class="periodic-total-row">
+            <th scope="row">Total known visible hours</th>
+            <td><%= periodic_time_number(report[:valid_visible_hours], 'total_hours') %></td>
+          </tr>
+        </tfoot></table>
         <details><summary>Show completed and unfinished expected effort</summary><p>Completed expected: <%= periodic_time_link(performance_number(report[:breakdown]['expected_done']), 'expected_done_all') %> h · Unfinished expected: <%= periodic_time_link(performance_number(report[:breakdown]['expected_unfinished']), 'expected_unfinished') %> h. Both remain in the expectation-package total above.</p></details>
         <p>Expected Done comparable card: <%= periodic_time_number(report[:metrics]['expected_done_hours'][:actual], 'total_hours') %> h. All Expected Done hours: <%= periodic_time_number(report[:expected_done_raw_hours], 'total_hours') %> h. Missing estimates/time can explain the difference.</p>
         <p><%= periodic_time_link("Expected Done comparison exclusions: #{report[:sets]['expected_done_excluded'].size}", 'expected_done_excluded') %></p>
