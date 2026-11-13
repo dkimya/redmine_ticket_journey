@@ -100,13 +100,18 @@ module PerformanceDashboardHelper
   end
 
   def periodic_time_trend_series(keys)
+    labels = {
+      'dtc' => ['Ave. DTC (Actual)', 'Ave. DTC (Plan)'],
+      'priority_dtc' => ['Priority Ave. DTC (Actual)', 'Priority Ave. DTC (Plan)'],
+      'ticket_cost' => ['Ticket Cost (Actual)', 'Ticket Cost (Estimation)']
+    }
     series = keys.each_with_index.map do |key, index|
-      { key: key, kind: :actual, label: TicketJourneyPeriodicTime::METRICS.fetch(key).first,
+      { key: key, kind: :actual, label: labels[key]&.first || TicketJourneyPeriodicTime::METRICS.fetch(key).first,
         metric: key, ids: @selected_owner_ids, color: %w[#0072b2 #a45d00 #00865e][index % 3], dashed: false,
         points: @periodic_time_trends.map { |point| { date: point[:date], start: point[:start], value: point[:report][:metrics][key][:actual] } } }
     end
     keys.each_with_index do |key, index|
-      series << { key: key, kind: :plan, label: "#{TicketJourneyPeriodicTime::METRICS[key].first} — Plan",
+      series << { key: key, kind: :plan, label: labels[key]&.last || "#{TicketJourneyPeriodicTime::METRICS[key].first} — Plan",
         metric: key, ids: @selected_owner_ids, color: %w[#0072b2 #a45d00 #00865e][index % 3], dashed: true,
         points: @periodic_time_trends.map { |point| { date: point[:date], start: point[:start], value: point[:report][:metrics][key][:plan] } } }
     end
