@@ -5,6 +5,11 @@ class TicketJourneyWorkRework
     new: :design, todo: :design, in_progress: :development, review: :development,
     feedback: :test, ready_merge: :test, final_check: :test, done: :test
   }.freeze
+  ACTIVITY_PHASES = {
+    'design' => :design, 'analysis / design' => :design,
+    'development' => :development, 'review' => :development, 'code review' => :development,
+    'test' => :test, 'qa' => :test, 'test / qa / feedback' => :test
+  }.freeze
 
   def self.classify(issue, history, statuses, cutoff, hours)
     changes = history.flat_map do |journal|
@@ -20,35 +25,49 @@ class TicketJourneyWorkRework
     change_index = 0
     created_on = issue.created_on.in_time_zone.to_date
 
-    hours.sort_by(&:first).map do |day, amount|
+    hours.group_by(&:first).sort_by(&:first).flat_map do |day, entries|
       classifications = Set.new
       day_status_ids = Set.new
       day_start = day.in_time_zone
+      return_during_day = false
       while (change = changes[change_index]) && change.first.to_date <= day
         at, detail = change
         if at > day_start
           classifications << bucket(status_id, repeated, statuses)
           day_status_ids.add(status_id)
         end
-        repeated = visited.dup if returns.include?(detail.id)
+        if returns.include?(detail.id)
+          repeated = visited.dup
+          return_during_day ||= at > day_start
+        end
         status_id = detail.value.to_s
         visited.add(status_id)
         change_index += 1
       end
       classifications << bucket(status_id, repeated, statuses)
       day_status_ids.add(status_id)
-      phase, kind = classifications.size == 1 && day >= created_on ? classifications.first : [:unclassified, :unknown]
-      review = if kind == :unknown && amount.positive?
-        reason = if day < created_on
-          'Work date precedes ticket creation'
-        elsif classifications.size > 1
-          'Multiple phase or work/rework classifications on this date'
-        else
-          'Status has no phase mapping'
+      entries.map do |_date, amount, activity|
+        candidates = classifications
+        if candidates.size > 1 && !return_during_day
+          activity_phase = ACTIVITY_PHASES[activity.to_s.strip.downcase]
+          matching = candidates.select { |phase, _kind| phase == activity_phase }
+          candidates = matching unless matching.empty?
         end
-        { reason: reason, statuses: day_status_ids.map { |id| statuses[id]&.name.presence || 'Unknown status' } }
+        phase, kind = candidates.size == 1 && day >= created_on ? candidates.first : [:unclassified, :unknown]
+        review = if kind == :unknown && amount.positive?
+          reason = if day < created_on
+            'Work date precedes ticket creation'
+          elsif return_during_day
+            'Return occurred during this work date'
+          elsif classifications.size > 1
+            'Multiple phase or work/rework classifications on this date'
+          else
+            'Status has no phase mapping'
+          end
+          { reason: reason, activity: activity, statuses: day_status_ids.map { |id| statuses[id]&.name.presence || 'Unknown status' } }
+        end
+        [day, phase, kind, amount, review]
       end
-      [day, phase, kind, amount, review]
     end
   end
 

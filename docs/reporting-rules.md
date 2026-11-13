@@ -15,7 +15,9 @@ that ticket. Later hours in one of those statuses count as rework. First visits
 after the return count as work. New and To-Do map to Design. In Progress and
 Review map to Development. Feedback, Ready to Merge, Final Check and Done map to
 Test. Returned and other unmapped statuses are Unclassified. Dates spanning
-different phase or work/rework classifications are also Unclassified.
+different classifications use the saved activity when it matches exactly one
+classification and no qualifying return occurred during that work date.
+Unresolved hours remain Unclassified. The review shows the saved activity.
 Rework percentage uses classified work plus rework hours. Visible totals include
 Unclassified. Permission gaps suppress averages and percentages. Hours per CW
 requires usable weights on the whole population.

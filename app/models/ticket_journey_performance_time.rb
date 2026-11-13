@@ -24,13 +24,21 @@ class TicketJourneyPerformanceTime
 
   # One batch-bounded query of visible direct entries. Work date, not record
   # creation date, is authoritative. Entries after as_of and negatives are omitted.
-  def self.hours_for(ids, date)
+  def self.hours_for(ids, date, by_activity: false)
     result = Hash.new { |hash, id| hash[id] = [] }
-    TimeEntry.visible(User.current).where(issue_id: ids)
+    scope = TimeEntry.visible(User.current).where(issue_id: ids)
       .where('time_entries.spent_on <= ? AND time_entries.hours >= 0 AND time_entries.hours <= ?', date, Float::MAX)
-      .group(:issue_id, :spent_on).sum(:hours).each do |(id, day), hours|
+      .group(:issue_id, :spent_on)
+    scope = scope.group(:activity_id) if by_activity
+    totals = scope.sum(:hours)
+    activities = by_activity ? TimeEntryActivity.where(id: totals.keys.map(&:last).uniq).pluck(:id, :name).to_h : {}
+    totals.each do |(id, day, activity_id), hours|
         number = hours.to_f
-        result[id] << [day.to_date, number] if number.finite?
+      next unless number.finite?
+
+      entry = [day.to_date, number]
+      entry << activities[activity_id] if by_activity
+      result[id] << entry
       end
     result
   end

@@ -107,7 +107,7 @@ class PerformanceDashboardController < ApplicationController
         history = TicketJourneyPerformance.history_for(batch.map(&:id), trend_start || @date, include_return_reason: @return_mode)
         field_values = TicketJourneyPerformance.batch_field_values(batch, field_ids: @return_mode ? [57, 66, 70] : [57, 70])
         if @time_mode && @metric != 'owner_changes'
-          time_entries = TicketJourneyPerformanceTime.hours_for(batch.map(&:id), @date)
+          time_entries = TicketJourneyPerformanceTime.hours_for(batch.map(&:id), @date, by_activity: !@metric)
           owner_hours = TicketJourneyPerformanceTime.owner_hours_for(batch.map(&:id), requested_owners, @date, by_day: true) unless @metric
           time_projects = batch.map(&:project).uniq(&:id).to_h { |project| [project.id, User.current.allowed_to?(:view_time_entries, project)] }
         end
@@ -399,7 +399,7 @@ class PerformanceDashboardController < ApplicationController
         end
         if rework_candidates.any?
           ids = rework_candidates.map { |issue, _row, _delivered, _monthly| issue.id }
-          lifetime_hours = TicketJourneyPerformanceTime.hours_for(ids, @period_end)
+          lifetime_hours = TicketJourneyPerformanceTime.hours_for(ids, @period_end, by_activity: true)
           lifetime_owner_hours = TicketJourneyPerformanceTime.owner_hours_for(ids, requested_owners, @period_end, by_day: true)
           rework_candidates.each do |issue, row, delivered, monthly|
             owner = row[:owner_id]

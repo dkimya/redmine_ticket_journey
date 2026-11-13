@@ -1,6 +1,20 @@
 require File.expand_path('../test_helper', __dir__)
 
 class TicketJourneyWorkReworkTest < ActiveSupport::TestCase
+  test 'saved activity resolves phase on a day spanning To-Do and In Progress' do
+    day = Date.new(2026, 8, 28)
+    statuses = { '1' => Struct.new(:name).new('To-Do'), '2' => Struct.new(:name).new('In Progress') }
+    issue = Struct.new(:created_on, :status_id, :tracker).new((day - 1).in_time_zone, 2, Struct.new(:name).new('Bug'))
+    detail = TicketJourneyPerformance::HistoryDetail.new('attr', 'status_id', '1', '2', 1)
+    history = [TicketJourneyPerformance::HistoryJournal.new(1, day.in_time_zone + 12.hours, [detail])]
+    hours = [[day, 5.0, 'Development'], [day, 1.0, 'Analysis / Design'], [day, 0.5, 'Meeting']]
+
+    classified = TicketJourneyWorkRework.classify(issue, history, statuses, day, hours)
+
+    assert_equal [[:development, :work, 5.0], [:design, :work, 1.0], [:unclassified, :unknown, 0.5]],
+                 classified.map { |entry| entry[1, 3] }
+  end
+
   test 'first review and final check after a QA return are work until repeated after another return' do
     first = Date.new(2026, 10, 1)
     statuses = %w[In\ Progress Feedback Returned Review Final\ Check].each_with_index.to_h do |name, index|
@@ -15,6 +29,7 @@ class TicketJourneyWorkReworkTest < ActiveSupport::TestCase
       TicketJourneyPerformance::HistoryJournal.new(id, (first + offset).in_time_zone + 12.hours, [detail])
     end
     hours = [1, 3, 5, 7, 10, 12].map { |offset| [first + offset, 2.0] }
+    hours.first << 'Test'
 
     classified = TicketJourneyWorkRework.classify(issue, history, statuses, first + 12, hours)
 
