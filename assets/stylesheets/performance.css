@@ -369,11 +369,15 @@
 .periodic-page th small{display:block;color:#536579;font-weight:400;font-size:11px}
 .periodic-total-row,.periodic-page tfoot{background:#eaf4ff;font-weight:700}
 .periodic-flow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:12px}
-.periodic-delivery-row{margin:18px 0;padding:16px;border:1px solid #c8ddef;border-radius:10px}
-.periodic-delivery-row>h4{margin:0 0 14px;font-size:17px}
-.periodic-delivery-equation{display:flex;align-items:stretch;gap:12px}
-.periodic-delivery-equation>.periodic-kpi{flex:1}
-.periodic-delivery-operator{align-self:center;font-size:26px;font-weight:bold}
+.periodic-delivery-row{margin:10px 0;padding:10px;border:1px solid #c8ddef;border-radius:10px}
+.periodic-delivery-row>h4{margin:0 0 8px;font-size:16px}
+.periodic-delivery-equation{display:flex;align-items:stretch;gap:8px}
+.periodic-delivery-equation>.periodic-kpi{flex:1;padding:8px 10px}
+.periodic-delivery-equation .periodic-kpi h4{min-height:0;margin:0 0 4px}
+.periodic-delivery-equation .periodic-delivery-values{display:flex;align-items:baseline;flex-wrap:wrap;gap:0 5px;margin:0}
+.periodic-delivery-values>span{white-space:nowrap}
+.periodic-delivery-equation .periodic-delivery-values strong{display:inline;font-size:18px}
+.periodic-delivery-operator{align-self:center;font-size:20px;font-weight:bold}
 .periodic-delivery-equation>.periodic-completed{background:#eaf9f0}
 .periodic-delivery-equation>.periodic-debt{background:#fff5e3}
 .periodic-delivery-equation>.periodic-other{background:#f3ecff}

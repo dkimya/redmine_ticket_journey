@@ -61,8 +61,11 @@
               <% if index.positive? %><span class="periodic-delivery-operator"><%= operators[index - 1] %></span><% end %>
               <article class="periodic-kpi periodic-<%= key %>">
                 <h4><%= key == 'actual' ? 'Total Done' : TicketJourneyPeriodicTickets::LABELS.fetch(key) %></h4>
-                <strong><%= periodic_summary_link(report, key, :count) %></strong><span>Tickets</span>
-                <p><%= periodic_summary_link(report, key, :weight) %> usable CW</p>
+                <p class="periodic-delivery-values">
+                  <span><strong><%= periodic_summary_link(report, key, :count) %></strong> tickets</span>
+                  <span>/</span>
+                  <span><%= periodic_summary_link(report, key, :weight) %> usable CW</span>
+                </p>
                 <% if summaries[key][:missing_weight].positive? %><small><%= summaries[key][:missing_weight] %> without usable weight</small><% end %>
               </article>
             <% end %>
