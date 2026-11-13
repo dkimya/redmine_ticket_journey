@@ -383,7 +383,8 @@
 .periodic-delivery-equation>.periodic-hotfix{background:#f6faff}
 .periodic-delivery-equation>.periodic-completed{background:#eaf9f0}
 .periodic-delivery-equation>.periodic-debt{background:#fff5e3}
-.periodic-delivery-equation>.periodic-other{background:#f3ecff}
+.periodic-delivery-equation>.periodic-other{background:#f6f7f9}
+.periodic-delivery-equation>.periodic-actual{background:#eef0f3}
 @media(max-width:800px){.periodic-delivery-equation{flex-direction:column}.periodic-delivery-equation>.periodic-kpi{flex:auto}}
 .periodic-kpi{background:#edf6ff;border:1px solid #c8ddef;border-radius:9px;padding:16px 12px;min-width:0}
 .periodic-kpi h4{font-size:14px;min-height:44px;line-height:1.5;margin:0 0 14px}
