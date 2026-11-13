@@ -342,6 +342,9 @@
 .periodic-time-kpi strong{display:block;font-size:27px;line-height:1.4}
 .periodic-time-kpi strong small{font-size:13px;font-weight:normal}
 .periodic-time-warning{color:#946000}
+.periodic-dtc-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.periodic-dtc-controls button[aria-pressed="true"]{background:#edf6ff;font-weight:bold}
+.periodic-dtc-controls .performance-trend-legend{margin-top:6px}
 .performance-work-rework-phase-table{width:100%;table-layout:fixed}
 .performance-work-rework-phase-table .performance-work-rework-row-label{width:28%}
 .performance-work-rework-phase-table th{white-space:normal;overflow-wrap:anywhere}

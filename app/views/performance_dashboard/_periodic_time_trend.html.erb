@@ -3,14 +3,28 @@
 <% owners = series.select { |entry| entry[:owner_id] }.group_by { |entry| entry[:owner_id] }; format_key = series.first[:key]; title_id = "periodic-time-#{chart_key}" %>
 <section class="performance-section performance-leaderboard periodic-time-trend" data-performance-leaderboard>
   <h3><%= title %></h3><p class="performance-weight-note"><%= description %></p>
-  <% if owners.empty? %><ul class="performance-trend-legend"><% series.each do |entry| %><li><span class="performance-trend-swatch" style="border-color:<%= entry[:color] %>;border-top-style:<%= entry[:dashed] ? 'dashed' : 'solid' %>"></span><%= entry[:label] %></li><% end %></ul><% end %>
+  <% dtc_controls = chart_key == 'dtc' && owners.empty? %>
+  <% if dtc_controls %>
+    <div class="periodic-dtc-controls">
+      <% { 'dtc' => 'Ave. DTC', 'priority_dtc' => 'Priority Ave. DTC' }.each do |key, label| %>
+        <div>
+          <button type="button" data-leaderboard-toggle="<%= key %>" data-owner-name="<%= label %>" data-line-description="lines" aria-pressed="true" aria-label="Hide <%= label %> lines"><%= label %></button>
+          <ul class="performance-trend-legend">
+            <% series.select { |entry| entry[:key] == key }.each do |entry| %>
+              <li><span class="performance-trend-swatch" style="border-color:<%= entry[:color] %>;border-top-style:<%= entry[:dashed] ? 'dashed' : 'solid' %>"></span><%= entry[:label] %></li>
+            <% end %>
+          </ul>
+        </div>
+      <% end %>
+    </div>
+  <% elsif owners.empty? %><ul class="performance-trend-legend"><% series.each do |entry| %><li><span class="performance-trend-swatch" style="border-color:<%= entry[:color] %>;border-top-style:<%= entry[:dashed] ? 'dashed' : 'solid' %>"></span><%= entry[:label] %></li><% end %></ul><% end %>
   <div class="<%= 'performance-leaderboard-layout' if owners.any? %>"><div class="autoscroll">
     <svg class="performance-trend-chart" viewBox="0 0 860 300" role="img" aria-labelledby="<%= title_id %>">
       <title id="<%= title_id %>"><%= title %>. Solid actual and dashed plan. Gaps are unavailable values. Exact values and contributor links are below.</title>
       <% geometry[:ticks].each do |tick| %><% y = 235 - tick / geometry[:maximum] * 200 %><line class="performance-trend-grid" x1="90" x2="770" y1="<%= y %>" y2="<%= y %>" /><text x="78" y="<%= y + 5 %>" text-anchor="end"><%= periodic_time_number(tick, format_key) %></text><% end %>
       <% step = [(dates.size / 7.0).ceil, 1].max %><% dates.each_with_index do |day, index| %><% next unless index % step == 0 || index == dates.size - 1 %><text x="<%= geometry[:series].first[index][:x] %>" y="268" text-anchor="middle"><%= day.strftime('%d %b %y') %></text><% end %>
       <% series.each_with_index do |entry, position| %><% coordinates = geometry[:series][position] %>
-        <g data-leaderboard-series="<%= entry[:owner_id] || "series-#{position}" %>" style="stroke:<%= entry[:color] %>;fill:<%= entry[:color] %>">
+        <g data-leaderboard-series="<%= dtc_controls ? entry[:key] : (entry[:owner_id] || "series-#{position}") %>" style="stroke:<%= entry[:color] %>;fill:<%= entry[:color] %>">
           <% coordinates.each_cons(2) do |left, right| %><% if left[:y] && right[:y] %><line x1="<%= left[:x] %>" x2="<%= right[:x] %>" y1="<%= left[:y] %>" y2="<%= right[:y] %>" stroke-width="2.5" stroke-dasharray="<%= entry[:dashed] ? '8 5' : 'none' %>" /><% end %><% end %>
           <% coordinates.each do |coordinate| %><% next unless coordinate[:y] %><% point = entry[:points][coordinate[:index]]; label = "#{entry[:label]} · #{format_date(point[:start])} – #{format_date(point[:date])}: #{periodic_time_number(point[:value], entry[:key])}" %>
             <% if entry[:kind] == :actual %>
