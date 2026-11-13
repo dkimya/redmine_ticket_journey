@@ -12,7 +12,7 @@
       <% columns = [*calculator::PHASES.excluding(:unclassified), nil] %>
       <p><strong><%= summary[:count] %> tickets · <%= performance_number(summary[:weight]) %> usable CW</strong> · <%= summary[:missing_weight] %> without usable weight</p>
       <table class="list">
-        <thead><tr><th scope="col">Logged effort</th><% columns.each do |phase| %><th scope="col"><%= phase ? phase.to_s.capitalize : 'Total' %></th><% end %></tr></thead>
+        <thead><tr><th scope="col">Logged effort</th><% columns.each do |phase| %><th scope="col"><%= calculator::PHASE_LABELS.fetch(phase, 'Total') %></th><% end %></tr></thead>
         <tbody>
           <% { work: 'Work', rework: 'Rework', nil => 'Total visible hours' }.each do |kind, label| %>
             <tr><th scope="row"><%= label %></th><% columns.each do |phase| %><td><%= hours.call(time_visible ? calculator.total(summary, kind, phase) : nil) %></td><% end %></tr>
@@ -51,7 +51,7 @@
       <summary>Review <%= hours.call(review_hours) %> pending Work / Rework classification</summary>
       <% pending_by_phase = calculator::PHASES.map do |phase|
         pending = @work_rework.values.sum { |summary| calculator.total(summary, :unknown, phase) }
-        "#{hours.call(pending)} #{phase == :unclassified ? 'without a phase' : phase.to_s.capitalize}" if pending.positive?
+        "#{hours.call(pending)} #{phase == :unclassified ? 'without a phase' : calculator::PHASE_LABELS.fetch(phase)}" if pending.positive?
       end.compact %>
       <p><%= pending_by_phase.join(' · ') %></p>
       <p>Hours are grouped by ticket, work date and activity.</p>
@@ -65,7 +65,7 @@
                 <td><%= performance_drilldown_link "##{entry[:id]}", issue_path(entry[:id]) %></td>
                 <td><%= format_date(entry[:date]) %></td>
                 <td><%= hours.call(entry[:hours]) %></td>
-                <td><%= entry[:phase] == :unclassified ? 'Pending' : entry[:phase].to_s.capitalize %></td>
+                <td><%= calculator::PHASE_LABELS.fetch(entry[:phase]) %></td>
                 <td><%= entry[:activity].presence || 'Unavailable' %></td>
                 <td><%= entry[:statuses].join(' → ') %></td>
                 <td><%= entry[:reason] %></td>

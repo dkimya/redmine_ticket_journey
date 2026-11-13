@@ -12,13 +12,16 @@ and hours through each month-end.
 
 Each qualifying Return Count event captures the statuses previously reached on
 that ticket. Later hours in one of those statuses count as rework. First visits
-after the return count as work. New and To-Do map to Design. In Progress and
+after the return count as work. New and To-Do map to Plan/Design. In Progress and
 Review map to Development. Feedback, Ready to Merge, Final Check and Done map to
 Test. Returned and other unmapped statuses are Unclassified. Dates spanning
 different classifications use the saved activity when it matches exactly one
 classification and no qualifying return occurred during that work date.
 On a return date, a recognized activity can establish the phase for otherwise
-unresolved hours. Those hours contribute to the phase total and remain pending
+unresolved hours. Planning / Ideation entries use Plan/Design and Internal
+Communication / Meeting entries use Communication. Workflow history determines
+Work / Rework for these activities. Hours with a known phase but ambiguous work
+type contribute to the phase total and remain pending
 Work / Rework classification. The expandable review shows the saved activity
 and any hours still pending a phase.
 Rework percentage uses classified work plus rework hours. Visible totals include

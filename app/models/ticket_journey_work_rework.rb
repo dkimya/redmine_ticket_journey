@@ -1,14 +1,19 @@
 # Attribute visible work-date hours to a workflow status before rolling up phases.
 class TicketJourneyWorkRework
-  PHASES = %i[design development test unclassified].freeze
+  PHASE_LABELS = {
+    design: 'Plan/Design', development: 'Development', test: 'Test',
+    communication: 'Communication', unclassified: 'Pending'
+  }.freeze
+  PHASES = PHASE_LABELS.keys.freeze
   STATUS_PHASES = {
     new: :design, todo: :design, in_progress: :development, review: :development,
     feedback: :test, ready_merge: :test, final_check: :test, done: :test
   }.freeze
   ACTIVITY_PHASES = {
-    'design' => :design, 'analysis / design' => :design,
+    'design' => :design, 'analysis / design' => :design, 'planning / ideation' => :design,
     'development' => :development, 'review' => :development, 'code review' => :development,
-    'test' => :test, 'qa' => :test, 'test / qa / feedback' => :test
+    'test' => :test, 'qa' => :test, 'test / qa / feedback' => :test,
+    'internal communication / meeting' => :communication
   }.freeze
 
   def self.classify(issue, history, statuses, cutoff, hours)
@@ -48,13 +53,17 @@ class TicketJourneyWorkRework
       day_status_ids.add(status_id)
       entries.map do |_date, amount, activity|
         candidates = classifications
-        activity_phase = ACTIVITY_PHASES[activity.to_s.strip.downcase]
+        activity_name = activity.to_s.strip.downcase.gsub(/\s*\/\s*/, ' / ')
+        activity_phase = ACTIVITY_PHASES[activity_name]
         if candidates.size > 1 && !return_during_day
           matching = candidates.select { |phase, _kind| phase == activity_phase }
           candidates = matching unless matching.empty?
         end
         phase, kind = candidates.size == 1 && day >= created_on ? candidates.first : [:unclassified, :unknown]
         phase = activity_phase if kind == :unknown && return_during_day && activity_phase && day >= created_on
+        if day >= created_on && (activity_phase == :communication || activity_name == 'planning / ideation')
+          phase = activity_phase
+        end
         review = if kind == :unknown && amount.positive?
           reason = if day < created_on
             'Work date precedes ticket creation'

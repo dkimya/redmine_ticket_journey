@@ -7,11 +7,13 @@ class TicketJourneyWorkReworkTest < ActiveSupport::TestCase
     issue = Struct.new(:created_on, :status_id, :tracker).new((day - 1).in_time_zone, 2, Struct.new(:name).new('Bug'))
     detail = TicketJourneyPerformance::HistoryDetail.new('attr', 'status_id', '1', '2', 1)
     history = [TicketJourneyPerformance::HistoryJournal.new(1, day.in_time_zone + 12.hours, [detail])]
-    hours = [[day, 5.0, 'Development'], [day, 1.0, 'Analysis / Design'], [day, 0.5, 'Meeting']]
+    hours = [[day, 5.0, 'Development'], [day, 1.0, 'Planning / Ideation'],
+             [day, 0.5, 'Internal Communication/Meeting'], [day, 0.5, 'Meeting']]
 
     classified = TicketJourneyWorkRework.classify(issue, history, statuses, day, hours)
 
-    assert_equal [[:development, :work, 5.0], [:design, :work, 1.0], [:unclassified, :unknown, 0.5]],
+    assert_equal [[:development, :work, 5.0], [:design, :work, 1.0],
+                  [:communication, :unknown, 0.5], [:unclassified, :unknown, 0.5]],
                  classified.map { |entry| entry[1, 3] }
   end
 
