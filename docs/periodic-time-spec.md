@@ -77,7 +77,11 @@ effort. Team DTC pools durations; daily hours divide summed hours by summed
 owner-workdays; efficiency divides summed CW by summed effort. Owner ratios are
 never averaged into team results.
 
-Positive deviations are favorable, negative unfavorable, zero neutral. Ticket
+Total logged time and average logged time per owner-workday preserve the signed
+deviation and use its absolute percentage for color. Below 10% is green, 10%
+through 50% is amber, and above 50% is red in either direction. Unavailable
+percentages are neutral. For other metrics, positive deviations are favorable,
+negative unfavorable, and zero neutral. Ticket
 cost overrun within existing estimate allowance is amber and beyond it red. No
 other tolerance is introduced. Zero-plan percentages are N/A. Low logged hours
 alone do not demonstrate efficiency or completed output.

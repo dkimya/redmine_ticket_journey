@@ -21,7 +21,7 @@
           <details><summary><%= label %> (<%= unit %>)</summary>
             <div class="autoscroll"><table class="list"><thead><tr><th>Owner</th><th>Plan</th><th>Actual</th><th>Performance Deviation</th><th>Deviation %</th></tr></thead><tbody>
               <% (@periodic_time_owners + [{ owner: nil, report: report }]).each do |item| %><% entry = item[:report][:metrics][key]; ids = item[:owner] ? [item[:owner].id.to_s] : @selected_owner_ids %>
-                <tr class="<%= 'periodic-total-row' unless item[:owner] %>"><th><%= item[:owner]&.name || 'Team aggregate' %></th><td><%= periodic_time_number(entry[:plan], key) %></td><td><%= periodic_time_link(periodic_time_number(entry[:actual], key), key, ids) %></td><td class="<%= periodic_time_class(key, entry) %>"><%= periodic_time_deviation(key, entry) %></td><td><%= entry[:deviation].nil? || entry[:deviation][:percent].nil? ? 'N/A' : "#{performance_number(entry[:deviation][:percent])}%" %></td></tr>
+                <tr class="<%= 'periodic-total-row' unless item[:owner] %>"><th><%= item[:owner]&.name || 'Team aggregate' %></th><td><%= periodic_time_number(entry[:plan], key) %></td><td><%= periodic_time_link(periodic_time_number(entry[:actual], key), key, ids) %></td><td class="<%= periodic_time_class(key, entry) %>"><%= periodic_time_deviation(key, entry) %></td><td class="<%= periodic_time_class(key, entry) if %w[total_hours daily_hours].include?(key) %>"><%= entry[:deviation].nil? || entry[:deviation][:percent].nil? ? 'N/A' : "#{performance_number(entry[:deviation][:percent])}%" %></td></tr>
               <% end %>
             </tbody></table></div>
           </details>
@@ -37,7 +37,7 @@
           <small><%= periodic_time_link("#{entry[:rows].size} ticket-owner contributions", key) %></small>
         </article>
       <% end %></div>
-      <p class="performance-weight-note">DTC targets and owner-share % are configured under Administration → Plugins → PMO Dashboard → Configure. Initial targets are 7 calendar days for normal tickets, 3 for priority tickets and 90% Development to Total Ticket Time Estimation Ratio; configured overrides apply. Ticket cost overrun within the configured <%= performance_number(@estimate_allowance) %>% allowance is amber; exceeding it is red. Other negative deviations are red. Low visible hours alone do not establish efficiency or completed work.</p>
+      <p class="performance-weight-note">DTC targets and owner-share % are configured under Administration → Plugins → PMO Dashboard → Configure. Initial targets are 7 calendar days for normal tickets, 3 for priority tickets and 90% Development to Total Ticket Time Estimation Ratio; configured overrides apply. Ticket cost overrun within the configured <%= performance_number(@estimate_allowance) %>% allowance is amber; exceeding it is red. Owner logged-time deviations use absolute percentages in either direction. Below 10% is green, 10% through 50% is amber, and above 50% is red. Low visible hours alone do not establish efficiency or completed work.</p>
     </section>
 
     <div class="periodic-grid">

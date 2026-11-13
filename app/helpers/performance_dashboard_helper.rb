@@ -78,6 +78,14 @@ module PerformanceDashboardHelper
 
   def periodic_time_class(key, entry)
     return 'performance-neutral' if entry[:deviation].nil?
+    if %w[total_hours daily_hours].include?(key)
+      percent = entry[:deviation][:percent]
+      return 'performance-neutral' if percent.nil?
+      return 'performance-good' if percent.abs < 10
+      return 'periodic-time-warning' if percent.abs <= 50
+
+      return 'performance-bad'
+    end
     if key == 'other_hours'
       return 'periodic-time-warning' if entry[:extra_hours].to_f.positive? && entry[:unplanned_hours].to_f.positive?
       return 'performance-good' if entry[:extra_hours].to_f.positive?

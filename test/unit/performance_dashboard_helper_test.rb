@@ -39,7 +39,21 @@ class PerformanceDashboardHelperTest < ActiveSupport::TestCase
     cost = { deviation: { value: -10, percent: -10 } }
     assert_equal 'periodic-time-warning', periodic_time_class('ticket_cost', cost)
     assert_equal 'performance-bad', periodic_time_class('ticket_cost', { deviation: { value: -11, percent: -10.01 } })
-    assert_equal 'performance-bad', periodic_time_class('total_hours', cost)
+    assert_equal 'periodic-time-warning', periodic_time_class('total_hours', cost)
+  end
+
+  test 'owner logged time deviation colors use the magnitude in both directions' do
+    expected = { 0 => 'performance-good', 9.99 => 'performance-good',
+                 10 => 'periodic-time-warning', 50 => 'periodic-time-warning',
+                 50.01 => 'performance-bad' }
+    %w[total_hours daily_hours].each do |key|
+      expected.each do |percent, color|
+        [percent, -percent].each do |signed|
+          assert_equal color, periodic_time_class(key, { deviation: { value: signed, percent: signed } })
+        end
+      end
+      assert_equal 'performance-neutral', periodic_time_class(key, { deviation: { value: 1, percent: nil } })
+    end
   end
 
   test 'Periodic owner links replace team selection and retain range and detail context' do
