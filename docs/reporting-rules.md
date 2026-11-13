@@ -17,7 +17,10 @@ Review map to Development. Feedback, Ready to Merge, Final Check and Done map to
 Test. Returned and other unmapped statuses are Unclassified. Dates spanning
 different classifications use the saved activity when it matches exactly one
 classification and no qualifying return occurred during that work date.
-Unresolved hours remain Unclassified. The review shows the saved activity.
+On a return date, a recognized activity can establish the phase for otherwise
+unresolved hours. Those hours contribute to the phase total and remain pending
+Work / Rework classification. The expandable review shows the saved activity
+and any hours still pending a phase.
 Rework percentage uses classified work plus rework hours. Visible totals include
 Unclassified. Permission gaps suppress averages and percentages. Hours per CW
 requires usable weights on the whole population.

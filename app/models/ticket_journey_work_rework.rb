@@ -48,12 +48,13 @@ class TicketJourneyWorkRework
       day_status_ids.add(status_id)
       entries.map do |_date, amount, activity|
         candidates = classifications
+        activity_phase = ACTIVITY_PHASES[activity.to_s.strip.downcase]
         if candidates.size > 1 && !return_during_day
-          activity_phase = ACTIVITY_PHASES[activity.to_s.strip.downcase]
           matching = candidates.select { |phase, _kind| phase == activity_phase }
           candidates = matching unless matching.empty?
         end
         phase, kind = candidates.size == 1 && day >= created_on ? candidates.first : [:unclassified, :unknown]
+        phase = activity_phase if kind == :unknown && return_during_day && activity_phase && day >= created_on
         review = if kind == :unknown && amount.positive?
           reason = if day < created_on
             'Work date precedes ticket creation'
@@ -95,7 +96,7 @@ class TicketJourneyWorkRework
       next if day > cutoff
 
       summary[:hours][phase][kind] += amount
-      summary[:review] << review.merge(id: row[:id], date: day, hours: amount) if review && summary[:review]
+      summary[:review] << review.merge(id: row[:id], date: day, hours: amount, phase: phase) if review && summary[:review]
     end
     owner_hours.each { |day, amount| summary[:owner_hours] += amount if day <= cutoff }
   end

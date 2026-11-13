@@ -33,12 +33,13 @@ class TicketJourneyWorkReworkTest < ActiveSupport::TestCase
 
     classified = TicketJourneyWorkRework.classify(issue, history, statuses, first + 12, hours)
 
-    assert_equal [[:unclassified, :unknown], [:development, :rework], [:test, :rework],
+    assert_equal [[:test, :unknown], [:development, :rework], [:test, :rework],
                   [:development, :work], [:development, :rework], [:test, :work]],
                  classified.map { |_day, phase, kind, _amount| [phase, kind] }
     summary = TicketJourneyWorkRework.summary
     TicketJourneyWorkRework.add!(summary, { weight: 4.0 }, classified, [], first + 12, true)
     assert_equal 12.0, TicketJourneyWorkRework.total(summary)
+    assert_equal 2.0, TicketJourneyWorkRework.total(summary, :unknown, :test)
     assert_equal 60.0, TicketJourneyWorkRework.rework_percent(summary)
   end
 end

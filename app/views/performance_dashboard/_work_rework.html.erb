@@ -4,17 +4,17 @@
 <section class="performance-section">
   <h3>Work / Rework Time</h3>
   <p><%= @periodic_time ? 'Tickets completed during the report period, with visible hours through the report end date.' : 'Tickets open at the report date, with visible hours through that date.' %> Ticket groups use the current Ticket Owner.</p>
-  <p>Rework counts hours logged after a qualifying return in a status already reached before that return. Review rolls up under Development. Feedback, Ready to Merge and Final Check roll up under Test. A recognized activity can resolve a date with multiple phases when it matches one classification. Unresolved hours appear under Unclassified.</p>
+  <p>Rework counts hours logged after a qualifying return in a status already reached before that return. Review rolls up under Development. Feedback, Ready to Merge and Final Check roll up under Test. On a return date, a recognized activity can identify the phase while Work / Rework remains pending.</p>
   <div class="autoscroll">
     <% if @selected_owners.one? %>
       <% summary = @work_rework.fetch(@selected_owners.first.id.to_s) %>
       <% time_visible = summary[:count].zero? || summary[:unavailable] < summary[:count] %>
-      <% columns = [*calculator::PHASES, nil] %>
+      <% columns = [*calculator::PHASES.excluding(:unclassified), nil] %>
       <p><strong><%= summary[:count] %> tickets · <%= performance_number(summary[:weight]) %> usable CW</strong> · <%= summary[:missing_weight] %> without usable weight</p>
       <table class="list">
         <thead><tr><th scope="col">Logged effort</th><% columns.each do |phase| %><th scope="col"><%= phase ? phase.to_s.capitalize : 'Total' %></th><% end %></tr></thead>
         <tbody>
-          <% { work: 'Work', rework: 'Rework', unknown: 'Unclassified', nil => 'Total visible hours' }.each do |kind, label| %>
+          <% { work: 'Work', rework: 'Rework', nil => 'Total visible hours' }.each do |kind, label| %>
             <tr><th scope="row"><%= label %></th><% columns.each do |phase| %><td><%= hours.call(time_visible ? calculator.total(summary, kind, phase) : nil) %></td><% end %></tr>
           <% end %>
           <tr><th scope="row">Rework %</th><% columns.each do |phase| %><td><%= percent.call(calculator.rework_percent(summary, phase)) %></td><% end %></tr>
@@ -29,7 +29,7 @@
       <p>Owner-booked hours on these tickets (<%= hours.call(time_visible ? summary[:owner_hours] : nil) %>) · <%= summary[:unavailable] %> tickets without time-view access.</p>
     <% else %>
       <table class="list">
-        <thead><tr><th scope="col">Owner</th><th scope="col">Tickets</th><th scope="col">Usable CW</th><th scope="col">Total Logged Time on Tickets</th><th scope="col">Logged Time by Owner on These Tickets</th><th scope="col">Rework %</th><th scope="col">Average Hours per Ticket</th><th scope="col">Average Hours per CW</th><th scope="col">Unclassified Hours</th><th scope="col">Tickets Without Time Access</th></tr></thead>
+        <thead><tr><th scope="col">Owner</th><th scope="col">Tickets</th><th scope="col">Usable CW</th><th scope="col">Total Logged Time on Tickets</th><th scope="col">Logged Time by Owner on These Tickets</th><th scope="col">Rework %</th><th scope="col">Average Hours per Ticket</th><th scope="col">Average Hours per CW</th><th scope="col">Tickets Without Time Access</th></tr></thead>
         <tbody><% @selected_owners.each do |owner| %>
           <% summary = @work_rework.fetch(owner.id.to_s); total = calculator.total(summary); available = summary[:unavailable].zero? %>
           <% time_visible = available || summary[:unavailable] < summary[:count] %>
@@ -39,7 +39,7 @@
             <td><%= hours.call(time_visible ? total : nil) %></td><td><%= hours.call(time_visible ? summary[:owner_hours] : nil) %></td><td><%= percent.call(calculator.rework_percent(summary)) %></td>
             <td><%= hours.call(available && summary[:count].positive? ? total / summary[:count] : nil) %></td>
             <td><%= hours.call(available && summary[:weight].positive? && summary[:missing_weight].zero? ? total / summary[:weight] : nil) %></td>
-            <td><%= hours.call(time_visible ? calculator.total(summary, :unknown) : nil) %></td><td><%= summary[:unavailable] %></td>
+            <td><%= summary[:unavailable] %></td>
           </tr>
         <% end %></tbody>
       </table>
@@ -48,10 +48,15 @@
   <% review_hours = @work_rework.values.sum { |summary| calculator.total(summary, :unknown) } %>
   <% if review_hours.positive? %>
     <details>
-      <summary>Review <%= hours.call(review_hours) %> of unclassified time</summary>
+      <summary>Review <%= hours.call(review_hours) %> pending Work / Rework classification</summary>
+      <% pending_by_phase = calculator::PHASES.map do |phase|
+        pending = @work_rework.values.sum { |summary| calculator.total(summary, :unknown, phase) }
+        "#{hours.call(pending)} #{phase == :unclassified ? 'without a phase' : phase.to_s.capitalize}" if pending.positive?
+      end.compact %>
+      <p><%= pending_by_phase.join(' · ') %></p>
       <p>Hours are grouped by ticket, work date and activity.</p>
       <div class="autoscroll"><table class="list">
-        <thead><tr><th scope="col">Owner</th><th scope="col">Ticket</th><th scope="col">Work Date</th><th scope="col">Hours</th><th scope="col">Activity</th><th scope="col">Statuses</th><th scope="col">Reason</th></tr></thead>
+        <thead><tr><th scope="col">Owner</th><th scope="col">Ticket</th><th scope="col">Work Date</th><th scope="col">Hours</th><th scope="col">Phase</th><th scope="col">Activity</th><th scope="col">Statuses</th><th scope="col">Reason</th></tr></thead>
         <tbody>
           <% @selected_owners.each do |owner| %>
             <% @work_rework.fetch(owner.id.to_s).fetch(:review).sort_by { |entry| [entry[:date], entry[:id]] }.each do |entry| %>
@@ -60,6 +65,7 @@
                 <td><%= performance_drilldown_link "##{entry[:id]}", issue_path(entry[:id]) %></td>
                 <td><%= format_date(entry[:date]) %></td>
                 <td><%= hours.call(entry[:hours]) %></td>
+                <td><%= entry[:phase] == :unclassified ? 'Pending' : entry[:phase].to_s.capitalize %></td>
                 <td><%= entry[:activity].presence || 'Unavailable' %></td>
                 <td><%= entry[:statuses].join(' → ') %></td>
                 <td><%= entry[:reason] %></td>
@@ -70,6 +76,6 @@
       </table></div>
     </details>
   <% end %>
-  <p>Rework % divides rework hours by classified work plus rework hours. Unclassified hours are included in visible totals. Missing time access makes ratios and averages unavailable. Time-entry visibility can also limit totals. Hours per CW requires usable weights for every ticket.</p>
+  <p>Rework % divides rework hours by classified work plus rework hours. Pending hours with a known phase count in that phase’s total. The overall total also includes hours still pending a phase. Missing time access makes ratios and averages unavailable. Time-entry visibility can also limit totals. Hours per CW requires usable weights for every ticket.</p>
   <%= render 'work_rework_trend' if @work_rework_months.any? %>
 </section>
