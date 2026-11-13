@@ -6,9 +6,18 @@
     <%= render 'periodic_time_mix_donut', title: 'Hours by Activity', records: @time_mix[:personal], key: :activity_id, scope: 'personal' %>
     <%= render 'periodic_time_mix_donut', title: 'Hours by Logged User', records: @time_mix[:personal], key: :user_id, scope: 'personal' %>
   </div>
-  <div class="autoscroll"><table class="list"><thead><tr><th>Work category</th><th>Hours</th><th>Tickets</th><th>Development activity hours</th><th>Development share</th></tr></thead><tbody>
+  <div class="autoscroll"><table class="list periodic-time-total-table"><thead><tr><th>Work category</th><th>Hours</th><th>Tickets</th><th>Development activity hours</th><th>Development share</th></tr></thead><tbody>
     <% TicketJourneyPeriodicTimeMix.group(@time_mix[:personal], :category, @time_mix[:development_ids], available: @time_mix[:available]).each do |group| %><tr><th><%= periodic_time_mix_link(periodic_time_mix_name(:category, group[:key]), 'personal', mix_category: group[:key]) %></th><td><%= performance_number(group[:report][:total]) %></td><td><%= group[:report][:tickets] %></td><td><%= performance_number(group[:report][:development]) %></td><td><%= group[:report][:development_share] ? "#{performance_number(group[:report][:development_share])}%" : 'N/A' %></td></tr><% end %>
-  </tbody></table></div>
+  </tbody><tfoot>
+    <% total = TicketJourneyPeriodicTimeMix.summarize(@time_mix[:personal], @time_mix[:development_ids], available: @time_mix[:available]) %>
+    <tr>
+      <th scope="row">Total</th>
+      <td><%= performance_number(total[:total]) %></td>
+      <td><%= total[:tickets] %></td>
+      <td><%= performance_number(total[:development]) %></td>
+      <td><%= total[:development_share] ? "#{performance_number(total[:development_share])}%" : 'N/A' %></td>
+    </tr>
+  </tfoot></table></div>
   <p>Archived hours are paid effort without delivery credit. Ongoing and On-Hold effort have separate reconciliation rows. Both are retained in total/daily logged hours and never improve completed output or expected-work efficiency.</p>
   <details><summary>Expected package — all contributors by activity and user</summary>
     <p>All roles are expected to log time against the same ticket using the correct activity. These charts show visible records; absence in this period alone does not prove missing lifetime logs or a policy violation. These charts use all visible users' period hours on the selected owners' expected tickets, including unfinished expected tickets. They are a different scope from the selected-user charts above and must not be added to them. Archived tickets are outside expectation.</p>

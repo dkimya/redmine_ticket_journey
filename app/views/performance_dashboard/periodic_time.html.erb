@@ -55,7 +55,7 @@
       </section>
       <section class="performance-section"><h3>User Logged Hours (within report period)</h3>
         <p>This table shows how the selected users’ visible logged hours add up across categories. It uses work dates within the selected report period and includes paid effort on archived and excluded tickets.</p>
-        <table class="list periodic-time-reconciliation"><thead><tr><th>Category</th><th>Hours</th></tr></thead><tbody>
+        <table class="list periodic-time-total-table"><thead><tr><th>Category</th><th>Hours</th></tr></thead><tbody>
           <% [['expected_work', 'Expectation ticket package (including unfinished work and debt)', 'expected_work_hours'], ['other', 'Other tickets (including cross-owner work)', 'other_hours'], ['archived', 'Archived (paid effort without delivery credit)', 'archived_hours'], ['ongoing', 'Ongoing (paid effort outside delivery package)', 'ongoing_hours'], ['excluded', 'On-Hold (separately disclosed)', 'excluded_hours'], ['unclassified', 'Ticket Owner unavailable (review)', 'unclassified']].each do |key, label, metric| %><tr><th><%= label %></th><td><%= periodic_time_link(periodic_time_number(report[:reconciliation][key], 'total_hours'), metric) %></td></tr><% end %>
         </tbody><tfoot>
           <tr class="periodic-total-row">
