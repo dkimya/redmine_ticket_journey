@@ -2,8 +2,8 @@
 <% hours = ->(value) { value.nil? ? 'N/A' : "#{performance_number(value)} h" } %>
 <% percent = ->(value) { value.nil? ? 'N/A' : "#{performance_number(value)}%" } %>
 <section class="performance-section">
-  <h3>Work / Rework Time</h3>
-  <p><%= @periodic_time ? 'Includes all contributors’ visible direct hours through the report end date, including earlier work, on tickets completed during the report period.' : 'Tickets open at the report date, with visible hours through that date.' %> Ticket groups use the current Ticket Owner.</p>
+  <h3><%= @periodic_time ? 'Work / Rework Time for Tickets Completed During the Report Period' : 'Work / Rework Time' %></h3>
+  <p><%= @periodic_time ? 'Includes all contributors’ visible hours logged directly on these tickets through the report end date, including hours logged before the report period.' : 'Tickets open at the report date, with visible hours through that date.' %> Ticket groups use the current Ticket Owner.</p>
   <p>Rework counts hours logged after a qualifying return in a status already reached before that return. Review rolls up under Development. Feedback, Ready to Merge and Final Check roll up under Test. On a return date, a recognized activity can identify the phase while Work / Rework remains pending.</p>
   <div class="autoscroll">
     <% if @selected_owners.one? %>
