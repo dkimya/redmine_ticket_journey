@@ -406,7 +406,10 @@ class PerformanceDashboardController < ApplicationController
             entries = TicketJourneyWorkRework.classify(issue, history[issue.id], statuses, @period_end, lifetime_hours[issue.id])
             booked = lifetime_owner_hours.fetch([issue.id, owner.to_i], [])
             allowed = @periodic_project_time_permissions.fetch(issue.project_id, false)
-            TicketJourneyWorkRework.add!(@work_rework.fetch(owner), row, entries, booked, @period_end, allowed) if delivered
+            if delivered
+              TicketJourneyWorkRework.add!(@work_rework.fetch(owner), row, entries, booked, @period_end, allowed,
+                period_start: @period_start)
+            end
             monthly.each do |day, snapshot|
               TicketJourneyWorkRework.add!(@work_rework_months.fetch(owner).fetch(day), snapshot, entries, booked, day, allowed)
             end

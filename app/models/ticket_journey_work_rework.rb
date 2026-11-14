@@ -89,10 +89,11 @@ class TicketJourneyWorkRework
 
   def self.summary
     { count: 0, weight: 0.0, missing_weight: 0, unavailable: 0, owner_hours: 0.0,
+      owner_hours_in_period: 0.0,
       hours: PHASES.to_h { |phase| [phase, { work: 0.0, rework: 0.0, unknown: 0.0 }] } }
   end
 
-  def self.add!(summary, row, entries, owner_hours, cutoff, time_allowed)
+  def self.add!(summary, row, entries, owner_hours, cutoff, time_allowed, period_start: nil)
     summary[:count] += 1
     summary[:weight] += row[:weight]
     summary[:missing_weight] += 1 if row[:missing_weight]
@@ -107,7 +108,12 @@ class TicketJourneyWorkRework
       summary[:hours][phase][kind] += amount
       summary[:review] << review.merge(id: row[:id], date: day, hours: amount, phase: phase) if review && summary[:review]
     end
-    owner_hours.each { |day, amount| summary[:owner_hours] += amount if day <= cutoff }
+    owner_hours.each do |day, amount|
+      next if day > cutoff
+
+      summary[:owner_hours] += amount
+      summary[:owner_hours_in_period] += amount if period_start && day >= period_start
+    end
   end
 
   def self.total(summary, kind = nil, phase = nil)

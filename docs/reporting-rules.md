@@ -10,6 +10,12 @@ on the same tickets. Multi-owner trends use the five completed calendar months
 before the report month, with Live open snapshots or Periodic completion cohorts
 and hours through each month-end.
 
+The single-owner Periodic breakdown splits visible completed-ticket hours into
+hours booked to the owner during the period, hours booked to the owner before
+the period, and other contributors’ hours through the report end date. The
+owner’s in-period portion also contributes to Owner Hours Logged in the Report
+Period, which covers the owner's visible in-period hours across scoped tickets.
+
 Each qualifying Return Count event captures the statuses previously reached on
 that ticket. Later hours in one of those statuses count as rework. First visits
 after the return count as work. New and To-Do map to Plan/Design. In Progress and

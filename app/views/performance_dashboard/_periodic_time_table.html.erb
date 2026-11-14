@@ -3,8 +3,7 @@
   <% table_labels = {
     'dtc' => 'Closed Tickets Ave. DTC',
     'priority_dtc' => 'Priority Tickets Ave. DTC',
-    'ticket_cost' => 'Closed Tickets Log Time',
-    'total_hours' => 'Total Logged time by Owner'
+    'ticket_cost' => 'Closed Tickets Log Time'
   } %>
   <tbody><% TicketJourneyPeriodicTime::METRICS.except('expected_done_hours', 'other_hours').each do |key, (label, unit, direction)| %><% entry = report[:metrics][key] %>
     <tr><th><%= table_labels.fetch(key, label) %> <%= performance_tip(periodic_time_metric_tip(key)) %></th>
@@ -17,4 +16,4 @@
     </tr>
   <% end %></tbody>
 </table></div>
-<p class="performance-weight-note">P = Plan / Target. A = Actual. DTC = Days to Close. Closed Tickets Log Time compares PM estimates with all contributors' visible direct hours through the report end date on matching completed tickets. Total Logged time by Owner uses scoped work-date hours within the report period. Hover or focus the information icons for populations and time windows. CW/h uses the matching full expectation portfolio. Zero-plan percentages are <span style="white-space:nowrap">N/A.</span></p>
+<p class="performance-weight-note">P = Plan / Target. A = Actual. DTC = Days to Close. Closed Tickets Log Time compares PM estimates with all contributors' visible direct hours through the report end date on matching completed tickets. Owner Hours Logged in the Report Period uses the selected users’ visible hours on in-scope tickets by work date. Hover or focus the information icons for populations and time windows. CW/h uses the matching full expectation portfolio. Zero-plan percentages are <span style="white-space:nowrap">N/A.</span></p>

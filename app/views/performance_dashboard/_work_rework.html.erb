@@ -3,7 +3,7 @@
 <% percent = ->(value) { value.nil? ? 'N/A' : "#{performance_number(value)}%" } %>
 <section class="performance-section">
   <h3>Work / Rework Time</h3>
-  <p><%= @periodic_time ? 'Tickets completed during the report period, with visible hours through the report end date.' : 'Tickets open at the report date, with visible hours through that date.' %> Ticket groups use the current Ticket Owner.</p>
+  <p><%= @periodic_time ? 'Includes all contributors’ visible direct hours through the report end date, including earlier work, on tickets completed during the report period.' : 'Tickets open at the report date, with visible hours through that date.' %> Ticket groups use the current Ticket Owner.</p>
   <p>Rework counts hours logged after a qualifying return in a status already reached before that return. Review rolls up under Development. Feedback, Ready to Merge and Final Check roll up under Test. On a return date, a recognized activity can identify the phase while Work / Rework remains pending.</p>
   <div class="autoscroll">
     <% if @selected_owners.one? %>
@@ -18,7 +18,8 @@
         </colgroup>
         <thead><tr><th scope="col">Logged effort</th><% columns.each do |phase| %><th scope="col"><%= calculator::PHASE_LABELS.fetch(phase, 'Total') %></th><% end %></tr></thead>
         <tbody>
-          <% { work: 'Work', rework: 'Rework', nil => 'Total visible hours' }.each do |kind, label| %>
+          <% total_label = @periodic_time ? 'All Contributors’ Hours on Completed Tickets' : 'Total visible hours' %>
+          <% { work: 'Work', rework: 'Rework', nil => total_label }.each do |kind, label| %>
             <tr><th scope="row"><%= label %></th><% columns.each do |phase| %><td><%= hours.call(time_visible ? calculator.total(summary, kind, phase) : nil) %></td><% end %></tr>
           <% end %>
           <tr><th scope="row">Rework %</th><% columns.each do |phase| %><td><%= percent.call(calculator.rework_percent(summary, phase)) %></td><% end %></tr>
@@ -31,6 +32,13 @@
         </tbody>
       </table>
       <p>Owner-booked hours on these tickets (<%= hours.call(time_visible ? summary[:owner_hours] : nil) %>) · <%= summary[:unavailable] %> tickets without time-view access.</p>
+      <% if @periodic_time && time_visible %>
+        <p>Of the <strong><%= hours.call(calculator.total(summary)) %></strong> on these completed tickets,
+          <%= @selected_owners.first.name %> logged <strong><%= hours.call(summary[:owner_hours_in_period]) %></strong> within the report period
+          and <strong><%= hours.call(summary[:owner_hours] - summary[:owner_hours_in_period]) %></strong> before it.
+          Other contributors logged <strong><%= hours.call([calculator.total(summary) - summary[:owner_hours], 0.0].max) %></strong> through the report end date.
+          Only the owner’s in-period hours also count toward Owner Hours Logged in the Report Period.</p>
+      <% end %>
     <% else %>
       <table class="list">
         <thead><tr><th scope="col">Owner</th><th scope="col">Tickets</th><th scope="col">Usable CW</th><th scope="col">Total Logged Time on Tickets</th><th scope="col">Logged Time by Owner on These Tickets</th><th scope="col">Rework %</th><th scope="col">Average Hours per Ticket</th><th scope="col">Average Hours per CW</th><th scope="col">Tickets Without Time Access</th></tr></thead>

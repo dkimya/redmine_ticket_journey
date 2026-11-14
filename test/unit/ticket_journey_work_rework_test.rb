@@ -1,6 +1,19 @@
 require File.expand_path('../test_helper', __dir__)
 
 class TicketJourneyWorkReworkTest < ActiveSupport::TestCase
+  test 'owner hours on completed tickets respect both period boundaries' do
+    first = Date.new(2026, 10, 1)
+    last = first.end_of_month
+    summary = TicketJourneyWorkRework.summary
+    booked = [[first - 1, 2.0], [first, 3.0], [last, 4.0], [last + 1, 8.0]]
+
+    TicketJourneyWorkRework.add!(summary, { weight: 1.0 }, [], booked, last, true, period_start: first)
+    TicketJourneyWorkRework.add!(summary, { weight: 1.0 }, [], booked, last, false, period_start: first)
+
+    assert_equal 9.0, summary[:owner_hours]
+    assert_equal 7.0, summary[:owner_hours_in_period]
+  end
+
   test 'saved activity resolves phase on a day spanning To-Do and In Progress' do
     day = Date.new(2026, 8, 28)
     statuses = { '1' => Struct.new(:name).new('To-Do'), '2' => Struct.new(:name).new('In Progress') }
