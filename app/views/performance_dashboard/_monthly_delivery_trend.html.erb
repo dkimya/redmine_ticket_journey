@@ -1,15 +1,31 @@
 <div class="performance-monthly-delivery-trend">
   <h4>Monthly Delivery Trend <%= performance_tip('Each point shows tickets and visible current complexity points delivered during that calendar month. Tickets must be Done / Closed at that point, with their latest recorded completion inside the window; Archived, Ongoing, reopened tickets and missing completion dates are excluded. Current Ticket Owner is used at every point; reassignment updates historical results. With multiple owners, divide by all selected owners, including zero-delivery owners. Current weights and current employee targets apply. Each target requires a usable value for every selected owner. Each point is actual output for one month, not a rolling average. The cards above retain their three-month averages; later reopening can cause differences.') %></h4>
-  <p>Actual monthly delivery · <%= points.size %> month-end points<%= ' · Average of selected owners' if @selected_owners.size > 1 %></p>
-  <% [[:monthly_count, 'Tickets', @targets[0]], [:monthly_weight, 'Complexity Points', @targets[1]]].each_with_index do |(key, label, target), metric_index| %>
-    <div class="performance-output-chart <%= 'performance-output-weight' if metric_index == 1 %>">
-      <h5><%= label %> delivered per month<%= ' (average of selected owners)' if @selected_owners.size > 1 %></h5>
+  <p>Actual monthly delivery · <%= points.size %> month-end points</p>
+  <% owner_entries = @leaderboard_entries || [] %>
+  <% metrics = [[:monthly_count, :delivered_count, 'Tickets', @targets[0]],
+                [:monthly_weight, :delivered_weight, 'Complexity Points', @targets[1]]] %>
+  <% metrics.each_with_index do |(key, total_key, label, target), metric_index| %>
+    <% plot = points.each_with_index.map do |point, index|
+      owner_entries.to_h { |entry| [entry[:owner].id, entry[:points][index].fetch(total_key)] }.merge(team: point[key])
+    end %>
+    <% series_keys = owner_entries.map { |entry| entry[:owner].id } + [:team] %>
+    <% geometry = performance_return_trend_geometry(plot, keys: series_keys, scale_values: [target]) %>
+    <div class="performance-output-chart <%= 'performance-output-weight' if metric_index == 1 %>"<% if owner_entries.any? %> data-performance-leaderboard<% end %>>
+      <h5><%= label %> delivered per month</h5>
       <p><%= target.nil? ? 'Target unavailable — a selected owner has a missing, hidden or invalid target.' : "Current monthly target: #{performance_number(target)}" %></p>
-      <% geometry = performance_return_trend_geometry(points, keys: [key], scale_values: [target], minimum: 1.0) %>
+      <% if owner_entries.any? %>
+        <div class="performance-leaderboard-legend performance-output-legend" role="group" aria-label="<%= label %> owner lines">
+          <span><span class="performance-leaderboard-swatch" style="border-color:#17365d" aria-hidden="true"></span> Team average (always visible)</span>
+          <% owner_entries.each do |entry| %>
+            <% owner = entry[:owner] %>
+            <button type="button" data-leaderboard-toggle="<%= owner.id %>" data-owner-name="<%= owner.name %>" aria-pressed="true" aria-label="Hide <%= owner.name %> line"><span class="performance-leaderboard-swatch" style="border-color:<%= performance_owner_color(owner.id) %>" aria-hidden="true"></span><span><%= owner.name %></span></button>
+          <% end %>
+        </div>
+      <% end %>
       <div class="autoscroll">
         <svg class="performance-trend-chart performance-output-svg" viewBox="0 0 860 285" role="img" aria-labelledby="output-title-<%= metric_index %> output-description-<%= metric_index %>">
           <title id="output-title-<%= metric_index %>">Monthly delivery: <%= label %> delivered per month</title>
-          <desc id="output-description-<%= metric_index %>">Five months of actual delivery. Dashed line shows the current monthly target when available. Exact months, totals and per-owner values are in the table below.</desc>
+          <desc id="output-description-<%= metric_index %>">Five months of actual delivery. Dashed line shows the current monthly target when available.<%= ' Each owner’s actual delivery can be shown or hidden independently.' if owner_entries.any? %> Monthly totals and averages are in the table below.</desc>
           <% 0.upto(4) do |index| %>
             <% y = 235 - index * 50 %>
             <line class="performance-trend-grid" x1="90" x2="770" y1="<%= y %>" y2="<%= y %>" />
@@ -19,16 +35,21 @@
             <% target_y = 235 - target / geometry[:maximum] * 200 %>
             <line class="performance-trend-target-line" x1="90" x2="770" y1="<%= target_y %>" y2="<%= target_y %>"><title>Current monthly target: <%= performance_number(target) %></title></line>
           <% end %>
-          <% series = geometry[:series].first %>
-          <% points.each_with_index do |point, index| %><text x="<%= series[index][:x] %>" y="268" text-anchor="middle"><%= point[:date].strftime('%b %Y') %></text><% end %>
-          <g class="performance-trend-series">
-            <% series.each_cons(2) do |left, right| %><line x1="<%= left[:x] %>" y1="<%= left[:y] %>" x2="<%= right[:x] %>" y2="<%= right[:y] %>" /><% end %>
-            <% series.each do |coordinate| %>
-              <% point = points[coordinate[:index]]; total = point[metric_index.zero? ? :delivered_count : :delivered_weight] %>
-              <% description = "#{format_date(point[:window_start])} – #{format_date(point[:date])}: #{performance_number(point[key])} #{label.downcase} per month#{' per owner' if @selected_owners.size > 1}; total #{performance_number(total)} ÷ #{@selected_owners.size} owner(s)" %>
-              <circle cx="<%= coordinate[:x] %>" cy="<%= coordinate[:y] %>" r="6" tabindex="0" role="img" aria-label="<%= description %>"><title><%= description %></title></circle>
-            <% end %>
-          </g>
+          <% points.each_with_index do |point, index| %><text x="<%= geometry[:series].last[index][:x] %>" y="268" text-anchor="middle"><%= point[:date].strftime('%b %Y') %></text><% end %>
+          <% geometry[:series].each_with_index do |series, series_index| %>
+            <% owner = owner_entries[series_index]&.fetch(:owner) %>
+            <% color = owner_entries.any? ? (owner ? performance_owner_color(owner.id) : '#17365d') : nil %>
+            <g class="performance-trend-series"<% if owner %> data-leaderboard-series="<%= owner.id %>"<% end %><% if color %> style="stroke:<%= color %>;fill:<%= color %>"<% end %>>
+              <% series.each_cons(2) do |left, right| %><line x1="<%= left[:x] %>" y1="<%= left[:y] %>" x2="<%= right[:x] %>" y2="<%= right[:y] %>" /><% end %>
+              <% series_name = owner&.name || (owner_entries.any? ? 'Team average' : @selected_owners.first.name) %>
+              <% series.each do |coordinate| %>
+                <% index = coordinate[:index]; point = points[index] %>
+                <% value = plot[index].fetch(series_keys[series_index]) %>
+                <% description = "#{series_name} · #{point[:date].strftime('%b %Y')}: #{performance_number(value)} #{label.downcase}" %>
+                <circle cx="<%= coordinate[:x] %>" cy="<%= coordinate[:y] %>" r="6" tabindex="0" role="img" aria-label="<%= description %>"><title><%= description %></title></circle>
+              <% end %>
+            </g>
+          <% end %>
         </svg>
       </div>
     </div>

@@ -123,6 +123,7 @@ class PerformanceDashboardTest < ActionController::TestCase
     assert_select '.performance-delivery-trend svg', count: 1
     assert_select '.performance-delivery-trend .performance-trend-target-line', count: 1
     assert_select '.performance-monthly-delivery-trend svg', count: 2
+    assert_select '.performance-monthly-delivery-trend [data-leaderboard-toggle]', count: 0
     assert_select '.performance-monthly-delivery-trend tbody tr', count: 5
     assert_in_delta 1.0, trend[1][:monthly_count], 0.0001
     assert_in_delta 8.0, trend[1][:monthly_weight], 0.0001
@@ -219,7 +220,14 @@ class PerformanceDashboardTest < ActionController::TestCase
     get :index, params: { project_id: @project.identifier, owner_ids: ['1', '2'] }
     assert_response :success
     assert_select '.performance-leaderboard', count: 1
-    assert_select '[data-leaderboard-toggle]', count: 2
+    assert_select '.performance-leaderboard [data-leaderboard-toggle]', count: 2
+    assert_select '.performance-monthly-delivery-trend [data-performance-leaderboard]', count: 2 do |charts|
+      charts.each do |chart|
+        assert_select chart, '[data-leaderboard-toggle][aria-pressed="true"]', count: 2
+        assert_select chart, 'g[data-leaderboard-series] circle', count: 10
+        assert_select chart, 'g.performance-trend-series:not([data-leaderboard-series]) circle', count: 5
+      end
+    end
     assert_select '.performance-leaderboard tbody tr', count: 10
     entries = @controller.instance_variable_get(:@leaderboard_entries).to_h { |entry| [entry[:owner].id, entry[:points]] }
     assert_equal 5.0, entries[1].last[:delivered_weight]
@@ -232,7 +240,7 @@ class PerformanceDashboardTest < ActionController::TestCase
     assert_equal entries.values.sum { |points| points.last[:delivered_weight] }, @controller.instance_variable_get(:@delivery_trend).last[:delivered_weight]
     assert_operator @response.body.index('performance-comparison'), :<, @response.body.index('performance-leaderboard')
     assert_operator @response.body.index('performance-leaderboard'), :<, @response.body.index('Combined Results for selected owners (team)')
-    styles = css_select('[data-leaderboard-series]').map { |element| [element['data-leaderboard-series'], element['style']] }.to_h
+    styles = css_select('.performance-leaderboard [data-leaderboard-series]').map { |element| [element['data-leaderboard-series'], element['style']] }.to_h
     @controller.stubs(:monthly_target).with('101', User.find(2)).returns(160.0)
     get :index, params: { project_id: @project.identifier, owner_ids: ['1', '2'] }
     assert_response :success
