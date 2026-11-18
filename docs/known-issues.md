@@ -1,5 +1,11 @@
 # Known issues and evidence
 
+The QA pilot and correction audit are implemented locally. The migration, Redmine
+role grants, actual field values, issue journals, linked escape attribution,
+full requests and QA layout require demo host verification. Returns without
+their own recorded reason and escape Bugs without a confirmed source actor
+remain pending for individual scoring.
+
 Live Time leaderboard: three five-completed-month owner comparisons added between
 Developer Comparison and Combined Results: monthly average weekly logged hours,
 delivered points/all-contributor ticket hours and cumulative own hours/open ticket.

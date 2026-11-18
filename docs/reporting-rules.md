@@ -1,5 +1,28 @@
 # Reporting rules
 
+## QA pilot
+
+Live uses visible open tickets at the selected date, with Feedback and Final Check
+in the QA team queue. Periodic uses tickets with recorded completion in the period
+and completed status at its end. Both use the Performance tracker and project
+scope. Tested CW uses usable current visible weights once per ticket for the team
+and once per ticket, tester and role for gate verdicts. Status-change actors,
+not current Ticket Owner, determine gate attribution.
+
+Only a same-journal False QA Pass reason on a return from Review, Ready to Merge
+or Final Check can deduct twice the ticket's CW from the preceding Feedback-to-
+Review actor. Each pass can be charged once. Missing or hidden reasons remain
+pending. A Bug with visible current Detected By = QA credits its creator its CW.
+A visible current Bug Source of Test Escape separately deducts twice the Bug CW
+from the Final Check actor who closed the uniquely related visible source before
+the Bug was created. Missing weights and unclear escape sources stay in review.
+
+Corrections exclude or reinstate individual return events and retain every
+decision, actor, timestamp and reason. The latest decision applies to historical
+reruns too. The original issue journal and other reports remain intact.
+Visible direct Test / QA / Feedback entries count as Work through the first
+recorded return date, inclusive. Later work dates count as Rework.
+
 ## Time Work / Rework
 
 Live uses the existing open-ticket population as of the report date. Periodic

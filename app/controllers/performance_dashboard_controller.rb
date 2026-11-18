@@ -7,7 +7,8 @@ class PerformanceDashboardController < ApplicationController
     @dashboard_type = params[:dashboard_type].presence || 'live'
     return render_404 unless %w[live periodic].include?(@dashboard_type)
     @performance_tab = params[:tab].presence || 'tickets'
-    return render_404 unless %w[tickets returns time].include?(@performance_tab)
+    return render_404 unless %w[tickets returns time qa].include?(@performance_tab)
+    return render_qa if @performance_tab == 'qa'
     @metric = params[:metric].presence
     @periodic_tickets = @dashboard_type == 'periodic' && @performance_tab == 'tickets'
     @periodic_returns = @dashboard_type == 'periodic' && @performance_tab == 'returns'
@@ -310,7 +311,94 @@ class PerformanceDashboardController < ApplicationController
     render_error message: message, status: 422
   end
 
+  def qa_correction
+    return render_403 unless User.current.allowed_to?(:view_performance_dashboard, @project)
+
+    issue = Issue.visible(User.current).where(project_id: performance_project_ids)
+      .joins(:tracker).where(trackers: { name: TicketJourneyPerformance::TRACKERS }).find(params[:issue_id])
+    return render_403 unless qa_correction_allowed?(issue)
+    return render_404 unless %w[exclude reinstate].include?(params[:decision])
+
+    cutoff = qa_filters
+    return render_404 unless cutoff
+
+    issue.with_lock do
+      field = issue.visible_custom_field_values.any? do |value|
+        value.custom_field.id == TicketJourneyController::RETURN_REASON_CF_ID
+      end
+      return render_404 unless field
+
+      statuses = IssueStatus.all.index_by { |status| status.id.to_s }
+      history = TicketJourneyPerformance.history_for([issue.id], cutoff, include_return_reason: true)
+      changes = TicketJourneyQaReport.changes(history.fetch(issue.id, []), statuses)
+        .take_while { |change| change[:at] <= cutoff.in_time_zone.end_of_day }
+      event = TicketJourneyQaReport.false_passes(changes, reason_visible: true).find do |entry|
+        entry[:id].to_s == params[:journal_detail_id] && entry[:reason] == TicketJourneyQaReport::FALSE_PASS_REASON
+      end
+      return render_404 unless event
+
+      records = TicketJourneyQaCorrection.where(issue_id: issue.id, journal_detail_id: event[:id])
+      excluded = params[:decision] == 'exclude'
+      if excluded == (records.order(:id).last&.excluded? || false)
+        flash[:warning] = 'This return already has that scoring status.'
+      else
+        record = records.build(user_id: User.current.id, excluded: excluded, reason: params[:reason].to_s.strip)
+        if record.save
+          flash[:notice] = 'QA scoring correction saved.'
+        else
+          flash[:error] = record.errors.full_messages.to_sentence
+        end
+      end
+    end
+    redirect_to performance_dashboard_path(@project, **@qa_params, anchor: "qa-return-#{params[:journal_detail_id]}"),
+      status: :see_other
+  end
+
   private
+
+  def render_qa
+    cutoff = qa_filters
+    return render_404 unless cutoff
+
+    if params[:calculate] == '1'
+      @qa_report = TicketJourneyQaReport.new(project_ids: performance_project_ids, user: User.current,
+        finish: cutoff, start: @period_start).calculate
+      @qa_correctable_projects = @qa_report.returns.map { |row| row[:issue] }.uniq(&:project_id)
+        .select { |issue| qa_correction_allowed?(issue) }.map(&:project_id).to_set
+      actors = @qa_report.bugs.flat_map { |row| [row[:finder_id], row[:escape_actor]] }
+      @qa_report.returns.each { |row| actors.concat([row[:event][:pass][:user_id], *row[:audit].map(&:user_id)]) }
+      @qa_report.tested.each { |row| actors.concat(row[:verdicts].map(&:last)) }
+      @qa_actors = User.where(id: actors.compact.uniq).index_by(&:id)
+    end
+    render :qa
+  end
+
+  def qa_filters
+    @dashboard_type = params[:dashboard_type].presence || 'live'
+    return unless %w[live periodic].include?(@dashboard_type)
+
+    @date = params[:as_of].present? ? Date.iso8601(params[:as_of]) : Date.current
+    return if @date > Date.current
+
+    @selected_owner_ids = []
+    @qa_params = { tab: 'qa', dashboard_type: @dashboard_type, calculate: '1', as_of: @date.iso8601 }
+    return @date if @dashboard_type == 'live'
+
+    @period_end = params[:red].present? ? Date.iso8601(params[:red]) : @date
+    @period_start = params[:rsd].present? ? Date.iso8601(params[:rsd]) : @period_end.beginning_of_month
+    return if @period_start > @period_end || @period_end > Date.current
+
+    @qa_params.merge!(rsd: @period_start.iso8601, red: @period_end.iso8601)
+    @period_end
+  rescue ArgumentError, TypeError
+    nil
+  end
+
+  def qa_correction_allowed?(issue)
+    User.current.allowed_to?(:view_performance_dashboard, issue.project) &&
+      User.current.allowed_to?(:manage_qa_scoring_corrections, @project) &&
+      User.current.allowed_to?(:manage_qa_scoring_corrections, issue.project)
+  end
 
   def render_periodic_tickets(requested_owners)
     page = @periodic_time ? :periodic_time : (@periodic_returns ? :periodic_returns : :periodic_tickets)

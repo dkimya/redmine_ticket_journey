@@ -138,7 +138,7 @@ class TicketJourneyPerformance
     [row[field].to_s.downcase, group_by == 'project' ? row[:project_id] : row[field].to_s]
   end
   HistoryDetail = Struct.new(:property, :prop_key, :old_value, :value, :id)
-  HistoryJournal = Struct.new(:id, :created_on, :details)
+  HistoryJournal = Struct.new(:id, :created_on, :details, :user_id)
   FieldValue = Struct.new(:custom_field, :value)
 
   def self.batch_field_values(batch, field_ids: [57, 70])
@@ -244,10 +244,10 @@ class TicketJourneyPerformance
     end
     scope.order('journals.created_on', 'journals.id', 'journal_details.id')
       .pluck('journals.journalized_id', 'journals.id', 'journals.created_on',
-             'journal_details.property', 'journal_details.prop_key', 'journal_details.old_value', 'journal_details.value', 'journal_details.id')
-      .each do |issue_id, journal_id, created_on, property, key, old_value, value, detail_id|
+             'journal_details.property', 'journal_details.prop_key', 'journal_details.old_value', 'journal_details.value', 'journal_details.id', 'journals.user_id')
+      .each do |issue_id, journal_id, created_on, property, key, old_value, value, detail_id, user_id|
         journal = journals[journal_id] ||= begin
-          entry = HistoryJournal.new(journal_id, created_on, [])
+          entry = HistoryJournal.new(journal_id, created_on, [], user_id)
           result[issue_id] << entry
           entry
         end

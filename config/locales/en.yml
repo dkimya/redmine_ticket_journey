@@ -4,6 +4,7 @@ en:
   project_module_ticket_journey: "Dashboard"
   permission_view_ticket_journey: "PMO Dashboard"
   permission_view_performance_dashboard: "Performance Dashboard"
+  permission_manage_qa_scoring_corrections: "Manage QA scoring corrections"
   ticket_journey:
     title: "Ticket Journey Report"
     menu_caption: "PMO Dashboard"

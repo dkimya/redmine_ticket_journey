@@ -1,5 +1,29 @@
 # Deployment and verification
 
+## QA pilot and Project Manager access
+
+On a configured test Redmine host, deploy the plugin and run its migration:
+
+```bash
+bundle exec rake redmine:plugins:migrate NAME=redmine_ticket_journey RAILS_ENV=test
+```
+
+Restart Redmine. In Administration → Roles and permissions → Project Manager,
+enable **Performance Dashboard** and **Manage QA scoring corrections** under
+Dashboard. The plugin does not change role grants. Correction access is checked
+on both the dashboard project and the ticket project.
+
+Verify the Bug field Detected By has QA, Customer and Other choices. Confirm
+Bug Source, Return Reason, Complexity Weight, workflows and the Test / QA /
+Feedback activity on the demo project. Check whether consecutive returns with
+the same reason each record it in their own journal. Missing event reasons show
+as pending. This pilot adds no reason reset or reopening restriction.
+
+Run the plugin test suite on this test host. Check both QA views as Project
+Manager and as a read-only viewer, including child project access. Exclude and
+reinstate a return and verify the totals, audit history, original journal and
+existing Returns and Time reports.
+
 ## Live Time owner leaderboard
 
 Deploy the controller, Time model, new TimeTrends model, Time view, new

@@ -11,9 +11,10 @@
   <% end %>
 </nav>
 <nav class="performance-tabs" aria-label="Report section">
-  <% [['tickets', 'Tickets'], ['returns', 'Returns'], ['time', 'Time']].each do |key, label| %>
+  <% [['tickets', 'Tickets'], ['returns', 'Returns'], ['time', 'Time'], ['qa', 'QA / Testers']].each do |key, label| %>
     <% context = performance_owner_params.merge(as_of: @date.iso8601) %>
     <% context[:tab] = key unless key == 'tickets' %>
+    <% context.except!(:owner_id, :owner_ids) if key == 'qa' %>
     <% context[:dashboard_type] = @dashboard_type if @dashboard_type == 'periodic' %>
     <% context.merge!(rsd: @period_start.iso8601, red: @period_end.iso8601) if @dashboard_type == 'periodic' && @period_start && @period_end %>
     <%= link_to performance_dashboard_path(@project, **context), class: "performance-tab#{' is-active' if @performance_tab == key}", aria: { current: (@performance_tab == key ? 'page' : nil) } do %>

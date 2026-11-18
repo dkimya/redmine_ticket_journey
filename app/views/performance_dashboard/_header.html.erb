@@ -5,7 +5,9 @@
       <% if @dashboard_type == 'periodic' %>
         <p>Reporting period: <%= format_date(@period_start) %> – <%= format_date(@period_end) %></p>
       <% else %>
-        <p><%= @performance_tab == 'returns' ? 'Open tickets return analysis as of' : (@performance_tab == 'tickets' ? 'Ticket status and delivery performance as of' : 'Open ticket time analysis as of') %> <%= format_date(@date) %></p>
+        <% intro = { 'returns' => 'Open tickets return analysis as of', 'tickets' => 'Ticket status and delivery performance as of',
+                     'time' => 'Open ticket time analysis as of', 'qa' => 'QA workload and outcomes as of' } %>
+        <p><%= intro.fetch(@performance_tab) %> <%= format_date(@date) %></p>
       <% end %>
     </div>
     <% if local_assigns.fetch(:show_filters, true) %>

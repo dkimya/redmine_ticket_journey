@@ -1,6 +1,7 @@
 Rails.application.routes.draw do
   scope '/projects/:project_id' do
     get 'performance', to: 'performance_dashboard#index', as: 'performance_dashboard'
+    post 'performance/qa_correction', to: 'performance_dashboard#qa_correction', as: 'performance_qa_correction'
     get  'ticket_journey',              to: 'ticket_journey#index',    as: 'ticket_journey'
     get  'ticket_journey/pmo_control',  to: 'ticket_journey#pmo_control', as: 'ticket_journey_pmo_control'
     get  'ticket_journey/executive_overview', to: 'ticket_journey#executive_overview', as: 'ticket_journey_executive_overview'

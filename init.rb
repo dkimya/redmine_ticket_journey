@@ -41,6 +41,7 @@ Redmine::Plugin.register :redmine_ticket_journey do
   # Register as a project module so it appears in Settings > Modules.
   project_module :ticket_journey do
     permission :view_performance_dashboard, { performance_dashboard: [:index] }, read: true
+    permission :manage_qa_scoring_corrections, { performance_dashboard: [:qa_correction] }, require: :member
     permission :view_ticket_journey, { ticket_journey: [:index, :show, :export, :pmo_control, :executive_overview, :executive_team_performance, :executive_bug_quality_risk, :executive_technical_debt, :sprint_delivery, :planning_estimation, :owner_returns, :qa_returns, :consecutive_returns, :owner_workload, :status_snapshot, :time_utilization, :aging_risk, :priority_risk, :cycle_distribution, :flow_report, :project_health, :release_readiness, :bug_analysis, :data_quality, :original_sprint] }, read: true
   end
 

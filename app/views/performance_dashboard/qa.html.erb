@@ -1,0 +1,131 @@
+<% html_title 'Performance', 'QA / Testers' %>
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'performance', plugin: 'redmine_ticket_journey' %>
+<% end %>
+
+<div class="performance-page">
+  <%= render 'header', page_title: 'QA / Testers', show_filters: false %>
+  <%= form_tag performance_dashboard_path(@project), method: :get, class: 'performance-filters' do %>
+    <%= hidden_field_tag :tab, 'qa' %>
+    <%= hidden_field_tag :dashboard_type, @dashboard_type %>
+    <%= hidden_field_tag :calculate, '1' %>
+    <% if @period_start %>
+      <div><%= label_tag :rsd, 'Report Start Date' %><%= date_field_tag :rsd, @period_start.iso8601, max: Date.current.iso8601, required: true %></div>
+      <div><%= label_tag :red, 'Report End Date' %><%= date_field_tag :red, @period_end.iso8601, max: Date.current.iso8601, required: true %></div>
+    <% else %>
+      <div><%= label_tag :as_of, 'As of Date' %><%= date_field_tag :as_of, @date.iso8601, max: Date.current.iso8601, required: true %></div>
+    <% end %>
+    <%= submit_tag 'Apply', name: nil %>
+  <% end %>
+
+  <p class="performance-context">QA team pilot · <%= @period_start ? 'Tickets completed in the reporting period' : 'Open tickets at the end of the selected date' %> · Visible tickets in this project and its subprojects.</p>
+  <% if (report = @qa_report) %>
+    <% eligible_bugs = report.bugs.reject { |row| TicketJourneyQaReport::REJECTED_BUGS.include?(row[:status]) } %>
+    <% caught = eligible_bugs.select { |row| row[:detected_by] == 'QA' } %>
+    <% escapes = eligible_bugs.select { |row| row[:escape] } %>
+    <% false_passes = report.returns.select { |row| row[:event][:reason] == TicketJourneyQaReport::FALSE_PASS_REASON } %>
+    <% pending = report.returns.count { |row| row[:points].nil? } %>
+    <% scored_points = caught.sum { |row| row[:credit].to_f } + escapes.sum { |row| row[:escape_points].to_f } + false_passes.sum { |row| row[:points].to_f } %>
+    <section class="performance-section">
+      <h3 class="performance-team-heading">QA team summary</h3>
+      <div class="performance-qa-summary">
+        <% unless @period_start %><p><a href="#qa-queue">Under QA</a> <strong><%= report.queue.size %></strong></p><% end %>
+        <p><a href="#qa-tested">Tickets passed by QA</a> <strong><%= report.passes.size %></strong></p>
+        <p><a href="#qa-bugs">Bugs found by QA</a> <strong><%= report.detected_field ? caught.size : 'N/A' %></strong></p>
+        <p><a href="#qa-returns">False Test Passes</a> <strong><%= false_passes.size %></strong></p>
+        <p><a href="#qa-bugs">Test Escape Bugs</a> <strong><%= escapes.size %></strong></p>
+        <p>Scored points <strong><%= performance_number(scored_points) %></strong> · Pilot results</p>
+      </div>
+      <% unless report.detected_field %><p>Bug credit is unavailable until there is one issue custom field named Detected By.</p><% end %>
+      <p><%= pending %> potential false pass events need data review. <%= escapes.count { |row| row[:escape_points].nil? } %> Test Escape Bugs lack weight or a confirmed source actor. <%= caught.count { |row| row[:credit].nil? } %> QA Bugs lack usable weight.</p>
+    </section>
+
+    <% unless @period_start %>
+      <details open class="performance-section" id="qa-queue">
+        <summary>Live QA queue</summary>
+        <table class="list"><thead><tr><th>Ticket</th><th>Step</th><th>Working days in step</th></tr></thead><tbody>
+          <% report.queue.each do |row| %>
+            <tr><td><%= link_to_issue(row[:issue]) %></td><td><%= row[:status] %></td><td><%= row[:age] || 'N/A' %></td></tr>
+          <% end %>
+        </tbody></table>
+      </details>
+    <% end %>
+
+    <details class="performance-section" id="qa-tested">
+      <summary>Tested tickets and Complexity Weight</summary>
+      <% team_weight = report.tested.sum { |row| row[:weight].to_f } %>
+      <p>Team tested CW: <%= performance_number(team_weight) %> across <%= report.tested.size %> distinct tickets. <%= report.tested.count { |row| row[:weight].nil? } %> tickets lack usable CW.</p>
+      <table class="list"><thead><tr><th>Tester</th><th>Role</th><th>Tickets</th><th>Tested CW</th></tr></thead><tbody>
+        <% tester_verdicts = report.tested.flat_map { |row| row[:verdicts].map { |role, actor| [[role, actor], row] } } %>
+        <% tester_verdicts.group_by(&:first).each do |(role, actor), entries| %>
+          <tr><td><%= @qa_actors[actor]&.name || 'Actor unavailable' %></td><td><%= role %></td><td><%= entries.size %></td><td><%= performance_number(entries.sum { |_key, row| row[:weight].to_f }) %></td></tr>
+        <% end %>
+      </tbody></table>
+      <% passed_ids = report.passes.map { |row| row[:issue].id }.to_set %>
+      <ul><% report.tested.each do |row| %><li><%= link_to_issue(row[:issue]) %><%= ' · Passed Feedback' if passed_ids.include?(row[:issue].id) %></li><% end %></ul>
+    </details>
+
+    <details class="performance-section" id="qa-bugs">
+      <summary>Bug detection and Test Escapes</summary>
+      <p><%= eligible_bugs.group_by { |row| row[:detected_by] || 'Unavailable' }.map { |label, rows| "#{label}: #{rows.size}" }.join(' · ') %></p>
+      <table class="list"><thead><tr><th>Bug</th><th>Detected By</th><th>QA finder</th><th>Credit</th><th>Test Escape</th><th>QA-L2 actor</th><th>Penalty</th></tr></thead><tbody>
+        <% eligible_bugs.each do |row| %>
+          <tr><td><%= link_to_issue(row[:issue]) %></td><td><%= row[:detected_by] || 'Unavailable' %></td>
+            <td><%= @qa_actors[row[:finder_id]]&.name if row[:detected_by] == 'QA' %></td>
+            <td><%= row[:credit] ? performance_number(row[:credit]) : '—' %></td>
+            <td><%= row[:escape] ? 'Yes' : '—' %></td><td><%= @qa_actors[row[:escape_actor]]&.name || ('Review source link or closure' if row[:escape]) %></td>
+            <td><%= row[:escape_points] ? performance_number(row[:escape_points]) : '—' %></td></tr>
+        <% end %>
+      </tbody></table>
+    </details>
+
+    <section class="performance-section" id="qa-returns">
+      <h3>False Test Pass review</h3>
+      <p>All return incidents by recorded reason: <%= report.return_reasons.sort.map { |label, count| "#{label}: #{count}" }.join(' · ').presence || 'None' %></p>
+      <table class="list"><thead><tr><th>Ticket</th><th>Feedback pass</th><th>Return</th><th>Reason</th><th>QA points</th><th>Corrections</th></tr></thead><tbody>
+      <% report.returns.each do |row| %>
+        <% issue, event, audit = row.values_at(:issue, :event, :audit) %>
+        <tr id="qa-return-<%= event[:id] %>">
+          <td><%= link_to_issue(issue) %></td>
+          <td><%= @qa_actors[event[:pass][:user_id]]&.name || 'Actor unavailable' %> · <%= format_time(event[:pass][:at]) %></td>
+          <td><%= event[:from] %> · <%= format_time(event[:at]) %></td>
+          <td><%= event[:reason] || 'Reason unavailable in return journal' %></td>
+          <td><%= audit.last&.excluded? ? 'Excluded from QA scoring' : (row[:points] ? performance_number(row[:points]) : 'Pending data review') %></td>
+          <td>
+            <% if audit.any? %>
+              <details><summary>Correction history (<%= audit.size %>)</summary>
+                <ul><% audit.reverse_each do |record| %><li><%= record.excluded? ? 'Excluded' : 'Reinstated' %> · <%= @qa_actors[record.user_id]&.name || 'Actor unavailable' %> · <%= format_time(record.created_at) %> · <%= record.reason %></li><% end %></ul>
+              </details>
+            <% end %>
+            <% if event[:reason] == TicketJourneyQaReport::FALSE_PASS_REASON && @qa_correctable_projects.include?(issue.project_id) %>
+              <% decision = audit.last&.excluded? ? 'reinstate' : 'exclude' %>
+              <details><summary><%= decision == 'exclude' ? 'Exclude from QA scoring' : 'Reinstate in QA scoring' %></summary>
+                <%= form_tag performance_qa_correction_path(@project, **@qa_params), method: :post do %>
+                  <%= hidden_field_tag :issue_id, issue.id, id: nil %>
+                  <%= hidden_field_tag :journal_detail_id, event[:id], id: nil %>
+                  <%= hidden_field_tag :decision, decision, id: nil %>
+                  <%= label_tag "qa-reason-#{event[:id]}", 'Reason for correction' %>
+                  <%= text_area_tag :reason, '', id: "qa-reason-#{event[:id]}", required: true, maxlength: 1000 %>
+                  <%= submit_tag 'Save correction', name: nil %>
+                <% end %>
+              </details>
+            <% end %>
+          </td>
+        </tr>
+      <% end %>
+      </tbody></table>
+    </section>
+
+    <section class="performance-section">
+      <h3>QA testing time</h3>
+      <% if report.activity_configured %>
+        <p>Visible Work: <%= performance_number(report.time[:work]) %> h · Visible Rework: <%= performance_number(report.time[:rework]) %> h</p>
+        <p>Work includes testing logged on the first return's work date. <%= report.time_unavailable %> scoped tickets lack time-view permission. Other visibility rules may limit these totals.</p>
+      <% else %>
+        <p>Testing time is unavailable. The Test / QA / Feedback activity could not be found.</p>
+      <% end %>
+    </section>
+  <% else %>
+    <p class="nodata">Choose the report dates and click Apply to calculate QA results.</p>
+  <% end %>
+</div>
