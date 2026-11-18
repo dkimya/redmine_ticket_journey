@@ -5,7 +5,7 @@
   <%= javascript_include_tag 'performance_leaderboard', plugin: 'redmine_ticket_journey', defer: true %>
 <% end %>
 <% html_title 'Performance' %>
-<div class="performance-page">
+<div class="performance-page live-tickets-page">
   <%= render 'header' %>
   <% if @owner && !@owner.active? %>
     <p>Showing report for <strong><%= @owner.name %></strong> (inactive). The owner dropdown lists active users only.</p>
