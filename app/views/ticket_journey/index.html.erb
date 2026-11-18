@@ -49,7 +49,7 @@
       <% if params[:tj_issue_ids].present? %>
         <%= hidden_field_tag :tj_issue_ids, params[:tj_issue_ids] %>
       <% end %>
-      <%= render partial: 'queries/query_form' %>
+      <%= render 'ticket_journey/report_query_form' %>
     <% end %>
   <% end %>
 
@@ -120,6 +120,7 @@
           <%= text_field_tag :issue_id, @detail_issue_id, class: 'tj-detail-search-input', placeholder: 'Enter issue ID, e.g. 10154' %>
           <%= submit_tag 'Open Detail', class: 'tj-btn tj-btn-primary' %>
         </div>
+        <%= render 'ticket_journey/report_refresh_status' %>
       <% end %>
       <% if @detail_issue_error.present? %>
         <div class="tj-detail-search-message is-error"><%= @detail_issue_error %></div>

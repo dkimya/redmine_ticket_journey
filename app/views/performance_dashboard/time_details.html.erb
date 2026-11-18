@@ -17,6 +17,7 @@
     <%= label_tag :sort, 'Sort' %><%= select_tag :sort, options_for_select([['Ticket ID', 'id'], ['Working-day Age', 'age'], ['Due Date', 'due'], ['Visible Spent Time', 'spent']], @sort) %>
     <%= select_tag :direction, options_for_select([['Ascending', 'asc'], ['Descending', 'desc']], @direction), aria: { label: 'Sort direction' } %>
     <%= label_tag :group_by, 'Group by' %><%= select_tag :group_by, options_for_select([['None', ''], ['Project', 'project'], ['Tracker', 'tracker'], ['Owner', 'owner'], ['Status', 'status']], @group_by) %><%= submit_tag 'Apply options', name: nil %>
+    <%= render 'ticket_journey/report_refresh_status' %>
   <% end %>
   <% if @detail_rows.empty? %><p class="nodata">No tickets match this metric.</p><% else %>
     <div class="autoscroll"><table class="list performance-time-details"><thead><tr><th>Ticket</th><th>Subject</th><th>Project</th><th>Owner (current)</th><th>Status (as of date)</th><th>Start</th><th>Due</th><th>Working-day Age</th><th>Complexity Weight</th><th>Last Completion</th><th>PM Estimate</th><th>Visible Spent</th><th>Planned Effort</th><th>Data Review</th></tr></thead><tbody>

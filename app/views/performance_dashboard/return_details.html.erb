@@ -21,6 +21,7 @@
     <%= label_tag :sort, 'Sort' %><%= select_tag :sort, options_for_select([['Ticket ID', 'id'], ['Total returns', 'return_count'], ['Consecutive returns', 'repeat_count']], @return_detail_sort) %>
     <%= select_tag :direction, options_for_select([['Ascending', 'asc'], ['Descending', 'desc']], @direction), aria: { label: 'Sort direction' } %>
     <%= label_tag :group_by, 'Group by' %><%= select_tag :group_by, options_for_select([['None', ''], ['Project', 'project'], ['Tracker', 'tracker'], ['Owner', 'owner'], ['Status', 'status']], @group_by) %><%= submit_tag 'Apply options', name: nil %>
+    <%= render 'ticket_journey/report_refresh_status' %>
   <% end %>
   <% if @detail_rows.empty? %><p class="nodata">No tickets match this metric.</p><% else %>
     <div class="autoscroll"><table class="list"><thead><tr><th>Ticket</th><th>Subject</th><th>Project</th><th>Tracker</th><th>Owner (current)</th><th>Status (<%= @periodic_returns ? 'at RED' : 'as of date' %>)</th><% if @periodic_returns %><th>Completion Date</th><th>Expectation / Other</th><% end %><th>Total Returns</th><th>Consecutive Returns <%= performance_tip(performance_consecutive_returns_definition) %></th><th>Return Audit</th></tr></thead><tbody>

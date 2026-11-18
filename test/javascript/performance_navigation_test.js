@@ -3,20 +3,25 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const test = require('node:test');
 const source = fs.readFileSync(require('node:path').join(__dirname, '../../assets/javascripts/performance_navigation.js'), 'utf8');
+const refreshSource = fs.readFileSync(require('node:path').join(__dirname, '../../assets/javascripts/report_refresh.js'), 'utf8');
 
 function page(url, referrer, storage, initialState = null, length = 3) {
   const listeners = {};
-  const status = { textContent: '' };
+  const status = { textContent: '', dataset: { reportRefreshStatus: 'Refreshing report…' } };
+  const query = { action: url, querySelector: () => status };
+  let querySubmit;
   const history = { state: initialState, length, go: function (steps) { this.destination = steps; },
     replaceState: function (state) { this.state = state; } };
-  vm.runInNewContext(source, {
+  vm.runInNewContext(source + '\n' + refreshSource, {
     URL, Date, Number, Object, JSON,
-    window: { location: { href: url }, history, addEventListener: (name, callback) => { listeners[name] = callback; }, sessionStorage: {
+    window: { location: { href: url }, history, addEventListener: (name, callback) => { listeners[name] = callback; },
+      jQuery: () => ({ on: (_name, callback) => { querySubmit = callback; } }), sessionStorage: {
       getItem: key => storage.get(key), removeItem: key => storage.delete(key), setItem: (key, value) => storage.set(key, value)
     } },
-    document: { referrer, querySelectorAll: () => [status], addEventListener: (name, callback) => { listeners[name] = callback; } }
+    document: { referrer, getElementById: () => query, querySelectorAll: () => [status],
+      addEventListener: (name, callback) => { listeners[name] = callback; } }
   });
-  return { history, status, listeners, click(href, back = false, modifiers = {}, target = '') {
+  return { history, status, listeners, query, querySubmit, click(href, back = false, modifiers = {}, target = '') {
     const link = { href, target, hasAttribute: name => name === 'data-performance-back' && back };
     const event = Object.assign({ target: { closest: () => link }, button: 0, defaultPrevented: false,
       preventDefault() { this.defaultPrevented = true; } }, modifiers);
@@ -39,6 +44,27 @@ test('Apply shows a refresh indicator and allows submitting again after browser 
   report.listeners.submit(event);
   assert.equal(event.defaultPrevented, true);
   report.listeners.pageshow();
+  assert.equal(report.status.textContent, '');
+});
+
+test('Redmine query Apply shows the indicator while Save and native events bypass the jQuery handler', () => {
+  const report = page('https://example.test/projects/a/ticket_journey/owner_returns', '', new Map());
+  const apply = {
+    defaultPrevented: false,
+    isDefaultPrevented() { return this.defaultPrevented; },
+    preventDefault() { this.defaultPrevented = true; }
+  };
+  report.querySubmit({ ...apply, originalEvent: {} });
+  assert.equal(report.status.textContent, '');
+
+  report.querySubmit(apply);
+  assert.equal(report.status.textContent, 'Refreshing report…');
+  report.querySubmit(apply);
+  assert.equal(apply.defaultPrevented, true);
+
+  report.listeners.pageshow();
+  report.query.action = 'https://example.test/projects/a/queries/new';
+  report.querySubmit({ ...apply, defaultPrevented: false });
   assert.equal(report.status.textContent, '');
 });
 

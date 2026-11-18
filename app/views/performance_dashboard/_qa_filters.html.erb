@@ -1,0 +1,15 @@
+<%= form_tag performance_dashboard_path(@project), method: :get, class: 'performance-filters performance-qa-filters' do %>
+  <%= hidden_field_tag :tab, 'qa' %>
+  <%= hidden_field_tag :dashboard_type, @dashboard_type %>
+  <%= hidden_field_tag :calculate, '1' %>
+  <% if @period_start %>
+    <div><%= label_tag :rsd, 'Report Start Date' %><%= date_field_tag :rsd, @period_start.iso8601, max: Date.current.iso8601, required: true %></div>
+    <div><%= label_tag :red, 'Report End Date' %><%= date_field_tag :red, @period_end.iso8601, max: Date.current.iso8601, required: true %></div>
+  <% else %>
+    <div><%= label_tag :as_of, 'As of Date' %><%= date_field_tag :as_of, @date.iso8601, max: Date.current.iso8601, required: true %></div>
+  <% end %>
+  <div class="performance-qa-filter-actions">
+    <%= submit_tag 'Apply', name: nil %>
+    <%= render 'ticket_journey/report_refresh_status' %>
+  </div>
+<% end %>

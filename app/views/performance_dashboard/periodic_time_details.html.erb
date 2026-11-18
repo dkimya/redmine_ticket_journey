@@ -9,6 +9,7 @@
     <% periodic_time_params(metric: @metric).except(:time_group).each do |key, value| %><% Array(value).each do |item| %><%= hidden_field_tag(key == :owner_ids ? 'owner_ids[]' : key, item, id: nil) %><% end %><% end %>
     <%= label_tag :sort, 'Sort' %><%= select_tag :sort, options_for_select([['Ticket ID', 'id'], ['Report owner / logged user', 'actor']], @time_sort) %><%= select_tag :direction, options_for_select([['Ascending', 'asc'], ['Descending', 'desc']], @direction) %>
     <%= label_tag :time_group, 'Group by' %><%= select_tag :time_group, options_for_select([['None', ''], ['Logged user', 'actor'], ['Project', 'project'], ['Tracker', 'tracker'], ['Status at RED', 'status']], @time_group) %><%= submit_tag 'Apply options', name: nil %>
+    <%= render 'ticket_journey/report_refresh_status' %>
   <% end %>
   <% if @matching_issue_ids.any? %><p><%= link_to 'Open matching tickets in Issues (current values)', performance_current_issues_path %></p><% end %>
   <% if @detail_rows.empty? %><p class="nodata">No ticket contributors for this metric. Calendar targets can exist without logged tickets.</p><% else %>

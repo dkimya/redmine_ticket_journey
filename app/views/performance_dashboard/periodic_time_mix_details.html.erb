@@ -11,6 +11,7 @@
     <%= label_tag :mix_sort, 'Sort' %><%= select_tag :mix_sort, options_for_select([['Work date', 'day'], ['User', 'user'], ['Activity', 'activity'], ['Ticket', 'ticket']], @mix_sort) %>
     <%= select_tag :direction, options_for_select([['Ascending', 'asc'], ['Descending', 'desc']], @mix_direction), aria: { label: 'Sort direction' } %>
     <%= label_tag :mix_group, 'Group by' %><%= select_tag :mix_group, options_for_select([['None', ''], ['Tracker', 'tracker'], ['Work category', 'category'], ['Logged user', 'user'], ['Activity', 'activity']], params[:mix_group]) %><%= submit_tag 'Apply options', name: nil %>
+    <%= render 'ticket_journey/report_refresh_status' %>
   <% end %>
   <% if @matching_issue_ids.any? %><p><%= link_to 'Open matching tickets in Issues (current values)', performance_current_issues_path %></p><% end %>
   <% if @mix_detail_rows.empty? %><p class="nodata">No visible time-entry groups match these filters.</p><% else %>

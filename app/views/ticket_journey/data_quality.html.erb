@@ -16,13 +16,13 @@
 
   <%= form_tag(ticket_journey_data_quality_path(@project), method: :get, id: 'query_form') do %>
     <%= hidden_field_tag :support_section, params[:support_section] if params[:support_section].present? %>
-    <%= render partial: 'queries/query_form' %>
+    <%= render 'ticket_journey/report_query_form' %>
 
     <div class="tj-filter-bar tj-owner-filter-bar">
       <div class="tj-filter-form">
         <div class="tj-filter-group">
           <label for="stale_days">No Update Threshold</label>
-          <%= number_field_tag :stale_days, @data_quality_stale_days, min: 1, class: 'tj-input tj-small-number-input', onchange: 'this.form.submit();' %>
+          <%= number_field_tag :stale_days, @data_quality_stale_days, min: 1, class: 'tj-input tj-small-number-input', onchange: 'this.form.requestSubmit();' %>
         </div>
         <div class="tj-filter-group tj-flow-filter-note">
           <span>Defaults: Tracker is Bug, Change Request / Improvement or Feature; Status is not New, Done / Closed, Ongoing or Archived. Saved queries and explicitly selected filters are respected. Checks owner, dates, estimation, priority, original sprint, time logging, and stale updates.</span>

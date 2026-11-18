@@ -1,10 +1,12 @@
 # Known issues and evidence
 
-The QA pilot and correction audit are implemented locally. The migration, Redmine
-role grants, actual field values, issue journals, linked escape attribution,
-full requests and QA layout require demo host verification. Returns without
-their own recorded reason and escape Bugs without a confirmed source actor
-remain pending for individual scoring.
+The supplied screenshot confirms Live QA renders with report results on the
+host. The follow-up layout places date filters inside the header and caps the
+queue's height, with the oldest tickets first. That layout still needs a host
+visual check. Periodic requests, role grants, correction writes, source data and
+score reconciliation remain unverified. Returns without their own recorded
+reason and escape Bugs without a confirmed source actor remain pending for
+individual scoring.
 
 Live Time leaderboard: three five-completed-month owner comparisons added between
 Developer Comparison and Combined Results: monthly average weekly logged hours,

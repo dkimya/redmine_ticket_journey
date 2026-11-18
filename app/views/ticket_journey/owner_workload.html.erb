@@ -17,7 +17,7 @@
 
   <%= form_tag(ticket_journey_owner_workload_path(@project), method: :get, id: 'query_form') do %>
     <%= hidden_field_tag :support_section, params[:support_section] if params[:support_section].present? %>
-    <%= render partial: 'queries/query_form' %>
+    <%= render 'ticket_journey/report_query_form' %>
 
     <div class="tj-filter-bar tj-owner-filter-bar">
       <div class="tj-filter-form">
@@ -26,7 +26,7 @@
           <%= select_tag :ticket_owner_role_id,
                 options_for_select([['All roles', 'all']] + @owner_roles.map { |role| [role.name, role.id] }, @selected_owner_role_option),
                 class: 'tj-input',
-                onchange: 'this.form.submit();' %>
+                onchange: 'this.form.requestSubmit();' %>
         </div>
         <div class="tj-filter-group tj-flow-filter-note">
           <span>This report always summarizes currently open issues by Ticket Owner. If the Status filter is Any or Closed, closed issues are still excluded from workload counts. Age is counted from issue creation date.</span>

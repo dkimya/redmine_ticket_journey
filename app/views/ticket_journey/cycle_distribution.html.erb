@@ -16,7 +16,7 @@
 
   <%= form_tag(ticket_journey_cycle_distribution_path(@project), method: :get, id: 'query_form') do %>
     <%= hidden_field_tag :support_section, params[:support_section] if params[:support_section].present? %>
-    <%= render partial: 'queries/query_form' %>
+    <%= render 'ticket_journey/report_query_form' %>
 
     <div class="tj-filter-bar tj-owner-filter-bar">
       <div class="tj-filter-form">
@@ -25,7 +25,7 @@
           <%= select_tag :cycle_group_by,
                 options_for_select(TicketJourneyController::CYCLE_DISTRIBUTION_GROUP_OPTIONS.map { |value, label| [label, value] }, @cycle_group_by),
                 class: 'tj-input',
-                onchange: 'this.form.submit();' %>
+                onchange: 'this.form.requestSubmit();' %>
         </div>
         <div class="tj-filter-group tj-flow-filter-note">
           <span>Status is forced to closed/done for this report, so Ongoing and other open tickets are excluded. Cycle time is measured from first In Progress to terminal Done / Archived, excluding paused time.</span>

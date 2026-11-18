@@ -8,6 +8,7 @@
   <%= form_tag performance_dashboard_path(@project), method: :get, class: 'periodic-detail-options' do %>
     <% performance_detail_params.except(:group_by).each do |key, value| %><% Array(value).each do |item| %><%= hidden_field_tag(key == :owner_ids ? 'owner_ids[]' : key, item, id: nil) %><% end %><% end %>
     <%= label_tag :group_by, 'Group by' %><%= select_tag :group_by, options_for_select([['None', ''], ['Project', 'project'], ['Tracker', 'tracker'], ['Current Owner', 'owner'], ['Status at RED', 'status']], @group_by) %><%= submit_tag 'Apply grouping', name: nil %>
+    <%= render 'ticket_journey/report_refresh_status' %>
   <% end %>
   <% if @matching_issue_ids.any? %><p><%= link_to 'Open matching tickets in Issues (current values)', performance_current_issues_path %></p><% end %>
   <% if @detail_rows.empty? %><p class="nodata">No tickets match this metric.</p><% else %>

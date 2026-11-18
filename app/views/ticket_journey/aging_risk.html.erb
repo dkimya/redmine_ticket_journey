@@ -17,7 +17,7 @@
 
   <%= form_tag(ticket_journey_aging_risk_path(@project), method: :get, id: 'query_form') do %>
     <%= hidden_field_tag :support_section, params[:support_section] if params[:support_section].present? %>
-    <%= render partial: 'queries/query_form' %>
+    <%= render 'ticket_journey/report_query_form' %>
 
     <div class="tj-filter-bar tj-owner-filter-bar">
       <div class="tj-filter-form">
@@ -26,14 +26,14 @@
           <%= select_tag :aging_group_by,
                 options_for_select(TicketJourneyController::AGING_RISK_GROUP_OPTIONS.map { |value, label| [label, value] }, @aging_group_by),
                 class: 'tj-input',
-                onchange: 'this.form.submit();' %>
+                onchange: 'this.form.requestSubmit();' %>
         </div>
         <div class="tj-filter-group">
           <label for="aging_calculation">Age Calculation</label>
           <%= select_tag :aging_calculation,
                 options_for_select(TicketJourneyController::AGING_CALCULATION_OPTIONS.map { |value, option| [option[:label], value] }, @aging_calculation),
                 class: 'tj-input',
-                onchange: 'this.form.submit();' %>
+                onchange: 'this.form.requestSubmit();' %>
         </div>
         <div class="tj-filter-group tj-flow-filter-note">
           <span>Uses the Redmine filters above, then summarizes currently open issues by age bucket and risk flags. <%= TicketJourneyController::AGING_CALCULATION_OPTIONS.fetch(@aging_calculation).fetch(:description) %></span>

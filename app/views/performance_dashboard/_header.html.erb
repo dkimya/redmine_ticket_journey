@@ -1,3 +1,4 @@
+  <%= render 'ticket_journey/report_refresh_assets' %>
   <header class="performance-header">
     <%= render 'tabs' %>
     <div class="performance-header-content">
@@ -10,7 +11,9 @@
         <p><%= intro.fetch(@performance_tab) %> <%= format_date(@date) %></p>
       <% end %>
     </div>
-    <% if local_assigns.fetch(:show_filters, true) %>
+    <% if @performance_tab == 'qa' %>
+      <%= render 'qa_filters' if local_assigns.fetch(:show_filters, true) %>
+    <% elsif local_assigns.fetch(:show_filters, true) %>
     <%= form_tag performance_dashboard_path(@project), method: :get, class: 'performance-filters' do %>
       <%= hidden_field_tag :dashboard_type, @dashboard_type if @dashboard_type == 'periodic' %>
       <%= hidden_field_tag :tab, @performance_tab unless @performance_tab == 'tickets' %>
@@ -29,7 +32,7 @@
       <div class="performance-owner-field"><%= label_tag :owner_id, 'Ticket Owner(s)', id: 'performance-owner-label' %><%= select_tag 'owner_ids[]', options_for_select(owner_options, @selected_owner_ids), id: 'owner_id', multiple: true, size: 4, required: true, data: { performance_owner_picker: true } %><small class="performance-owner-fallback">Use Ctrl/Cmd to select multiple owners.</small></div>
       <div>
         <%= submit_tag 'Apply', name: nil %>
-        <span class="performance-refresh-status" role="status" data-performance-refresh-status></span>
+        <%= render 'ticket_journey/report_refresh_status' %>
       </div>
     <% end %>
     <% end %>

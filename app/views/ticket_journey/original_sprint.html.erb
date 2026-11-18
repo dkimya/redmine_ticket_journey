@@ -16,7 +16,7 @@
 
   <%= form_tag(ticket_journey_original_sprint_path(@project), method: :get, id: 'query_form') do %>
     <%= hidden_field_tag :support_section, params[:support_section] if params[:support_section].present? %>
-    <%= render partial: 'queries/query_form' %>
+    <%= render 'ticket_journey/report_query_form' %>
   <% end %>
 
   <% if !@query.valid? %>

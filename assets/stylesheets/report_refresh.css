@@ -1,0 +1,23 @@
+.report-refresh-status:not(:empty) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  color: #17365d;
+}
+
+.report-refresh-status:not(:empty)::before {
+  content: "";
+  flex: 0 0 12px;
+  height: 12px;
+  border: 2px solid #bfd4e7;
+  border-top-color: #0072b2;
+  border-radius: 50%;
+  animation: report-refresh-spin .8s linear infinite;
+}
+
+@keyframes report-refresh-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .report-refresh-status::before { animation: none; }
+}

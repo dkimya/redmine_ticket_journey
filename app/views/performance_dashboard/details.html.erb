@@ -29,6 +29,7 @@
     <%= label_tag :group_by, 'Group by' %>
     <%= select_tag :group_by, options_for_select([['None', ''], ['Project', 'project'], ['Tracker', 'tracker'], ['Ticket Owner (current)', 'owner'], ['Status (as of date)', 'status']], @group_by) %>
     <%= submit_tag 'Apply Options', name: nil %>
+    <%= render 'ticket_journey/report_refresh_status' %>
   <% end %>
 </details>
 <p>Click a sortable column heading to sort <%= @group_by ? 'within the selected groups' : 'across the whole list' %>. Sorting and grouping apply before pagination; missing values stay last. Group totals, when enabled, cover all pages.</p>

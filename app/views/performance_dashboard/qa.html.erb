@@ -1,22 +1,11 @@
 <% html_title 'Performance', 'QA / Testers' %>
 <% content_for :header_tags do %>
   <%= stylesheet_link_tag 'performance', plugin: 'redmine_ticket_journey' %>
+  <%= javascript_include_tag 'performance_navigation', plugin: 'redmine_ticket_journey', defer: true %>
 <% end %>
 
 <div class="performance-page">
-  <%= render 'header', page_title: 'QA / Testers', show_filters: false %>
-  <%= form_tag performance_dashboard_path(@project), method: :get, class: 'performance-filters' do %>
-    <%= hidden_field_tag :tab, 'qa' %>
-    <%= hidden_field_tag :dashboard_type, @dashboard_type %>
-    <%= hidden_field_tag :calculate, '1' %>
-    <% if @period_start %>
-      <div><%= label_tag :rsd, 'Report Start Date' %><%= date_field_tag :rsd, @period_start.iso8601, max: Date.current.iso8601, required: true %></div>
-      <div><%= label_tag :red, 'Report End Date' %><%= date_field_tag :red, @period_end.iso8601, max: Date.current.iso8601, required: true %></div>
-    <% else %>
-      <div><%= label_tag :as_of, 'As of Date' %><%= date_field_tag :as_of, @date.iso8601, max: Date.current.iso8601, required: true %></div>
-    <% end %>
-    <%= submit_tag 'Apply', name: nil %>
-  <% end %>
+  <%= render 'header', page_title: 'QA / Testers' %>
 
   <p class="performance-context">QA team pilot · <%= @period_start ? 'Tickets completed in the reporting period' : 'Open tickets at the end of the selected date' %> · Visible tickets in this project and its subprojects.</p>
   <% if (report = @qa_report) %>
@@ -37,17 +26,32 @@
         <p>Scored points <strong><%= performance_number(scored_points) %></strong> · Pilot results</p>
       </div>
       <% unless report.detected_field %><p>Bug credit is unavailable until there is one issue custom field named Detected By.</p><% end %>
-      <p><%= pending %> potential false pass events need data review. <%= escapes.count { |row| row[:escape_points].nil? } %> Test Escape Bugs lack weight or a confirmed source actor. <%= caught.count { |row| row[:credit].nil? } %> QA Bugs lack usable weight.</p>
+      <% pending_escapes = escapes.count { |row| row[:escape_points].nil? } %>
+      <p>
+        False-pass events pending review: <%= pending %>.
+        Test Escape Bugs pending scoring: <%= pending_escapes %>
+        <% if pending_escapes.positive? %>
+          (<%= escapes.count { |row| row[:weight].nil? } %> without usable CW,
+          <%= escapes.count { |row| row[:escape_actor].nil? } %> without a confirmed source actor; some may have both).
+        <% else %>.<% end %>
+        QA Bugs without usable CW: <%= caught.count { |row| row[:credit].nil? } %>.
+      </p>
     </section>
 
     <% unless @period_start %>
       <details open class="performance-section" id="qa-queue">
-        <summary>Live QA queue</summary>
-        <table class="list"><thead><tr><th>Ticket</th><th>Step</th><th>Working days in step</th></tr></thead><tbody>
-          <% report.queue.each do |row| %>
-            <tr><td><%= link_to_issue(row[:issue]) %></td><td><%= row[:status] %></td><td><%= row[:age] || 'N/A' %></td></tr>
-          <% end %>
-        </tbody></table>
+        <summary>Live QA queue (<%= report.queue.size %>)</summary>
+        <% if report.queue.empty? %>
+          <p class="nodata">No tickets are in Feedback or Final Check for this date.</p>
+        <% else %>
+          <div class="performance-qa-queue" role="region" aria-label="QA queue, oldest in step first" tabindex="0">
+            <table class="list"><thead><tr><th scope="col">Ticket</th><th scope="col">Step</th><th scope="col" aria-sort="descending">Working days in step</th></tr></thead><tbody>
+              <% report.queue.sort_by { |row| [row[:age] ? -row[:age] : Float::INFINITY, row[:issue].id] }.each do |row| %>
+                <tr><td><%= link_to_issue(row[:issue]) %></td><td><%= row[:status] %></td><td><%= row[:age] || 'N/A' %></td></tr>
+              <% end %>
+            </tbody></table>
+          </div>
+        <% end %>
       </details>
     <% end %>
 
@@ -107,6 +111,7 @@
                   <%= label_tag "qa-reason-#{event[:id]}", 'Reason for correction' %>
                   <%= text_area_tag :reason, '', id: "qa-reason-#{event[:id]}", required: true, maxlength: 1000 %>
                   <%= submit_tag 'Save correction', name: nil %>
+                  <%= render 'ticket_journey/report_refresh_status', message: 'Saving correction…' %>
                 <% end %>
               </details>
             <% end %>
@@ -120,7 +125,7 @@
       <h3>QA testing time</h3>
       <% if report.activity_configured %>
         <p>Visible Work: <%= performance_number(report.time[:work]) %> h · Visible Rework: <%= performance_number(report.time[:rework]) %> h</p>
-        <p>Work includes testing logged on the first return's work date. <%= report.time_unavailable %> scoped tickets lack time-view permission. Other visibility rules may limit these totals.</p>
+        <p>Visible testing hours on scoped tickets through the report cutoff<%= ', including hours logged before the report start' if @period_start %>. Work includes testing logged on the first return's work date. <%= report.time_unavailable %> scoped tickets lack time-view permission. Other visibility rules may limit these totals.</p>
       <% else %>
         <p>Testing time is unavailable. The Test / QA / Feedback activity could not be found.</p>
       <% end %>

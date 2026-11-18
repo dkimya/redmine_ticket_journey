@@ -16,13 +16,13 @@
 
   <%= form_tag(ticket_journey_pmo_control_path(@project), method: :get, id: 'query_form') do %>
     <%= hidden_field_tag :support_section, params[:support_section] if params[:support_section].present? %>
-    <%= render partial: 'queries/query_form' %>
+    <%= render 'ticket_journey/report_query_form' %>
 
     <div class="tj-filter-bar tj-owner-filter-bar">
       <div class="tj-filter-form">
         <div class="tj-filter-group">
           <label for="stale_days">No Update Threshold</label>
-          <%= number_field_tag :stale_days, @data_quality_stale_days, min: 1, class: 'tj-input tj-small-number-input', onchange: 'this.form.submit();' %>
+          <%= number_field_tag :stale_days, @data_quality_stale_days, min: 1, class: 'tj-input tj-small-number-input', onchange: 'this.form.requestSubmit();' %>
         </div>
         <div class="tj-filter-group tj-flow-filter-note">
           <span>Default view focuses on planned active tickets. Redmine filters above can narrow the base, then the report combines ticket health, SLA risk, release readiness, bug health, and data discipline signals.</span>
