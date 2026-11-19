@@ -425,8 +425,14 @@
   border-collapse:collapse;
   border:2px solid #9aabba;
 }
-.performance-work-rework-phase-table .performance-work-rework-group-start > :is(th,td){
+.periodic-time-page .performance-work-rework-phase-table .performance-work-rework-group-start > :is(th,td){
   border-top:2px solid #9aabba;
+}
+/* Collapsed borders can take the preceding row header's bottom edge. */
+.periodic-time-page .performance-work-rework-phase-table tr:has(+ .performance-work-rework-group-start) > th,
+.periodic-time-page .performance-work-rework-phase-table tbody:has(+ .performance-work-rework-owner-totals) > tr:last-child > th,
+.periodic-time-page .performance-work-rework-owner-totals > tr:last-child > th{
+  border-bottom:2px solid #9aabba;
 }
 .periodic-time-page .performance-work-rework-phase-table tr > :last-child{
   font-weight:bold;
