@@ -4,6 +4,11 @@
     document.querySelectorAll('[data-performance-owner-picker]').forEach(function (select) {
       if (select.dataset.enhanced) return;
       select.dataset.enhanced = 'true';
+      var itemName = select.dataset.pickerItem || 'owner';
+      var groupName = select.dataset.pickerGroup || 'Ticket Owners';
+      var emptyLabel = select.dataset.pickerEmptyLabel || 'Select owners';
+      var required = select.required;
+      var fieldLabel = select.labels[0];
       function element(tag, className, text) {
         var node = document.createElement(tag);
         if (className) node.className = className;
@@ -13,13 +18,16 @@
       var wrapper = element('div', 'performance-owner-picker');
       var dropdown = element('details', 'performance-owner-dropdown');
       var summary = element('summary', 'performance-owner-trigger');
-      summary.id = 'performance-owner-trigger';
-      summary.setAttribute('aria-labelledby', 'performance-owner-label performance-owner-trigger');
+      summary.id = select.id + '-trigger';
+      if (fieldLabel) {
+        if (!fieldLabel.id) fieldLabel.id = select.id + '-label';
+        summary.setAttribute('aria-labelledby', fieldLabel.id + ' ' + summary.id);
+      }
       var panel = element('div', 'performance-owner-panel');
       var search = element('input', 'performance-owner-search');
       search.type = 'search';
-      search.placeholder = 'Search owners…';
-      search.setAttribute('aria-label', 'Search Ticket Owners');
+      search.placeholder = 'Search ' + itemName + 's…';
+      search.setAttribute('aria-label', 'Search ' + groupName);
       var actions = element('div', 'performance-owner-actions');
       function button(text) { var node = element('button', '', text); node.type = 'button'; return node; }
       var selectAll = button('Select all filtered');
@@ -27,13 +35,13 @@
       actions.append(selectAll, clear);
       var list = element('div', 'performance-owner-options');
       list.setAttribute('role', 'group');
-      list.setAttribute('aria-label', 'Ticket Owners');
-      var empty = element('p', 'performance-owner-empty', 'No matching owners.');
+      list.setAttribute('aria-label', groupName);
+      var empty = element('p', 'performance-owner-empty', 'No matching ' + itemName + 's.');
       var chips = element('div', 'performance-owner-chips');
       var status = element('p', 'performance-owner-status');
       status.setAttribute('role', 'status');
       var error = element('p', 'performance-owner-error');
-      error.id = 'performance-owner-error';
+      error.id = select.id + '-error';
       error.setAttribute('role', 'alert');
       summary.setAttribute('aria-describedby', error.id);
       var items = Array.from(select.options).map(function (option) {
@@ -52,8 +60,8 @@
           item.option.selected = item.checkbox.checked;
           return item.checkbox.checked;
         });
-        summary.textContent = selected.length ? selected.length + ' owner' + (selected.length === 1 ? '' : 's') + ' selected' : 'Select owners';
-        status.textContent = selected.length + ' selected';
+        summary.textContent = selected.length ? selected.length + ' ' + itemName + (selected.length === 1 ? '' : 's') + ' selected' : emptyLabel;
+        status.textContent = summary.textContent;
         error.textContent = '';
         summary.removeAttribute('aria-invalid');
         selected.forEach(function (item) {
@@ -109,7 +117,7 @@
         if (!wrapper.contains(event.target)) dropdown.open = false;
       });
       select.form.addEventListener('submit', function (event) {
-        if (!items.some(function (item) { return item.checkbox.checked; })) {
+        if (required && !items.some(function (item) { return item.checkbox.checked; })) {
           event.preventDefault();
           error.textContent = 'Select at least one Ticket Owner.';
           summary.setAttribute('aria-invalid', 'true');
@@ -123,8 +131,8 @@
       select.after(wrapper);
       select.hidden = true;
       select.required = false; // Custom validation focuses the visible picker.
-      select.parentElement.querySelector('.performance-owner-fallback').hidden = true;
-      document.getElementById('performance-owner-label').htmlFor = summary.id;
+      var fallback = select.parentElement.querySelector('.performance-owner-fallback');
+      if (fallback) fallback.hidden = true;
       sync();
       filter();
     });

@@ -9,11 +9,12 @@
     <div><%= label_tag :as_of, 'As of Date' %><%= date_field_tag :as_of, @date.iso8601, max: Date.current.iso8601, required: true %></div>
   <% end %>
   <% if @qa_testers.any? %>
-    <div>
-      <%= label_tag :qa_tester_ids, 'Tester' %>
+    <div class="performance-owner-field">
+      <%= label_tag :qa_tester_ids, 'Tester(s)' %>
       <%= select_tag 'tester_ids[]', options_for_select(@qa_testers.map { |tester| [tester.name, tester.id] }, @qa_tester_ids),
-        id: 'qa_tester_ids', multiple: true, size: 3, aria: { describedby: 'qa-tester-filter-help' } %>
-      <small id="qa-tester-filter-help">No selection shows the full QA team. Use Ctrl/Cmd to select or clear testers.</small>
+        id: 'qa_tester_ids', multiple: true, size: 3, aria: { describedby: 'qa-tester-filter-help' },
+        data: { performance_owner_picker: true, picker_item: 'tester', picker_group: 'Testers', picker_empty_label: 'All testers' } %>
+      <small id="qa-tester-filter-help" class="performance-owner-fallback">No selection shows the full QA team. Use Ctrl/Cmd to select or clear testers.</small>
     </div>
   <% else %>
     <p>No active users with a QA or QA-L2 role in this project or its visible subprojects.</p>
