@@ -6,7 +6,7 @@
   <% shared_target = targets.first if targets.uniq.one? %>
   <div class="autoscroll">
     <svg class="performance-trend-chart performance-leaderboard-chart" viewBox="0 0 860 285" role="img" aria-labelledby="report-month-chart-title">
-      <title id="report-month-chart-title">Report Month — Delivered + Open · <%= report_range %></title>
+      <title id="report-month-chart-title">Current Month (Done &amp; Open) · <%= report_range %></title>
       <defs>
         <% entries.each do |entry| %>
           <% owner = entry[:owner] %>
@@ -16,7 +16,7 @@
           </pattern>
         <% end %>
       </defs>
-      <text x="90" y="18" class="performance-report-month-title">Report Month — Delivered + Open</text>
+      <text x="430" y="18" text-anchor="middle" class="performance-leaderboard-plot-title">Current Month (Done &amp; Open)</text>
       <% geometry[:ticks].each do |tick| %>
         <% y = 235 - height_for.call(tick) %>
         <line class="performance-trend-grid" x1="90" x2="770" y1="<%= y %>" y2="<%= y %>" />

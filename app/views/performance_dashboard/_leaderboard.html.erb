@@ -22,6 +22,9 @@
   <div class="autoscroll">
     <svg class="performance-trend-chart performance-leaderboard-chart" viewBox="0 0 860 285" role="img" aria-labelledby="leaderboard-title leaderboard-description">
       <title id="leaderboard-title"><%= @return_mode ? 'Individual owner return ratios' : 'Individual owner monthly complexity point delivery' %></title>
+      <% unless @return_mode %>
+        <text x="430" y="18" text-anchor="middle" class="performance-leaderboard-plot-title">Last 5 Months (Done Tasks)</text>
+      <% end %>
       <desc id="leaderboard-description">One line per owner. Missing points are not joined. Exact monthly values and contributing counts appear in the expandable table below. Legend buttons control line visibility only.</desc>
       <% geometry[:ticks].each do |tick| %>
         <% y = 235 - tick / geometry[:maximum] * 200 %>

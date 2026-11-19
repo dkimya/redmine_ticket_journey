@@ -314,7 +314,15 @@
   min-width:0;
 }
 .performance-leaderboard-report-month p{margin:6px 0}
-.performance-report-month-title{font-weight:bold}
+/* Match the 90-unit left inset of the 860-unit SVG plot. */
+.performance-leaderboard-report-month > p,
+.performance-leaderboard-report-month > .performance-trend-values{
+  margin-inline-start:10.465%;
+}
+.performance-trend-chart .performance-leaderboard-plot-title{
+  font-size:16px;
+  font-weight:bold;
+}
 .performance-report-month-swatch{
   display:inline-block;
   width:12px;
