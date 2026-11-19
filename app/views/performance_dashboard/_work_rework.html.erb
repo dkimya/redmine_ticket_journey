@@ -19,13 +19,20 @@
         <thead><tr><th scope="col">Logged effort</th><% columns.each do |phase| %><th scope="col"><%= calculator::PHASE_LABELS.fetch(phase, 'Total') %></th><% end %></tr></thead>
         <tbody>
           <% total_label = @periodic_time ? 'All Contributors’ Hours on Completed Tickets' : 'Total visible hours' %>
-          <% { work: 'Work', rework: 'Rework', nil => total_label }.each do |kind, label| %>
+          <% hour_rows = { work: 'Work', rework: 'Rework' } %>
+          <% hour_rows[:unknown] = 'Pending classification' if @periodic_time %>
+          <% hour_rows.merge(nil => total_label).each do |kind, label| %>
             <tr><th scope="row"><%= label %></th><% columns.each do |phase| %><td><%= hours.call(time_visible ? calculator.total(summary, kind, phase) : nil) %></td><% end %></tr>
           <% end %>
-          <tr><th scope="row">Rework %</th><% columns.each do |phase| %><td><%= percent.call(calculator.rework_percent(summary, phase)) %></td><% end %></tr>
+          <% if @periodic_time %>
+            <tr><th scope="row">Classified hours (Work + Rework)</th><% columns.each do |phase| %><td><%= hours.call(time_visible ? calculator.classified_hours(summary, phase) : nil) %></td><% end %></tr>
+          <% end %>
+          <tr><th scope="row"><%= @periodic_time ? 'Rework % (Rework ÷ classified hours)' : 'Rework %' %></th><% columns.each do |phase| %><td><%= percent.call(calculator.rework_percent(summary, phase)) %></td><% end %></tr>
+          <% average_formulas = { count: "Total hours ÷ #{pluralize(summary[:count], 'ticket')}",
+                                  weight: summary[:missing_weight].zero? ? "Total hours ÷ #{performance_number(summary[:weight])} CW" : 'Requires usable CW on every ticket' } %>
           <% { count: 'Average hours per ticket', weight: 'Average hours per CW' }.each do |denominator, label| %>
             <% available = summary[:unavailable].zero? && summary[denominator].positive? && (denominator != :weight || summary[:missing_weight].zero?) %>
-            <tr><th scope="row"><%= label %></th><% columns.each do |phase| %>
+            <tr><th scope="row"><%= label %><% if @periodic_time %><br><small><%= average_formulas.fetch(denominator) %></small><% end %></th><% columns.each do |phase| %>
               <td><%= hours.call(available ? calculator.total(summary, nil, phase) / summary[denominator] : nil) %></td>
             <% end %></tr>
           <% end %>
@@ -36,8 +43,23 @@
         <p>Of the <strong><%= hours.call(calculator.total(summary)) %></strong> on these completed tickets,
           <%= @selected_owners.first.name %> logged <strong><%= hours.call(summary[:owner_hours_in_period]) %></strong> within the report period
           and <strong><%= hours.call(summary[:owner_hours] - summary[:owner_hours_in_period]) %></strong> before it.
-          Other contributors logged <strong><%= hours.call([calculator.total(summary) - summary[:owner_hours], 0.0].max) %></strong> through the report end date.
-          Only the owner’s in-period hours also count toward Owner Hours Logged in the Report Period.</p>
+          Other contributors logged <strong><%= hours.call([calculator.total(summary) - summary[:owner_hours], 0.0].max) %></strong> through the report end date.</p>
+      <% end %>
+      <% if @periodic_time %>
+        <% owner_report = @periodic_time_owners.first[:report] %>
+        <% period_hours = owner_report[:metrics].fetch('total_hours') %>
+        <% total = period_hours[:actual] %>
+        <p><strong>Owner Hours Logged in the Report Period</strong><br>
+          <% if total.nil? %>
+            N/A
+          <% else %>
+            <% completed_ids = owner_report[:tickets][:sets].fetch('actual').map { |row| row[:id] }.to_set %>
+            <% on_completed, on_other = period_hours[:rows].partition { |row| completed_ids.include?(row[:id]) } %>
+            <%= hours.call(on_completed.sum { |row| row[:personal_hours] }) %> on these completed tickets
+            + <%= hours.call(on_other.sum { |row| row[:personal_hours] }) %> on other in-scope tickets
+            = <strong><%= periodic_time_link(hours.call(total), 'total_hours') %></strong>
+          <% end %>
+        </p>
       <% end %>
     <% else %>
       <table class="list">
@@ -88,6 +110,6 @@
       </table></div>
     </details>
   <% end %>
-  <p>Rework % divides rework hours by classified work plus rework hours. Pending hours with a known phase count in that phase’s total. The overall total also includes hours still pending a phase. Missing time access makes ratios and averages unavailable. Time-entry visibility can also limit totals. Hours per CW requires usable weights for every ticket.</p>
+  <p>Rework % divides rework hours by classified work plus rework hours. Pending hours with a known phase count in that phase’s total. The overall total also includes hours still pending a phase. <% if @periodic_time && @selected_owners.one? %>Calculations use unrounded hours. Displayed values can differ slightly when added or divided. <% end %>Missing time access makes ratios and averages unavailable. Time-entry visibility can also limit totals. Hours per CW requires usable weights for every ticket.</p>
   <%= render 'work_rework_trend' if @work_rework_months.any? %>
 </section>

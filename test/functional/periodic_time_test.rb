@@ -36,6 +36,9 @@ class PeriodicTimeTest < ActionController::TestCase
     assert_equal 3.0, report[:metrics]['other_hours'][:actual]
     assert_equal 3.0, report[:metrics]['other_hours'][:extra_hours]
     assert_equal 7.0, report[:breakdown].values.sum
+    assert_select '.performance-work-rework-phase-table th', text: 'Pending classification'
+    assert_select '.performance-work-rework-phase-table th', text: 'Classified hours (Work + Rework)'
+    assert_select 'p', text: /4 h on these completed tickets\s*\+ 3 h on other in-scope tickets\s*= 7 h/
     assert_select '.periodic-time-kpi', count: 8
     assert_select '.periodic-time-trend', minimum: 5
     assert_select '.periodic-summary details[open]', count: 0

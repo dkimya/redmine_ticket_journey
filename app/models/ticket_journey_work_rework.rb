@@ -121,10 +121,14 @@ class TicketJourneyWorkRework
     buckets.sum { |bucket| kind ? bucket.fetch(kind) : bucket.values.sum }
   end
 
+  def self.classified_hours(summary, phase = nil)
+    total(summary, :work, phase) + total(summary, :rework, phase)
+  end
+
   def self.rework_percent(summary, phase = nil)
     return if summary[:unavailable].positive?
 
-    classified = total(summary, :work, phase) + total(summary, :rework, phase)
+    classified = classified_hours(summary, phase)
     100.0 * total(summary, :rework, phase) / classified if classified.positive?
   end
 end

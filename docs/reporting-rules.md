@@ -46,6 +46,8 @@ hours booked to the owner during the period, hours booked to the owner before
 the period, and other contributors’ hours through the report end date. The
 owner’s in-period portion also contributes to Owner Hours Logged in the Report
 Period, which covers the owner's visible in-period hours across scoped tickets.
+The report reconciles this metric by splitting its entries between the completed
+ticket set and all other in-scope tickets.
 
 Each qualifying Return Count event captures the statuses previously reached on
 that ticket. Later hours in one of those statuses count as rework. First visits
@@ -61,9 +63,11 @@ Work / Rework for these activities. Hours with a known phase but ambiguous work
 type contribute to the phase total and remain pending
 Work / Rework classification. The expandable review shows the saved activity
 and any hours still pending a phase.
-Rework percentage uses classified work plus rework hours. Visible totals include
-Unclassified. Permission gaps suppress averages and percentages. Hours per CW
-requires usable weights on the whole population.
+Rework percentage divides rework hours by classified work plus rework hours.
+Visible totals and both averages include pending hours. The single-owner Periodic
+table displays classified and pending hours separately and labels the ticket and
+CW denominators. Permission gaps suppress averages and percentages. Hours per
+CW requires usable weights on the whole population.
 
 ## Live Time individual-owner leaderboard trends
 
