@@ -417,6 +417,10 @@
 .performance-work-rework-phase-table{width:100%;table-layout:fixed}
 .performance-work-rework-phase-table .performance-work-rework-row-label{width:28%}
 .performance-work-rework-phase-table th{white-space:normal;overflow-wrap:anywhere}
+.periodic-time-page .performance-work-rework-comparison :is(th,td){
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
 .performance-work-rework-phase-table .performance-work-rework-formula{
   font-size:.85em;
   font-weight:normal;

@@ -81,22 +81,22 @@
         </p>
       <% end %>
     <% else %>
-      <table class="list">
+      <table class="list<%= ' performance-work-rework-comparison' if @periodic_time %>">
         <thead>
           <tr>
             <th scope="col">Owner</th>
             <th scope="col">Tickets</th>
             <th scope="col">Usable CW</th>
-            <th scope="col">Total Logged Time on Tickets</th>
-            <th scope="col">Logged Time by Owner on These Tickets</th>
+            <th scope="col">Total Logged Time<% if @periodic_time %><br><% else %> <% end %>on Tickets</th>
+            <th scope="col">Logged Time by Owner<% if @periodic_time %><br><% else %> <% end %>on These Tickets</th>
             <th scope="col">Rework %</th>
-            <th scope="col"><%= @periodic_time ? 'All Contributors’ Average Hours per Ticket' : 'Average Hours per Ticket' %></th>
-            <th scope="col"><%= @periodic_time ? 'All Contributors’ Average Hours per CW' : 'Average Hours per CW' %></th>
+            <th scope="col"><% if @periodic_time %>All Contributors’<br><% end %>Average Hours per Ticket</th>
+            <th scope="col"><% if @periodic_time %>All Contributors’<br><% end %>Average Hours per CW</th>
             <% if @periodic_time %>
-              <th scope="col">Owner’s Average Hours per Ticket</th>
-              <th scope="col">Owner’s Average Hours per CW</th>
+              <th scope="col">Owner’s Average<br>Hours per Ticket</th>
+              <th scope="col">Owner’s Average<br>Hours per CW</th>
             <% end %>
-            <th scope="col">Tickets Without Time Access</th>
+            <th scope="col">Tickets Without<% if @periodic_time %><br><% else %> <% end %>Time Access</th>
           </tr>
         </thead>
         <tbody><% @selected_owners.each do |owner| %>
