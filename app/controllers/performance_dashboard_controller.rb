@@ -369,9 +369,14 @@ class PerformanceDashboardController < ApplicationController
     cutoff = qa_filters
     return render_404 unless cutoff
 
+    members = Member.joins(:member_roles).where(project_id: performance_project_ids,
+      member_roles: { role_id: Role.where(name: 'Tester').select(:id) })
+    @qa_testers = alphabetical_owners(User.active.where(id: members.select(:user_id)))
+    return render_404 unless (@qa_tester_ids - @qa_testers.map(&:id)).empty?
+
     if params[:calculate] == '1'
       @qa_report = TicketJourneyQaReport.new(project_ids: performance_project_ids, user: User.current,
-        finish: cutoff, start: @period_start).calculate
+        finish: cutoff, start: @period_start, tester_ids: @qa_tester_ids).calculate
       @qa_correctable_projects = @qa_report.returns.map { |row| row[:issue] }.uniq(&:project_id)
         .select { |issue| qa_correction_allowed?(issue) }.map(&:project_id).to_set
       actors = @qa_report.bugs.flat_map { |row| [row[:finder_id], row[:escape_actor]] }
@@ -391,6 +396,11 @@ class PerformanceDashboardController < ApplicationController
 
     @selected_owner_ids = []
     @qa_params = { tab: 'qa', dashboard_type: @dashboard_type, calculate: '1', as_of: @date.iso8601 }
+    tester_ids = Array(params[:tester_ids]).reject(&:blank?)
+    return unless tester_ids.all? { |id| id.to_s.match?(/\A[1-9]\d*\z/) }
+
+    @qa_tester_ids = tester_ids.map(&:to_i).uniq
+    @qa_params[:tester_ids] = @qa_tester_ids if @qa_tester_ids.any?
     return @date if @dashboard_type == 'live'
 
     @period_end = params[:red].present? ? Date.iso8601(params[:red]) : @date

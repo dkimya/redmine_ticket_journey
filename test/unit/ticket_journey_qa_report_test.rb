@@ -34,6 +34,24 @@ class TicketJourneyQaReportTest < ActiveSupport::TestCase
     assert_equal({ work: 5.0, rework: 4.0 }, TicketJourneyQaReport.test_time(entries, day.in_time_zone))
   end
 
+  test 'filtering a Bug that was both found and escaped keeps each score with its actor' do
+    report = TicketJourneyQaReport.allocate
+    report.instance_variable_set(:@tester_ids, Set[4])
+    report.instance_variable_set(:@detected_field, stub(id: 76))
+    report.instance_variable_set(:@bugs, [])
+    row = { issue: stub(author_id: 3), status: 'New', weight: 5 }
+    values = { 76 => 'QA', TicketJourneyController::BUG_SOURCE_CF_ID => 'Test Escape' }
+
+    report.send(:add_bug, row, values, 4)
+    bug = report.bugs.sole
+    assert_equal [false, nil, true, -10], bug.values_at(:qa_find, :credit, :escape, :escape_points)
+
+    report.instance_variable_set(:@tester_ids, Set[3])
+    report.bugs.clear
+    report.send(:add_bug, row, values, 4)
+    assert_equal [true, 5, false, nil], report.bugs.sole.values_at(:qa_find, :credit, :escape, :escape_points)
+  end
+
   private
 
   def change(id, from, to, actor: nil, reason: nil)

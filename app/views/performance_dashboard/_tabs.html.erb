@@ -3,6 +3,7 @@
   <% [['live', 'Live Dashboard'], ['periodic', 'Periodic Report']].each do |key, label| %>
     <% context = performance_owner_params.merge(as_of: @date.iso8601) %>
     <% context[:tab] = @performance_tab unless @performance_tab == 'tickets' %>
+    <% context[:tester_ids] = @qa_tester_ids if @performance_tab == 'qa' && @qa_tester_ids.present? %>
     <% context[:dashboard_type] = key unless key == 'live' %>
     <% context.merge!(rsd: @period_start.iso8601, red: @period_end.iso8601) if key == 'periodic' && @period_start && @period_end %>
     <%= link_to performance_dashboard_path(@project, **context), class: "performance-tab#{' is-active' if @dashboard_type == key}", title: (key == 'live' ? 'View a dashboard snapshot at the selected As of Date; this page does not automatically refresh.' : 'Tickets and Returns rules are confirmed. Reviewed Time formulas are applied; activity mapping, targets and trend presentation are described in the page notes.'), aria: { current: (@dashboard_type == key ? 'page' : nil) } do %>
@@ -15,6 +16,7 @@
     <% context = performance_owner_params.merge(as_of: @date.iso8601) %>
     <% context[:tab] = key unless key == 'tickets' %>
     <% context.except!(:owner_id, :owner_ids) if key == 'qa' %>
+    <% context[:tester_ids] = @qa_tester_ids if key == 'qa' && @qa_tester_ids.present? %>
     <% context[:dashboard_type] = @dashboard_type if @dashboard_type == 'periodic' %>
     <% context.merge!(rsd: @period_start.iso8601, red: @period_end.iso8601) if @dashboard_type == 'periodic' && @period_start && @period_end %>
     <%= link_to performance_dashboard_path(@project, **context), class: "performance-tab#{' is-active' if @performance_tab == key}", aria: { current: (@performance_tab == key ? 'page' : nil) } do %>

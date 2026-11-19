@@ -9,6 +9,14 @@ scope. Tested CW uses usable current visible weights once per ticket for the tea
 and once per ticket, tester and role for gate verdicts. Status-change actors,
 not current Ticket Owner, determine gate attribution.
 
+The tester filter lists active users with the current Redmine Tester role in
+the selected visible project hierarchy. With a selection, verdicts and false
+passes follow the gate actor, Bug credit follows the Bug creator, escapes
+follow the source closure actor, and testing hours follow the booked user.
+Selected-tester totals count each ticket once. The default full team view
+keeps other historical actors and pending attribution visible. The Live QA
+queue stays shared because the gate history identifies completed activity.
+
 Only a same-journal False QA Pass reason on a return from Review, Ready to Merge
 or Final Check can deduct twice the ticket's CW from the preceding Feedback-to-
 Review actor. Each pass can be charged once. Missing or hidden reasons remain

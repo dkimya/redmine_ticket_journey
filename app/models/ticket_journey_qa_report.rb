@@ -59,8 +59,9 @@ class TicketJourneyQaReport
   attr_reader :queue, :bugs, :returns, :return_reasons, :passes, :tested,
               :time, :time_unavailable, :activity_configured, :detected_field
 
-  def initialize(project_ids:, user:, finish:, start: nil)
+  def initialize(project_ids:, user:, finish:, start: nil, tester_ids: [])
     @user, @start, @finish = user, start, finish
+    @tester_ids = tester_ids.to_set
     @cutoff = finish.in_time_zone.end_of_day
     @statuses = IssueStatus.all.index_by { |status| status.id.to_s }
     @calendar = TicketJourney::WorkingCalendar.new(Setting.plugin_redmine_ticket_journey)
@@ -72,8 +73,12 @@ class TicketJourneyQaReport
     @return_reasons = Hash.new(0)
     @tested = []
     @time = { work: 0.0, rework: 0.0 }
+    @tester_time = Hash.new { |hash, id| hash[id] = { work: 0.0, rework: 0.0 } }
     @time_unavailable = 0
-    @activity_configured = TimeEntryActivity.exists?(name: TEST_ACTIVITY)
+    @activity_ids = TimeEntryActivity.where(name: TEST_ACTIVITY).pluck(:id, :name).filter_map do |id, name|
+      id if name == TEST_ACTIVITY
+    end
+    @activity_configured = @activity_ids.any?
   end
 
   def calculate
@@ -91,7 +96,59 @@ class TicketJourneyQaReport
     TicketJourneyQaCorrection.where(issue_id: ids).order(:id).group_by { |record| [record.issue_id, record.journal_detail_id] }
   end
 
+  def tester_results(ids)
+    results = ids.index_with do |id|
+      @tester_time.fetch(id, { work: 0.0, rework: 0.0 }).merge(passed: 0, caught: 0,
+        false_passes: 0, escapes: 0, points: 0)
+    end
+    @passes.each do |row|
+      row[:actors].each { |id| results[id][:passed] += 1 if results.key?(id) }
+    end
+    @bugs.each do |row|
+      next if REJECTED_BUGS.include?(row[:status])
+
+      finder = results[row[:finder_id]]
+      if row[:qa_find] && finder
+        finder[:caught] += 1
+        finder[:points] += row[:credit].to_f
+      end
+      closer = results[row[:escape_actor]]
+      if row[:escape] && closer
+        closer[:escapes] += 1
+        closer[:points] += row[:escape_points].to_f
+      end
+    end
+    @returns.each do |row|
+      event = row[:event]
+      tester = results[event[:pass][:user_id]]
+      next unless event[:reason] == FALSE_PASS_REASON && tester
+
+      tester[:false_passes] += 1
+      tester[:points] += row[:points].to_f
+    end
+    results
+  end
+
   private
+
+  def tester_in_scope?(id)
+    @tester_ids.empty? || @tester_ids.include?(id)
+  end
+
+  def testing_entries(ids)
+    return {} if !activity_configured || ids.empty?
+
+    scope = TimeEntry.visible(@user).where(issue_id: ids, activity_id: @activity_ids)
+      .where('time_entries.spent_on <= ? AND time_entries.hours >= 0 AND time_entries.hours <= ?', @finish, Float::MAX)
+    scope = scope.where(user_id: @tester_ids.to_a) if @tester_ids.any?
+    entries = Hash.new { |hash, id| hash[id] = {} }
+    scope.group(:issue_id, :user_id, :spent_on).sum(:hours).each do |(issue_id, user_id, day), hours|
+      next unless hours.to_f.finite?
+
+      (entries[issue_id][user_id] ||= []) << [day.to_date, hours.to_f, TEST_ACTIVITY]
+    end
+    entries
+  end
 
   def scan(batch)
     ids = batch.map(&:id)
@@ -108,7 +165,7 @@ class TicketJourneyQaReport
 
       [issue, status, recorded]
     end
-    time_rows = activity_configured ? TicketJourneyPerformanceTime.hours_for(selected.map { |issue, _, _| issue.id }, @finish, by_activity: true) : {}
+    time_rows = testing_entries(selected.map { |issue, _, _| issue.id })
     escape_ids = selected.filter_map do |issue, _, _|
       issue.id if issue.tracker.name == 'Bug' && field_values(fields, issue)[TicketJourneyController::BUG_SOURCE_CF_ID] == 'Test Escape'
     end
@@ -122,10 +179,13 @@ class TicketJourneyQaReport
         entered_at = recorded.last&.fetch(:at) || issue.created_on
         @queue << row.merge(age: @calendar.age(entered_at.in_time_zone.to_date, @finish))
       end
-      if recorded.any? { |change| change[:from] == 'Feedback' && change[:to] == 'Review' }
-        @passes << row
-      end
+      pass_actors = recorded.select do |change|
+        change[:from] == 'Feedback' && change[:to] == 'Review' && tester_in_scope?(change[:user_id])
+      end.map { |change| change[:user_id] }.uniq
+      @passes << row.merge(actors: pass_actors) if pass_actors.any?
       verdicts = recorded.filter_map do |change|
+        next unless tester_in_scope?(change[:user_id])
+
         if change[:from] == 'Feedback' && %w[Review Returned].include?(change[:to])
           ['QA', change[:user_id]]
         elsif change[:from] == 'Final Check' && (COMPLETED.include?(change[:to]) || change[:to] == 'Returned')
@@ -141,14 +201,19 @@ class TicketJourneyQaReport
         @return_reasons[label || 'Reason unavailable'] += 1
       end
       self.class.false_passes(recorded, reason_visible: reason_visible).each do |event|
+        next unless tester_in_scope?(event[:pass][:user_id])
+
         audit = corrections.fetch([issue.id, event[:id]], [])
         @returns << row.merge(event: event, audit: audit, points: penalty(weight, event, audit))
       end
       add_bug(row, values, sources[issue.id]) if issue.tracker.name == 'Bug'
       if @user.allowed_to?(:view_time_entries, issue.project)
         first_return = recorded.find { |change| change[:to] == 'Returned' }
-        hours = self.class.test_time(time_rows.fetch(issue.id, []), first_return&.fetch(:at))
-        @time.merge!(hours) { |_key, total, extra| total + extra }
+        time_rows.fetch(issue.id, {}).each do |actor, entries|
+          hours = self.class.test_time(entries, first_return&.fetch(:at))
+          @time.merge!(hours) { |_key, total, extra| total + extra }
+          @tester_time[actor].merge!(hours) { |_key, total, extra| total + extra }
+        end
       else
         @time_unavailable += 1
       end
@@ -178,12 +243,16 @@ class TicketJourneyQaReport
 
   def add_bug(row, values, escape_actor)
     detected_by = values[detected_field&.id]
-    escape = values[TicketJourneyController::BUG_SOURCE_CF_ID] == 'Test Escape'
+    finder = row[:issue].author_id
+    qa_find = detected_by == 'QA' && tester_in_scope?(finder)
+    escape = values[TicketJourneyController::BUG_SOURCE_CF_ID] == 'Test Escape' && tester_in_scope?(escape_actor)
+    return if @tester_ids.any? && !qa_find && !escape
+
     eligible = !REJECTED_BUGS.include?(row[:status])
     weight = row[:weight]
-    @bugs << row.merge(detected_by: detected_by, finder_id: row[:issue].author_id,
-      credit: eligible && detected_by == 'QA' && weight ? weight : nil,
-      escape: escape, escape_actor: escape_actor,
+    @bugs << row.merge(detected_by: detected_by, finder_id: qa_find ? finder : nil, qa_find: qa_find,
+      credit: eligible && qa_find && weight ? weight : nil,
+      escape: escape, escape_actor: escape ? escape_actor : nil,
       escape_points: eligible && escape && escape_actor && weight ? -2 * weight : nil)
   end
 

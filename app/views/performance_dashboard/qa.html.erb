@@ -10,15 +10,15 @@
   <p class="performance-context">QA team pilot · <%= @period_start ? 'Tickets completed in the reporting period' : 'Open tickets at the end of the selected date' %> · Visible tickets in this project and its subprojects.</p>
   <% if (report = @qa_report) %>
     <% eligible_bugs = report.bugs.reject { |row| TicketJourneyQaReport::REJECTED_BUGS.include?(row[:status]) } %>
-    <% caught = eligible_bugs.select { |row| row[:detected_by] == 'QA' } %>
+    <% caught = eligible_bugs.select { |row| row[:qa_find] } %>
     <% escapes = eligible_bugs.select { |row| row[:escape] } %>
     <% false_passes = report.returns.select { |row| row[:event][:reason] == TicketJourneyQaReport::FALSE_PASS_REASON } %>
     <% pending = report.returns.count { |row| row[:points].nil? } %>
     <% scored_points = caught.sum { |row| row[:credit].to_f } + escapes.sum { |row| row[:escape_points].to_f } + false_passes.sum { |row| row[:points].to_f } %>
     <section class="performance-section">
-      <h3 class="performance-team-heading">QA team summary</h3>
+      <h3 class="performance-team-heading"><%= @qa_tester_ids.any? ? 'Selected testers summary' : 'QA team summary' %></h3>
       <div class="performance-qa-summary">
-        <% unless @period_start %><p><a href="#qa-queue">Under QA</a> <strong><%= report.queue.size %></strong></p><% end %>
+        <% unless @period_start %><p><a href="#qa-queue">Shared QA queue</a> <strong><%= report.queue.size %></strong></p><% end %>
         <p><a href="#qa-tested">Tickets passed by QA</a> <strong><%= report.passes.size %></strong></p>
         <p><a href="#qa-bugs">Bugs found by QA</a> <strong><%= report.detected_field ? caught.size : 'N/A' %></strong></p>
         <p><a href="#qa-returns">False Test Passes</a> <strong><%= false_passes.size %></strong></p>
@@ -37,6 +37,30 @@
         QA Bugs without usable CW: <%= caught.count { |row| row[:credit].nil? } %>.
       </p>
     </section>
+
+    <% comparison_testers = @qa_tester_ids.empty? ? @qa_testers : @qa_testers.select { |tester| @qa_tester_ids.include?(tester.id) } %>
+    <% if comparison_testers.any? %>
+      <section class="performance-section">
+        <h3>Tester comparison</h3>
+        <p>Current Tester role members. The same ticket can appear for multiple testers. The full team view also includes activity by other users and items pending attribution.</p>
+        <% results = report.tester_results(comparison_testers.map(&:id)) %>
+        <div class="autoscroll"><table class="list">
+          <thead><tr><th scope="col">Tester</th><th scope="col">Tickets passed</th><th scope="col">Bugs found</th><th scope="col">False Test Passes</th><th scope="col">Test Escape Bugs</th><th scope="col">Scored points</th><th scope="col">Visible Work (h)</th><th scope="col">Visible Rework (h)</th></tr></thead>
+          <tbody>
+          <% comparison_testers.each do |tester| %>
+            <% row = results.fetch(tester.id) %>
+            <tr>
+              <th scope="row"><%= link_to tester.name, performance_dashboard_path(@project, **@qa_params.merge(tester_ids: [tester.id])) %></th>
+              <td><%= row[:passed] %></td><td><%= report.detected_field ? row[:caught] : 'N/A' %></td>
+              <td><%= row[:false_passes] %></td><td><%= row[:escapes] %></td><td><%= performance_number(row[:points]) %></td>
+              <td><%= report.activity_configured ? performance_number(row[:work]) : 'N/A' %></td>
+              <td><%= report.activity_configured ? performance_number(row[:rework]) : 'N/A' %></td>
+            </tr>
+          <% end %>
+          </tbody>
+        </table></div>
+      </section>
+    <% end %>
 
     <% unless @period_start %>
       <details open class="performance-section" id="qa-queue">
@@ -58,7 +82,7 @@
     <details class="performance-section" id="qa-tested">
       <summary>Tested tickets and Complexity Weight</summary>
       <% team_weight = report.tested.sum { |row| row[:weight].to_f } %>
-      <p>Team tested CW: <%= performance_number(team_weight) %> across <%= report.tested.size %> distinct tickets. <%= report.tested.count { |row| row[:weight].nil? } %> tickets lack usable CW.</p>
+      <p><%= @qa_tester_ids.any? ? 'Selected testers’' : 'Team' %> tested CW: <%= performance_number(team_weight) %> across <%= report.tested.size %> distinct tickets. <%= report.tested.count { |row| row[:weight].nil? } %> tickets lack usable CW.</p>
       <table class="list"><thead><tr><th>Tester</th><th>Role</th><th>Tickets</th><th>Tested CW</th></tr></thead><tbody>
         <% tester_verdicts = report.tested.flat_map { |row| row[:verdicts].map { |role, actor| [[role, actor], row] } } %>
         <% tester_verdicts.group_by(&:first).each do |(role, actor), entries| %>
@@ -75,8 +99,8 @@
       <table class="list"><thead><tr><th>Bug</th><th>Detected By</th><th>QA finder</th><th>Credit</th><th>Test Escape</th><th>QA-L2 actor</th><th>Penalty</th></tr></thead><tbody>
         <% eligible_bugs.each do |row| %>
           <tr><td><%= link_to_issue(row[:issue]) %></td><td><%= row[:detected_by] || 'Unavailable' %></td>
-            <td><%= @qa_actors[row[:finder_id]]&.name if row[:detected_by] == 'QA' %></td>
-            <td><%= row[:credit] ? performance_number(row[:credit]) : '—' %></td>
+            <td><%= @qa_actors[row[:finder_id]]&.name if row[:qa_find] %></td>
+            <td><%= row[:credit] ? performance_number(row[:credit]) : (row[:qa_find] ? 'CW unavailable' : '—') %></td>
             <td><%= row[:escape] ? 'Yes' : '—' %></td><td><%= @qa_actors[row[:escape_actor]]&.name || ('Review source link or closure' if row[:escape]) %></td>
             <td><%= row[:escape_points] ? performance_number(row[:escape_points]) : '—' %></td></tr>
         <% end %>
@@ -85,7 +109,9 @@
 
     <section class="performance-section" id="qa-returns">
       <h3>False Test Pass review</h3>
-      <p>All return incidents by recorded reason: <%= report.return_reasons.sort.map { |label, count| "#{label}: #{count}" }.join(' · ').presence || 'None' %></p>
+      <% if @qa_tester_ids.empty? %>
+        <p>All return incidents by recorded reason: <%= report.return_reasons.sort.map { |label, count| "#{label}: #{count}" }.join(' · ').presence || 'None' %></p>
+      <% end %>
       <table class="list"><thead><tr><th>Ticket</th><th>Feedback pass</th><th>Return</th><th>Reason</th><th>QA points</th><th>Corrections</th></tr></thead><tbody>
       <% report.returns.each do |row| %>
         <% issue, event, audit = row.values_at(:issue, :event, :audit) %>

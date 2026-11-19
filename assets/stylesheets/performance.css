@@ -542,6 +542,10 @@
   justify-content: flex-start;
 }
 
+.performance-qa-filters select[multiple] {
+  width: min(220px, 100%);
+}
+
 .performance-qa-filters .performance-qa-filter-actions {
   padding-top: 26px;
 }

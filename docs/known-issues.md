@@ -8,6 +8,10 @@ score reconciliation remain unverified. Returns without their own recorded
 reason and escape Bugs without a confirmed source actor remain pending for
 individual scoring.
 
+The Tester role filter and person comparison are implemented locally for both
+QA views. Verify deployed membership, combined ticket deduplication, booked-user
+hours and filtered audit links on a test Redmine host.
+
 Live Time leaderboard: three five-completed-month owner comparisons added between
 Developer Comparison and Combined Results: monthly average weekly logged hours,
 delivered points/all-contributor ticket hours and cumulative own hours/open ticket.
