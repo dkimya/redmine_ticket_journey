@@ -82,16 +82,38 @@
       <% end %>
     <% else %>
       <table class="list">
-        <thead><tr><th scope="col">Owner</th><th scope="col">Tickets</th><th scope="col">Usable CW</th><th scope="col">Total Logged Time on Tickets</th><th scope="col">Logged Time by Owner on These Tickets</th><th scope="col">Rework %</th><th scope="col">Average Hours per Ticket</th><th scope="col">Average Hours per CW</th><th scope="col">Tickets Without Time Access</th></tr></thead>
+        <thead>
+          <tr>
+            <th scope="col">Owner</th>
+            <th scope="col">Tickets</th>
+            <th scope="col">Usable CW</th>
+            <th scope="col">Total Logged Time on Tickets</th>
+            <th scope="col">Logged Time by Owner on These Tickets</th>
+            <th scope="col">Rework %</th>
+            <th scope="col"><%= @periodic_time ? 'All Contributors’ Average Hours per Ticket' : 'Average Hours per Ticket' %></th>
+            <th scope="col"><%= @periodic_time ? 'All Contributors’ Average Hours per CW' : 'Average Hours per CW' %></th>
+            <% if @periodic_time %>
+              <th scope="col">Owner’s Average Hours per Ticket</th>
+              <th scope="col">Owner’s Average Hours per CW</th>
+            <% end %>
+            <th scope="col">Tickets Without Time Access</th>
+          </tr>
+        </thead>
         <tbody><% @selected_owners.each do |owner| %>
           <% summary = @work_rework.fetch(owner.id.to_s); total = calculator.total(summary); available = summary[:unavailable].zero? %>
           <% time_visible = available || summary[:unavailable] < summary[:count] %>
+          <% per_ticket_available = available && summary[:count].positive? %>
+          <% per_cw_available = available && summary[:weight].positive? && summary[:missing_weight].zero? %>
           <tr>
             <th scope="row"><%= owner.name %></th>
             <td><%= summary[:count] %></td><td><%= performance_number(summary[:weight]) %><% if summary[:missing_weight].positive? %> (<%= summary[:missing_weight] %> missing)<% end %></td>
             <td><%= hours.call(time_visible ? total : nil) %></td><td><%= hours.call(time_visible ? summary[:owner_hours] : nil) %></td><td><%= percent.call(calculator.rework_percent(summary)) %></td>
-            <td><%= hours.call(available && summary[:count].positive? ? total / summary[:count] : nil) %></td>
-            <td><%= hours.call(available && summary[:weight].positive? && summary[:missing_weight].zero? ? total / summary[:weight] : nil) %></td>
+            <td><%= hours.call(per_ticket_available ? total / summary[:count] : nil) %></td>
+            <td><%= hours.call(per_cw_available ? total / summary[:weight] : nil) %></td>
+            <% if @periodic_time %>
+              <td><%= hours.call(per_ticket_available ? summary[:owner_hours] / summary[:count] : nil) %></td>
+              <td><%= hours.call(per_cw_available ? summary[:owner_hours] / summary[:weight] : nil) %></td>
+            <% end %>
             <td><%= summary[:unavailable] %></td>
           </tr>
         <% end %></tbody>
