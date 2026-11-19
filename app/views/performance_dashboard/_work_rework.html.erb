@@ -28,17 +28,36 @@
             <tr class="performance-work-rework-group-start"><th scope="row">Classified hours <small class="performance-work-rework-formula">(Work + Rework)</small></th><% columns.each do |phase| %><td><%= hours.call(time_visible ? calculator.classified_hours(summary, phase) : nil) %></td><% end %></tr>
           <% end %>
           <tr><th scope="row">Rework %<% if @periodic_time %> <small class="performance-work-rework-formula">(Rework ÷ classified hours)</small><% end %></th><% columns.each do |phase| %><td><%= percent.call(calculator.rework_percent(summary, phase)) %></td><% end %></tr>
-          <% average_formulas = { count: "Total hours ÷ #{pluralize(summary[:count], 'ticket')}",
-                                  weight: summary[:missing_weight].zero? ? "Total hours ÷ #{performance_number(summary[:weight])} CW" : 'Requires usable CW on every ticket' } %>
+          <% average_denominators = { count: pluralize(summary[:count], 'ticket'),
+                                      weight: "#{performance_number(summary[:weight])} CW" } %>
           <% { count: 'Average hours per ticket', weight: 'Average hours per CW' }.each do |denominator, label| %>
             <% available = summary[:unavailable].zero? && summary[denominator].positive? && (denominator != :weight || summary[:missing_weight].zero?) %>
-            <tr<% if @periodic_time && denominator == :count %> class="performance-work-rework-group-start"<% end %>><th scope="row"><%= label %><% if @periodic_time %><br><small><%= average_formulas.fetch(denominator) %></small><% end %></th><% columns.each do |phase| %>
+            <% formula = denominator == :weight && summary[:missing_weight].positive? ? 'Requires usable CW on every ticket' : "Total hours ÷ #{average_denominators.fetch(denominator)}" %>
+            <tr<% if @periodic_time && denominator == :count %> class="performance-work-rework-group-start"<% end %>><th scope="row"><%= label %><% if @periodic_time %><br><small><%= formula %></small><% end %></th><% columns.each do |phase| %>
               <td><%= hours.call(available ? calculator.total(summary, nil, phase) / summary[denominator] : nil) %></td>
             <% end %></tr>
           <% end %>
         </tbody>
+        <% if @periodic_time %>
+          <tbody class="performance-work-rework-owner-totals">
+            <tr class="performance-work-rework-group-start">
+              <th scope="row">Total Owner Logged Time on Completed Tickets</th>
+              <td colspan="<%= columns.size - 1 %>" rowspan="3">Owner hours across all phases</td>
+              <td><%= hours.call(time_visible ? summary[:owner_hours] : nil) %></td>
+            </tr>
+            <% { count: 'Average Owner’s hours per ticket', weight: 'Average Owner’s hours per CW' }.each do |denominator, label| %>
+              <% missing_weight = denominator == :weight && summary[:missing_weight].positive? %>
+              <% available = summary[:unavailable].zero? && summary[denominator].positive? && !missing_weight %>
+              <% formula = missing_weight ? 'Requires usable CW on every ticket' : "Owner hours ÷ #{average_denominators.fetch(denominator)}" %>
+              <tr>
+                <th scope="row"><%= label %><br><small><%= formula %></small></th>
+                <td><%= hours.call(available ? summary[:owner_hours] / summary[denominator] : nil) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        <% end %>
       </table>
-      <p>Owner-booked hours on these tickets (<%= hours.call(time_visible ? summary[:owner_hours] : nil) %>) · <%= summary[:unavailable] %> tickets without time-view access.</p>
+      <p><% unless @periodic_time %>Owner-booked hours on these tickets (<%= hours.call(time_visible ? summary[:owner_hours] : nil) %>) · <% end %><%= summary[:unavailable] %> tickets without time-view access.</p>
       <% if @periodic_time && time_visible %>
         <p>Of the <strong><%= hours.call(calculator.total(summary)) %></strong> on these completed tickets,
           <%= @selected_owners.first.name %> logged <strong><%= hours.call(summary[:owner_hours_in_period]) %></strong> within the report period
