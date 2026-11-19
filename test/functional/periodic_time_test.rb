@@ -41,13 +41,17 @@ class PeriodicTimeTest < ActionController::TestCase
     assert_select 'p', text: /4 h on these completed tickets\s*\+ 3 h on other in-scope tickets\s*= 7 h/
     assert_select '.periodic-time-kpi', count: 8
     assert_select '.periodic-monthly-efficiency' do
-      assert_select 'button[data-leaderboard-toggle]', count: 0
+      assert_select 'button[data-leaderboard-toggle="planned-cw"][aria-pressed="false"]', count: 1
+      assert_select 'button[data-leaderboard-toggle]', count: 1
       assert_select 'tbody tr', count: 5
       assert_select 'tbody tr:first-child th', text: 'Sep 2019'
       assert_select 'tbody tr:first-child td strong', text: 'N/A'
       assert_select 'tbody tr:last-child th', text: 'Jan 2020'
       assert_select 'tbody tr:last-child td strong', text: '1.25'
       assert_select 'tbody tr:last-child td small', text: '5 CW ÷ 4 h'
+      assert_select 'g.periodic-monthly-plan-line.is-hidden circle', count: 1
+      assert_select 'tbody tr:last-child td .is-hidden[data-leaderboard-series="planned-cw"] b', text: '0.556'
+      assert_select 'tbody tr:last-child td .is-hidden[data-leaderboard-series="planned-cw"] small', text: '5 CW ÷ 9 h'
     end
     assert_select '.periodic-time-trend', minimum: 5
     assert_select '.periodic-summary details[open]', count: 0
@@ -75,7 +79,9 @@ class PeriodicTimeTest < ActionController::TestCase
     assert_select '.periodic-time-owner-trends[open]', count: 0
     assert_select '.periodic-monthly-efficiency' do
       assert_select 'button[data-leaderboard-toggle][aria-pressed="true"]', count: 2
-      assert_select 'g[data-leaderboard-series]', count: 2
+      assert_select 'g[data-leaderboard-series="1"] > g.is-hidden[data-leaderboard-series="planned-cw"]', count: 1
+      assert_select 'g[data-leaderboard-series="2"] > g.is-hidden[data-leaderboard-series="planned-cw"]', count: 1
+      assert_select 'g.performance-trend-series:not([data-leaderboard-series]) > g.is-hidden[data-leaderboard-series="planned-cw"]', count: 1
       assert_select 'p', text: /Team \(always visible\)/
       assert_select 'tbody tr:last-child td:last-child strong', text: '1.25'
     end

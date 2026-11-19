@@ -291,6 +291,10 @@
 .performance-trend-series{stroke:#007bd1;stroke-width:3;fill:#007bd1}
 .performance-trend-series.performance-trend-adjusted{stroke:#b44f25;fill:white}
 .performance-trend-adjusted line{stroke-dasharray:7 5}
+.periodic-monthly-plan-line line{stroke-dasharray:7 5}
+.periodic-monthly-plan-line circle{fill:#fff}
+.periodic-monthly-plan-toggle[aria-pressed="true"] .periodic-monthly-plan-show,
+.periodic-monthly-plan-toggle[aria-pressed="false"] .periodic-monthly-plan-hide{display:none}
 .performance-trend-series circle:focus{outline:2px solid #17365d;outline-offset:4px}
 .performance-trend-values summary{cursor:pointer;color:#0073b7}
 .performance-trend-values table{margin-top:12px}

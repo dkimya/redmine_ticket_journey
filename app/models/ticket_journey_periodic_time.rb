@@ -68,8 +68,12 @@ class TicketJourneyPeriodicTime
     !row[:missing_weight] && row[:estimate] && !hours.nil?
   end
 
-  def self.efficiency_rate(delivered_weight, hours)
-    delivered_weight.to_f / hours if hours&.positive?
+  def self.efficiency_rate(weight, hours)
+    weight.to_f / hours if hours&.positive?
+  end
+
+  def self.efficiency_planned_hours(estimated_hours, owner_share)
+    finite_sum(estimated_hours * owner_share / 100.0) unless owner_share.nil?
   end
 
   def self.finite_sum(value)
@@ -174,9 +178,9 @@ class TicketJourneyPeriodicTime
     delivered_weight = TicketJourneyPerformance.weight(efficiency_rows.select do |row|
       completed_ids.include?(row[:id]) && (!completion_range || row[:delivered_at].between?(*completion_range))
     end)
-    planned_effort = share.nil? ? nil : finite_sum(efficiency_rows.sum { |row| row[:estimate] } * share / 100.0)
+    planned_effort = efficiency_planned_hours(efficiency_rows.sum { |row| row[:estimate] }, share)
     actual_effort = finite_sum(efficiency_rows.sum { |row| personal_hours(row, owner_id, first_day, last_day) })
-    cw_plan = planned_effort && planned_effort.positive? ? expected_weight / planned_effort : nil
+    cw_plan = efficiency_rate(expected_weight, planned_effort)
     cw_actual = efficiency_rate(delivered_weight, actual_effort)
     total_actual = total_available ? sum_logs.call(personal) : nil
     other_rows = logs.fetch('other', [])
@@ -244,7 +248,7 @@ class TicketJourneyPeriodicTime
       elsif key == 'efficiency'
         effort = sum.call(:planned_effort)
         actual_effort = sum.call(:actual_effort)
-        plan = effort && effort.positive? ? sum.call(:expected_weight) / effort : nil
+        plan = efficiency_rate(sum.call(:expected_weight), effort)
         actual = efficiency_rate(sum.call(:delivered_weight), actual_effort)
       end
       entry = metric(plan, actual, METRICS[key][2], values.flat_map { |value| value[:rows] })

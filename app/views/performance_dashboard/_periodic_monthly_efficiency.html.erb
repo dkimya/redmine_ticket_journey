@@ -3,22 +3,38 @@
      [owner.id.to_s, { name: owner.name, color: performance_owner_color(owner.id) }]
    end
    series['team'] = { name: 'Team', color: '#17365d' } if compare_owners
-   monthly_totals = @monthly_efficiency.transform_values do |owners|
+   totals_by_month = @monthly_efficiency.transform_values do |owners|
      next owners unless compare_owners
 
-     owners.merge('team' => {
-       weight: owners.values.sum { |totals| totals[:weight] },
-       hours: owners.values.sum { |totals| totals[:hours] }
-     })
+     team = %i[weight hours expected_weight estimated_hours].to_h do |field|
+       [field, owners.values.sum { |totals| totals.fetch(field) }]
+     end
+     owners.merge('team' => team)
    end
-   rates = monthly_totals.transform_values do |totals|
-     totals.transform_values { |entry| TicketJourneyPeriodicTime.efficiency_rate(entry[:weight], entry[:hours]) }
+   owner_share = TicketJourney::PerformanceSettings.periodic_target(@settings, 'performance_periodic_owner_share')
+   monthly_totals = totals_by_month.transform_values do |totals|
+     totals.transform_values do |entry|
+       entry.merge(planned_hours: TicketJourneyPeriodicTime.efficiency_planned_hours(entry[:estimated_hours], owner_share))
+     end
    end
-   geometry = performance_leaderboard_geometry(rates.values, keys: series.keys, scale_values: [], percent: false)
+   rates = monthly_totals.transform_values do |entries|
+     entries.each_with_object({}) do |(key, entry), points|
+       points[key] = TicketJourneyPeriodicTime.efficiency_rate(entry[:weight], entry[:hours])
+       points["plan-#{key}"] = TicketJourneyPeriodicTime.efficiency_rate(entry[:expected_weight], entry[:planned_hours])
+     end
+   end
+   plot_keys = series.keys.flat_map { |key| [key, "plan-#{key}"] }
+   geometry = performance_leaderboard_geometry(rates.values, keys: plot_keys, scale_values: [], percent: false)
+   plot = plot_keys.zip(geometry[:series]).to_h
 %>
 <section class="performance-section performance-leaderboard periodic-monthly-efficiency" data-performance-leaderboard>
   <h3>Delivered CW per Owner Hour — Last 5 Completed Months</h3>
   <p>Each point uses its own calendar month. Delivered expected complexity weight is divided by visible owner hours logged that month on the matching expected tickets, including unfinished work. Months with zero qualifying hours show N/A.<%= ' The team rate divides combined delivered CW by combined owner hours.' if compare_owners %></p>
+  <button type="button" class="periodic-monthly-plan-toggle" data-leaderboard-toggle="planned-cw" data-owner-name="planned CW/h" data-line-description="lines" aria-pressed="false" aria-label="Show planned CW/h lines">
+    <span class="periodic-monthly-plan-show">Show planned CW/h</span>
+    <span class="periodic-monthly-plan-hide">Hide planned CW/h</span>
+  </button>
+  <p class="is-hidden" data-leaderboard-series="planned-cw">Dashed lines show planned CW/h. Each month’s expected CW is divided by estimated owner hours on the same tickets, using the configured owner share.</p>
   <div class="<%= 'performance-leaderboard-layout' if compare_owners %>">
     <div class="autoscroll">
       <svg class="performance-trend-chart performance-leaderboard-chart" viewBox="0 0 860 285" role="img" aria-labelledby="periodic-monthly-efficiency-title">
@@ -31,17 +47,21 @@
         <% rates.keys.each_with_index do |month, index| %>
           <text x="<%= geometry[:series].first[index][:x] %>" y="268" text-anchor="middle"><%= month.strftime('%b %Y') %></text>
         <% end %>
-        <% series.each_with_index do |(key, entry), index| %>
-          <% coordinates = geometry[:series][index] %>
+        <% series.each do |key, entry| %>
           <g class="performance-trend-series"<% if compare_owners && key != 'team' %> data-leaderboard-series="<%= key %>"<% end %> style="stroke:<%= entry[:color] %>;fill:<%= entry[:color] %>">
-            <% coordinates.each_cons(2) do |left, right| %>
-              <% next unless left[:y] && right[:y] %>
-              <line x1="<%= left[:x] %>" y1="<%= left[:y] %>" x2="<%= right[:x] %>" y2="<%= right[:y] %>" />
-            <% end %>
-            <% coordinates.each do |point| %>
-              <% next unless point[:y] %>
-              <% month = rates.keys[point[:index]]; label = "#{entry[:name]} — #{month.strftime('%b %Y')} · #{periodic_time_number(rates[month][key], 'efficiency')} CW/h" %>
-              <circle cx="<%= point[:x] %>" cy="<%= point[:y] %>" r="5" tabindex="0" role="img" aria-label="<%= label %>"><title><%= label %></title></circle>
+            <% [false, true].each do |planned| %>
+              <% rate_key = planned ? "plan-#{key}" : key; coordinates = plot.fetch(rate_key) %>
+              <g<% if planned %> class="periodic-monthly-plan-line is-hidden" data-leaderboard-series="planned-cw"<% end %>>
+                <% coordinates.each_cons(2) do |left, right| %>
+                  <% next unless left[:y] && right[:y] %>
+                  <line x1="<%= left[:x] %>" y1="<%= left[:y] %>" x2="<%= right[:x] %>" y2="<%= right[:y] %>" />
+                <% end %>
+                <% coordinates.each do |point| %>
+                  <% next unless point[:y] %>
+                  <% month = rates.keys[point[:index]]; label = "#{entry[:name]} — #{month.strftime('%b %Y')} · #{planned ? 'Planned' : 'Actual'} #{periodic_time_number(rates[month][rate_key], 'efficiency')} CW/h" %>
+                  <circle cx="<%= point[:x] %>" cy="<%= point[:y] %>" r="<%= planned ? 4 : 5 %>" tabindex="0" role="img" aria-label="<%= label %>"><title><%= label %></title></circle>
+                <% end %>
+              </g>
             <% end %>
           </g>
         <% end %>
@@ -51,7 +71,7 @@
       <div class="performance-leaderboard-legend" aria-label="Monthly CW/h series">
         <p><span class="performance-leaderboard-swatch" style="border-color:<%= series['team'][:color] %>" aria-hidden="true"></span> Team (always visible)</p>
         <% @selected_owners.each do |owner| %>
-          <button type="button" data-leaderboard-toggle="<%= owner.id %>" data-owner-name="<%= owner.name %>" aria-pressed="true" aria-label="Hide <%= owner.name %> line">
+          <button type="button" data-leaderboard-toggle="<%= owner.id %>" data-owner-name="<%= owner.name %>" data-line-description="lines" aria-pressed="true" aria-label="Hide <%= owner.name %> lines">
             <span class="performance-leaderboard-swatch" style="border-color:<%= series[owner.id.to_s][:color] %>" aria-hidden="true"></span><span><%= owner.name %></span>
           </button>
         <% end %>
@@ -67,6 +87,10 @@
             <% series.each_key do |key| %>
               <td><strong><%= periodic_time_number(rates[month][key], 'efficiency') %></strong><br>
                 <small><%= performance_number(totals[key][:weight]) %> CW ÷ <%= performance_number(totals[key][:hours]) %> h</small>
+                <div class="is-hidden" data-leaderboard-series="planned-cw">
+                  Plan <b><%= periodic_time_number(rates[month]["plan-#{key}"], 'efficiency') %></b><br>
+                  <small><%= performance_number(totals[key][:expected_weight]) %> CW ÷ <%= performance_number(totals[key][:planned_hours]) %> h</small>
+                </div>
               </td>
             <% end %>
           </tr>

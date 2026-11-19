@@ -435,7 +435,10 @@ class PerformanceDashboardController < ApplicationController
       prepare_work_rework(requested_owners, @period_end) unless @metric
       unless @metric
         @monthly_efficiency = TicketJourneyPeriodicTime.efficiency_month_ends(@period_end).to_h do |day|
-          [day, requested_owners.to_h { |id| [id, { weight: 0.0, hours: 0.0 }] }]
+          owner_totals = requested_owners.to_h do |id|
+            [id, { weight: 0.0, hours: 0.0, expected_weight: 0.0, estimated_hours: 0.0 }]
+          end
+          [day, owner_totals]
         end
       end
       @time_bucket = params[:time_bucket].present? ? Date.iso8601(params[:time_bucket]) : nil
@@ -618,6 +621,8 @@ class PerformanceDashboardController < ApplicationController
 
       totals = owners.fetch(owner_id)
       totals[:hours] += hours
+      totals[:expected_weight] += snapshot[:weight]
+      totals[:estimated_hours] += row[:estimate]
       totals[:weight] += snapshot[:weight] if TicketJourneyPeriodicTickets.delivered?(snapshot, first, last)
     end
   end

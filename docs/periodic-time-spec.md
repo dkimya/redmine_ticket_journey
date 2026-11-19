@@ -164,8 +164,11 @@ paired comparisons with review coverage; valid known hours remain separately sho
 The monthly CW/h chart below the KPI cards uses the five completed calendar
 months ending on or before RED. Each month uses its own expected ticket
 package and the same paired CW/h calculation as the KPI. The data table
-shows delivered CW, qualifying owner hours and the resulting rate. For
-multiple owners, the team rate divides the summed CW by the summed hours.
+shows delivered CW, qualifying owner hours and the resulting rate. The
+planned CW/h toggle reveals dashed lines and planned values in the table.
+The plan divides expected CW by the configured owner share of PM estimates
+on the same paired monthly tickets. For multiple owners, the team rates
+divide summed CW by summed hours. Owner toggles control both lines for that owner.
 
 Delivery/cost charts group tickets by completion interval. Logged-hours charts
 partition entry work dates. A ticket finished in Week 2 appears in Week 2 on cost
