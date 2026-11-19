@@ -42,7 +42,7 @@
     <% if comparison_testers.any? %>
       <section class="performance-section">
         <h3>Tester comparison</h3>
-        <p>Current Tester role members. The same ticket can appear for multiple testers. The full team view also includes activity by other users and items pending attribution.</p>
+        <p>Current QA and QA-L2 role members. The same ticket can appear for multiple testers. The full team view also includes activity by other users and items pending attribution.</p>
         <% results = report.tester_results(comparison_testers.map(&:id)) %>
         <div class="autoscroll"><table class="list">
           <thead><tr><th scope="col">Tester</th><th scope="col">Tickets passed</th><th scope="col">Bugs found</th><th scope="col">False Test Passes</th><th scope="col">Test Escape Bugs</th><th scope="col">Scored points</th><th scope="col">Visible Work (h)</th><th scope="col">Visible Rework (h)</th></tr></thead>

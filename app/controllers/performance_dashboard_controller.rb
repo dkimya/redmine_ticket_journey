@@ -369,8 +369,9 @@ class PerformanceDashboardController < ApplicationController
     cutoff = qa_filters
     return render_404 unless cutoff
 
+    qa_roles = Role.where(name: %w[QA QA-L2])
     members = Member.joins(:member_roles).where(project_id: performance_project_ids,
-      member_roles: { role_id: Role.where(name: 'Tester').select(:id) })
+      member_roles: { role_id: qa_roles.select(:id) })
     @qa_testers = alphabetical_owners(User.active.where(id: members.select(:user_id)))
     return render_404 unless (@qa_tester_ids - @qa_testers.map(&:id)).empty?
 

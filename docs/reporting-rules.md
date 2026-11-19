@@ -9,7 +9,7 @@ scope. Tested CW uses usable current visible weights once per ticket for the tea
 and once per ticket, tester and role for gate verdicts. Status-change actors,
 not current Ticket Owner, determine gate attribution.
 
-The tester filter lists active users with the current Redmine Tester role in
+The tester filter lists active users with a current Redmine QA or QA-L2 role in
 the selected visible project hierarchy. With a selection, verdicts and false
 passes follow the gate actor, Bug credit follows the Bug creator, escapes
 follow the source closure actor, and testing hours follow the booked user.

@@ -24,7 +24,7 @@ Manager and as a read-only viewer, including child project access. Exclude and
 reinstate a return and verify the totals, audit history, original journal and
 existing Returns and Time reports.
 
-For the tester filter, check that the existing Tester role is assigned to the
+For the tester filter, check that an existing QA or QA-L2 role is assigned to the
 intended users in the project hierarchy. With two testers who worked on the same
 ticket, compare the full team view, each individual selection, and both testers
 selected together. Verify that credits, penalties and booked time follow their
