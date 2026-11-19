@@ -4,10 +4,19 @@
     <% report = entry[:report][population]; ids = entry[:owner] ? [entry[:owner].id.to_s] : @selected_owner_ids; all_metric, returned_metric = population == :expected ? %w[returns_open return_incidents] : %w[total_open total_return_incidents] %>
     <% non_merge_metric = population == :expected ? 'non_merge_incidents' : 'total_non_merge_incidents' %>
     <% first_pass_metric = population == :expected ? 'returns_0' : 'total_returns_0' %>
+    <% first_pass_count = report[:sets].fetch('returns_0').size %>
+    <% first_pass_percent = performance_percent(first_pass_count, report[:population]) %>
     <tr class="<%= 'periodic-total-row' unless entry[:owner] %>">
       <th><%= entry[:owner]&.name || 'Team total' %></th>
       <td><%= performance_return_link(report[:population], all_metric, ids) %></td>
-      <td><%= performance_return_link(report[:sets].fetch('returns_0').size, first_pass_metric, ids) %></td>
+      <td>
+        <%= performance_return_link(first_pass_count, first_pass_metric, ids) %>
+        <% if first_pass_percent.nil? %>
+          <small>(N/A)</small>
+        <% else %>
+          <small class="performance-good">(<%= performance_number(first_pass_percent) %>%)</small>
+        <% end %>
+      </td>
       <td><%= performance_return_link(report[:returned], returned_metric, ids) %></td>
       <td><%= performance_return_link(report[:incidents], returned_metric, ids) %></td>
       <td><%= performance_return_link(performance_number(report[:ratio]), returned_metric, ids) %></td>
@@ -16,4 +25,4 @@
     </tr>
   <% end %></tbody>
 </table></div>
-<p class="performance-weight-note">Team ratios divide combined incidents by combined returned-ticket counts, including merge-only tickets in both denominators. Both metrics are numbers, not percentages. N/A means not applicable with no returned tickets, or unavailable when reason data is missing; counts of 0 remain 0.</p>
+<p class="performance-weight-note">First Time Pass % divides first-time passes by Done tickets in the same row. Team incident averages divide combined incidents by combined returned-ticket counts, including merge-only tickets in both denominators. N/A appears when a denominator is zero or required return reason data is missing.</p>
