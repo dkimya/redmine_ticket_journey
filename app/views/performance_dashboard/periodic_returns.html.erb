@@ -20,18 +20,18 @@
         </details>
       <% end %>
       <details><summary>Show return distributions by owner</summary>
-        <div class="autoscroll"><table class="list"><thead>
+        <div class="autoscroll"><table class="list periodic-return-distribution-table"><thead>
           <tr>
             <th rowspan="2" scope="col">Owner</th>
             <th rowspan="2" scope="col">Expected Done</th>
-            <th colspan="5" scope="colgroup"># of Tickets with Returns</th>
-            <th colspan="3" scope="colgroup"># of Tickets with Consecutive Returns</th>
+            <th colspan="5" scope="colgroup" class="periodic-return-group-start"># of Tickets with Returns</th>
+            <th colspan="3" scope="colgroup" class="periodic-return-group-start"># of Tickets with Consecutive Returns</th>
           </tr>
-          <tr><% ['0', '1', '2', '3', '3+ (≥4)', '1 repeat', '2 repeats', '2+ repeats (≥3)'].each do |label| %><th scope="col"><%= label %></th><% end %></tr>
+          <tr><% ['0', '1', '2', '3', '3+ (≥4)', '1 repeat', '2 repeats', '2+ repeats (≥3)'].each_with_index do |label, index| %><th scope="col" class="<%= 'periodic-return-group-start' if index == 0 || index == 5 %>"><%= label %></th><% end %></tr>
         </thead><tbody>
           <% (@periodic_return_owners + [{ owner: nil, report: result }]).each do |entry| %><% ids = entry[:owner] ? [entry[:owner].id.to_s] : @selected_owner_ids; report = entry[:report][:expected] %>
             <tr class="<%= 'periodic-total-row' unless entry[:owner] %>"><th><%= entry[:owner]&.name || 'Team total' %></th><td><%= performance_return_link(report[:population], 'returns_open', ids) %></td>
-              <% %w[returns_0 returns_1 returns_2 returns_3 returns_4 repeats_1 repeats_2 repeats_3].each do |key| %><td><%= performance_return_link(report[:sets][key].size, key, ids) %></td><% end %>
+              <% %w[returns_0 returns_1 returns_2 returns_3 returns_4 repeats_1 repeats_2 repeats_3].each do |key| %><td class="<%= 'periodic-return-group-start' if %w[returns_0 repeats_1].include?(key) %>"><%= performance_return_link(report[:sets][key].size, key, ids) %></td><% end %>
             </tr>
           <% end %>
         </tbody></table></div>

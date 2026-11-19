@@ -393,6 +393,17 @@
 .periodic-return-kpis strong{display:block;font-size:30px;line-height:1.4}
 .periodic-return-kpis p strong{display:inline;font-size:inherit;line-height:inherit;font-weight:bold}
 .periodic-return-kpis .performance-metric{overflow-wrap:anywhere}
+.periodic-return-comparison .periodic-return-muted,
+.periodic-return-comparison .periodic-return-muted a{
+  color:#536579;
+}
+.periodic-summary .periodic-return-distribution-table{
+  border-collapse:collapse;
+  border:2px solid #9aabba;
+}
+.periodic-return-distribution-table :is(th,td).periodic-return-group-start{
+  border-inline-start:2px solid #9aabba;
+}
 .periodic-time-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 .periodic-time-kpi{overflow-wrap:anywhere}
 .periodic-time-kpi h4{min-height:60px}

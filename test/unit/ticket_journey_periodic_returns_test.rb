@@ -47,7 +47,9 @@ class TicketJourneyPeriodicReturnsTest < ActiveSupport::TestCase
     merge[:events] = Array.new(2) { { merge_conflict: true } }
     regular = row(2, 3)
     other = row(3, 4, due: @last + 1)
-    result = calculate([merge, regular, other, row(4, 0)])
+    result = calculate([merge, regular, other, row(4, 0), row(5, 0, due: @last + 1)])
+    assert_equal [4], result[:sets]['returns_0'].map { |item| item[:id] }
+    assert_equal [4, 5], result[:sets]['total_returns_0'].map { |item| item[:id] }.sort
     assert_equal 1.5, result[:expected][:adjusted_ratio]
     assert_in_delta 7.0 / 3, result[:total][:adjusted_ratio]
     assert_equal [1, 2], result[:sets]['non_merge_denominator'].map { |item| item[:id] }

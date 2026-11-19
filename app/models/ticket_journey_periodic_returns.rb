@@ -2,8 +2,10 @@
 class TicketJourneyPeriodicReturns
   LABELS = TicketJourneyPerformanceReturns::LABELS.merge(
     'returns_open' => 'Expected Done Tickets',
+    'returns_0' => 'Expected Done Tickets That Passed First Time',
     'return_incidents' => 'Expected Done Tickets with at Least One Return',
     'total_open' => 'Total Done Tickets (Expected + Other)',
+    'total_returns_0' => 'Total Done Tickets That Passed First Time',
     'total_return_incidents' => 'Total Done Tickets with at Least One Return',
     'total_non_merge_incidents' => 'Total Done — Non-Merge Incident Contributors',
     'total_non_merge_denominator' => 'Total Done — Returned Tickets for Non-Merge Denominator',
@@ -26,7 +28,8 @@ class TicketJourneyPeriodicReturns
     expected = TicketJourneyPerformanceReturns.summarize(ticket_report[:sets].fetch('completed'))
     total = TicketJourneyPerformanceReturns.summarize(ticket_report[:sets].fetch('actual'))
     sets = expected[:sets]
-      .merge('total_open' => total[:sets]['returns_open'], 'total_return_incidents' => total[:sets]['return_incidents'])
+      .merge('total_open' => total[:sets]['returns_open'], 'total_returns_0' => total[:sets]['returns_0'],
+        'total_return_incidents' => total[:sets]['return_incidents'])
     %w[non_merge_incidents non_merge_denominator unknown_return_reasons].each { |key| sets["total_#{key}"] = total[:sets][key] }
     { expected: expected, total: total, sets: sets,
       trends: intervals(first_day, last_day).map do |first_at, last_at|

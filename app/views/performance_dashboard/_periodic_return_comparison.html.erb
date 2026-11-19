@@ -1,9 +1,19 @@
 <div class="autoscroll"><table class="list periodic-return-comparison">
-  <thead><tr><th>Ticket Owner</th><th><%= population == :expected ? 'Expected Done Tickets' : 'Total Done Tickets' %></th><th>Tickets with ≥1 Return</th><th>Total Return Incidents</th><th>Incidents / Returned Ticket</th><th>Non-Merge Return Incidents</th><th>Non-Merge Incidents / Returned Ticket</th></tr></thead>
+  <thead><tr><th>Ticket Owner</th><th><%= population == :expected ? 'Expected Done Tickets' : 'Total Done Tickets' %></th><th>First Time Pass Tickets</th><th>Tickets with ≥1 Return</th><th>Total Return Incidents</th><th>Incidents / Returned Ticket</th><th class="periodic-return-muted">Non-Merge Return Incidents</th><th class="periodic-return-muted">Non-Merge Incidents / Returned Ticket</th></tr></thead>
   <tbody><% (@periodic_return_owners + [{ owner: nil, report: @periodic_return_report }]).each do |entry| %>
     <% report = entry[:report][population]; ids = entry[:owner] ? [entry[:owner].id.to_s] : @selected_owner_ids; all_metric, returned_metric = population == :expected ? %w[returns_open return_incidents] : %w[total_open total_return_incidents] %>
     <% non_merge_metric = population == :expected ? 'non_merge_incidents' : 'total_non_merge_incidents' %>
-    <tr class="<%= 'periodic-total-row' unless entry[:owner] %>"><th><%= entry[:owner]&.name || 'Team total' %></th><td><%= performance_return_link(report[:population], all_metric, ids) %></td><td><%= performance_return_link(report[:returned], returned_metric, ids) %></td><td><%= performance_return_link(report[:incidents], returned_metric, ids) %></td><td><%= performance_return_link(performance_number(report[:ratio]), returned_metric, ids) %></td><td><%= performance_return_link(report[:non_merge], non_merge_metric, ids) %></td><td><%= performance_return_link(performance_number(report[:adjusted_ratio]), non_merge_metric, ids) %><% if report[:unknown].positive? %><small>Unavailable reasons: <%= report[:unknown] %></small><% end %></td></tr>
+    <% first_pass_metric = population == :expected ? 'returns_0' : 'total_returns_0' %>
+    <tr class="<%= 'periodic-total-row' unless entry[:owner] %>">
+      <th><%= entry[:owner]&.name || 'Team total' %></th>
+      <td><%= performance_return_link(report[:population], all_metric, ids) %></td>
+      <td><%= performance_return_link(report[:sets].fetch('returns_0').size, first_pass_metric, ids) %></td>
+      <td><%= performance_return_link(report[:returned], returned_metric, ids) %></td>
+      <td><%= performance_return_link(report[:incidents], returned_metric, ids) %></td>
+      <td><%= performance_return_link(performance_number(report[:ratio]), returned_metric, ids) %></td>
+      <td class="periodic-return-muted"><%= performance_return_link(report[:non_merge], non_merge_metric, ids) %></td>
+      <td class="periodic-return-muted"><%= performance_return_link(performance_number(report[:adjusted_ratio]), non_merge_metric, ids) %><% if report[:unknown].positive? %><small>Unavailable reasons: <%= report[:unknown] %></small><% end %></td>
+    </tr>
   <% end %></tbody>
 </table></div>
 <p class="performance-weight-note">Team ratios divide combined incidents by combined returned-ticket counts, including merge-only tickets in both denominators. Both metrics are numbers, not percentages. N/A means not applicable with no returned tickets, or unavailable when reason data is missing; counts of 0 remain 0.</p>
