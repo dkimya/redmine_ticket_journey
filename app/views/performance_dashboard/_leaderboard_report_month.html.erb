@@ -1,0 +1,23 @@
+<% maximum = entries.map { |entry| entry[:report_month].values_at(:delivered_weight, :open_weight).sum }.max %>
+<section class="performance-leaderboard-report-month" aria-label="Report month delivery and open work">
+  <h4>Report Month — Delivered + Open</h4>
+  <p><%= format_date(@date.beginning_of_month) %> – <%= format_date(@date) %></p>
+  <p>CW means usable complexity weight. Ticket counts include tickets without usable weight.</p>
+  <% entries.each do |entry| %>
+    <% month = entry[:report_month] %>
+    <% delivered, open = month.values_at(:delivered_weight, :open_weight) %>
+    <div class="performance-report-month-owner">
+      <strong><%= entry[:owner].name %></strong>
+      <span><%= performance_number(delivered + open) %> CW combined</span>
+      <div class="performance-report-month-bar" aria-hidden="true">
+        <% if maximum.positive? %>
+          <span class="performance-report-month-delivered" style="width:<%= delivered * 100.0 / maximum %>%"></span>
+          <span class="performance-report-month-open" style="width:<%= open * 100.0 / maximum %>%"></span>
+        <% end %>
+      </div>
+      <small><span class="performance-dot performance-report-month-delivered" aria-hidden="true"></span> <strong>Delivered this month</strong> <%= performance_number(delivered) %> CW · <%= pluralize(month[:delivered_count], 'ticket') %></small>
+      <small><span class="performance-dot performance-report-month-open" aria-hidden="true"></span> <strong>Open as of report date</strong> <%= performance_number(open) %> CW · <%= pluralize(month[:open_count], 'ticket') %></small>
+      <small><strong>Due by report date (of open)</strong> <%= performance_number(month[:due_open_weight]) %> CW · <%= pluralize(month[:due_open_count], 'ticket') %></small>
+    </div>
+  <% end %>
+</section>

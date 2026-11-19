@@ -228,7 +228,9 @@ class PerformanceDashboardTest < ActionController::TestCase
         assert_select chart, 'g.performance-trend-series:not([data-leaderboard-series]) circle', count: 5
       end
     end
-    assert_select '.performance-leaderboard tbody tr', count: 10
+    assert_select '.performance-leaderboard tbody tr', count: 12
+    assert_select '.performance-leaderboard-report-segment', count: 2
+    assert_select '.performance-leaderboard-report-month .performance-report-month-owner', count: 2
     entries = @controller.instance_variable_get(:@leaderboard_entries).to_h { |entry| [entry[:owner].id, entry[:points]] }
     assert_equal 5.0, entries[1].last[:delivered_weight]
     assert_equal 10.0, entries[2].last[:delivered_weight]
@@ -265,6 +267,7 @@ class PerformanceDashboardTest < ActionController::TestCase
     assert_equal 1.5, @controller.instance_variable_get(:@return_trend).last[:ratio]
     assert_equal styles, css_select('[data-leaderboard-series]').map { |element| [element['data-leaderboard-series'], element['style']] }.to_h
     assert_select '.performance-leaderboard tbody tr', count: 10
+    assert_select '.performance-leaderboard-report-month', count: 0
     assert_select '.performance-leaderboard-threshold', count: 0
     assert_select '.performance-leaderboard-target', count: 0
   end

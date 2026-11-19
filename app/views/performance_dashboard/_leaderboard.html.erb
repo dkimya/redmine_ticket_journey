@@ -1,19 +1,21 @@
 <section class="performance-section performance-leaderboard" data-performance-leaderboard>
-  <h3>Leaderboard — Individual Owner Trends <%= performance_tip(@return_mode ? 'One line per owner: all incidents, including Merge Conflict, divided by open tickets with at least one return at each of five completed month ends. Current owner applies. No returned tickets means N/A/gap. Values are average incident counts, not percentages. No rank is assigned.' : 'One line per selected owner showing complexity points delivered during each of the last five completed months. Uses current Ticket Owner and visible current complexity weights. Tickets must be Done / Closed at month-end with their latest completion in that month; Archived and Ongoing are excluded. These are individual totals, not averages. No rank is assigned.') %></h3>
+  <h3>Leaderboard — Individual Owner Trends <%= performance_tip(@return_mode ? 'One line per owner: all incidents, including Merge Conflict, divided by open tickets with at least one return at each of five completed month ends. Current owner applies. No returned tickets means N/A/gap. Values are average incident counts, not percentages. No rank is assigned.' : 'Shows each owner’s delivered complexity points for the last five completed months and the report month through the selected date. Uses current Ticket Owner and usable visible complexity weights. Tickets must be Done / Closed at the snapshot date with their latest completion within the plotted month. Archived and Ongoing are excluded from delivery.') %></h3>
   <% metric = @return_mode ? :ratio : :delivered_weight %>
   <h4><%= @return_mode ? 'Return Incidents / Returned Open Tickets' : 'Monthly Delivered Complexity Points' %></h4>
-  <p>Current Ticket Owner · Five completed months · Select an owner’s legend button to hide or show their line.</p>
+  <p>Current Ticket Owner · Five completed months<%= ' plus the report month through the selected date' unless @return_mode %> · Select an owner’s legend button to hide or show their line.</p>
   <% if @return_mode %>
     <p><strong class="performance-favorable-direction">↓ Lower is better</strong></p>
   <% else %>
-    <p>Solid colored lines: actual delivered points. Thin gray dashed lines: unique monthly targets. Targets are shown in parentheses beside owner names.</p>
+    <p>The dashed colored segment ends at the report date. Thin gray dashed lines show full-month targets.</p>
   <% end %>
-  <% dates = entries.first[:points].map { |point| point[:date] } %>
+  <% points_by_owner = entries.map { |entry| @return_mode ? entry[:points] : entry[:points] + [entry.fetch(:report_month)] } %>
+  <% dates = points_by_owner.first.map { |point| point[:date] } %>
+  <% report_range = "#{format_date(@date.beginning_of_month)} – #{format_date(@date)}" unless @return_mode %>
   <% keys = entries.map { |entry| entry[:owner].id.to_s } %>
-  <% plot = dates.each_index.map { |index| entries.to_h { |entry| [entry[:owner].id.to_s, entry[:points][index][metric]] } } %>
+  <% plot = dates.each_index.map { |index| keys.zip(points_by_owner.map { |points| points[index][metric] }).to_h } %>
   <% scale_values = @return_mode ? [] : entries.map { |entry| entry[:target] } %>
   <% geometry = performance_leaderboard_geometry(plot, keys: keys, scale_values: scale_values, percent: false) %>
-  <div class="performance-leaderboard-layout">
+  <div class="performance-leaderboard-layout<%= ' performance-leaderboard-with-report-month' unless @return_mode %>">
   <div class="autoscroll">
     <svg class="performance-trend-chart performance-leaderboard-chart" viewBox="0 0 860 285" role="img" aria-labelledby="leaderboard-title leaderboard-description">
       <title id="leaderboard-title"><%= @return_mode ? 'Individual owner return ratios' : 'Individual owner monthly complexity point delivery' %></title>
@@ -23,7 +25,12 @@
         <line class="performance-trend-grid" x1="90" x2="770" y1="<%= y %>" y2="<%= y %>" />
         <text x="78" y="<%= y + 5 %>" text-anchor="end"><%= performance_number(tick) %></text>
       <% end %>
-      <% dates.each_with_index do |date, index| %><text x="<%= geometry[:series].first[index][:x] %>" y="268" text-anchor="middle"><%= date.strftime('%b %Y') %></text><% end %>
+      <% dates.each_with_index do |date, index| %>
+        <% report_point = !@return_mode && index == dates.size - 1 %>
+        <% x = geometry[:series].first[index][:x] %>
+        <text x="<%= x %>" y="268" text-anchor="middle"><%= report_point ? date.strftime(date.day == 1 ? '%b 1' : '%b 1–%-d') : date.strftime('%b %Y') %></text>
+        <% if report_point && date != date.end_of_month %><text x="<%= x %>" y="283" text-anchor="middle">Partial month</text><% end %>
+      <% end %>
       <% unless @return_mode %>
         <% entries.reject { |entry| entry[:target].nil? }.group_by { |entry| entry[:target] }.sort_by(&:first).each do |target, target_entries| %>
           <% target_y = 235 - target / geometry[:maximum] * 200 %>
@@ -37,18 +44,23 @@
       <% entries.each_with_index do |entry, series_index| %>
         <% owner = entry[:owner]; series = geometry[:series][series_index] %>
         <g class="performance-trend-series" data-leaderboard-series="<%= owner.id %>" style="stroke:<%= performance_owner_color(owner.id) %>;fill:<%= performance_owner_color(owner.id) %>">
-          <% series.each_cons(2) do |left, right| %><% if left[:y] && right[:y] %><line x1="<%= left[:x] %>" y1="<%= left[:y] %>" x2="<%= right[:x] %>" y2="<%= right[:y] %>" /><% end %><% end %>
+          <% series.each_cons(2) do |left, right| %>
+            <% next unless left[:y] && right[:y] %>
+            <line x1="<%= left[:x] %>" y1="<%= left[:y] %>" x2="<%= right[:x] %>" y2="<%= right[:y] %>"<% if !@return_mode && right[:index] == dates.size - 1 %> class="performance-leaderboard-report-segment" stroke-dasharray="6 5"<% end %> />
+          <% end %>
           <% series.each do |coordinate| %>
             <% next unless coordinate[:y] %>
-            <% point = entry[:points][coordinate[:index]] %>
+            <% point = points_by_owner[series_index][coordinate[:index]] %>
             <% detail = @return_mode ? "#{performance_number(point[:ratio])} incidents per returned ticket; #{point[:incidents]} incidents / #{point[:returned]} returned open tickets; #{point[:open]} open overall" : "#{performance_number(point[:delivered_weight])} complexity points; #{point[:delivered_count]} delivered tickets; #{point[:missing_completion]} tickets missing completion dates" %>
-            <% description = "#{owner.name} — #{format_date(point[:date])}: #{detail}" %>
+            <% date_label = point.equal?(entry[:report_month]) ? report_range : format_date(point[:date]) %>
+            <% description = "#{owner.name} — #{date_label}: #{detail}" %>
             <circle cx="<%= coordinate[:x] %>" cy="<%= coordinate[:y] %>" r="5" tabindex="0" role="img" aria-label="<%= description %>"><title><%= description %></title></circle>
           <% end %>
         </g>
       <% end %>
     </svg>
   </div>
+  <%= render 'leaderboard_report_month', entries: entries unless @return_mode %>
   <div class="performance-leaderboard-legend" aria-label="Selected owner lines">
     <% entries.each do |entry| %>
       <% owner = entry[:owner] %>
@@ -59,7 +71,7 @@
   <p><%= @return_mode ? 'Includes Merge Conflict. N/A means no returned open tickets at that month-end. Compare the returned-ticket counts alongside the incident average; zero-return open tickets remain in the distribution.' : 'Points are actual monthly totals for each owner. Missing or hidden weights contribute no points; eligible delivered tickets still count.' %></p>
   <details class="performance-trend-values"><summary>View individual monthly values and counts</summary>
     <div class="autoscroll"><table class="list"><thead><tr><th>Owner</th><th>Month</th><% if @return_mode %><th>Return Incidents</th><th>Open Tickets</th><th>Returned Open Tickets</th><th>Incidents / Returned Open Tickets</th><% else %><th>Delivered Tickets</th><th>Delivered Complexity Points</th><th>Current Monthly Point Target</th><th>Missing Completion Dates</th><% end %></tr></thead>
-      <tbody><% entries.each do |entry| %><% entry[:points].each do |point| %><tr><th><%= entry[:owner].name %></th><td><%= format_date(point[:date]) %></td>
+      <tbody><% entries.each_with_index do |entry, index| %><% points_by_owner[index].each do |point| %><tr><th><%= entry[:owner].name %></th><td><%= point.equal?(entry[:report_month]) ? report_range : format_date(point[:date]) %></td>
         <% if @return_mode %><td><%= point[:incidents] %></td><td><%= point[:open] %></td><td><%= point[:returned] %></td><td><%= performance_number(point[:ratio]) %></td>
         <% else %><td><%= point[:delivered_count] %></td><td><%= performance_number(point[:delivered_weight]) %></td><td><%= entry[:target].nil? ? 'Target not configured or unavailable' : performance_number(entry[:target]) %></td><td><%= point[:missing_completion] %></td><% end %>
       </tr><% end %><% end %></tbody>

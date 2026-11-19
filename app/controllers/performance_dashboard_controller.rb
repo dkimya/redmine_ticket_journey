@@ -246,8 +246,17 @@ class PerformanceDashboardController < ApplicationController
       @leaderboard_entries.each { |entry| entry[:target] = @target_details[1][:owner_values][entry[:owner].id.to_s] }
     end
     TicketJourneyPerformance.finish_output_trend!(@delivery_trend, @selected_owners.size) if @delivery_trend
+    rows_by_owner = rows.group_by { |row| row[:owner_id] } unless @metric
     @comparison = @metric ? [] : @selected_owners.map do |owner|
-      { owner: owner, report: TicketJourneyPerformance.calculate(rows.select { |r| r[:owner_id] == owner.id.to_s }, @date) }
+      owner_rows = rows_by_owner.fetch(owner.id.to_s, [])
+      report = TicketJourneyPerformance.calculate(owner_rows, @date)
+      { owner: owner, report: report }
+    end
+    if @leaderboard_entries
+      @leaderboard_entries.zip(@comparison).each do |entry, comparison|
+        owner_rows = rows_by_owner.fetch(entry[:owner].id.to_s, [])
+        entry[:report_month] = TicketJourneyPerformance.report_month_delivery(owner_rows, comparison[:report], @date)
+      end
     end
     @comparison_sort = %w[owner open not_overdue started untouched open_weight not_overdue_weight started_weight untouched_weight stopped due_soon].include?(params[:comparison_sort]) ? params[:comparison_sort] : 'owner'
     @comparison_direction = params[:comparison_direction] == 'desc' ? 'desc' : 'asc'

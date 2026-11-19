@@ -1,6 +1,27 @@
 require File.expand_path('../test_helper', __dir__)
 
 class TicketJourneyPerformanceTest < ActiveSupport::TestCase
+  test 'report month delivery includes both cutoff dates and compares with the live open population' do
+    date = Date.new(2026, 11, 18)
+    queued = { open: true, status_name: 'To-Do', weight: 8.0, due: date }
+    done = { done: true, status_name: 'Done / Closed', weight: 3.0 }
+    rows = [
+      done.merge(delivered_at: date.beginning_of_month),
+      done.merge(delivered_at: date),
+      done.merge(delivered_at: date - 20), done.merge(delivered_at: date + 1),
+      done.merge(delivered_at: date, status_name: 'Archived'),
+      queued, queued.merge(weight: 5.0, due: date + 1),
+      queued.merge(status_name: 'Ongoing', weight: 2.0),
+      queued.merge(status_name: 'On-Hold')
+    ]
+    report = TicketJourneyPerformance.calculate(rows, date)
+    month = TicketJourneyPerformance.report_month_delivery(rows, report, date)
+
+    assert_equal [2, 6.0], month.values_at(:delivered_count, :delivered_weight)
+    assert_equal [3, 15.0], month.values_at(:open_count, :open_weight)
+    assert_equal [1, 8.0], month.values_at(:due_open_count, :due_open_weight)
+  end
+
   test 'ownership audit includes real selected-owner changes within inclusive period only' do
     first_day, last_day = Date.new(2026, 5, 1), Date.new(2026, 9, 30)
     build = lambda do |id, at, old_id, new_id|

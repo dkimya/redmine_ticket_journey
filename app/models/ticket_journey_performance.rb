@@ -343,6 +343,19 @@ class TicketJourneyPerformance
     rows.sum { |row| row[:weight] }
   end
 
+  def self.report_month_delivery(rows, report, date)
+    first_day = date.beginning_of_month
+    delivered = rows.select { |row| monthly_delivery?(row, first_day, date) }
+    open = report[:detail_sets].fetch('open')
+    due_open = open.select { |row| delivery_due?(row, date) }
+    {
+      date: date, delivered_count: delivered.size, delivered_weight: weight(delivered),
+      missing_completion: report[:missing_delivery],
+      open_count: open.size, open_weight: weight(open),
+      due_open_count: due_open.size, due_open_weight: weight(due_open)
+    }
+  end
+
   def self.missing_required_weight?(row)
     row[:missing_weight] && row[:status_name].to_s.strip != 'Ongoing'
   end
