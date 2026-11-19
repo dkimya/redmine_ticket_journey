@@ -404,6 +404,9 @@
 .periodic-return-distribution-table :is(th,td).periodic-return-group-start{
   border-inline-start:2px solid #9aabba;
 }
+.periodic-summary .periodic-return-distribution-table tbody tr:last-child > :is(th,td){
+  border-bottom:2px solid #9aabba;
+}
 .periodic-time-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 .periodic-time-kpi{overflow-wrap:anywhere}
 .periodic-time-kpi h4{min-height:60px}
