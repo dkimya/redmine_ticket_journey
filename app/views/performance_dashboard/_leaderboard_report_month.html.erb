@@ -7,6 +7,15 @@
   <div class="autoscroll">
     <svg class="performance-trend-chart performance-leaderboard-chart" viewBox="0 0 860 285" role="img" aria-labelledby="report-month-chart-title">
       <title id="report-month-chart-title">Report Month — Delivered + Open · <%= report_range %></title>
+      <defs>
+        <% entries.each do |entry| %>
+          <% owner = entry[:owner] %>
+          <pattern id="report-month-open-<%= owner.id %>" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
+            <rect width="8" height="8" fill="<%= performance_owner_color(owner.id) %>" fill-opacity="0.12" />
+            <path d="M 4 0 V 8" stroke="<%= performance_owner_color(owner.id) %>" stroke-width="2" />
+          </pattern>
+        <% end %>
+      </defs>
       <text x="90" y="18" class="performance-report-month-title">Report Month — Delivered + Open</text>
       <% geometry[:ticks].each do |tick| %>
         <% y = 235 - height_for.call(tick) %>
@@ -14,6 +23,7 @@
         <text x="78" y="<%= y + 5 %>" text-anchor="end"><%= performance_number(tick) %></text>
       <% end %>
       <% entries.each_with_index do |entry, index| %>
+        <% owner = entry[:owner] %>
         <% month = entry.fetch(:report_month) %>
         <% delivered, open = month.values_at(:delivered_weight, :open_weight) %>
         <% x = 90 + (index + 0.5) * slot_width %>
@@ -21,8 +31,8 @@
         <% description = "#{entry[:owner].name}: #{performance_number(delivered)} CW delivered, #{performance_number(open)} CW open" %>
         <g class="performance-report-month-column" tabindex="0" role="img" aria-label="<%= description %>">
           <title><%= description %></title>
-          <rect class="performance-report-month-delivered" x="<%= x - bar_width / 2 %>" y="<%= 235 - delivered_height %>" width="<%= bar_width %>" height="<%= delivered_height %>" />
-          <rect class="performance-report-month-open" x="<%= x - bar_width / 2 %>" y="<%= 235 - delivered_height - open_height %>" width="<%= bar_width %>" height="<%= open_height %>" />
+          <rect fill="<%= performance_owner_color(owner.id) %>" x="<%= x - bar_width / 2 %>" y="<%= 235 - delivered_height %>" width="<%= bar_width %>" height="<%= delivered_height %>" />
+          <rect fill="url(#report-month-open-<%= owner.id %>)" x="<%= x - bar_width / 2 %>" y="<%= 235 - delivered_height - open_height %>" width="<%= bar_width %>" height="<%= open_height %>" />
         </g>
         <% if shared_target.nil? && entry[:target] %>
           <% y = 235 - height_for.call(entry[:target]) %>
@@ -38,8 +48,8 @@
     </svg>
   </div>
   <p><%= report_range %> · CW = usable complexity weight</p>
-  <p><span class="performance-dot performance-report-month-delivered" aria-hidden="true"></span> Delivered
-     · <span class="performance-dot performance-report-month-open" aria-hidden="true"></span> Open
+  <p><span class="performance-report-month-swatch" aria-hidden="true"></span> Delivered
+     · <span class="performance-report-month-swatch performance-report-month-swatch-open" aria-hidden="true"></span> Open
      · Dashed marks show full-month targets</p>
   <p><%= entries.each_with_index.map { |entry, index| "#{index + 1}. #{entry[:owner].name}" }.join(' · ') %></p>
   <details class="performance-trend-values"><summary>View owner values and ticket counts</summary>
