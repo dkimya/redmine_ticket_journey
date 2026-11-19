@@ -168,7 +168,8 @@ shows delivered CW, qualifying owner hours and the resulting rate. The
 planned CW/h toggle reveals dashed lines and planned values in the table.
 The plan divides expected CW by the configured owner share of PM estimates
 on the same paired monthly tickets. For multiple owners, the team rates
-divide summed CW by summed hours. Owner toggles control both lines for that owner.
+divide summed CW by summed hours. Each owner and the team have separate chart
+toggles that control their actual and planned lines.
 
 Delivery/cost charts group tickets by completion interval. Logged-hours charts
 partition entry work dates. A ticket finished in Week 2 appears in Week 2 on cost

@@ -43,7 +43,9 @@ class PeriodicTimeTest < ActionController::TestCase
     assert_select '.periodic-monthly-efficiency' do
       assert_select 'button[data-leaderboard-toggle="planned-cw"][aria-pressed="false"]', count: 1
       assert_select 'button[data-leaderboard-toggle]', count: 1
-      assert_select 'tbody tr', count: 5
+      assert_select 'details.performance-trend-values[open]', count: 0
+      assert_select 'details.performance-trend-values > summary', text: 'View monthly CW/h values'
+      assert_select 'details.performance-trend-values tbody tr', count: 5
       assert_select 'tbody tr:first-child th', text: 'Sep 2019'
       assert_select 'tbody tr:first-child td strong', text: 'N/A'
       assert_select 'tbody tr:last-child th', text: 'Jan 2020'
@@ -78,11 +80,11 @@ class PeriodicTimeTest < ActionController::TestCase
     assert_select '.periodic-time-owner-trends', count: 1
     assert_select '.periodic-time-owner-trends[open]', count: 0
     assert_select '.periodic-monthly-efficiency' do
-      assert_select 'button[data-leaderboard-toggle][aria-pressed="true"]', count: 2
+      assert_select 'button[data-leaderboard-toggle][aria-pressed="true"]', count: 3
+      assert_select 'button[data-leaderboard-toggle="team"][aria-pressed="true"]', text: 'Team', count: 1
       assert_select 'g[data-leaderboard-series="1"] > g.is-hidden[data-leaderboard-series="planned-cw"]', count: 1
       assert_select 'g[data-leaderboard-series="2"] > g.is-hidden[data-leaderboard-series="planned-cw"]', count: 1
-      assert_select 'g.performance-trend-series:not([data-leaderboard-series]) > g.is-hidden[data-leaderboard-series="planned-cw"]', count: 1
-      assert_select 'p', text: /Team \(always visible\)/
+      assert_select 'g[data-leaderboard-series="team"] > g.is-hidden[data-leaderboard-series="planned-cw"]', count: 1
       assert_select 'tbody tr:last-child td:last-child strong', text: '1.25'
     end
     assert_select '.periodic-time-trend a[target="_blank"]', minimum: 1 do |links|

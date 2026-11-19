@@ -48,7 +48,7 @@
           <text x="<%= geometry[:series].first[index][:x] %>" y="268" text-anchor="middle"><%= month.strftime('%b %Y') %></text>
         <% end %>
         <% series.each do |key, entry| %>
-          <g class="performance-trend-series"<% if compare_owners && key != 'team' %> data-leaderboard-series="<%= key %>"<% end %> style="stroke:<%= entry[:color] %>;fill:<%= entry[:color] %>">
+          <g class="performance-trend-series"<% if compare_owners %> data-leaderboard-series="<%= key %>"<% end %> style="stroke:<%= entry[:color] %>;fill:<%= entry[:color] %>">
             <% [false, true].each do |planned| %>
               <% rate_key = planned ? "plan-#{key}" : key; coordinates = plot.fetch(rate_key) %>
               <g<% if planned %> class="periodic-monthly-plan-line is-hidden" data-leaderboard-series="planned-cw"<% end %>>
@@ -69,33 +69,35 @@
     </div>
     <% if compare_owners %>
       <div class="performance-leaderboard-legend" aria-label="Monthly CW/h series">
-        <p><span class="performance-leaderboard-swatch" style="border-color:<%= series['team'][:color] %>" aria-hidden="true"></span> Team (always visible)</p>
-        <% @selected_owners.each do |owner| %>
-          <button type="button" data-leaderboard-toggle="<%= owner.id %>" data-owner-name="<%= owner.name %>" data-line-description="lines" aria-pressed="true" aria-label="Hide <%= owner.name %> lines">
-            <span class="performance-leaderboard-swatch" style="border-color:<%= series[owner.id.to_s][:color] %>" aria-hidden="true"></span><span><%= owner.name %></span>
+        <% series.each do |key, entry| %>
+          <button type="button" data-leaderboard-toggle="<%= key %>" data-owner-name="<%= entry[:name] %>" data-line-description="lines" aria-pressed="true" aria-label="Hide <%= entry[:name] %> lines">
+            <span class="performance-leaderboard-swatch" style="border-color:<%= entry[:color] %>" aria-hidden="true"></span><span><%= entry[:name] %></span>
           </button>
         <% end %>
       </div>
     <% end %>
   </div>
-  <div class="autoscroll">
-    <table class="list">
-      <thead><tr><th scope="col">Month</th><% series.each_value do |entry| %><th scope="col"><%= entry[:name] %> (CW/h)</th><% end %></tr></thead>
-      <tbody>
-        <% monthly_totals.each do |month, totals| %>
-          <tr><th scope="row"><%= month.strftime('%b %Y') %></th>
-            <% series.each_key do |key| %>
-              <td><strong><%= periodic_time_number(rates[month][key], 'efficiency') %></strong><br>
-                <small><%= performance_number(totals[key][:weight]) %> CW ÷ <%= performance_number(totals[key][:hours]) %> h</small>
-                <div class="is-hidden" data-leaderboard-series="planned-cw">
-                  Plan <b><%= periodic_time_number(rates[month]["plan-#{key}"], 'efficiency') %></b><br>
-                  <small><%= performance_number(totals[key][:expected_weight]) %> CW ÷ <%= performance_number(totals[key][:planned_hours]) %> h</small>
-                </div>
-              </td>
-            <% end %>
-          </tr>
-        <% end %>
-      </tbody>
-    </table>
-  </div>
+  <details class="performance-trend-values">
+    <summary>View monthly CW/h values</summary>
+    <div class="autoscroll">
+      <table class="list">
+        <thead><tr><th scope="col">Month</th><% series.each_value do |entry| %><th scope="col"><%= entry[:name] %> (CW/h)</th><% end %></tr></thead>
+        <tbody>
+          <% monthly_totals.each do |month, totals| %>
+            <tr><th scope="row"><%= month.strftime('%b %Y') %></th>
+              <% series.each_key do |key| %>
+                <td><strong><%= periodic_time_number(rates[month][key], 'efficiency') %></strong><br>
+                  <small><%= performance_number(totals[key][:weight]) %> CW ÷ <%= performance_number(totals[key][:hours]) %> h</small>
+                  <div class="is-hidden" data-leaderboard-series="planned-cw">
+                    Plan <b><%= periodic_time_number(rates[month]["plan-#{key}"], 'efficiency') %></b><br>
+                    <small><%= performance_number(totals[key][:expected_weight]) %> CW ÷ <%= performance_number(totals[key][:planned_hours]) %> h</small>
+                  </div>
+                </td>
+              <% end %>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </details>
 </section>
