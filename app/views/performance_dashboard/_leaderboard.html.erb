@@ -6,7 +6,7 @@
   <% if @return_mode %>
     <p><strong class="performance-favorable-direction">↓ Lower is better</strong></p>
   <% else %>
-    <p>The dashed colored segment ends at the report date. Thin gray dashed lines show full-month targets.</p>
+    <p>The thinner colored segment shows delivery through the report date. Gray dashed lines show full-month targets.</p>
   <% end %>
   <% points_by_owner = entries.map { |entry| @return_mode ? entry[:points] : entry[:points] + [entry.fetch(:report_month)] } %>
   <% dates = points_by_owner.first.map { |point| point[:date] } %>
@@ -52,7 +52,7 @@
         <g class="performance-trend-series" data-leaderboard-series="<%= owner.id %>" style="stroke:<%= performance_owner_color(owner.id) %>;fill:<%= performance_owner_color(owner.id) %>">
           <% series.each_cons(2) do |left, right| %>
             <% next unless left[:y] && right[:y] %>
-            <line x1="<%= left[:x] %>" y1="<%= left[:y] %>" x2="<%= right[:x] %>" y2="<%= right[:y] %>"<% if !@return_mode && right[:index] == dates.size - 1 %> class="performance-leaderboard-report-segment" stroke-dasharray="6 5"<% end %> />
+            <line x1="<%= left[:x] %>" y1="<%= left[:y] %>" x2="<%= right[:x] %>" y2="<%= right[:y] %>"<% if !@return_mode && right[:index] == dates.size - 1 %> class="performance-leaderboard-report-segment" stroke-width="1.5"<% end %> />
           <% end %>
           <% series.each do |coordinate| %>
             <% next unless coordinate[:y] %>

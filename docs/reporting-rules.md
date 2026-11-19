@@ -458,7 +458,7 @@ When multiple distinct owners are selected, both Tickets and Returns insert Lead
 Owners receive distinct qualitative palette slots based on sorted selected IDs. Colors match across tabs and row sorting for the same owner selection; changing the selected set can reassign colors. Large selections beyond the 12-color palette use additional hues. Legend buttons hide/show lines with accessible pressed states; axes and the exact-values table stay unchanged. Hover/focus labels show owner, date, value and contributing counts. The expandable table lists all five months per owner, with return numerator/denominator or delivered tickets/points. No ranks or winner labels are assigned. Owner aggregates are added during the existing batched scan and reused snapshots/events; Returns parses events once per ticket. Retained extra state grows by five small aggregate hashes per selected owner. No extra issue/history scans, migrations, settings or chart libraries are added. JavaScript tests pass; Ruby tests and deployed visual/timing checks remain pending.
 
 The Tickets leaderboard appends delivery from the first of the selected report
-month through the report date, inclusive, with a dashed final segment. It reuses
+month through the report date, inclusive, with a thinner solid final segment. It reuses
 the report-date ticket snapshot. The adjacent bars compare that delivery with
 each owner's Live Open Tickets population as of the selected date. The due
 subset uses the dashboard's delivery eligibility and current due dates through

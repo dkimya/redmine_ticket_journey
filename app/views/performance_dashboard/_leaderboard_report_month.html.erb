@@ -28,11 +28,19 @@
         <% delivered, open = month.values_at(:delivered_weight, :open_weight) %>
         <% x = 90 + (index + 0.5) * slot_width %>
         <% delivered_height = height_for.call(delivered); open_height = height_for.call(open) %>
-        <% description = "#{entry[:owner].name}: #{performance_number(delivered)} CW delivered, #{performance_number(open)} CW open" %>
-        <g class="performance-report-month-column" tabindex="0" role="img" aria-label="<%= description %>">
-          <title><%= description %></title>
-          <rect fill="<%= performance_owner_color(owner.id) %>" x="<%= x - bar_width / 2 %>" y="<%= 235 - delivered_height %>" width="<%= bar_width %>" height="<%= delivered_height %>" />
-          <rect fill="url(#report-month-open-<%= owner.id %>)" x="<%= x - bar_width / 2 %>" y="<%= 235 - delivered_height - open_height %>" width="<%= bar_width %>" height="<%= open_height %>" />
+        <g class="performance-report-month-column">
+          <% if delivered_height.positive? %>
+            <% delivered_label = "#{owner.name} — Delivered this month: #{performance_number(delivered)} CW across #{pluralize(month[:delivered_count], 'ticket')}" %>
+            <rect fill="<%= performance_owner_color(owner.id) %>" x="<%= x - bar_width / 2 %>" y="<%= 235 - delivered_height %>" width="<%= bar_width %>" height="<%= delivered_height %>" tabindex="0" role="img" aria-label="<%= delivered_label %>">
+              <title><%= delivered_label %></title>
+            </rect>
+          <% end %>
+          <% if open_height.positive? %>
+            <% open_label = "#{owner.name} — Open as of the report date: #{performance_number(open)} CW across #{pluralize(month[:open_count], 'ticket')}" %>
+            <rect fill="url(#report-month-open-<%= owner.id %>)" x="<%= x - bar_width / 2 %>" y="<%= 235 - delivered_height - open_height %>" width="<%= bar_width %>" height="<%= open_height %>" tabindex="0" role="img" aria-label="<%= open_label %>">
+              <title><%= open_label %></title>
+            </rect>
+          <% end %>
         </g>
         <% if shared_target.nil? && entry[:target] %>
           <% y = 235 - height_for.call(entry[:target]) %>

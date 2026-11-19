@@ -333,7 +333,7 @@
   background:repeating-linear-gradient(135deg,#536579 0 1px,#eef3f8 1px 4px);
 }
 .performance-report-month-target{stroke:#536579;stroke-width:2;stroke-dasharray:6 5}
-.performance-report-month-column:focus{outline:2px solid #17365d}
+.performance-report-month-column rect:focus{outline:2px solid #17365d}
 @media(min-width:1150px){
   .performance-leaderboard-with-report-month{
     grid-template-columns:repeat(2,minmax(0,1fr)) minmax(165px,205px);
