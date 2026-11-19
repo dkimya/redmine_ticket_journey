@@ -4,6 +4,11 @@ class PerformanceDashboardHelperTest < ActiveSupport::TestCase
   include PerformanceDashboardHelper
   include ActionView::Helpers::NumberHelper
 
+  test 'Periodic Tickets date labels stagger close dates and keep the endpoints' do
+    assert_equal [0, 1, 0, 0, 0], periodic_trend_date_label_rows([90, 126, 376, 627, 770])
+    assert_equal [0, 1, nil, 0, 1, 0], periodic_trend_date_label_rows([90, 100, 110, 220, 750, 770])
+  end
+
   test 'return notes distinguish not applicable missing reasons and real zero incidents' do
     empty = { population: 0, returned: 0, unknown: 0 }
     assert_match(/Not applicable.*no tickets/, performance_return_metric_note(empty))

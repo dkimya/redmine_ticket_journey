@@ -105,7 +105,15 @@
       <h3>Debt Summary</h3>
       <p>Of <%= periodic_summary_link(report, 'debt', :count) %> unresolved expected tickets at RED, <%= periodic_summary_link(report, 'still_open', :count) %> are still open as of <%= format_date(Date.current) %>. Current follow-up can change after RED.</p>
       <div class="periodic-grid"><% [:count, :weight].each do |measure| %><div><h4><%= measure == :count ? 'Tickets' : 'Complexity Weight' %></h4><% maximum = [%w[beginning debt still_open].map { |key| summaries[key][measure] }.max.to_f, 1].max %>
-        <% %w[beginning debt still_open].each do |key| %><div class="periodic-bar-row"><span><%= TicketJourneyPeriodicTickets::LABELS[key] %></span><div class="periodic-bar-track"><%= periodic_ticket_link(content_tag(:span, '', style: "width:#{summaries[key][measure] * 100.0 / maximum}%;", class: "periodic-bar-fill periodic-#{key}"), key, @selected_owner_ids, 'aria-label': "#{TicketJourneyPeriodicTickets::LABELS[key]}: #{performance_number(summaries[key][measure])}") %></div><b><%= periodic_summary_link(report, key, measure) %></b></div><% end %>
+        <% %w[beginning debt still_open].each do |key| %>
+          <div class="periodic-bar-row periodic-debt-bar-row">
+            <span><%= TicketJourneyPeriodicTickets::LABELS[key] %></span>
+            <b><%= periodic_summary_link(report, key, measure) %></b>
+            <div class="periodic-bar-track">
+              <%= periodic_ticket_link(content_tag(:span, '', style: "width:#{summaries[key][measure] * 100.0 / maximum}%;", class: "periodic-bar-fill periodic-#{key}"), key, @selected_owner_ids, 'aria-label': "#{TicketJourneyPeriodicTickets::LABELS[key]}: #{performance_number(summaries[key][measure])}") %>
+            </div>
+          </div>
+        <% end %>
       </div><% end %></div>
       <details><summary>Show debt details</summary><table class="list"><thead><tr><th>Metric</th><th>Tickets</th><th>CW</th></tr></thead><tbody><% %w[beginning debt still_open].each do |key| %><tr><th><%= TicketJourneyPeriodicTickets::LABELS[key] %></th><td><%= periodic_summary_link(report, key, :count) %></td><td><%= periodic_summary_link(report, key, :weight) %></td></tr><% end %></tbody></table></details>
     </section>

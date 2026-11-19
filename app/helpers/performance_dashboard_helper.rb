@@ -230,6 +230,25 @@ module PerformanceDashboardHelper
     geometry.merge(step: step, ticks: (0..intervals).map { |index| index * step })
   end
 
+  def periodic_trend_date_label_rows(positions)
+    # Reserve the first row for both endpoints. Nearby dates can use the second row.
+    minimum_gap = 88
+    last_position_by_row = [nil, nil]
+    positions.each_with_index.map do |position, index|
+      row = if index.zero? || index == positions.size - 1
+        0
+      else
+        last_position_by_row.each_index.find do |candidate|
+          previous = last_position_by_row[candidate]
+          (previous.nil? || position - previous >= minimum_gap) &&
+            (candidate == 1 || positions.last - position >= minimum_gap)
+        end
+      end
+      last_position_by_row[row] = position unless row.nil?
+      row
+    end
+  end
+
   def performance_return_trend_geometry(points, keys: [:ratio], maximum: nil, scale_values: [], minimum: 1.0)
     values = points.flat_map { |point| keys.map { |key| point[key] } }.compact + scale_values.compact
     # Zero baseline with a numeric scale that expands to include every value.

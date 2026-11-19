@@ -471,6 +471,9 @@
 .periodic-bar-row{display:grid;grid-template-columns:minmax(105px,1fr) minmax(80px,1.6fr) minmax(45px,.4fr);gap:12px;align-items:center;margin:16px 0}
 .periodic-bar-row>span{font-size:13px;overflow-wrap:anywhere}
 .periodic-bar-row>b{text-align:right;font-size:15px}
+.periodic-debt-bar-row{
+  grid-template-columns:minmax(105px,.55fr) minmax(45px,.2fr) minmax(0,1.6fr);
+}
 .periodic-bar-track,.periodic-stacked-bar{height:24px;background:#edf1f6;border-radius:3px;overflow:hidden}
 .periodic-bar-track>a{display:block;height:100%}
 .periodic-stacked-bar{display:flex}
