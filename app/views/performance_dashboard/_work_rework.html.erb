@@ -18,21 +18,21 @@
         </colgroup>
         <thead><tr><th scope="col">Logged effort</th><% columns.each do |phase| %><th scope="col"><%= calculator::PHASE_LABELS.fetch(phase, 'Total') %></th><% end %></tr></thead>
         <tbody>
-          <% total_label = @periodic_time ? 'All Contributors’ Hours on Completed Tickets' : 'Total visible hours' %>
+          <% total_label = @periodic_time ? 'Total' : 'Total visible hours' %>
           <% hour_rows = { work: 'Work', rework: 'Rework' } %>
           <% hour_rows[:unknown] = 'Pending classification' if @periodic_time %>
           <% hour_rows.merge(nil => total_label).each do |kind, label| %>
-            <tr><th scope="row"><%= label %></th><% columns.each do |phase| %><td><%= hours.call(time_visible ? calculator.total(summary, kind, phase) : nil) %></td><% end %></tr>
+            <tr><th scope="row"><%= label %><% if @periodic_time && kind.nil? %> <small class="performance-work-rework-formula">(All contributors’ hours on completed tickets)</small><% end %></th><% columns.each do |phase| %><td><%= hours.call(time_visible ? calculator.total(summary, kind, phase) : nil) %></td><% end %></tr>
           <% end %>
           <% if @periodic_time %>
-            <tr><th scope="row">Classified hours (Work + Rework)</th><% columns.each do |phase| %><td><%= hours.call(time_visible ? calculator.classified_hours(summary, phase) : nil) %></td><% end %></tr>
+            <tr class="performance-work-rework-group-start"><th scope="row">Classified hours <small class="performance-work-rework-formula">(Work + Rework)</small></th><% columns.each do |phase| %><td><%= hours.call(time_visible ? calculator.classified_hours(summary, phase) : nil) %></td><% end %></tr>
           <% end %>
-          <tr><th scope="row"><%= @periodic_time ? 'Rework % (Rework ÷ classified hours)' : 'Rework %' %></th><% columns.each do |phase| %><td><%= percent.call(calculator.rework_percent(summary, phase)) %></td><% end %></tr>
+          <tr><th scope="row">Rework %<% if @periodic_time %> <small class="performance-work-rework-formula">(Rework ÷ classified hours)</small><% end %></th><% columns.each do |phase| %><td><%= percent.call(calculator.rework_percent(summary, phase)) %></td><% end %></tr>
           <% average_formulas = { count: "Total hours ÷ #{pluralize(summary[:count], 'ticket')}",
                                   weight: summary[:missing_weight].zero? ? "Total hours ÷ #{performance_number(summary[:weight])} CW" : 'Requires usable CW on every ticket' } %>
           <% { count: 'Average hours per ticket', weight: 'Average hours per CW' }.each do |denominator, label| %>
             <% available = summary[:unavailable].zero? && summary[denominator].positive? && (denominator != :weight || summary[:missing_weight].zero?) %>
-            <tr><th scope="row"><%= label %><% if @periodic_time %><br><small><%= average_formulas.fetch(denominator) %></small><% end %></th><% columns.each do |phase| %>
+            <tr<% if @periodic_time && denominator == :count %> class="performance-work-rework-group-start"<% end %>><th scope="row"><%= label %><% if @periodic_time %><br><small><%= average_formulas.fetch(denominator) %></small><% end %></th><% columns.each do |phase| %>
               <td><%= hours.call(available ? calculator.total(summary, nil, phase) / summary[denominator] : nil) %></td>
             <% end %></tr>
           <% end %>
