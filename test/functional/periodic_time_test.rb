@@ -40,6 +40,15 @@ class PeriodicTimeTest < ActionController::TestCase
     assert_select '.performance-work-rework-phase-table th', text: 'Classified hours (Work + Rework)'
     assert_select 'p', text: /4 h on these completed tickets\s*\+ 3 h on other in-scope tickets\s*= 7 h/
     assert_select '.periodic-time-kpi', count: 8
+    assert_select '.periodic-monthly-efficiency' do
+      assert_select 'button[data-leaderboard-toggle]', count: 0
+      assert_select 'tbody tr', count: 5
+      assert_select 'tbody tr:first-child th', text: 'Sep 2019'
+      assert_select 'tbody tr:first-child td strong', text: 'N/A'
+      assert_select 'tbody tr:last-child th', text: 'Jan 2020'
+      assert_select 'tbody tr:last-child td strong', text: '1.25'
+      assert_select 'tbody tr:last-child td small', text: '5 CW ÷ 4 h'
+    end
     assert_select '.periodic-time-trend', minimum: 5
     assert_select '.periodic-summary details[open]', count: 0
     assert_select '.periodic-time-breakdown', count: 1
@@ -64,6 +73,12 @@ class PeriodicTimeTest < ActionController::TestCase
     assert_equal 2.0, entries.find { |entry| entry[:owner].id == 2 }[:report][:metrics]['total_hours'][:actual]
     assert_select '.periodic-time-owner-trends', count: 1
     assert_select '.periodic-time-owner-trends[open]', count: 0
+    assert_select '.periodic-monthly-efficiency' do
+      assert_select 'button[data-leaderboard-toggle][aria-pressed="true"]', count: 2
+      assert_select 'g[data-leaderboard-series]', count: 2
+      assert_select 'p', text: /Team \(always visible\)/
+      assert_select 'tbody tr:last-child td:last-child strong', text: '1.25'
+    end
     assert_select '.periodic-time-trend a[target="_blank"]', minimum: 1 do |links|
       individual = links.find { |link| Rack::Utils.parse_nested_query(URI.parse(link['href']).query)['owner_id'] == '2' }
       assert individual

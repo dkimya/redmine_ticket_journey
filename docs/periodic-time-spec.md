@@ -161,6 +161,12 @@ paired comparisons with review coverage; valid known hours remain separately sho
 
 ## Trends and drill-downs
 
+The monthly CW/h chart below the KPI cards uses the five completed calendar
+months ending on or before RED. Each month uses its own expected ticket
+package and the same paired CW/h calculation as the KPI. The data table
+shows delivered CW, qualifying owner hours and the resulting rate. For
+multiple owners, the team rate divides the summed CW by the summed hours.
+
 Delivery/cost charts group tickets by completion interval. Logged-hours charts
 partition entry work dates. A ticket finished in Week 2 appears in Week 2 on cost
 charts, carrying full cost through RED; its hours logged in Week 1 appear in Week 1

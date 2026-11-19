@@ -8,6 +8,15 @@ class TicketJourneyPeriodicTimeTest < ActiveSupport::TestCase
     @calendar = TicketJourney::WorkingCalendar.new(@settings)
   end
 
+  test 'monthly efficiency includes the report end month only when complete' do
+    assert_equal [Date.new(2026, 6, 30), Date.new(2026, 7, 31), Date.new(2026, 8, 31),
+      Date.new(2026, 9, 30), Date.new(2026, 10, 31)],
+      TicketJourneyPeriodicTime.efficiency_month_ends(Date.new(2026, 11, 19))
+    assert_equal [Date.new(2026, 7, 31), Date.new(2026, 8, 31), Date.new(2026, 9, 30),
+      Date.new(2026, 10, 31), Date.new(2026, 11, 30)],
+      TicketJourneyPeriodicTime.efficiency_month_ends(Date.new(2026, 11, 30))
+  end
+
   test 'eight metrics distinguish full ticket cost personal period hours and calendar DTC' do
     result = report([row(1)])
     metrics = result[:metrics]

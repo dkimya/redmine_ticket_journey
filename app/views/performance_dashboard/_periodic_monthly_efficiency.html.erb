@@ -1,0 +1,77 @@
+<% compare_owners = @selected_owners.size > 1 %>
+<% series = @selected_owners.to_h do |owner|
+     [owner.id.to_s, { name: owner.name, color: performance_owner_color(owner.id) }]
+   end
+   series['team'] = { name: 'Team', color: '#17365d' } if compare_owners
+   monthly_totals = @monthly_efficiency.transform_values do |owners|
+     next owners unless compare_owners
+
+     owners.merge('team' => {
+       weight: owners.values.sum { |totals| totals[:weight] },
+       hours: owners.values.sum { |totals| totals[:hours] }
+     })
+   end
+   rates = monthly_totals.transform_values do |totals|
+     totals.transform_values { |entry| TicketJourneyPeriodicTime.efficiency_rate(entry[:weight], entry[:hours]) }
+   end
+   geometry = performance_leaderboard_geometry(rates.values, keys: series.keys, scale_values: [], percent: false)
+%>
+<section class="performance-section performance-leaderboard periodic-monthly-efficiency" data-performance-leaderboard>
+  <h3>Delivered CW per Owner Hour — Last 5 Completed Months</h3>
+  <p>Each point uses its own calendar month. Delivered expected complexity weight is divided by visible owner hours logged that month on the matching expected tickets, including unfinished work. Months with zero qualifying hours show N/A.<%= ' The team rate divides combined delivered CW by combined owner hours.' if compare_owners %></p>
+  <div class="<%= 'performance-leaderboard-layout' if compare_owners %>">
+    <div class="autoscroll">
+      <svg class="performance-trend-chart performance-leaderboard-chart" viewBox="0 0 860 285" role="img" aria-labelledby="periodic-monthly-efficiency-title">
+        <title id="periodic-monthly-efficiency-title">Monthly delivered CW per owner hour (CW/h)</title>
+        <% geometry[:ticks].each do |tick| %>
+          <% y = 235 - tick / geometry[:maximum] * 200 %>
+          <line class="performance-trend-grid" x1="90" x2="770" y1="<%= y %>" y2="<%= y %>" />
+          <text x="78" y="<%= y + 5 %>" text-anchor="end"><%= periodic_time_number(tick, 'efficiency') %></text>
+        <% end %>
+        <% rates.keys.each_with_index do |month, index| %>
+          <text x="<%= geometry[:series].first[index][:x] %>" y="268" text-anchor="middle"><%= month.strftime('%b %Y') %></text>
+        <% end %>
+        <% series.each_with_index do |(key, entry), index| %>
+          <% coordinates = geometry[:series][index] %>
+          <g class="performance-trend-series"<% if compare_owners && key != 'team' %> data-leaderboard-series="<%= key %>"<% end %> style="stroke:<%= entry[:color] %>;fill:<%= entry[:color] %>">
+            <% coordinates.each_cons(2) do |left, right| %>
+              <% next unless left[:y] && right[:y] %>
+              <line x1="<%= left[:x] %>" y1="<%= left[:y] %>" x2="<%= right[:x] %>" y2="<%= right[:y] %>" />
+            <% end %>
+            <% coordinates.each do |point| %>
+              <% next unless point[:y] %>
+              <% month = rates.keys[point[:index]]; label = "#{entry[:name]} — #{month.strftime('%b %Y')} · #{periodic_time_number(rates[month][key], 'efficiency')} CW/h" %>
+              <circle cx="<%= point[:x] %>" cy="<%= point[:y] %>" r="5" tabindex="0" role="img" aria-label="<%= label %>"><title><%= label %></title></circle>
+            <% end %>
+          </g>
+        <% end %>
+      </svg>
+    </div>
+    <% if compare_owners %>
+      <div class="performance-leaderboard-legend" aria-label="Monthly CW/h series">
+        <p><span class="performance-leaderboard-swatch" style="border-color:<%= series['team'][:color] %>" aria-hidden="true"></span> Team (always visible)</p>
+        <% @selected_owners.each do |owner| %>
+          <button type="button" data-leaderboard-toggle="<%= owner.id %>" data-owner-name="<%= owner.name %>" aria-pressed="true" aria-label="Hide <%= owner.name %> line">
+            <span class="performance-leaderboard-swatch" style="border-color:<%= series[owner.id.to_s][:color] %>" aria-hidden="true"></span><span><%= owner.name %></span>
+          </button>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+  <div class="autoscroll">
+    <table class="list">
+      <thead><tr><th scope="col">Month</th><% series.each_value do |entry| %><th scope="col"><%= entry[:name] %> (CW/h)</th><% end %></tr></thead>
+      <tbody>
+        <% monthly_totals.each do |month, totals| %>
+          <tr><th scope="row"><%= month.strftime('%b %Y') %></th>
+            <% series.each_key do |key| %>
+              <td><strong><%= periodic_time_number(rates[month][key], 'efficiency') %></strong><br>
+                <small><%= performance_number(totals[key][:weight]) %> CW ÷ <%= performance_number(totals[key][:hours]) %> h</small>
+              </td>
+            <% end %>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+</section>

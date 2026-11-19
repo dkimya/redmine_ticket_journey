@@ -433,6 +433,11 @@ class PerformanceDashboardController < ApplicationController
       allowed = @periodic_project_time_permissions.values
       @periodic_time_available, @periodic_time_any_available = allowed.all?, allowed.any?
       prepare_work_rework(requested_owners, @period_end) unless @metric
+      unless @metric
+        @monthly_efficiency = TicketJourneyPeriodicTime.efficiency_month_ends(@period_end).to_h do |day|
+          [day, requested_owners.to_h { |id| [id, { weight: 0.0, hours: 0.0 }] }]
+        end
+      end
       @time_bucket = params[:time_bucket].present? ? Date.iso8601(params[:time_bucket]) : nil
       return render_404 if @time_bucket && (!@metric || !TicketJourneyPeriodicReturns.intervals(@period_start, @period_end).map(&:last).include?(@time_bucket))
       return render_404 if @metric == 'time_mix' && params[:mix_scope].present? && !%w[personal package archived].include?(params[:mix_scope])
@@ -480,6 +485,20 @@ class PerformanceDashboardController < ApplicationController
         else
           TicketJourneyPeriodicTickets.history_for(selected_batch.map(&:id), @period_end)
         end
+        monthly_hours = nil
+        if @monthly_efficiency
+          monthly_start = @monthly_efficiency.keys.first.beginning_of_month
+          if @period_start <= monthly_start
+            monthly_hours = hours
+          else
+            monthly_issue_ids = selected_batch.select do |issue|
+              @periodic_project_time_permissions.fetch(issue.project_id, false) &&
+                values.fetch(issue.id).any? { |value| value.custom_field.id == 57 && selected.include?(value.value.to_s) }
+            end.map(&:id)
+            monthly_hours = TicketJourneyPeriodicTime.load_hours(monthly_issue_ids,
+              monthly_start, @monthly_efficiency.keys.last, requested_owners, owner_only: true) if monthly_issue_ids.any?
+          end
+        end
         rework_candidates = []
         selected_batch.each do |issue|
           owner_value = values.fetch(issue.id).find { |value| value.custom_field.id == 57 }
@@ -489,6 +508,10 @@ class PerformanceDashboardController < ApplicationController
           if @periodic_time && row
             row = TicketJourneyPeriodicTime.enrich(row, issue, hours,
               @periodic_project_time_permissions.fetch(issue.project_id, false), !owner_value.nil?)
+            if monthly_hours && selected.include?(owner) && row[:time_allowed] && row[:estimate] && !row[:missing_weight]
+              month_row = monthly_hours.equal?(hours) ? row : TicketJourneyPeriodicTime.enrich(row, issue, monthly_hours, true, true)
+              add_monthly_efficiency(issue, month_row, statuses, history.fetch(issue.id, []), values.fetch(issue.id))
+            end
             if @work_rework && selected.include?(owner) && row[:current_done]
               monthly = @work_rework_months.fetch(owner, {}).keys.filter_map do |day|
                 snapshot = TicketJourneyPerformance.snapshot(issue, day, statuses, history: history[issue.id],
@@ -577,6 +600,25 @@ class PerformanceDashboardController < ApplicationController
     dates = TicketJourneyPerformance.completed_month_ends(date)
     @work_rework_months = owner_ids.to_h do |id|
       [id, dates.to_h { |day| [day, TicketJourneyWorkRework.summary] }]
+    end
+  end
+
+  def add_monthly_efficiency(issue, row, statuses, history, values)
+    owner_id = row[:owner_id]
+    @monthly_efficiency.each do |last, owners|
+      next if row[:created_date] > last
+
+      first = last.beginning_of_month
+      hours = TicketJourneyPeriodicTime.personal_hours(row, owner_id, first, last)
+      next unless TicketJourneyPeriodicTime.efficiency_pair?(row, hours)
+
+      snapshot = TicketJourneyPeriodicTickets.row(issue, first, last, statuses, history, values, owner_id)
+      next unless snapshot && !TicketJourneyPeriodicTickets.excluded?(snapshot) &&
+        TicketJourneyPeriodicTickets.category(snapshot, first, last)
+
+      totals = owners.fetch(owner_id)
+      totals[:hours] += hours
+      totals[:weight] += snapshot[:weight] if TicketJourneyPeriodicTickets.delivered?(snapshot, first, last)
     end
   end
 

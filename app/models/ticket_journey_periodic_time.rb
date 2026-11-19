@@ -35,16 +35,19 @@ class TicketJourneyPeriodicTime
     'dtc_excluded' => 'Done Tickets Without Usable Creation/Completion Dates'
   ).freeze
 
-  def self.load_hours(ids, first_day, last_day, owners)
+  def self.load_hours(ids, first_day, last_day, owners, owner_only: false)
     visible = TimeEntry.visible(User.current).where(issue_id: ids).where('time_entries.spent_on <= ?', last_day)
     valid = visible.where('time_entries.hours >= 0 AND time_entries.hours <= ?', Float::MAX)
-    costs = valid.group(:issue_id).sum(:hours).transform_values { |value| finite_sum(value) }
     logs = Hash.new { |hash, id| hash[id] = Hash.new { |by_user, user| by_user[user] = [] } }
     valid.where(user_id: owners, spent_on: first_day..last_day).group(:issue_id, :user_id, :spent_on).sum(:hours)
       .each do |(id, user, day), hours|
         logs[id][user.to_s] << [day.to_date, finite_sum(hours)]
       end
     invalid = visible.where('time_entries.hours < 0 OR time_entries.hours > ? OR time_entries.hours IS NULL', Float::MAX)
+    invalid_logs = invalid.where(user_id: owners, spent_on: first_day..last_day).group(:issue_id, :user_id, :spent_on).count
+    return { costs: {}, invalid_costs: {}, logs: logs, invalid_logs: invalid_logs } if owner_only
+
+    costs = valid.group(:issue_id).sum(:hours).transform_values { |value| finite_sum(value) }
     mix = Hash.new { |hash, id| hash[id] = [] }
     valid.where(spent_on: first_day..last_day).group(:issue_id, :user_id, :activity_id, :spent_on).sum(:hours).each do |(id, user, activity, day), hours|
       mix[id] << { user_id: user.to_s, activity_id: activity.to_s, day: day.to_date, hours: finite_sum(hours) }
@@ -54,7 +57,19 @@ class TicketJourneyPeriodicTime
     end
     { costs: costs, logs: logs, invalid_costs: invalid.group(:issue_id).count,
       mix: mix,
-      invalid_logs: invalid.where(user_id: owners, spent_on: first_day..last_day).group(:issue_id, :user_id, :spent_on).count }
+      invalid_logs: invalid_logs }
+  end
+
+  def self.efficiency_month_ends(report_end)
+    TicketJourneyPerformance.completed_month_ends(report_end + 1)
+  end
+
+  def self.efficiency_pair?(row, hours)
+    !row[:missing_weight] && row[:estimate] && !hours.nil?
+  end
+
+  def self.efficiency_rate(delivered_weight, hours)
+    delivered_weight.to_f / hours if hours&.positive?
   end
 
   def self.finite_sum(value)
@@ -153,7 +168,7 @@ class TicketJourneyPeriodicTime
     priority_rows = dtc_rows.select { |row| TicketJourneyPerformanceTime.priority?(row) }
     priority_durations = priority_rows.map { |row| (row[:delivered_at] - row[:created_date]).to_f }
     efficiency_rows = expected.select do |row|
-      !row[:missing_weight] && row[:estimate] && !personal_hours(row, owner_id, comparison_first, comparison_last).nil?
+      efficiency_pair?(row, personal_hours(row, owner_id, comparison_first, comparison_last))
     end
     expected_weight = TicketJourneyPerformance.weight(efficiency_rows)
     delivered_weight = TicketJourneyPerformance.weight(efficiency_rows.select do |row|
@@ -162,7 +177,7 @@ class TicketJourneyPeriodicTime
     planned_effort = share.nil? ? nil : finite_sum(efficiency_rows.sum { |row| row[:estimate] } * share / 100.0)
     actual_effort = finite_sum(efficiency_rows.sum { |row| personal_hours(row, owner_id, first_day, last_day) })
     cw_plan = planned_effort && planned_effort.positive? ? expected_weight / planned_effort : nil
-    cw_actual = actual_effort && actual_effort.positive? ? delivered_weight.to_f / actual_effort : nil
+    cw_actual = efficiency_rate(delivered_weight, actual_effort)
     total_actual = total_available ? sum_logs.call(personal) : nil
     other_rows = logs.fetch('other', [])
     other_actual = total_available ? sum_logs.call(other_rows) : nil
@@ -230,7 +245,7 @@ class TicketJourneyPeriodicTime
         effort = sum.call(:planned_effort)
         actual_effort = sum.call(:actual_effort)
         plan = effort && effort.positive? ? sum.call(:expected_weight) / effort : nil
-        actual = actual_effort && actual_effort.positive? ? sum.call(:delivered_weight).to_f / actual_effort : nil
+        actual = efficiency_rate(sum.call(:delivered_weight), actual_effort)
       end
       entry = metric(plan, actual, METRICS[key][2], values.flat_map { |value| value[:rows] })
       if key == 'efficiency'
