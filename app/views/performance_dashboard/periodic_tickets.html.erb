@@ -104,7 +104,7 @@
     <section class="performance-section">
       <h3>Debt Summary</h3>
       <p>Of <%= periodic_summary_link(report, 'debt', :count) %> unresolved expected tickets at RED, <%= periodic_summary_link(report, 'still_open', :count) %> are still open as of <%= format_date(Date.current) %>. Current follow-up can change after RED.</p>
-      <div class="periodic-grid"><% [:count, :weight].each do |measure| %><div><h4><%= measure == :count ? 'Tickets' : 'Complexity Weight' %></h4><% maximum = [%w[beginning debt still_open].map { |key| summaries[key][measure] }.max.to_f, 1].max %>
+      <div class="periodic-grid"><% [:count, :weight].each do |measure| %><div class="periodic-debt-chart"><h4><%= measure == :count ? 'Tickets' : 'Complexity Weight' %></h4><% maximum = [%w[beginning debt still_open].map { |key| summaries[key][measure] }.max.to_f, 1].max %>
         <% %w[beginning debt still_open].each do |key| %>
           <div class="periodic-bar-row periodic-debt-bar-row">
             <span><%= TicketJourneyPeriodicTickets::LABELS[key] %></span>
