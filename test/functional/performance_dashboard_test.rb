@@ -228,9 +228,11 @@ class PerformanceDashboardTest < ActionController::TestCase
         assert_select chart, 'g.performance-trend-series:not([data-leaderboard-series]) circle', count: 5
       end
     end
-    assert_select '.performance-leaderboard tbody tr', count: 12
+    assert_select '.performance-leaderboard > .performance-trend-values tbody tr', count: 12
     assert_select '.performance-leaderboard-report-segment', count: 2
     assert_select '.performance-leaderboard-report-month .performance-report-month-owner', count: 2
+    assert_select '.performance-leaderboard-report-month svg .performance-report-month-column', count: 2
+    assert_select '.performance-leaderboard-report-month svg .performance-report-month-target', count: 2
     entries = @controller.instance_variable_get(:@leaderboard_entries).to_h { |entry| [entry[:owner].id, entry[:points]] }
     assert_equal 5.0, entries[1].last[:delivered_weight]
     assert_equal 10.0, entries[2].last[:delivered_weight]
@@ -247,6 +249,7 @@ class PerformanceDashboardTest < ActionController::TestCase
     get :index, params: { project_id: @project.identifier, owner_ids: ['1', '2'] }
     assert_response :success
     assert_select '.performance-leaderboard-target', count: 1
+    assert_select '.performance-leaderboard-report-month svg .performance-report-month-target', count: 1
     assert_equal ['1', '2'], css_select('[data-leaderboard-target]').first['data-target-owners'].split(',').sort
     @controller.stubs(:monthly_target).with('101', User.find(2)).returns(nil)
     get :index, params: { project_id: @project.identifier, owner_ids: ['1', '2'] }

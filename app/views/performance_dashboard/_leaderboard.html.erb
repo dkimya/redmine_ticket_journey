@@ -14,6 +14,9 @@
   <% keys = entries.map { |entry| entry[:owner].id.to_s } %>
   <% plot = dates.each_index.map { |index| keys.zip(points_by_owner.map { |points| points[index][metric] }).to_h } %>
   <% scale_values = @return_mode ? [] : entries.map { |entry| entry[:target] } %>
+  <% unless @return_mode %>
+    <% scale_values += entries.map { |entry| entry[:report_month].values_at(:delivered_weight, :open_weight).sum } %>
+  <% end %>
   <% geometry = performance_leaderboard_geometry(plot, keys: keys, scale_values: scale_values, percent: false) %>
   <div class="performance-leaderboard-layout<%= ' performance-leaderboard-with-report-month' unless @return_mode %>">
   <div class="autoscroll">
@@ -60,7 +63,7 @@
       <% end %>
     </svg>
   </div>
-  <%= render 'leaderboard_report_month', entries: entries unless @return_mode %>
+  <%= render 'leaderboard_report_month', entries: entries, geometry: geometry, report_range: report_range unless @return_mode %>
   <div class="performance-leaderboard-legend" aria-label="Selected owner lines">
     <% entries.each do |entry| %>
       <% owner = entry[:owner] %>

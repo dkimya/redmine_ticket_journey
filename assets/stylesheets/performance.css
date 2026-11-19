@@ -312,27 +312,16 @@
 }
 .performance-leaderboard-report-month{
   min-width:0;
-  padding:12px;
-  border:1px solid #dce6ef;
-  border-radius:8px;
 }
 .performance-leaderboard-report-month p{margin:6px 0}
-.performance-report-month-owner{margin-top:14px}
-.performance-report-month-owner small,
-.performance-report-month-owner>span{display:block}
-.performance-report-month-bar{
-  display:flex;
-  min-height:12px;
-  overflow:hidden;
-  margin:4px 0;
-  border-radius:4px;
-  background:#eef3f8;
-}
-.performance-report-month-delivered{background:#00865e}
-.performance-report-month-open{background:#77add3}
+.performance-report-month-title{font-weight:bold}
+.performance-report-month-delivered{background:#00865e;fill:#00865e}
+.performance-report-month-open{background:#77add3;fill:#77add3}
+.performance-report-month-target{stroke:#536579;stroke-width:2;stroke-dasharray:6 5}
+.performance-report-month-column:focus{outline:2px solid #17365d}
 @media(min-width:1150px){
   .performance-leaderboard-with-report-month{
-    grid-template-columns:minmax(0,1fr) minmax(265px,320px) minmax(165px,205px);
+    grid-template-columns:repeat(2,minmax(0,1fr)) minmax(165px,205px);
   }
 }
 .performance-leaderboard-legend{display:flex;flex-direction:column;flex-wrap:nowrap;gap:8px;margin:0;max-height:330px;overflow-y:auto;padding:4px}
