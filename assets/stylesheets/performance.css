@@ -314,6 +314,18 @@
   min-width:0;
 }
 .performance-leaderboard-report-month p{margin:6px 0}
+.performance-report-month-owner-label{
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+  overflow:hidden;
+  overflow-wrap:anywhere;
+  padding-inline:3px;
+  color:#425875;
+  font-size:13px;
+  line-height:15px;
+  text-align:center;
+}
 /* Match the 90-unit left inset of the 860-unit SVG plot. */
 .performance-leaderboard-report-month > p,
 .performance-leaderboard-report-month > .performance-trend-values{

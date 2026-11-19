@@ -46,7 +46,9 @@
           <% y = 235 - height_for.call(entry[:target]) %>
           <line class="performance-report-month-target" x1="<%= x - slot_width * 0.45 %>" x2="<%= x + slot_width * 0.45 %>" y1="<%= y %>" y2="<%= y %>"><title>Target: <%= performance_number(entry[:target]) %> CW</title></line>
         <% end %>
-        <text x="<%= x %>" y="268" text-anchor="middle"><%= index + 1 %></text>
+        <foreignObject x="<%= x - slot_width / 2 %>" y="250" width="<%= slot_width %>" height="35">
+          <div xmlns="http://www.w3.org/1999/xhtml" class="performance-report-month-owner-label" title="<%= owner.name %>"><%= owner.name %></div>
+        </foreignObject>
       <% end %>
       <% if shared_target %>
         <% y = 235 - height_for.call(shared_target) %>
@@ -59,15 +61,14 @@
   <p><span class="performance-report-month-swatch" aria-hidden="true"></span> Delivered
      · <span class="performance-report-month-swatch performance-report-month-swatch-open" aria-hidden="true"></span> Open
      · Dashed marks show full-month targets</p>
-  <p><%= entries.each_with_index.map { |entry, index| "#{index + 1}. #{entry[:owner].name}" }.join(' · ') %></p>
   <details class="performance-trend-values"><summary>View owner values and ticket counts</summary>
     <div class="autoscroll"><table class="list">
       <thead><tr><th>Owner</th><th>Delivered</th><th>Open</th><th>Open and due</th><th>Monthly target</th></tr></thead>
       <tbody>
-        <% entries.each_with_index do |entry, index| %>
+        <% entries.each do |entry| %>
           <% month = entry.fetch(:report_month) %>
           <tr class="performance-report-month-owner">
-            <th scope="row"><%= index + 1 %>. <%= entry[:owner].name %></th>
+            <th scope="row"><%= entry[:owner].name %></th>
             <td><%= performance_number(month[:delivered_weight]) %> CW · <%= pluralize(month[:delivered_count], 'ticket') %></td>
             <td><%= performance_number(month[:open_weight]) %> CW · <%= pluralize(month[:open_count], 'ticket') %></td>
             <td><%= performance_number(month[:due_open_weight]) %> CW · <%= pluralize(month[:due_open_count], 'ticket') %></td>
