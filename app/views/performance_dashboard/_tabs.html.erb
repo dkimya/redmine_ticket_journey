@@ -1,4 +1,4 @@
-<div class="performance-navigation">
+<div class="performance-navigation" data-report-refresh-navigation>
 <nav class="performance-type-tabs" aria-label="Dashboard type">
   <% [['live', 'Live Dashboard'], ['periodic', 'Periodic Report']].each do |key, label| %>
     <% context = performance_owner_params.merge(as_of: @date.iso8601) %>
@@ -24,4 +24,5 @@
     <% end %>
   <% end %>
 </nav>
+<%= render 'ticket_journey/report_refresh_status' %>
 </div>

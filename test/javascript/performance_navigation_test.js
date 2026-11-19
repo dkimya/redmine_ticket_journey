@@ -8,6 +8,10 @@ const refreshSource = fs.readFileSync(require('node:path').join(__dirname, '../.
 function page(url, referrer, storage, initialState = null, length = 3) {
   const listeners = {};
   const status = { textContent: '', dataset: { reportRefreshStatus: 'Refreshing report…' } };
+  const navigationStatus = { textContent: '', dataset: status.dataset };
+  const clickListeners = [];
+  const timers = new Map();
+  let nextTimer = 0;
   const query = { action: url, querySelector: () => status };
   let querySubmit;
   const history = { state: initialState, length, go: function (steps) { this.destination = steps; },
@@ -15,22 +19,64 @@ function page(url, referrer, storage, initialState = null, length = 3) {
   vm.runInNewContext(source + '\n' + refreshSource, {
     URL, Date, Number, Object, JSON,
     window: { location: { href: url }, history, addEventListener: (name, callback) => { listeners[name] = callback; },
+      setTimeout(callback, delay) {
+        timers.set(++nextTimer, { callback, delay });
+        return nextTimer;
+      },
+      clearTimeout: id => timers.delete(id),
       jQuery: () => ({ on: (_name, callback) => { querySubmit = callback; } }), sessionStorage: {
       getItem: key => storage.get(key), removeItem: key => storage.delete(key), setItem: (key, value) => storage.set(key, value)
     } },
-    document: { referrer, getElementById: () => query, querySelectorAll: () => [status],
-      addEventListener: (name, callback) => { listeners[name] = callback; } }
+    document: { referrer, getElementById: () => query, querySelectorAll: () => [status, navigationStatus],
+      addEventListener(name, callback) {
+        if (name === 'click') clickListeners.push(callback);
+        else listeners[name] = callback;
+      } }
   });
-  return { history, status, listeners, query, querySubmit, click(href, back = false, modifiers = {}, target = '') {
-    const link = { href, target, hasAttribute: name => name === 'data-performance-back' && back };
-    const event = Object.assign({ target: { closest: () => link }, button: 0, defaultPrevented: false,
+  return { history, status, navigationStatus, timers, listeners, query, querySubmit,
+    click(href, back = false, modifiers = {}, target = '', navigation = false) {
+    const link = { href, target, hasAttribute: name => name === 'data-performance-back' && back,
+      closest: () => ({ querySelector: () => navigationStatus }) };
+    const event = Object.assign({ target: { closest: selector => selector === 'a[href]' || navigation ? link : null },
+      button: 0, defaultPrevented: false,
       preventDefault() { this.defaultPrevented = true; } }, modifiers);
-    listeners.click(event);
+    clickListeners.forEach(listener => listener(event));
     return event;
   } };
 }
 const dashboard = 'https://example.test/projects/a/performance?owner_id=1';
 const details = dashboard + '&metric=open';
+
+test('dashboard switches display the refresh indicator after a short delay and clear it on return', () => {
+  const report = page(dashboard, '', new Map());
+  const event = report.click(dashboard + '&dashboard_type=periodic', false, {}, '', true);
+  assert.equal(event.defaultPrevented, false);
+  assert.equal(report.navigationStatus.textContent, '');
+  const [timer] = report.timers.values();
+  assert.equal(timer.delay, 200);
+  timer.callback();
+  assert.equal(report.navigationStatus.textContent, 'Refreshing report…');
+  assert.equal(report.status.textContent, '');
+  report.listeners.pageshow();
+  assert.equal(report.navigationStatus.textContent, '');
+});
+
+test('quick tab switches cancel the timer and modified links bypass it', () => {
+  const tab = dashboard + '&tab=returns';
+  const report = page(dashboard, '', new Map());
+  report.click(tab, false, {}, '', true);
+  assert.equal(report.timers.size, 1);
+  report.listeners.pagehide();
+  assert.equal(report.timers.size, 0);
+  assert.equal(report.navigationStatus.textContent, '');
+
+  report.click(tab, false, { ctrlKey: true }, '', true);
+  report.click(tab, false, {}, '_blank', true);
+  report.click(tab, false, { defaultPrevented: true }, '', true);
+  report.click(dashboard, false, {}, '', true);
+  report.click(details);
+  assert.equal(report.timers.size, 0);
+});
 
 test('Apply shows a refresh indicator and allows submitting again after browser Back', () => {
   const report = page(dashboard, '', new Map());
