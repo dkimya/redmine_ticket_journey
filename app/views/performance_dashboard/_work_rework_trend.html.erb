@@ -9,6 +9,7 @@
     <div class="autoscroll">
       <svg class="performance-trend-chart" viewBox="0 0 860 285" role="img" aria-labelledby="work-rework-trend-title">
         <title id="work-rework-trend-title">Rework percentage by owner over five completed months</title>
+        <%= performance_y_axis_title('Rework (%)') %>
         <% geometry[:ticks].each do |tick| %>
           <% y = 235 - tick / geometry[:maximum] * 200 %>
           <line class="performance-trend-grid" x1="90" x2="770" y1="<%= y %>" y2="<%= y %>"/>

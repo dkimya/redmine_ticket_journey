@@ -15,6 +15,7 @@
   <div class="<%= owners.any? ? 'performance-leaderboard-layout' : 'periodic-team-chart' %>">
   <div class="autoscroll"><svg class="performance-trend-chart" viewBox="0 0 860 300" role="img" aria-labelledby="<%= chart_id %>-title">
     <title id="<%= chart_id %>-title"><%= title %>. Dashed lines are expected; solid lines are completed expectations. Exact values are in the table below.</title>
+    <%= performance_y_axis_title(measure == :count ? '# of Tickets' : 'Complexity Weight') %>
     <% geometry[:ticks].each do |value| %><% y = 235 - value / geometry[:maximum] * 200 %>
       <line class="performance-trend-grid" x1="90" x2="770" y1="<%= y %>" y2="<%= y %>" />
       <text x="78" y="<%= y + 5 %>" text-anchor="end"><%= performance_number(value) %></text>

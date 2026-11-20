@@ -16,6 +16,7 @@
   <div class="performance-leaderboard-layout"><div class="autoscroll">
     <svg class="performance-trend-chart performance-leaderboard-chart" viewBox="0 0 860 300" role="img" aria-labelledby="<%= chart_id %>">
       <title id="<%= chart_id %>"><%= metric_title %> per returned Expected Done ticket, by completion cohort. Missing points are not applicable or unavailable. Exact counts are in the table below.</title>
+      <%= performance_y_axis_title('Incidents / returned ticket') %>
       <% geometry[:ticks].each do |tick| %><% y = 235 - tick / geometry[:maximum] * 200 %>
         <line class="performance-trend-grid" x1="90" x2="770" y1="<%= y %>" y2="<%= y %>" /><text x="78" y="<%= y + 5 %>" text-anchor="end"><%= performance_number(tick) %></text>
       <% end %>

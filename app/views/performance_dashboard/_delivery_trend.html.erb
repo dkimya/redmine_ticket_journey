@@ -10,6 +10,7 @@
   <div class="autoscroll">
     <svg class="performance-trend-chart" viewBox="0 0 860 285" role="img" aria-labelledby="delivery-trend-title delivery-trend-description">
       <title id="delivery-trend-title">Delivery ratios at the last five month ends</title>
+      <%= performance_y_axis_title('Delivery (%)') %>
       <desc id="delivery-trend-description">Ticket and complexity-weight delivery percentages with the configured target. Missing points are not joined. Exact numerators and denominators are available in the table below.</desc>
       <% 0.upto(4) do |index| %>
         <% y = 235 - index * 50 %>

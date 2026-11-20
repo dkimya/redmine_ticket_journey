@@ -104,9 +104,9 @@
     <section class="performance-section">
       <h3>Debt Summary</h3>
       <p>Of <%= periodic_summary_link(report, 'debt', :count) %> unresolved expected tickets at RED, <%= periodic_summary_link(report, 'still_open', :count) %> are still open as of <%= format_date(Date.current) %>. Current follow-up can change after RED.</p>
-      <div class="periodic-grid"><% [:count, :weight].each do |measure| %><div class="periodic-debt-chart"><h4><%= measure == :count ? 'Tickets' : 'Complexity Weight' %></h4><% maximum = [%w[beginning debt still_open].map { |key| summaries[key][measure] }.max.to_f, 1].max %>
+      <div class="periodic-grid"><% [:count, :weight].each do |measure| %><div class="periodic-bar-chart"><h4><%= measure == :count ? 'Tickets' : 'Complexity Weight' %></h4><% maximum = [%w[beginning debt still_open].map { |key| summaries[key][measure] }.max.to_f, 1].max %>
         <% %w[beginning debt still_open].each do |key| %>
-          <div class="periodic-bar-row periodic-debt-bar-row">
+          <div class="periodic-bar-row periodic-bar-row-value-first">
             <span><%= TicketJourneyPeriodicTickets::LABELS[key] %></span>
             <b><%= periodic_summary_link(report, key, measure) %></b>
             <div class="periodic-bar-track">
@@ -120,11 +120,11 @@
 
     <% if @selected_owners.size > 1 %><%= render 'periodic_owner_results' %><% end %>
     <div class="periodic-grid"><% [:count, :weight].each do |measure| %>
-      <%= render 'periodic_trend', chart_key: "team-#{measure}", title: "Expected vs Completed — #{measure == :count ? 'Tickets' : 'Complexity Weight'}", series: periodic_trend_series(report, measure) %>
+      <%= render 'periodic_trend', chart_key: "team-#{measure}", title: "Expected vs Completed — #{measure == :count ? 'Tickets' : 'Complexity Weight'}", measure: measure, series: periodic_trend_series(report, measure) %>
     <% end %></div>
     <% if @selected_owners.size > 1 %>
       <% [:count, :weight].each do |measure| %>
-        <%= render 'periodic_trend', chart_key: "owners-#{measure}", title: "Individual Owner Trends — #{measure == :count ? 'Tickets' : 'Complexity Weight'}", series: @periodic_owners.flat_map { |entry| periodic_trend_series(entry[:report], measure, [entry[:owner].id.to_s], owner: entry[:owner]) } %>
+        <%= render 'periodic_trend', chart_key: "owners-#{measure}", title: "Individual Owner Trends — #{measure == :count ? 'Tickets' : 'Complexity Weight'}", measure: measure, series: @periodic_owners.flat_map { |entry| periodic_trend_series(entry[:report], measure, [entry[:owner].id.to_s], owner: entry[:owner]) } %>
       <% end %>
     <% end %>
 

@@ -22,6 +22,7 @@
   <div class="autoscroll">
     <svg class="performance-trend-chart performance-leaderboard-chart" viewBox="0 0 860 285" role="img" aria-labelledby="leaderboard-title leaderboard-description">
       <title id="leaderboard-title"><%= @return_mode ? 'Individual owner return ratios' : 'Individual owner monthly complexity point delivery' %></title>
+      <%= performance_y_axis_title(@return_mode ? 'Incidents / returned ticket' : 'Complexity Points') %>
       <% unless @return_mode %>
         <text x="430" y="18" text-anchor="middle" class="performance-leaderboard-plot-title">Last 5 Months (Done Tasks)</text>
       <% end %>

@@ -25,6 +25,7 @@
       <div class="autoscroll">
         <svg class="performance-trend-chart performance-output-svg" viewBox="0 0 860 285" role="img" aria-labelledby="output-title-<%= metric_index %> output-description-<%= metric_index %>">
           <title id="output-title-<%= metric_index %>">Monthly delivery: <%= label %> delivered per month</title>
+          <%= performance_y_axis_title(key == :monthly_count ? '# of Tickets' : label) %>
           <desc id="output-description-<%= metric_index %>">Five months of actual delivery. Dashed line shows the current monthly target when available.<%= ' Each owner’s actual delivery can be shown or hidden independently.' if owner_entries.any? %> Monthly totals and averages are in the table below.</desc>
           <% 0.upto(4) do |index| %>
             <% y = 235 - index * 50 %>

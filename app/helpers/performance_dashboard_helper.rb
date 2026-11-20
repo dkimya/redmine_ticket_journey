@@ -214,6 +214,11 @@ module PerformanceDashboardHelper
     palette[index] || "hsl(#{((index - palette.size) * 137.508 + 25) % 360}, 65%, 35%)"
   end
 
+  def performance_y_axis_title(label)
+    content_tag(:text, label, class: 'performance-y-axis-title', x: 16, y: 135,
+      transform: 'rotate(-90 16 135)', 'text-anchor': 'middle')
+  end
+
   def performance_leaderboard_geometry(points, keys:, scale_values:, percent:)
     values = points.flat_map { |point| keys.map { |key| point[key] } }.compact + scale_values.compact
     peak = [values.max.to_f, percent ? 10.0 : 1.0].max

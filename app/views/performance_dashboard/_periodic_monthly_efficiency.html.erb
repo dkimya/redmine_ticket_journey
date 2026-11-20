@@ -39,6 +39,7 @@
     <div class="autoscroll">
       <svg class="performance-trend-chart performance-leaderboard-chart" viewBox="0 0 860 285" role="img" aria-labelledby="periodic-monthly-efficiency-title">
         <title id="periodic-monthly-efficiency-title">Monthly delivered CW per owner hour (CW/h)</title>
+        <%= performance_y_axis_title('CW/h') %>
         <% geometry[:ticks].each do |tick| %>
           <% y = 235 - tick / geometry[:maximum] * 200 %>
           <line class="performance-trend-grid" x1="90" x2="770" y1="<%= y %>" y2="<%= y %>" />

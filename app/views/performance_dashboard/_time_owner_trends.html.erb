@@ -20,6 +20,7 @@
         <div class="autoscroll">
           <svg class="performance-trend-chart performance-leaderboard-chart" viewBox="0 0 860 285" role="img" aria-labelledby="<%= chart_id %>-title <%= chart_id %>-description">
             <title id="<%= chart_id %>-title"><%= chart[:title] %></title>
+            <%= performance_y_axis_title(chart[:unit]) %>
             <desc id="<%= chart_id %>-description">One line per owner over five completed months, in <%= chart[:unit] %>. Unavailable values leave gaps. Exact values and coverage are in the table below.</desc>
             <% geometry[:ticks].each do |tick| %><% y = 235 - tick / geometry[:maximum] * 200 %>
               <line class="performance-trend-grid" x1="90" x2="770" y1="<%= y %>" y2="<%= y %>" />

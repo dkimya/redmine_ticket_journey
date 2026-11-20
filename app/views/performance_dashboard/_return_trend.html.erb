@@ -6,6 +6,7 @@
   <div class="autoscroll">
     <svg class="performance-trend-chart" viewBox="0 0 860 285" role="img" aria-labelledby="return-trend-title return-trend-description">
       <title id="return-trend-title">Incidents per returned open ticket at the last five month ends</title>
+      <%= performance_y_axis_title('Incidents / returned ticket') %>
       <desc id="return-trend-description">Average incident counts, not percentages. Missing points are not joined. Exact values and contributing counts are in the table below.</desc>
       <% 0.upto(4) do |index| %>
         <% y = 235 - index * 50 %>
