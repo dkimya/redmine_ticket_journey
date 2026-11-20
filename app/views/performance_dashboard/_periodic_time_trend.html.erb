@@ -22,7 +22,7 @@
   <div class="<%= 'performance-leaderboard-layout' if owners.any? %>"><div class="autoscroll">
     <svg class="performance-trend-chart" viewBox="0 0 860 300" role="img" aria-labelledby="<%= title_id %>">
       <title id="<%= title_id %>"><%= title %>. Solid actual and dashed plan. Gaps are unavailable values. Exact values and contributor links are below.</title>
-      <%= performance_y_axis_title(unit == 'h' ? 'Hours' : unit) %>
+      <%= performance_y_axis_title({ 'h' => 'Hours', 'days' => 'Days' }.fetch(unit, unit)) %>
       <% geometry[:ticks].each do |tick| %><% y = 235 - tick / geometry[:maximum] * 200 %><line class="performance-trend-grid" x1="90" x2="770" y1="<%= y %>" y2="<%= y %>" /><text x="78" y="<%= y + 5 %>" text-anchor="end"><%= periodic_time_number(tick, format_key) %></text><% end %>
       <% step = [(dates.size / 7.0).ceil, 1].max %><% dates.each_with_index do |day, index| %><% next unless index % step == 0 || index == dates.size - 1 %><text x="<%= geometry[:series].first[index][:x] %>" y="268" text-anchor="middle"><%= day.strftime('%d %b %y') %></text><% end %>
       <% series.each_with_index do |entry, position| %><% coordinates = geometry[:series][position] %>
