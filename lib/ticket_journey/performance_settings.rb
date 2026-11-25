@@ -26,6 +26,9 @@ module TicketJourney
     end
 
     def self.periodic_target(settings, key)
+      if key == 'performance_periodic_last_owner_dtc_target' && settings[key].blank?
+        key = 'performance_periodic_dtc_target'
+      end
       value = settings[key].blank? ? PERIODIC_DEFAULTS[key] : settings[key]
       return parse_target(value) if key == 'performance_periodic_owner_share'
       number = Float(value.to_s, exception: false)

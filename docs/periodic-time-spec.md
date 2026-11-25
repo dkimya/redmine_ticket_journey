@@ -56,7 +56,7 @@ deployed visual checks remain pending.
 
 | Metric | Plan | Actual | Deviation |
 | --- | --- | --- | --- |
-| Last Owner DTC | Optional target, blank by default | Mean calendar days from first recorded To Do in the completing owner’s uninterrupted assignment to qualifying closure | P−A |
+| Last Owner DTC | Uses the Ticket Total DTC target when the override is blank | Mean calendar days from first recorded To Do in the completing owner’s uninterrupted assignment to qualifying closure | P−A |
 | Ticket Total DTC | Configurable target (initial 7 days) | Mean calendar days from the first recorded To Do under any owner to qualifying closure | P−A |
 | Priority Ticket Total DTC | Configurable target (initial 3 days) | Same total mean on current Urgent/Immediate subset | P−A |
 | Ticket Cost | Positive PM estimates on comparable Total Actual Done | Matching tickets' all-contributor visible direct hours through RED | P−A |
@@ -69,7 +69,7 @@ deployed visual checks remain pending.
 Same-day closure is 0 and pauses are included. Last Owner DTC is the
 default chart series and requires the current Ticket Owner to match the owner
 at closure. Missing To Do history leaves the corresponding value unavailable.
-Configured Last Owner DTC targets appear as a dashed plan line. Ticket Total
+The inherited or overridden Last Owner DTC target appears as a dashed plan line. Ticket Total
 DTC replaces the earlier creation-to-closure measure. Review existing total
 targets against the first-To-Do definition before using deviations.
 The Reassigned Tickets drill-down covers handoffs in the interval plus earlier

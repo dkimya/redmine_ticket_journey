@@ -54,7 +54,7 @@ class TicketJourneyPeriodicTimeTest < ActiveSupport::TestCase
     assert_equal 2.0, result[:metrics]['owner_dtc'][:actual]
     assert_equal 5.0, result[:metrics]['dtc'][:actual]
     assert_equal [2], result[:sets]['dtc_excluded'].map { |item| item[:id] }
-    assert_nil result[:metrics]['owner_dtc'][:plan]
+    assert_equal 10.0, result[:metrics]['owner_dtc'][:plan]
     assert_equal [2], result[:sets]['owner_dtc_excluded'].map { |item| item[:id] }
     assert_equal [1], result[:sets]['reassigned'].map { |item| item[:id] }
 

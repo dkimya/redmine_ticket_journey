@@ -206,6 +206,7 @@ class PeriodicTimeTest < ActionController::TestCase
     assert_response :success
     metrics = @controller.instance_variable_get(:@periodic_time_report)[:metrics]
     assert_equal 7.0, metrics['dtc'][:plan]
+    assert_equal 7.0, metrics['owner_dtc'][:plan]
     assert_equal 3.0, metrics['priority_dtc'][:plan]
     assert_equal 9.0, metrics['expected_done_hours'][:plan]
   end
