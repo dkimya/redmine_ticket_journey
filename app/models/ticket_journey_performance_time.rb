@@ -1,11 +1,11 @@
-# Live Time: date-only working calendar, current schedule/owner, historical status.
+# Live Time: current schedule/owner, historical status and owner To Do history.
 class TicketJourneyPerformanceTime
   COLORS = %w[#00bc87 #008fff #ffad29 #f65362].freeze
-  BUCKETS = ['0–15 working days', '16–30 working days', '31–60 working days', '>60 working days'].freeze
+  BUCKETS = ['0–15 days', '16–30 days', '31–60 days', '>60 days'].freeze
   LABELS = {
     'time_open' => 'All Open Tickets — Time', 'time_priority' => 'Priority Open Tickets',
-    'time_immediate' => 'Immediate / Hot Fix Open Tickets', 'time_age_excluded' => 'Open Tickets with Missing or Future Start Dates',
-    'time_priority_age_excluded' => 'Priority Open Tickets with Missing or Future Start Dates',
+    'time_immediate' => 'Immediate / Hot Fix Open Tickets', 'time_age_excluded' => 'Open Tickets Without Usable Owner To Do History',
+    'time_priority_age_excluded' => 'Priority Open Tickets Without Usable Owner To Do History',
     'time_ongoing' => 'Ongoing Open Tickets — Excluded from Aging',
     'time_priority_ongoing' => 'Priority Ongoing Tickets — Excluded from Aging',
     'time_sv' => 'Active Ticket Schedule Variance Contributors', 'time_sv_excluded' => 'Active Tickets Excluded from SV',
@@ -74,7 +74,11 @@ class TicketJourneyPerformanceTime
     start = issue.start_date
     estimate = positive(issue.estimated_hours)
     hours = can_view_time ? spent(entries, date) : nil
-    age = TicketJourneyPerformance.aging_eligible?(row[:status_name]) ? calendar.age(start, date) : nil
+    if row[:open] && TicketJourneyPerformance.aging_eligible?(row[:status_name])
+      age = TicketJourneyPeriodicTime.calendar_duration(row[:current_owner_todo_on], date)
+    elsif row[:done]
+      age = TicketJourneyPeriodicTime.calendar_duration(row[:owner_todo_on], row[:delivered_at])
+    end
     fraction = calendar.elapsed_fraction(start, issue.due_date, date, daily_hours: daily_hours)
     reasons = []
     reasons << 'Set Start Date' unless start

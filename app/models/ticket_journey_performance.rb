@@ -227,13 +227,15 @@ class TicketJourneyPerformance
   # Fetch scalar changes only: journal notes and unrelated fields can dwarf the
   # report data. Future owner changes are needed to rewind reassigned tickets;
   # all status changes are needed for started/completion and historical status.
-  def self.history_for(issue_ids, date, owner_only: false, include_return_reason: false)
+  def self.history_for(issue_ids, date, owner_only: false, include_return_reason: false, include_owner_tenure: false)
     result = Hash.new { |hash, id| hash[id] = [] }
     journals = {}
     scope = JournalDetail.joins(:journal)
       .where(journals: { journalized_type: 'Issue', journalized_id: issue_ids })
     scope = if owner_only
               scope.where(property: 'cf', prop_key: '57').where('journals.created_on > ?', date.in_time_zone.end_of_day)
+            elsif include_owner_tenure
+              scope.where("(journal_details.property = 'attr' AND journal_details.prop_key = 'status_id') OR (journal_details.property = 'cf' AND journal_details.prop_key = '57')")
             else
               scope.where("(journal_details.property = ? AND journal_details.prop_key = ?) OR (journal_details.property = ? AND journal_details.prop_key = ? AND journals.created_on > ?)",
                           'attr', 'status_id', 'cf', '57', date.in_time_zone.end_of_day)

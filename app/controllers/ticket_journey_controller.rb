@@ -59,8 +59,8 @@ class TicketJourneyController < ApplicationController
   }.freeze
   AGING_CALCULATION_OPTIONS = {
     'development' => {
-      label: 'Development aging (first To-Do to today)',
-      description: 'Age is counted from the ticket\'s first entry into To-Do. Tickets that have not reached To-Do are excluded.'
+      label: 'Current owner aging (owner To Do to today)',
+      description: 'Calendar days since the first recorded To Do in the current Ticket Owner’s uninterrupted assignment. Tickets without usable owner To Do history are excluded from this view.'
     },
     'planning' => {
       label: 'Planning aging (created to first To-Do)',
@@ -799,7 +799,7 @@ class TicketJourneyController < ApplicationController
       kpis: {
         bug_burndown_rate: bug_burndown_rate(bug_totals),
         important_bugs_open: critical_open_rows.size,
-        avg_days_to_close_important_bugs: average_number(important_closed.map { |row| row[:days_to_close] }),
+        avg_days_to_close_important_bugs: TicketJourneyPeriodicTime.mean(important_closed.filter_map { |row| row[:days_to_close] }),
         avg_bug_impact_rating: bug_totals[:impact_average].to_f,
         ending_bugs: bug_totals[:remaining].to_i,
         escaped_bugs: bug_totals[:escaped].to_i
@@ -841,10 +841,13 @@ class TicketJourneyController < ApplicationController
         []
       end
 
-    bugs.select { |issue| TicketJourneyPerformance.aging_eligible?(issue.status&.name) && issue.closed_on.present? && issue.closed_on.to_date.between?(start_date, end_date) }
-        .select { |issue| issue.custom_value_for(BUG_IMPACT_RATING_CF_ID)&.value.to_i >= 3 || priority_performance_ticket?(issue) }
-        .map do |issue|
-      days_to_close = issue.created_on.present? ? (issue.closed_on.to_date - issue.created_on.to_date).to_f.round(1) : 0.0
+    important = bugs.select do |issue|
+      TicketJourneyPerformance.aging_eligible?(issue.status&.name) && issue.closed_on.present? &&
+        issue.closed_on.in_time_zone.to_date.between?(start_date, end_date) &&
+        (issue.custom_value_for(BUG_IMPACT_RATING_CF_ID)&.value.to_i >= 3 || priority_performance_ticket?(issue))
+    end
+    durations = ticket_owner_durations(important, end_date, completed: true)
+    important.map do |issue|
       {
         issue: issue,
         issue_id: issue.id,
@@ -853,9 +856,9 @@ class TicketJourneyController < ApplicationController
         page_module: bug_related_page_value(issue).presence || '-',
         source: issue.custom_value_for(BUG_SOURCE_CF_ID)&.value.presence || '-',
         impact_rating: issue.custom_value_for(BUG_IMPACT_RATING_CF_ID)&.value.to_i,
-        days_to_close: days_to_close
+        days_to_close: durations[issue.id]
       }
-    end.sort_by { |row| [-row[:days_to_close].to_f, row[:project].to_s.downcase, row[:issue_id].to_i] }
+    end.sort_by { |row| [row[:days_to_close].nil? ? 1 : 0, -row[:days_to_close].to_i, row[:project].to_s.downcase, row[:issue_id].to_i] }
   end
 
   def executive_important_project_module_rows(critical_open_rows, important_closed_rows)
@@ -2865,6 +2868,7 @@ class TicketJourneyController < ApplicationController
       owner_value, = ticket_owner_info(issue)
       allowed_owner_values && !allowed_owner_values.include?(owner_value.to_s)
     end
+    owner_ages = ticket_owner_durations(issues, today)
 
     rows = Hash.new do |hash, owner_key|
       owner_value, owner_name = owner_key
@@ -2889,7 +2893,7 @@ class TicketJourneyController < ApplicationController
     issues.each do |issue|
       owner_value, owner_name = ticket_owner_info(issue)
       row = rows[[owner_value, owner_name]]
-      age_days = ticket_creation_age_days(issue, today)
+      age_days = owner_ages[issue.id]
 
       row[:total_open] += 1
       row[:technical_open] += 1 if technical_tracker?(issue.tracker&.name)
@@ -3261,19 +3265,24 @@ class TicketJourneyController < ApplicationController
 
     today = User.current.today
     issues = aging_risk_issues
-    transitions_by_issue = load_transitions(issues)
+    owner_ages = calculation == 'development' ? ticket_owner_durations(issues, today) : {}
+    transitions_by_issue = calculation == 'planning' ? load_transitions(issues) : {}
     rows = Hash.new do |hash, group_key|
       group_value, group_label = group_key
       hash[group_key] = empty_aging_risk_row(group_by, group_value, group_label)
     end
 
     issues.each do |issue|
-      age_start = aging_start_time(issue, transitions_by_issue[issue.id], calculation)
-      next if age_start.blank?
+      age_days = if calculation == 'development'
+        owner_ages[issue.id]
+      else
+        age_start = aging_start_time(issue, transitions_by_issue[issue.id], calculation)
+        [(today - age_start.to_date).to_i, 0].max if age_start
+      end
+      next if age_days.nil?
 
       group_value, group_label = aging_group_value(issue, group_by)
       row = rows[[group_value, group_label]]
-      age_days = [(today - age_start.to_date).to_i, 0].max
       bucket_key = aging_bucket_key(age_days)
 
       row[:total_open] += 1
@@ -3322,14 +3331,29 @@ class TicketJourneyController < ApplicationController
       issue.created_on
     when 'end_to_end'
       issue.created_on
-    else
-      first_todo_entry_time(transitions)
     end
   end
 
-  def ticket_creation_age_days(issue, date)
-    return unless TicketJourneyPerformance.aging_eligible?(issue.status&.name) && issue.created_on
-    [(date - issue.created_on.to_date).to_i, 0].max
+  def ticket_owner_durations(issues, date, completed: false)
+    return {} if issues.empty?
+
+    statuses = IssueStatus.all.index_by { |status| status.id.to_s }
+    ages = {}
+    issues.each_slice(TicketJourneyPerformance::BATCH_SIZE) do |batch|
+      history = TicketJourneyPerformance.history_for(batch.map(&:id), date, include_owner_tenure: true)
+      values = TicketJourneyPerformance.batch_field_values(batch, field_ids: [TICKET_OWNER_CF_ID])
+      batch.each do |issue|
+        next unless TicketJourneyPerformance.aging_eligible?(issue.status&.name)
+        owner = values.fetch(issue.id).find { |value| value.custom_field.id == TICKET_OWNER_CF_ID }&.value.to_s
+        next if owner.blank?
+
+        closure = issue.closed_on.in_time_zone.to_date if completed
+        timing = TicketJourneyPeriodicTime.completion_history({ owner_id: owner, delivered_at: closure }, history.fetch(issue.id, []), statuses, date)
+        todo_on = completed ? timing[:owner_todo_on] : timing[:current_owner_todo_on]
+        ages[issue.id] = TicketJourneyPeriodicTime.calendar_duration(todo_on, closure || date)
+      end
+    end
+    ages
   end
 
   def first_todo_entry_time(transitions)
@@ -3466,12 +3490,12 @@ class TicketJourneyController < ApplicationController
     return [[], [], empty_priority_risk_totals] unless @query&.valid?
 
     today = User.current.today
-    rows = priority_risk_issues.filter_map do |issue|
-      next unless priority_performance_ticket?(issue)
-
+    issues = priority_risk_issues.select { |issue| priority_performance_ticket?(issue) }
+    owner_ages = ticket_owner_durations(issues, today)
+    rows = issues.map do |issue|
       owner_value, owner_name = ticket_owner_info(issue)
       due_date = issue.due_date
-      age_days = ticket_creation_age_days(issue, today)
+      age_days = owner_ages[issue.id]
 
       {
         issue: issue,
@@ -4930,13 +4954,14 @@ class TicketJourneyController < ApplicationController
       impact = issue.custom_value_for(BUG_IMPACT_RATING_CF_ID)&.value.to_i
       impact >= 3 || priority_performance_ticket?(issue)
     end
+    owner_ages = ticket_owner_durations(remaining_critical, today)
 
     remaining_critical.map do |issue|
       impact = issue.custom_value_for(BUG_IMPACT_RATING_CF_ID)&.value.to_i
       page = bug_related_page_value(issue).presence || '-'
       last_update_days = issue.updated_on.present? ? [(today - issue.updated_on.to_date).to_i, 0].max : nil
 
-      age = ticket_creation_age_days(issue, today)
+      age = owner_ages[issue.id]
       risk = if (age && age > 14) || impact >= 4
                'High'
              elsif (age && age > 7) || impact >= 3

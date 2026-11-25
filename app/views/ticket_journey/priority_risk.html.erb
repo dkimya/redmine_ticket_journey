@@ -3,7 +3,7 @@
 <% end %>
 
 <div id="tj-wrap">
-  <p class="tj-page-sub">Ongoing tickets are excluded from aging values and age-eligible averages. Other counts and logged effort remain separate.</p>
+  <p class="tj-page-sub">Owner Age counts calendar days from the first recorded To Do in the current owner’s uninterrupted assignment. Ongoing tickets and tickets without usable history are excluded from age averages.</p>
   <div class="tj-page-header">
     <div class="tj-page-header-left">
       <div>
@@ -148,7 +148,7 @@
               <th class="tj-th-native"><%= priority_risk_sort_link(@query, :status, 'Status') %></th>
               <th class="tj-th-native"><%= priority_risk_sort_link(@query, :tracker, 'Tracker') %></th>
               <th class="tj-th-native"><%= priority_risk_sort_link(@query, :due_date, 'Due Date') %></th>
-              <th class="tj-th-native"><%= priority_risk_sort_link(@query, :age_days, 'Age') %></th>
+              <th class="tj-th-native"><%= priority_risk_sort_link(@query, :age_days, 'Owner Age') %></th>
               <th class="tj-th-native"><%= priority_risk_sort_link(@query, :overdue, 'Overdue') %></th>
               <th class="tj-th-native"><%= priority_risk_sort_link(@query, :stopped, 'Stopped') %></th>
               <th class="tj-th-native"><%= priority_risk_sort_link(@query, :no_due_date, 'No Due Date') %></th>

@@ -74,8 +74,8 @@
         <div class="tj-sc-value <%= kpis[:important_bugs_open].to_i.positive? ? 'tj-sc-red' : 'tj-sc-green' %>"><%= duration_report_drilldown_link(@query, report[:critical_open_rows].map { |row| row[:issue_id] }, kpis[:important_bugs_open]) %></div>
       </div>
       <div class="tj-summary-card">
-        <div class="tj-sc-label" title="Calendar days from creation to close for important bugs closed in the period.">Avg Days to Close Important Bugs</div>
-        <div class="tj-sc-value tj-sc-blue"><%= kpis[:avg_days_to_close_important_bugs].positive? ? "#{number_with_precision(kpis[:avg_days_to_close_important_bugs], precision: 1, strip_insignificant_zeros: true)}d" : '-' %></div>
+        <div class="tj-sc-label" title="Calendar days from the current owner’s first recorded To Do in their uninterrupted assignment to ticket closure.">Avg Last Owner DTC · Important Bugs</div>
+        <div class="tj-sc-value tj-sc-blue"><%= ticket_age_label(kpis[:avg_days_to_close_important_bugs], precision: 1) %></div>
       </div>
       <div class="tj-summary-card">
         <div class="tj-sc-label" title="Average impact rating for ending bugs with impact values.">Avg Bug Impact Rating</div>
@@ -229,7 +229,7 @@
             <% report[:important_closed_rows].first(10).each do |row| %>
               <tr>
                 <td class="tj-health-label"><%= link_to "##{row[:issue_id]} #{row[:subject]}", issue_path(row[:issue]), class: 'tj-drilldown-link', title: row[:subject] %></td>
-                <td class="tj-health-count"><%= number_with_precision(row[:days_to_close], precision: 1, strip_insignificant_zeros: true) %>d</td>
+                <td class="tj-health-count"><%= ticket_age_label(row[:days_to_close]) %></td>
                 <td class="tj-health-percent">impact <%= row[:impact_rating].positive? ? row[:impact_rating] : '-' %></td>
               </tr>
             <% end %>

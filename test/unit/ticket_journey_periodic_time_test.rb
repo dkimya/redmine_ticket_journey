@@ -48,6 +48,9 @@ class TicketJourneyPeriodicTimeTest < ActiveSupport::TestCase
     ]
     history = TicketJourneyPeriodicTime.completion_history(ticket, entries, statuses, @last)
     assert_equal @first, history[:owner_todo_on]
+    assert_equal @first, history[:current_owner_todo_on]
+    earlier_snapshot = TicketJourneyPeriodicTime.completion_history(ticket, entries, statuses, @first - 1)
+    assert_nil earlier_snapshot[:current_owner_todo_on]
     assert_equal @first - 3, history[:ticket_todo_on]
     assert_equal ['2', '1'], history[:reassignments].first.values_at(:old_id, :new_id)
     result = report([ticket.merge(history), row(2, ticket_todo_on: nil)])

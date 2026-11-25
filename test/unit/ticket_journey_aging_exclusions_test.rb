@@ -12,9 +12,7 @@ class TicketJourneyAgingExclusionsTest < ActiveSupport::TestCase
     @ongoing = ticket('Ongoing', 1000)
   end
 
-  test 'Ongoing has no creation development planning or debt age while ordinary tickets retain real ages' do
-    assert_nil @controller.send(:ticket_creation_age_days, @ongoing, @date)
-    assert_equal 10, @controller.send(:ticket_creation_age_days, @normal, @date)
+  test 'Ongoing has no planning or debt age while ordinary tickets retain real debt ages' do
     %w[development planning end_to_end].each do |calculation|
       assert_nil @controller.send(:aging_start_time, @ongoing, [], calculation)
     end
@@ -37,11 +35,13 @@ class TicketJourneyAgingExclusionsTest < ActiveSupport::TestCase
     @controller.stubs(:container_tracker?).returns(false)
     @controller.stubs(:paused_status?).returns(false)
     @controller.stubs(:priority_performance_ticket?).returns(false)
+    @controller.stubs(:ticket_owner_durations).with([@normal, @ongoing], @date).returns({ @normal.id => 3 })
+    @controller.stubs(:ticket_owner_durations).with([@ongoing], @date).returns({})
     rows, totals = @controller.send(:compute_owner_workload_report)
     assert_equal 2, totals[:total_open]
     assert_equal 1, rows.first[:age_count]
-    assert_equal 10.0, rows.first[:avg_age]
-    assert_equal 10, rows.first[:oldest_age]
+    assert_equal 3.0, rows.first[:avg_age]
+    assert_equal 3, rows.first[:oldest_age]
     @controller.stubs(:owner_workload_issues).returns([@ongoing])
     rows, totals = @controller.send(:compute_owner_workload_report)
     assert_equal 1, totals[:total_open]
@@ -69,7 +69,7 @@ class TicketJourneyAgingExclusionsTest < ActiveSupport::TestCase
   private
 
   def ticket(status, age)
-    stub(status: stub(name: status, is_closed?: false), created_on: (@date - age).in_time_zone,
+    stub(id: age, status: stub(name: status, is_closed?: false), created_on: (@date - age).in_time_zone,
       due_date: @date - 5, tracker: stub(name: 'Bug'))
   end
 end

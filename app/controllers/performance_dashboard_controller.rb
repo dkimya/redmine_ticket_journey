@@ -105,7 +105,9 @@ class PerformanceDashboardController < ApplicationController
     Issue.uncached do
       issues.find_in_batches(batch_size: TicketJourneyPerformance::BATCH_SIZE) do |batch|
         # Earlier owner changes are necessary for exact month-end attribution.
-        history = TicketJourneyPerformance.history_for(batch.map(&:id), trend_start || @date, include_return_reason: @return_mode)
+        history_options = { include_return_reason: @return_mode }
+        history_options[:include_owner_tenure] = true if @time_mode && @metric != 'owner_changes'
+        history = TicketJourneyPerformance.history_for(batch.map(&:id), trend_start || @date, **history_options)
         field_values = TicketJourneyPerformance.batch_field_values(batch, field_ids: @return_mode ? [57, 66, 70] : [57, 70])
         if @time_mode && @metric != 'owner_changes'
           time_entries = TicketJourneyPerformanceTime.hours_for(batch.map(&:id), @date, by_activity: !@metric)
@@ -170,6 +172,8 @@ class PerformanceDashboardController < ApplicationController
           next unless row
           if requested_set.include?(row[:owner_id])
             if @time_mode
+              owner_dates = TicketJourneyPeriodicTime.completion_history(row, history.fetch(issue.id, []), statuses, snapshot_date)
+              row.merge!(owner_dates.slice(:current_owner_todo_on, :owner_todo_on))
               row = TicketJourneyPerformanceTime.enrich(row, issue, snapshot_date, @calendar, time_entries[issue.id],
                 time_projects[issue.project_id], time_daily_hours(row[:owner_id]))
               unless @metric

@@ -114,7 +114,9 @@ class TicketJourneyPeriodicTime
         end
       end
     end
-    { ticket_todo_on: ticket_todo_at_completion, owner_todo_on: owner_todo_at_completion, reassignments: reassignments }
+    { ticket_todo_on: ticket_todo_at_completion, owner_todo_on: owner_todo_at_completion,
+      current_owner_todo_on: (first_owner_todo if owner.present? && owner == row[:owner_id]),
+      reassignments: reassignments }
   end
 
   def self.owner_change?(detail)

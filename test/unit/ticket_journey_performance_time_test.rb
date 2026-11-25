@@ -127,11 +127,11 @@ class TicketJourneyPerformanceTimeTest < ActiveSupport::TestCase
     date = Date.new(2026, 10, 5)
     issue = stub(start_date: date, due_date: date + 4, estimated_hours: 40, priority: stub(name: 'Immediate'))
     entries = [[date - 2, 2.0], [date, 3.0], [date + 1, 9.0]]
-    result = TicketJourneyPerformanceTime.enrich(row, issue, date, calendar, entries, true, 8)
+    result = TicketJourneyPerformanceTime.enrich(row(current_owner_todo_on: date - 2), issue, date, calendar, entries, true, 8)
     assert_equal 5.0, result[:spent]
     assert_equal 2.0, result[:early_hours]
     assert_equal 8.0, result[:planned]
-    assert_equal 0, result[:age]
+    assert_equal 2, result[:age]
     result = TicketJourneyPerformanceTime.enrich(row, issue, date, calendar, entries, false, 8)
     assert_nil result[:spent]
     assert_nil result[:planned]

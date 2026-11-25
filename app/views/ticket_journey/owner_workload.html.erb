@@ -29,7 +29,7 @@
                 onchange: 'this.form.requestSubmit();' %>
         </div>
         <div class="tj-filter-group tj-flow-filter-note">
-          <span>This report always summarizes currently open issues by Ticket Owner. If the Status filter is Any or Closed, closed issues are still excluded from workload counts. Age is counted from issue creation date.</span>
+          <span>This report summarizes open issues by Ticket Owner. Age counts calendar days from the first recorded To Do in the current owner’s uninterrupted assignment. Missing To Do history gives N/A.</span>
         </div>
       </div>
     </div>
@@ -122,8 +122,8 @@
               <th class="tj-th-native"><%= owner_workload_sort_link(@query, :overdue, 'Overdue') %></th>
               <th class="tj-th-native"><%= owner_workload_sort_link(@query, :priority_open, 'Priority Open', title: 'Open Urgent or Immediate issues') %></th>
               <th class="tj-th-native"><%= owner_workload_sort_link(@query, :no_due_date, 'Without Due Date') %></th>
-              <th class="tj-th-native"><%= owner_workload_sort_link(@query, :avg_age, 'Avg Age', title: 'Average eligible open issue age from created date; Ongoing excluded') %></th>
-              <th class="tj-th-native"><%= owner_workload_sort_link(@query, :oldest_age, 'Oldest Age', title: 'Oldest eligible open issue age from created date; Ongoing excluded') %></th>
+              <th class="tj-th-native"><%= owner_workload_sort_link(@query, :avg_age, 'Avg Owner Age', title: 'Average calendar days since current owner To Do, excluding Ongoing tickets') %></th>
+              <th class="tj-th-native"><%= owner_workload_sort_link(@query, :oldest_age, 'Oldest Owner Age', title: 'Maximum calendar days since current owner To Do, excluding Ongoing tickets') %></th>
             </tr>
           </thead>
           <tbody>
