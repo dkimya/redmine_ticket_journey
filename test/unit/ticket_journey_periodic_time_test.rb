@@ -48,10 +48,12 @@ class TicketJourneyPeriodicTimeTest < ActiveSupport::TestCase
     ]
     history = TicketJourneyPeriodicTime.completion_history(ticket, entries, statuses, @last)
     assert_equal @first, history[:owner_todo_on]
+    assert_equal @first - 3, history[:ticket_todo_on]
     assert_equal ['2', '1'], history[:reassignments].first.values_at(:old_id, :new_id)
-    result = report([ticket.merge(history), row(2)])
+    result = report([ticket.merge(history), row(2, ticket_todo_on: nil)])
     assert_equal 2.0, result[:metrics]['owner_dtc'][:actual]
-    assert_equal 7.0, result[:metrics]['dtc'][:actual]
+    assert_equal 5.0, result[:metrics]['dtc'][:actual]
+    assert_equal [2], result[:sets]['dtc_excluded'].map { |item| item[:id] }
     assert_nil result[:metrics]['owner_dtc'][:plan]
     assert_equal [2], result[:sets]['owner_dtc_excluded'].map { |item| item[:id] }
     assert_equal [1], result[:sets]['reassigned'].map { |item| item[:id] }
@@ -164,9 +166,9 @@ class TicketJourneyPeriodicTimeTest < ActiveSupport::TestCase
   end
 
   test 'team durations daily hours and CW rates use underlying totals not averages of owner ratios' do
-    a_rows = [row(1, created_date: @first + 1, weight: 5.0)]
-    b_rows = [row(2, owner_id: '2', created_date: @first - 7, weight: 10.0, estimate: 20.0, owner_logs: { '2' => [[@first, 1.0]] }),
-      row(3, owner_id: '2', created_date: @first - 7, weight: 10.0, estimate: 20.0, owner_logs: { '2' => [[@first, 1.0]] })]
+    a_rows = [row(1, ticket_todo_on: @first + 1, weight: 5.0)]
+    b_rows = [row(2, owner_id: '2', ticket_todo_on: @first - 7, weight: 10.0, estimate: 20.0, owner_logs: { '2' => [[@first, 1.0]] }),
+      row(3, owner_id: '2', ticket_todo_on: @first - 7, weight: 10.0, estimate: 20.0, owner_logs: { '2' => [[@first, 1.0]] })]
     a = report(a_rows, '1')
     b = report(b_rows, '2', daily: 4)
     team = TicketJourneyPeriodicTime.aggregate([a, b], @settings)
@@ -245,7 +247,7 @@ class TicketJourneyPeriodicTimeTest < ActiveSupport::TestCase
     { id: id, owner_id: '1', owner_visible: true, due: @first + 1,
       beginning_open: false, closed_before: false, assigned_on: @first - 10, hotfix: false,
       done: true, delivered_at: @first + 2, status_name: 'Done / Closed', current_open: false,
-      created_date: @first - 5, estimate: 10.0, priority: 'Normal', ticket_hours: 8.0,
+      created_date: @first - 10, ticket_todo_on: @first - 5, estimate: 10.0, priority: 'Normal', ticket_hours: 8.0,
       time_allowed: true, weight: 5.0, missing_weight: false,
       owner_logs: { '1' => [[@first + 1, 4.0]] }, invalid_logs: {}, invalid_costs: 0 }.merge(options)
   end

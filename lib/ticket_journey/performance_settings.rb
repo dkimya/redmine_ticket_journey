@@ -52,7 +52,7 @@ module TicketJourney
       if activity_ids.any? && (activity_ids.any? { |id| !id.match?(/\A[1-9]\d*\z/) } || TicketJourney::PerformanceSettings.development_activities.where(id: activity_ids).count != activity_ids.size)
         errors.add(:base, 'Development activity mapping must use existing activities named Development.')
       end
-      %w[performance_periodic_dtc_target performance_periodic_priority_dtc_target performance_periodic_owner_share].each do |key|
+      %w[performance_periodic_last_owner_dtc_target performance_periodic_dtc_target performance_periodic_priority_dtc_target performance_periodic_owner_share].each do |key|
         next if config[key].blank?
         unless TicketJourney::PerformanceSettings.periodic_target(config, key)
           errors.add(:base, "#{key.humanize} must be finite and nonnegative (owner share allows 0 through 100%).")

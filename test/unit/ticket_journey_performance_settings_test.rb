@@ -32,8 +32,13 @@ class TicketJourneyPerformanceSettingsTest < ActiveSupport::TestCase
   end
   test 'Periodic Time targets use confirmed defaults preserve overrides and reject invalid inputs' do
     setting = Setting.find_by(name: 'plugin_redmine_ticket_journey') || Setting.new(name: 'plugin_redmine_ticket_journey')
-    %w[performance_periodic_dtc_target performance_periodic_priority_dtc_target].each do |key|
-      ['', nil].each { |value| assert_equal TicketJourney::PerformanceSettings::PERIODIC_DEFAULTS[key], TicketJourney::PerformanceSettings.periodic_target({ key => value }, key) }
+    optional_key = 'performance_periodic_last_owner_dtc_target'
+    assert_nil TicketJourney::PerformanceSettings.periodic_target({}, optional_key)
+    assert_equal 7.5, TicketJourney::PerformanceSettings.periodic_target({ optional_key => '7.5' }, optional_key)
+    [optional_key, 'performance_periodic_dtc_target', 'performance_periodic_priority_dtc_target'].each do |key|
+      unless key == optional_key
+        ['', nil].each { |value| assert_equal TicketJourney::PerformanceSettings::PERIODIC_DEFAULTS[key], TicketJourney::PerformanceSettings.periodic_target({ key => value }, key) }
+      end
       %w[-1 NaN Infinity invalid].each do |value|
         setting.value = { key => value }
         assert_not setting.valid?, "Expected invalid #{key}=#{value}"

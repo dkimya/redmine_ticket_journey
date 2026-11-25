@@ -56,9 +56,9 @@ deployed visual checks remain pending.
 
 | Metric | Plan | Actual | Deviation |
 | --- | --- | --- | --- |
-| Owner Days to Close | N/A | Mean calendar days from first recorded To-Do in the completing owner’s uninterrupted assignment to qualifying completion | N/A |
-| Total Days to Close | Configurable target (initial 7 days) | Mean creation-to-latest-qualifying-completion calendar days on Total Actual Done | P−A |
-| Priority Total Days to Close | Configurable target (initial 3 days) | Same total mean on current Urgent/Immediate subset | P−A |
+| Last Owner DTC | Optional target, blank by default | Mean calendar days from first recorded To Do in the completing owner’s uninterrupted assignment to qualifying closure | P−A |
+| Ticket Total DTC | Configurable target (initial 7 days) | Mean calendar days from the first recorded To Do under any owner to qualifying closure | P−A |
+| Priority Ticket Total DTC | Configurable target (initial 3 days) | Same total mean on current Urgent/Immediate subset | P−A |
 | Ticket Cost | Positive PM estimates on comparable Total Actual Done | Matching tickets' all-contributor visible direct hours through RED | P−A |
 | Expected Done personal hours | Configured owner-share % × matching completed expected PM estimates | Booked owner's in-period hours on those same tickets | P−A |
 | Other Work hours | Zero | Booked user's period hours outside their expectation, excluding separately classified archived/On-Hold/Ongoing | P−A plus separate Extra classification |
@@ -66,9 +66,12 @@ deployed visual checks remain pending.
 | Average hours per owner-workday | Configured daily hours | Scoped personal hours / configured workdays | A−P |
 | Delivered expected CW per personal hour | Paired expected portfolio CW / (share % × estimates) | Delivered expected CW / personal period effort on that entire paired portfolio, including unfinished work | A−P |
 
-Same-day completion is 0 and pauses are included. Owner Days to Close is the
+Same-day closure is 0 and pauses are included. Last Owner DTC is the
 default chart series and requires the current Ticket Owner to match the owner
-at completion. Missing To-Do history leaves the owner value unavailable.
+at closure. Missing To Do history leaves the corresponding value unavailable.
+Configured Last Owner DTC targets appear as a dashed plan line. Ticket Total
+DTC replaces the earlier creation-to-closure measure. Review existing total
+targets against the first-To-Do definition before using deviations.
 The Reassigned Tickets drill-down covers handoffs in the interval plus earlier
 handoffs on tickets completed in it, within the current-owner scope. The audit
 shows visible handoff and schedule details for planning review.

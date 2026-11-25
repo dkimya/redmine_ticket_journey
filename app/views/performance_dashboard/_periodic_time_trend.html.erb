@@ -6,11 +6,14 @@
   <h3><%= title %></h3><p class="performance-weight-note"><%= description %></p>
   <% dtc_controls = chart_key == 'dtc' && owners.empty? %>
   <% if dtc_controls %>
+    <% if @periodic_time_report[:metrics]['owner_dtc'][:plan].nil? %>
+      <p class="performance-weight-note">Set a Last Owner DTC target in PMO Dashboard settings to show its dashed plan line.</p>
+    <% end %>
     <div class="periodic-dtc-controls">
       <% %w[owner_dtc dtc priority_dtc].each do |key| %>
         <% label = TicketJourneyPeriodicTime::METRICS.fetch(key).first; active = key == 'owner_dtc' %>
         <div>
-          <button type="button" data-leaderboard-toggle="<%= key %>" data-owner-name="<%= label %>" data-line-description="<%= active ? 'line' : 'lines' %>" aria-pressed="<%= active %>" aria-label="<%= active ? "Hide #{label} line" : "Show #{label} lines" %>"><%= label %></button>
+          <button type="button" data-leaderboard-toggle="<%= key %>" data-owner-name="<%= label %>" data-line-description="lines" aria-pressed="<%= active %>" aria-label="<%= active ? 'Hide' : 'Show' %> <%= label %> lines"><%= label %></button>
           <ul class="performance-trend-legend">
             <% series.select { |entry| entry[:key] == key }.each do |entry| %>
               <li><span class="performance-trend-swatch" style="border-color:<%= entry[:color] %>;border-top-style:<%= entry[:dashed] ? 'dashed' : 'solid' %>"></span><%= entry[:label] %></li>

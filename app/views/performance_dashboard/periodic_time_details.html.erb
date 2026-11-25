@@ -22,9 +22,10 @@
           <td>
             <%= completion ? format_date(completion) : 'No qualifying completion' %><br>
             <small>Created: <%= row[:created_date] ? format_date(row[:created_date]) : 'Unavailable' %></small><br>
-            <small>Owner To-Do: <%= row[:owner_todo_on] ? format_date(row[:owner_todo_on]) : 'Unavailable' %></small><br>
-            Total days: <%= TicketJourneyPeriodicTime.calendar_duration(row[:created_date], completion) || 'N/A' %><br>
-            Owner days: <%= TicketJourneyPeriodicTime.calendar_duration(row[:owner_todo_on], completion) || 'N/A' %>
+            <small>First Ticket To Do: <%= row[:ticket_todo_on] ? format_date(row[:ticket_todo_on]) : 'Unavailable' %></small><br>
+            <small>To Do for Current Owner: <%= row[:owner_todo_on] ? format_date(row[:owner_todo_on]) : 'Unavailable' %></small><br>
+            Ticket Total DTC: <%= TicketJourneyPeriodicTime.calendar_duration(row[:ticket_todo_on], completion) || 'N/A' %><br>
+            Last Owner DTC: <%= TicketJourneyPeriodicTime.calendar_duration(row[:owner_todo_on], completion) || 'N/A' %>
           </td>
           <td><%= periodic_time_number(row[:estimate], 'ticket_cost') %> h</td><td><%= periodic_time_number(row[:ticket_hours], 'ticket_cost') %> h</td><td><%= periodic_time_number(hours, 'total_hours') %> h
             <details><summary>Work-date totals</summary><% row.fetch(:owner_logs, {}).fetch(actor, []).each do |day, value| %><% next unless day.between?(@time_detail_start, @time_detail_end) %><p><%= format_date(day) %>: <%= periodic_time_number(value, 'total_hours') %> h</p><% end %></details>

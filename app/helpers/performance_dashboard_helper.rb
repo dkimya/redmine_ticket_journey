@@ -65,9 +65,9 @@ module PerformanceDashboardHelper
 
   def periodic_time_metric_tip(key)
     {
-      'owner_dtc' => 'Mean calendar days from the first recorded To-Do in the completing owner’s uninterrupted assignment to qualifying completion. Only completions attributable to the current Ticket Owner with a recorded To-Do count. No owner-duration target is configured.',
-      'dtc' => 'Mean calendar days from ticket creation to qualifying completion for all tickets delivered in the report period, including Other Done. Compared with the configured days-to-close target.',
-      'priority_dtc' => 'The same calendar-day average for completed tickets with current Urgent or Immediate priority.',
+      'owner_dtc' => 'Mean calendar days from the first recorded To Do for the current Ticket Owner in their uninterrupted assignment to ticket closure. Compares with the separate Last Owner DTC target when configured.',
+      'dtc' => 'Mean calendar days from the ticket’s first recorded To Do, regardless of owner, to ticket closure. Includes Other Done.',
+      'priority_dtc' => 'Ticket Total DTC for completed tickets with current Urgent or Immediate priority.',
       'ticket_cost' => 'Matching completed tickets with positive PM estimates and available time data. Plan sums PM estimates. Actual sums all contributors’ visible direct lifetime hours through the report end date, including earlier work.',
       'expected_done_hours' => 'Matching completed expected tickets with positive PM estimates and available owner-time data. Plan is the configured owner share of their PM estimates. Actual is the selected owner’s logged hours dated within the report period on those tickets. Earlier work is outside actual. Low or zero period hours alone do not establish an effort saving.',
       'other_hours' => 'Owner hours dated within the period on tickets outside the owner’s expected package, including work on other owners’ tickets. Archived, Ongoing and On-Hold hours are disclosed separately. Plan is zero. Extra Work classification requires full expected delivery.',
@@ -110,25 +110,26 @@ module PerformanceDashboardHelper
 
   def periodic_time_trend_series(keys)
     labels = {
-      'dtc' => ['Total Days to Close (Actual)', 'Total Days to Close (Plan)'],
-      'priority_dtc' => ['Priority Total Days to Close (Actual)', 'Priority Total Days to Close (Plan)'],
       'ticket_cost' => ['Ticket Cost (Actual)', 'Ticket Cost (Estimation)'],
       'efficiency' => ['Delivered Expected Complexity Weight / Owner Hour (Actual)',
                        'Delivered Expected Complexity Weight / Owner Hour (Plan)']
     }
     series = keys.each_with_index.map do |key, index|
-      { key: key, kind: :actual, label: labels[key]&.first || TicketJourneyPeriodicTime::METRICS.fetch(key).first,
+      { key: key, kind: :actual, label: periodic_time_dtc_series_label(key, :actual) || labels[key]&.first || TicketJourneyPeriodicTime::METRICS.fetch(key).first,
         metric: key, ids: @selected_owner_ids, color: %w[#0072b2 #a45d00 #00865e][index % 3], dashed: false,
         points: @periodic_time_trends.map { |point| { date: point[:date], start: point[:start], value: point[:report][:metrics][key][:actual] } } }
     end
     keys.each_with_index do |key, index|
-      next if key == 'owner_dtc'
-
-      series << { key: key, kind: :plan, label: labels[key]&.last || "#{TicketJourneyPeriodicTime::METRICS[key].first} — Plan",
+      series << { key: key, kind: :plan, label: periodic_time_dtc_series_label(key, :plan) || labels[key]&.last || "#{TicketJourneyPeriodicTime::METRICS[key].first} — Plan",
         metric: key, ids: @selected_owner_ids, color: %w[#0072b2 #a45d00 #00865e][index % 3], dashed: true,
         points: @periodic_time_trends.map { |point| { date: point[:date], start: point[:start], value: point[:report][:metrics][key][:plan] } } }
     end
     series
+  end
+
+  def periodic_time_dtc_series_label(key, kind)
+    name, unit, = TicketJourneyPeriodicTime::METRICS.fetch(key)
+    "#{name} (#{kind.to_s.titleize})" if unit == 'days'
   end
 
   def periodic_ticket_params(overrides = {}, ids: @selected_owner_ids)

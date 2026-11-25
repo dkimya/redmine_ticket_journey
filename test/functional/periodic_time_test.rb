@@ -10,7 +10,8 @@ class PeriodicTimeTest < ActionController::TestCase
     @project.enabled_module_names |= ['ticket_journey']
     @first, @last = Date.new(2020, 1, 1), Date.new(2020, 1, 31)
     Setting.plugin_redmine_ticket_journey = { 'performance_periodic_dtc_target' => '10',
-      'performance_periodic_priority_dtc_target' => '7', 'performance_periodic_owner_share' => '90' }
+      'performance_periodic_priority_dtc_target' => '7', 'performance_periodic_last_owner_dtc_target' => '5',
+      'performance_periodic_owner_share' => '90' }
   end
 
   test 'initial Periodic Time is provisional and does not query issues entries or targets' do
@@ -42,6 +43,8 @@ class PeriodicTimeTest < ActionController::TestCase
     assert_select '.periodic-time-kpi', count: 9
     assert_select '.periodic-dtc-controls button[data-leaderboard-toggle="owner_dtc"][aria-pressed="true"]'
     assert_select '.periodic-dtc-controls button[data-leaderboard-toggle="dtc"][aria-pressed="false"]'
+    assert_select '.periodic-dtc-controls li', text: 'Last Owner DTC (Plan)'
+    assert_select 'g[data-leaderboard-series="owner_dtc"] line[stroke-dasharray="8 5"]', minimum: 1
     assert_select 'a[href*="metric=reassigned"]', text: 'Reassigned Tickets: 0'
     assert_select '.periodic-monthly-efficiency' do
       assert_select 'button[data-leaderboard-toggle="planned-cw"][aria-pressed="false"]', count: 1
@@ -82,6 +85,13 @@ class PeriodicTimeTest < ActionController::TestCase
     assert_equal 2.0, entries.find { |entry| entry[:owner].id == 2 }[:report][:metrics]['total_hours'][:actual]
     assert_select '.periodic-time-owner-trends', count: 1
     assert_select '.periodic-time-owner-trends[open]', count: 0
+    assert_select '.periodic-time-owner-trends' do
+      assert_select 'p', text: /Last Owner DTC = To Do for Current Owner → Ticket Closed/
+      assert_select 'th', text: /Last Owner DTC \(Plan\)/, count: 2
+      assert_select 'th', text: / — Ticket Total DTC \(Actual\)/, count: 2
+      assert_select 'svg[aria-labelledby="periodic-time-owners-owner_dtc"] g[data-leaderboard-series="1"] line[stroke-dasharray="8 5"]', minimum: 1
+      assert_select 'svg[aria-labelledby="periodic-time-owners-owner_dtc"] g[data-leaderboard-series="2"] line[stroke-dasharray="8 5"]', minimum: 1
+    end
     assert_select '.periodic-monthly-efficiency' do
       assert_select 'button[data-leaderboard-toggle][aria-pressed="true"]', count: 3
       assert_select 'button[data-leaderboard-toggle="team"][aria-pressed="true"]', text: 'Team', count: 1

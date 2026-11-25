@@ -10,9 +10,9 @@ class TicketJourneyPeriodicTime
   end
 
   METRICS = {
-    'owner_dtc' => ['Owner Days to Close', 'days', :plan_minus_actual],
-    'dtc' => ['Total Days to Close', 'days', :plan_minus_actual],
-    'priority_dtc' => ['Priority Total Days to Close', 'days', :plan_minus_actual],
+    'owner_dtc' => ['Last Owner DTC', 'days', :plan_minus_actual],
+    'dtc' => ['Ticket Total DTC', 'days', :plan_minus_actual],
+    'priority_dtc' => ['Priority Ticket Total DTC', 'days', :plan_minus_actual],
     'ticket_cost' => ['Ticket Cost (Est. vs Actual)', 'h', :plan_minus_actual],
     'expected_done_hours' => ['Owner Hours on Completed Expected Tickets', 'h', :plan_minus_actual],
     'other_hours' => ['Owner Logged Time — Other Tickets', 'h', :plan_minus_actual],
@@ -35,7 +35,7 @@ class TicketJourneyPeriodicTime
     'cost_excluded' => 'Done Tickets Excluded from Cost Comparison',
     'expected_done_excluded' => 'Completed Expected Tickets Excluded from Owner-Hours Comparison',
     'efficiency_excluded' => 'Expected Tickets Excluded from Efficiency Comparison',
-    'dtc_excluded' => 'Done Tickets Without Usable Creation/Completion Dates'
+    'dtc_excluded' => 'Completed Tickets Without Usable First To Do History'
   ).freeze
 
   def self.load_hours(ids, first_day, last_day, owners, owner_only: false)
@@ -83,7 +83,7 @@ class TicketJourneyPeriodicTime
     ordered = history.sort_by { |journal| [journal.created_on, journal.id] }
     first_change = ordered.lazy.flat_map(&:details).find { |detail| owner_change?(detail) }
     owner = first_change ? first_change.old_value.to_s : row[:owner_id]
-    first_todo = completion_todo = nil
+    first_ticket_todo = first_owner_todo = ticket_todo_at_completion = owner_todo_at_completion = nil
     reassignments = []
 
     ordered.each do |journal|
@@ -93,7 +93,7 @@ class TicketJourneyPeriodicTime
       changes = journal.details.select { |detail| owner_change?(detail) }
       changes.each do |detail|
         owner = detail.value.to_s
-        first_todo = nil
+        first_owner_todo = nil
         if detail.old_value.present?
           reassignments << { day: day, journal_id: journal.id, old_id: detail.old_value.to_s, new_id: owner }
         end
@@ -103,14 +103,18 @@ class TicketJourneyPeriodicTime
 
         if detail.prop_key == 'status_id'
           status = statuses[detail.value.to_s]&.name.to_s.strip
-          first_todo ||= day if status == 'To-Do'
+          if status == 'To-Do'
+            first_ticket_todo ||= day
+            first_owner_todo ||= day
+          end
           if status == 'Done / Closed' && statuses[detail.old_value.to_s]&.name.to_s.strip != status && day == row[:delivered_at]
-            completion_todo = owner == row[:owner_id] ? first_todo : nil
+            ticket_todo_at_completion = first_ticket_todo
+            owner_todo_at_completion = owner == row[:owner_id] ? first_owner_todo : nil
           end
         end
       end
     end
-    { owner_todo_on: completion_todo, reassignments: reassignments }
+    { ticket_todo_on: ticket_todo_at_completion, owner_todo_on: owner_todo_at_completion, reassignments: reassignments }
   end
 
   def self.owner_change?(detail)
@@ -212,7 +216,7 @@ class TicketJourneyPeriodicTime
     expected_plan = share.nil? ? nil : expected_done.sum { |row| row[:estimate] } * share / 100.0
     expected_actual = expected_done.sum { |row| personal_hours(row, owner_id, first_day, last_day) }
     expected_plan = expected_actual = nil if tickets[:sets]['completed'].any? && expected_done.empty?
-    dtc_rows = done.select { |row| calendar_duration(row[:created_date], row[:delivered_at]) }
+    dtc_rows = done.select { |row| calendar_duration(row[:ticket_todo_on], row[:delivered_at]) }
     priority_rows = dtc_rows.select { |row| TicketJourneyPerformanceTime.priority?(row) }
     owner_dtc_rows = done.select { |row| calendar_duration(row[:owner_todo_on], row[:delivered_at]) }
     efficiency_rows = expected.select do |row|
@@ -231,9 +235,9 @@ class TicketJourneyPeriodicTime
     other_actual = total_available ? sum_logs.call(other_rows) : nil
     extra_work = expected.any? && tickets[:sets]['debt'].empty? && completed_ids.size == expected_ids.size
     result = {
-      'owner_dtc' => metric(nil, mean(owner_dtc_rows.map { |row| calendar_duration(row[:owner_todo_on], row[:delivered_at]) }), :plan_minus_actual, owner_dtc_rows),
-      'dtc' => metric(TicketJourney::PerformanceSettings.periodic_target(settings, 'performance_periodic_dtc_target'), mean(dtc_rows.map { |row| calendar_duration(row[:created_date], row[:delivered_at]) }), :plan_minus_actual, dtc_rows),
-      'priority_dtc' => metric(TicketJourney::PerformanceSettings.periodic_target(settings, 'performance_periodic_priority_dtc_target'), mean(priority_rows.map { |row| calendar_duration(row[:created_date], row[:delivered_at]) }), :plan_minus_actual, priority_rows),
+      'owner_dtc' => metric(TicketJourney::PerformanceSettings.periodic_target(settings, 'performance_periodic_last_owner_dtc_target'), mean(owner_dtc_rows.map { |row| calendar_duration(row[:owner_todo_on], row[:delivered_at]) }), :plan_minus_actual, owner_dtc_rows),
+      'dtc' => metric(TicketJourney::PerformanceSettings.periodic_target(settings, 'performance_periodic_dtc_target'), mean(dtc_rows.map { |row| calendar_duration(row[:ticket_todo_on], row[:delivered_at]) }), :plan_minus_actual, dtc_rows),
+      'priority_dtc' => metric(TicketJourney::PerformanceSettings.periodic_target(settings, 'performance_periodic_priority_dtc_target'), mean(priority_rows.map { |row| calendar_duration(row[:ticket_todo_on], row[:delivered_at]) }), :plan_minus_actual, priority_rows),
       'ticket_cost' => metric(cost_plan, cost_actual, :plan_minus_actual, cost_rows),
       'expected_done_hours' => metric(expected_plan, expected_actual, :plan_minus_actual, expected_done),
       'other_hours' => metric(0, other_actual, :plan_minus_actual, other_rows,
@@ -279,7 +283,7 @@ class TicketJourneyPeriodicTime
       plan, actual = sum.call(:plan), sum.call(:actual)
       if %w[owner_dtc dtc priority_dtc].include?(key)
         plan = values.first&.fetch(:plan)
-        start_field = key == 'owner_dtc' ? :owner_todo_on : :created_date
+        start_field = key == 'owner_dtc' ? :owner_todo_on : :ticket_todo_on
         actual = mean(values.flat_map { |value| value[:rows].map { |row| calendar_duration(row[start_field], row[:delivered_at]) } })
       elsif key == 'ticket_cost'
         pairs = values.flat_map { |value| value[:rows] }
