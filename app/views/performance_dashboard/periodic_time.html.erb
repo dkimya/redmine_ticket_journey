@@ -83,7 +83,7 @@
 
     <p class="performance-context">How to read the trends: a ticket finished in Week 2 appears in Week 2 on delivery/cost charts. Hours logged in Week 1 appear in Week 1 on logged-hours charts, even if that ticket finishes later. These views are both available here; a separate executive dashboard is not required. Long periods use months.</p>
     <div class="periodic-grid">
-      <%= render 'periodic_time_trend', chart_key: 'dtc', title: 'Time to Close — Completed Tickets', series: periodic_time_trend_series(%w[dtc priority_dtc]), description: 'For tickets finished in each interval: average calendar days from creation to completion. A ticket finished in Week 2 appears in Week 2. Targets are configured separately. Long periods use months.' %>
+      <%= render 'periodic_time_trend', chart_key: 'dtc', title: 'Time to Close — Completed Tickets', series: periodic_time_trend_series(%w[owner_dtc dtc priority_dtc]), description: 'Owner Days to Close starts at the first recorded To-Do in the completing owner’s uninterrupted assignment. Total Days to Close starts at ticket creation. Each point groups tickets by completion date.' %>
       <%= render 'periodic_time_trend', chart_key: 'cost', title: 'Cost of Completed Tickets', series: periodic_time_trend_series(['ticket_cost']), description: 'Ticket Cost is the total visible time logged directly on a ticket through the report end date, including earlier work. Each interval compares actual cost with PM estimates for the same tickets completed in that interval. The next chart groups hours by work date.' %>
       <%= render 'periodic_time_trend', chart_key: 'total', title: 'Owner Logged Hours — Work-Date Intervals', series: periodic_time_trend_series(['total_hours']), description: 'Actual uses visible valid entries booked to the selected users in each interval. Plan is owner-workdays × configured daily hours, summed across owners.' %>
       <%= render 'periodic_time_trend', chart_key: 'daily', title: 'Average Logged Hours per Owner-Workday', series: periodic_time_trend_series(['daily_hours']), description: 'Sum logged hours divided by sum owner-workdays. Partial weeks use their actual configured working days; zero-workday points are unavailable.' %>
@@ -92,9 +92,9 @@
     </div>
     <% if @selected_owners.size > 1 %>
       <details class="performance-section periodic-time-owner-trends"><summary>Show individual owner trends</summary>
-      <% %w[dtc priority_dtc ticket_cost expected_done_hours total_hours daily_hours efficiency].each do |key| %>
+      <% %w[owner_dtc dtc priority_dtc ticket_cost expected_done_hours total_hours daily_hours efficiency].each do |key| %>
         <% series = @selected_owners.flat_map do |owner|
-          kinds = key == 'expected_done_hours' ? [:actual] : [:actual, :plan]
+          kinds = %w[owner_dtc expected_done_hours].include?(key) ? [:actual] : [:actual, :plan]
           kinds.map do |kind|
             { key: key, kind: kind, metric: key, label: "#{owner.name} — #{kind.to_s.titleize}", owner_name: owner.name, owner_id: owner.id.to_s, ids: [owner.id.to_s], color: performance_owner_color(owner.id), dashed: kind == :plan,
               points: @periodic_time_trends.map { |point| { date: point[:date], start: point[:start], value: point[:owners].find { |entry| entry[:owner].id == owner.id }[:report][:metrics][key][kind] } } }
@@ -106,7 +106,7 @@
     <% end %>
     <%= render 'work_rework' %>
     <section class="performance-section"><h3>Coverage and Settings</h3>
-      <% %w[cost_excluded expected_done_excluded efficiency_excluded dtc_excluded unclassified archived_hours ongoing_hours excluded_hours ownership_review].each do |key| %><p><%= periodic_time_link("#{TicketJourneyPeriodicTime::LABELS[key]}: #{report[:sets][key].size}", key) %></p><% end %>
+      <% %w[reassigned owner_dtc_excluded cost_excluded expected_done_excluded efficiency_excluded dtc_excluded unclassified archived_hours ongoing_hours excluded_hours ownership_review].each do |key| %><p><%= periodic_time_link("#{TicketJourneyPeriodicTime::LABELS[key]}: #{report[:sets][key].size}", key) %></p><% end %>
       <p>When ownership must change after developer time was logged, the operating policy is to archive and replace the ticket. The report preserves all recorded users and separately shows archived effort; ticket edits are not blocked and no replacements are created automatically. Recorded owner changes are linked for review without assuming when the time was originally entered.</p>
       <p>Unavailable/invalid personal-time contributions: <%= report[:invalid_rows] %>. Invalid, negative and nonfinite time is excluded from comparisons, not presented as zero. Owner daily-hour fallbacks: <%= @time_hours_fallback.size %> owner(s).</p>
       <p>Efficiency uses <%= report[:metrics]['efficiency'][:rows].size %> paired ticket-owner contributions: delivered <%= performance_number(report[:metrics]['efficiency'][:delivered_weight]) %> CW / <%= performance_number(report[:metrics]['efficiency'][:actual_effort]) %> owner h. Planned <%= performance_number(report[:metrics]['efficiency'][:expected_weight]) %> CW / <%= performance_number(report[:metrics]['efficiency'][:planned_effort]) %> expected h.</p>

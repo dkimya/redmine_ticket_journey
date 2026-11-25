@@ -17,7 +17,7 @@ class TicketJourneyPeriodicTimeTest < ActiveSupport::TestCase
       TicketJourneyPeriodicTime.efficiency_month_ends(Date.new(2026, 11, 30))
   end
 
-  test 'eight metrics distinguish full ticket cost personal period hours and calendar DTC' do
+  test 'time metrics distinguish owner duration, total duration, ticket cost and personal hours' do
     result = report([row(1)])
     metrics = result[:metrics]
     assert_equal 7.0, metrics['dtc'][:actual]
@@ -33,6 +33,39 @@ class TicketJourneyPeriodicTimeTest < ActiveSupport::TestCase
     assert_equal 1.25, metrics['efficiency'][:actual]
     assert_empty result[:sets]['expected_done_excluded']
     assert_nil metrics['priority_dtc'][:actual]
+  end
+
+  test 'owner duration starts at the first To-Do after reassignment and ignores later same-tenure To-Do entries' do
+    statuses = { '1' => stub(name: 'New'), '2' => stub(name: 'To-Do'), '3' => stub(name: 'Done / Closed') }
+    ticket = row(1)
+    detail = TicketJourneyPerformance::HistoryDetail
+    journal = TicketJourneyPerformance::HistoryJournal
+    entries = [
+      journal.new(1, (@first - 3).in_time_zone, [detail.new('attr', 'status_id', '1', '2')]),
+      journal.new(2, @first.in_time_zone, [detail.new('cf', '57', '2', '1'), detail.new('attr', 'status_id', '1', '2')]),
+      journal.new(3, (@first + 1).in_time_zone, [detail.new('attr', 'status_id', '1', '2')]),
+      journal.new(4, (@first + 2).in_time_zone, [detail.new('attr', 'status_id', '2', '3')])
+    ]
+    history = TicketJourneyPeriodicTime.completion_history(ticket, entries, statuses, @last)
+    assert_equal @first, history[:owner_todo_on]
+    assert_equal ['2', '1'], history[:reassignments].first.values_at(:old_id, :new_id)
+    result = report([ticket.merge(history), row(2)])
+    assert_equal 2.0, result[:metrics]['owner_dtc'][:actual]
+    assert_equal 7.0, result[:metrics]['dtc'][:actual]
+    assert_nil result[:metrics]['owner_dtc'][:plan]
+    assert_equal [2], result[:sets]['owner_dtc_excluded'].map { |item| item[:id] }
+    assert_equal [1], result[:sets]['reassigned'].map { |item| item[:id] }
+
+    entries[1].details.pop
+    entries.delete_at(2)
+    assert_nil TicketJourneyPeriodicTime.completion_history(ticket, entries, statuses, @last)[:owner_todo_on]
+
+    closed_before_handoff = [
+      entries.first,
+      entries.last,
+      journal.new(5, (@first + 3).in_time_zone, [detail.new('cf', '57', '2', '1')])
+    ]
+    assert_nil TicketJourneyPeriodicTime.completion_history(ticket, closed_before_handoff, statuses, @last)[:owner_todo_on]
   end
 
   test 'unfinished expectation hours reconcile and remain in efficiency denominator' do

@@ -65,6 +65,7 @@ module PerformanceDashboardHelper
 
   def periodic_time_metric_tip(key)
     {
+      'owner_dtc' => 'Mean calendar days from the first recorded To-Do in the completing owner’s uninterrupted assignment to qualifying completion. Only completions attributable to the current Ticket Owner with a recorded To-Do count. No owner-duration target is configured.',
       'dtc' => 'Mean calendar days from ticket creation to qualifying completion for all tickets delivered in the report period, including Other Done. Compared with the configured days-to-close target.',
       'priority_dtc' => 'The same calendar-day average for completed tickets with current Urgent or Immediate priority.',
       'ticket_cost' => 'Matching completed tickets with positive PM estimates and available time data. Plan sums PM estimates. Actual sums all contributors’ visible direct lifetime hours through the report end date, including earlier work.',
@@ -109,8 +110,8 @@ module PerformanceDashboardHelper
 
   def periodic_time_trend_series(keys)
     labels = {
-      'dtc' => ['Ave. DTC (Actual)', 'Ave. DTC (Plan)'],
-      'priority_dtc' => ['Priority Ave. DTC (Actual)', 'Priority Ave. DTC (Plan)'],
+      'dtc' => ['Total Days to Close (Actual)', 'Total Days to Close (Plan)'],
+      'priority_dtc' => ['Priority Total Days to Close (Actual)', 'Priority Total Days to Close (Plan)'],
       'ticket_cost' => ['Ticket Cost (Actual)', 'Ticket Cost (Estimation)'],
       'efficiency' => ['Delivered Expected Complexity Weight / Owner Hour (Actual)',
                        'Delivered Expected Complexity Weight / Owner Hour (Plan)']
@@ -121,6 +122,8 @@ module PerformanceDashboardHelper
         points: @periodic_time_trends.map { |point| { date: point[:date], start: point[:start], value: point[:report][:metrics][key][:actual] } } }
     end
     keys.each_with_index do |key, index|
+      next if key == 'owner_dtc'
+
       series << { key: key, kind: :plan, label: labels[key]&.last || "#{TicketJourneyPeriodicTime::METRICS[key].first} — Plan",
         metric: key, ids: @selected_owner_ids, color: %w[#0072b2 #a45d00 #00865e][index % 3], dashed: true,
         points: @periodic_time_trends.map { |point| { date: point[:date], start: point[:start], value: point[:report][:metrics][key][:plan] } } }

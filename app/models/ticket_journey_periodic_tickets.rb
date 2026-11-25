@@ -37,13 +37,15 @@ class TicketJourneyPeriodicTickets
 
   # Future owner/status/due edits are needed for current-tenure responsibility
   # and extraordinary-ticket diagnostics, without restoring old due dates.
-  def self.history_for(ids, last_day, include_return_reason: false)
+  def self.history_for(ids, last_day, include_return_reason: false, include_start_date: false)
     result = Hash.new { |hash, id| hash[id] = [] }
     journals = {}
+    attributes = %w[status_id due_date]
+    attributes << 'start_date' if include_start_date
     scope = JournalDetail.joins(:journal)
       .where(journals: { journalized_type: 'Issue', journalized_id: ids })
       .where("(journal_details.property = ? AND journal_details.prop_key IN (?)) OR (journal_details.property = ? AND journal_details.prop_key = ?)",
-        'attr', %w[status_id due_date], 'cf', '57')
+        'attr', attributes, 'cf', '57')
     if include_return_reason
       reasons = JournalDetail.joins(:journal)
         .where(journals: { journalized_type: 'Issue', journalized_id: ids }, property: 'cf', prop_key: '66')

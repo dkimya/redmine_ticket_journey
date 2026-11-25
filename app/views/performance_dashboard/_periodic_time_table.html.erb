@@ -1,8 +1,6 @@
 <div class="autoscroll"><table class="list periodic-time-table">
   <thead><tr><th>Metric</th><th>Unit</th><th>Plan / Target</th><th>Actual</th><th>Deviation</th><th>Deviation Calculation</th><th>Deviation %</th><th>Contributing Tickets</th></tr></thead>
   <% table_labels = {
-    'dtc' => 'Closed Tickets Ave. DTC',
-    'priority_dtc' => 'Priority Tickets Ave. DTC',
     'ticket_cost' => 'Closed Tickets Log Time'
   } %>
   <tbody><% TicketJourneyPeriodicTime::METRICS.except('expected_done_hours', 'other_hours').each do |key, (label, unit, direction)| %><% entry = report[:metrics][key] %>

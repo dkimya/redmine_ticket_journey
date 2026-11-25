@@ -485,6 +485,8 @@ class PerformanceDashboardController < ApplicationController
 
         history = if @periodic_returns
           TicketJourneyPeriodicTickets.history_for(selected_batch.map(&:id), @period_end, include_return_reason: true)
+        elsif @metric == 'reassigned'
+          TicketJourneyPeriodicTickets.history_for(selected_batch.map(&:id), @period_end, include_start_date: true)
         else
           TicketJourneyPeriodicTickets.history_for(selected_batch.map(&:id), @period_end)
         end
@@ -511,6 +513,11 @@ class PerformanceDashboardController < ApplicationController
           if @periodic_time && row
             row = TicketJourneyPeriodicTime.enrich(row, issue, hours,
               @periodic_project_time_permissions.fetch(issue.project_id, false), !owner_value.nil?)
+            if selected.include?(owner)
+              journals = history.fetch(issue.id, [])
+              row.merge!(TicketJourneyPeriodicTime.completion_history(row, journals, statuses, @period_end))
+              row[:planning_history] = journals if @metric == 'reassigned' && row[:reassignments].any?
+            end
             if monthly_hours && selected.include?(owner) && row[:time_allowed] && row[:estimate] && !row[:missing_weight]
               month_row = monthly_hours.equal?(hours) ? row : TicketJourneyPeriodicTime.enrich(row, issue, monthly_hours, true, true)
               add_monthly_efficiency(issue, month_row, statuses, history.fetch(issue.id, []), values.fetch(issue.id))
@@ -686,6 +693,7 @@ class PerformanceDashboardController < ApplicationController
       @detail_rows.select! { |row| @detail_issues.key?(row[:id]) }
       owner_ids = @detail_rows.select { |row| row[:owner_visible] }.map { |row| row[:owner_id] }.reject(&:blank?).uniq
       @current_owner_names = User.where(id: owner_ids).to_h { |user| [user.id.to_s, user.name] }
+      prepare_periodic_reassignment_details if @metric == 'reassigned'
       return render :periodic_time_details
     end
     @periodic_time_trends = TicketJourneyPeriodicReturns.intervals(@period_start, @period_end).map do |first, last|
@@ -693,6 +701,35 @@ class PerformanceDashboardController < ApplicationController
       { start: first, date: last, owners: entries, report: TicketJourneyPeriodicTime.aggregate(entries.map { |entry| entry[:report] }, @settings) }
     end
     render :periodic_time
+  end
+
+  def prepare_periodic_reassignment_details
+    histories = @detail_rows.flat_map { |row| row.fetch(:planning_history, []) }
+    journals = Journal.where(id: histories.map(&:id)).index_by(&:id)
+    @detail_rows.each do |row|
+      issue = @detail_issues.fetch(row[:id])
+      visible_history = row.fetch(:planning_history, []).select do |entry|
+        journal = journals[entry.id]
+        journal && (!journal.private_notes? || journal.user_id == User.current.id ||
+          User.current.allowed_to?(:view_private_notes, issue.project))
+      end
+      visible_ids = visible_history.map(&:id).to_set
+      row[:visible_reassignments] = row[:reassignments].select { |change| visible_ids.include?(change[:journal_id]) }
+      row[:schedule_changes] = visible_history.flat_map do |entry|
+        day = entry.created_on.in_time_zone.to_date
+        next [] if day > @period_end
+
+        entry.details.filter_map do |detail|
+          next unless detail.property == 'attr' && %w[start_date due_date].include?(detail.prop_key) && detail.old_value.to_s != detail.value.to_s
+
+          { day: day, field: detail.prop_key.humanize, before: detail.old_value, after: detail.value }
+        end
+      end
+    end
+    change_owner_ids = @detail_rows.flat_map do |row|
+      row[:visible_reassignments].flat_map { |change| change.values_at(:old_id, :new_id) }
+    end.reject(&:blank?).uniq
+    @change_owner_names = User.where(id: change_owner_ids).to_h { |user| [user.id.to_s, user.name] }
   end
 
   def render_periodic_time_mix

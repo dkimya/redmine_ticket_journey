@@ -25,7 +25,7 @@ class PeriodicTimeTest < ActionController::TestCase
     assert_select '.nodata', text: /does not scan/
   end
 
-  test 'eight metrics use independent personal and ticket cost populations with reconciliation' do
+  test 'time metrics use independent personal and ticket cost populations with reconciliation' do
     prepare_scan
     get :index, params: context.merge(owner_id: '1')
     assert_response :success
@@ -39,7 +39,10 @@ class PeriodicTimeTest < ActionController::TestCase
     assert_select '.performance-work-rework-phase-table th', text: 'Pending classification'
     assert_select '.performance-work-rework-phase-table th', text: 'Classified hours (Work + Rework)'
     assert_select 'p', text: /4 h on these completed tickets\s*\+ 3 h on other in-scope tickets\s*= 7 h/
-    assert_select '.periodic-time-kpi', count: 8
+    assert_select '.periodic-time-kpi', count: 9
+    assert_select '.periodic-dtc-controls button[data-leaderboard-toggle="owner_dtc"][aria-pressed="true"]'
+    assert_select '.periodic-dtc-controls button[data-leaderboard-toggle="dtc"][aria-pressed="false"]'
+    assert_select 'a[href*="metric=reassigned"]', text: 'Reassigned Tickets: 0'
     assert_select '.periodic-monthly-efficiency' do
       assert_select 'button[data-leaderboard-toggle="planned-cw"][aria-pressed="false"]', count: 1
       assert_select 'button[data-leaderboard-toggle]', count: 1
