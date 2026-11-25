@@ -40,28 +40,39 @@ class TicketJourneyPeriodicTime
 
   def self.load_hours(ids, first_day, last_day, owners, owner_only: false)
     visible = TimeEntry.visible(User.current).where(issue_id: ids).where('time_entries.spent_on <= ?', last_day)
-    valid = visible.where('time_entries.hours >= 0 AND time_entries.hours <= ?', Float::MAX)
+    period = visible.where(spent_on: first_day..last_day)
     logs = Hash.new { |hash, id| hash[id] = Hash.new { |by_user, user| by_user[user] = [] } }
-    valid.where(user_id: owners, spent_on: first_day..last_day).group(:issue_id, :user_id, :spent_on).sum(:hours)
-      .each do |(id, user, day), hours|
-        logs[id][user.to_s] << [day.to_date, finite_sum(hours)]
-      end
-    invalid = visible.where('time_entries.hours < 0 OR time_entries.hours > ? OR time_entries.hours IS NULL', Float::MAX)
-    invalid_logs = invalid.where(user_id: owners, spent_on: first_day..last_day).group(:issue_id, :user_id, :spent_on).count
+    invalid_logs = {}
+    grouped_hours(period.where(user_id: owners), :issue_id, :user_id, :spent_on).each do |id, user, day, hours, invalid|
+      invalid = invalid.to_i
+      logs[id][user.to_s] << [day.to_date, finite_sum(hours)] unless hours.nil?
+      invalid_logs[[id, user, day]] = invalid if invalid.positive?
+    end
     return { costs: {}, invalid_costs: {}, logs: logs, invalid_logs: invalid_logs } if owner_only
 
-    costs = valid.group(:issue_id).sum(:hours).transform_values { |value| finite_sum(value) }
+    costs, invalid_costs = {}, {}
+    grouped_hours(visible, :issue_id).each do |id, hours, invalid|
+      invalid = invalid.to_i
+      costs[id] = finite_sum(hours) unless hours.nil?
+      invalid_costs[id] = invalid if invalid.positive?
+    end
     mix = Hash.new { |hash, id| hash[id] = [] }
-    valid.where(spent_on: first_day..last_day).group(:issue_id, :user_id, :activity_id, :spent_on).sum(:hours).each do |(id, user, activity, day), hours|
-      mix[id] << { user_id: user.to_s, activity_id: activity.to_s, day: day.to_date, hours: finite_sum(hours) }
+    grouped_hours(period, :issue_id, :user_id, :activity_id, :spent_on).each do |id, user, activity, day, hours, invalid|
+      invalid = invalid.to_i
+      entry = { user_id: user.to_s, activity_id: activity.to_s, day: day.to_date }
+      mix[id] << entry.merge(hours: finite_sum(hours)) unless hours.nil?
+      mix[id] << entry.merge(hours: nil, invalid_count: invalid) if invalid.positive?
     end
-    invalid.where(spent_on: first_day..last_day).group(:issue_id, :user_id, :activity_id, :spent_on).count.each do |(id, user, activity, day), count|
-      mix[id] << { user_id: user.to_s, activity_id: activity.to_s, day: day.to_date, hours: nil, invalid_count: count }
-    end
-    { costs: costs, logs: logs, invalid_costs: invalid.group(:issue_id).count,
-      mix: mix,
-      invalid_logs: invalid_logs }
+    { costs: costs, invalid_costs: invalid_costs, logs: logs, invalid_logs: invalid_logs, mix: mix }
   end
+
+  def self.grouped_hours(scope, *columns)
+    # A NULL sum means the group has no valid entries. Zero is valid logged time.
+    valid_hours = Arel.sql('SUM(CASE WHEN time_entries.hours >= 0 AND time_entries.hours <= ? THEN time_entries.hours END)', Float::MAX)
+    invalid_count = Arel.sql('COUNT(CASE WHEN time_entries.hours < 0 OR time_entries.hours > ? OR time_entries.hours IS NULL THEN 1 END)', Float::MAX)
+    scope.group(*columns).pluck(*columns, valid_hours, invalid_count)
+  end
+  private_class_method :grouped_hours
 
   def self.efficiency_month_ends(report_end)
     TicketJourneyPerformance.completed_month_ends(report_end + 1)

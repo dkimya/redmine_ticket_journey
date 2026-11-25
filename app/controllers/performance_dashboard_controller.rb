@@ -46,6 +46,9 @@ class PerformanceDashboardController < ApplicationController
       # Initial Periodic navigation uses only the lightweight member selector.
       @owners = alphabetical_owners(User.active.where(id: Member.where(project_id: performance_project_ids).select(:user_id)))
       @selected_owner_ids = requested_owners.presence || [@owners.find { |user| user.id == User.current.id }&.id].compact.map(&:to_s)
+      if @periodic_time && requested_owners.any? && ENV['REDMINE_PERIODIC_TIME_SQL_PROFILE'] == '1'
+        return profile_periodic_time_sql { render_periodic_tickets(requested_owners) }
+      end
       return render_periodic_tickets(requested_owners)
     end
     # Opening the menu must not scan issues or reconstruct journal history.
@@ -424,6 +427,31 @@ class PerformanceDashboardController < ApplicationController
       User.current.allowed_to?(:manage_qa_scoring_corrections, issue.project)
   end
 
+  def profile_periodic_time_sql
+    phases = %i[time_entries monthly_time_entries custom_fields rework other]
+    totals = phases.to_h { |phase| [phase, { count: 0, ms: 0.0 }] }
+    request_fiber = Fiber.current
+    subscriber = lambda do |_name, start, finish, _id, payload|
+      next if Fiber.current != request_fiber || payload[:cached]
+
+      phase = totals.fetch(@periodic_time_sql_phase || :other)
+      phase[:count] += 1
+      phase[:ms] += (finish - start) * 1_000
+    end
+    result = ActiveSupport::Notifications.subscribed(subscriber, 'sql.active_record', monotonic: true) { yield }
+    metrics = totals.map { |phase, stats| "#{phase}=#{stats[:count]} queries/#{stats[:ms].round(1)} ms" }.join(', ')
+    Rails.logger.info("Periodic Time SQL profile (#{request.request_id}): #{metrics}")
+    result
+  end
+
+  def measure_periodic_time_sql(phase)
+    previous_phase = @periodic_time_sql_phase
+    @periodic_time_sql_phase = phase
+    yield
+  ensure
+    @periodic_time_sql_phase = previous_phase
+  end
+
   def render_periodic_tickets(requested_owners)
     page = @periodic_time ? :periodic_time : (@periodic_returns ? :periodic_returns : :periodic_tickets)
     return render(page) if requested_owners.empty? && !@metric
@@ -473,8 +501,14 @@ class PerformanceDashboardController < ApplicationController
     started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     Issue.uncached do
       scope.find_in_batches(batch_size: TicketJourneyPerformance::BATCH_SIZE) do |batch|
-        values = TicketJourneyPerformance.batch_field_values(batch, field_ids: @periodic_returns ? [57, 66, 70] : [57, 70])
-        hours = TicketJourneyPeriodicTime.load_hours(batch.map(&:id), @period_start, @period_end, requested_owners) if @periodic_time
+        values = measure_periodic_time_sql(:custom_fields) do
+          TicketJourneyPerformance.batch_field_values(batch, field_ids: @periodic_returns ? [57, 66, 70] : [57, 70])
+        end
+        if @periodic_time
+          hours = measure_periodic_time_sql(:time_entries) do
+            TicketJourneyPeriodicTime.load_hours(batch.map(&:id), @period_start, @period_end, requested_owners)
+          end
+        end
         selected_batch = batch.select do |issue|
           owner = values.fetch(issue.id).find { |value| value.custom_field.id == 57 }&.value.to_s
           discovered << owner if owner.present?
@@ -504,8 +538,12 @@ class PerformanceDashboardController < ApplicationController
               @periodic_project_time_permissions.fetch(issue.project_id, false) &&
                 values.fetch(issue.id).any? { |value| value.custom_field.id == 57 && selected.include?(value.value.to_s) }
             end.map(&:id)
-            monthly_hours = TicketJourneyPeriodicTime.load_hours(monthly_issue_ids,
-              monthly_start, @monthly_efficiency.keys.last, requested_owners, owner_only: true) if monthly_issue_ids.any?
+            if monthly_issue_ids.any?
+              monthly_hours = measure_periodic_time_sql(:monthly_time_entries) do
+                TicketJourneyPeriodicTime.load_hours(monthly_issue_ids,
+                  monthly_start, @monthly_efficiency.keys.last, requested_owners, owner_only: true)
+              end
+            end
           end
         end
         rework_candidates = []
@@ -543,20 +581,22 @@ class PerformanceDashboardController < ApplicationController
           rows << row if row
         end
         if rework_candidates.any?
-          ids = rework_candidates.map { |issue, _row, _delivered, _monthly| issue.id }
-          lifetime_hours = TicketJourneyPerformanceTime.hours_for(ids, @period_end, by_activity: true)
-          lifetime_owner_hours = TicketJourneyPerformanceTime.owner_hours_for(ids, requested_owners, @period_end, by_day: true)
-          rework_candidates.each do |issue, row, delivered, monthly|
-            owner = row[:owner_id]
-            entries = TicketJourneyWorkRework.classify(issue, history[issue.id], statuses, @period_end, lifetime_hours[issue.id])
-            booked = lifetime_owner_hours.fetch([issue.id, owner.to_i], [])
-            allowed = @periodic_project_time_permissions.fetch(issue.project_id, false)
-            if delivered
-              TicketJourneyWorkRework.add!(@work_rework.fetch(owner), row, entries, booked, @period_end, allowed,
-                period_start: @period_start)
-            end
-            monthly.each do |day, snapshot|
-              TicketJourneyWorkRework.add!(@work_rework_months.fetch(owner).fetch(day), snapshot, entries, booked, day, allowed)
+          measure_periodic_time_sql(:rework) do
+            ids = rework_candidates.map { |issue, _row, _delivered, _monthly| issue.id }
+            lifetime_hours = TicketJourneyPerformanceTime.hours_for(ids, @period_end, by_activity: true)
+            lifetime_owner_hours = TicketJourneyPerformanceTime.owner_hours_for(ids, requested_owners, @period_end, by_day: true)
+            rework_candidates.each do |issue, row, delivered, monthly|
+              owner = row[:owner_id]
+              entries = TicketJourneyWorkRework.classify(issue, history[issue.id], statuses, @period_end, lifetime_hours[issue.id])
+              booked = lifetime_owner_hours.fetch([issue.id, owner.to_i], [])
+              allowed = @periodic_project_time_permissions.fetch(issue.project_id, false)
+              if delivered
+                TicketJourneyWorkRework.add!(@work_rework.fetch(owner), row, entries, booked, @period_end, allowed,
+                  period_start: @period_start)
+              end
+              monthly.each do |day, snapshot|
+                TicketJourneyWorkRework.add!(@work_rework_months.fetch(owner).fetch(day), snapshot, entries, booked, day, allowed)
+              end
             end
           end
         end

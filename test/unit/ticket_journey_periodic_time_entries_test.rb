@@ -28,16 +28,46 @@ class TicketJourneyPeriodicTimeEntriesTest < ActiveSupport::TestCase
     assert hours[:mix][issue.id].all? { |entry| entry[:activity_id] == activity.id.to_s && entry[:day].between?(first, last) }
     bad = make.call(first, 1, User.find(1), User.find(1))
     bad.update_column(:hours, -5)
-    hours = TicketJourneyPeriodicTime.load_hours([issue.id], first, last, ['1'])
+    bad_same_group = make.call(first + 1, 1, User.find(1), User.find(1))
+    bad_same_group.update_column(:hours, -2)
+    make.call(last, 1, User.find(1), User.find(1)).update_column(:hours, 0)
+
+    count_aggregates = lambda do |**options|
+      queries = []
+      subscriber = ->(_name, _start, _finish, _id, payload) { queries << payload[:sql] }
+      hours = ActiveSupport::Notifications.subscribed(subscriber, 'sql.active_record') do
+        TimeEntry.uncached { TicketJourneyPeriodicTime.load_hours([issue.id], first, last, ['1'], **options) }
+      end
+      [hours, queries.count { |sql| sql.match?(/\b(?:SUM|COUNT)\(/i) && sql.match?(/\btime_entries\b/i) }]
+    end
+
+    hours, query_count = count_aggregates.call
+    assert_equal 3, query_count
     assert_equal 10.0, hours[:costs][issue.id]
-    assert_equal 1, hours[:invalid_costs][issue.id]
-    assert_equal 1, hours[:invalid_logs][[issue.id, 1, first]]
-    assert_equal 1, hours[:mix][issue.id].count { |entry| entry[:hours].nil? }
+    assert_equal 2, hours[:invalid_costs][issue.id]
+    assert_equal({ [issue.id, 1, first] => 1, [issue.id, 1, first + 1] => 1 }, hours[:invalid_logs])
+    assert_equal [[first + 1, 2.0], [last, 0.0]], hours[:logs][issue.id]['1'].sort
+    same_group = hours[:mix][issue.id].select { |entry| entry[:day] == first + 1 }
+    assert_equal 2.0, same_group.find { |entry| entry[:hours] }[:hours]
+    assert_equal 1, same_group.find { |entry| entry[:hours].nil? }[:invalid_count]
+    invalid_only = hours[:mix][issue.id].select { |entry| entry[:day] == first }
+    assert_equal [[nil, 1]], invalid_only.map { |entry| entry.values_at(:hours, :invalid_count) }
     assert_equal ['1', '2'], hours[:mix][issue.id].map { |entry| entry[:user_id] }.uniq.sort
+
+    owner_hours, query_count = count_aggregates.call(owner_only: true)
+    assert_equal 1, query_count
+    assert_equal hours[:logs], owner_hours[:logs]
+    assert_equal hours[:invalid_logs], owner_hours[:invalid_logs]
+    assert_empty owner_hours[:costs]
+    assert_empty owner_hours[:invalid_costs]
+
     TimeEntry.expects(:visible).with(User.current).at_least_once.returns(TimeEntry.none)
     hidden = TicketJourneyPeriodicTime.load_hours([issue.id], first, last, ['1'])
     assert_empty hidden[:costs]
     assert_empty hidden[:logs]
+    assert_empty hidden[:invalid_costs]
+    assert_empty hidden[:invalid_logs]
+    assert_empty hidden[:mix]
   ensure
     User.current = nil
   end

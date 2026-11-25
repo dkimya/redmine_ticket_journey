@@ -1,5 +1,35 @@
 # Deployment and verification
 
+## Periodic Time SQL benchmark
+
+Keep `idx_time_entries_issue_spent_on` and the MariaDB buffer settings in both
+runs. With the index in place, the reported baseline is 8.46 s total, 5.18 s
+ActiveRecord and about 1,507 queries (previously 10.60 s and 7.14 s).
+
+On the benchmark host, enable `REDMINE_PERIODIC_TIME_SQL_PROFILE=1` in the Redmine
+web process environment and restart it. For a profiled baseline, deploy the
+controller change with the existing `TicketJourneyPeriodicTime` model. Then
+deploy the updated model and repeat with the same project, signed-in viewer,
+owner Arman Hosseini (`1914`), RSD `2026-09-01`, RED `2026-10-31` and As of
+`2026-11-19`. Use the full Periodic Time page. Warm up each version and compare
+the median of several requests.
+
+Match the `Periodic Time SQL profile` log line to the request ID. Each bucket
+reports uncached `sql.active_record` events and their elapsed milliseconds.
+`time_entries` covers the main `load_hours` calls, `monthly_time_entries` covers
+the additional owner-only calls, `custom_fields` covers batch field loading and
+visibility checks, and `rework` covers lifetime time-entry loading and
+classification. `other` covers the rest of the profiled action and rendering.
+The profile starts after initial filters and member selection. Use the Rails
+request completion line for full-request timing. Remove the environment variable
+and restart the web process when profiling is complete.
+
+The full loader issues three aggregates per batch in place of six. The
+owner-only loader issues one in place of two. Compare ticket costs, booked-user
+hours, activity-mix totals and invalid-entry counts across the two versions. Run
+the Ruby regressions only on a configured test Redmine, including restricted
+viewers and batches with both valid and invalid entries in the same group.
+
 ## QA pilot and Project Manager access
 
 On a configured test Redmine host, deploy the plugin and run its migration:
