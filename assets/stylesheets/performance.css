@@ -473,6 +473,7 @@
 .periodic-grid>div,.periodic-grid>.performance-section{min-width:0}
 .periodic-page details{margin:14px 0}
 .periodic-page summary{cursor:pointer;font-weight:600;line-height:1.5}
+.periodic-time-owner-trends > summary > h3{display:inline;margin:0}
 .periodic-summary details>summary{padding:10px 12px;background:#edf6ff;border-radius:5px;color:#135d94}
 .periodic-page table{margin-top:12px}
 .periodic-page caption{text-align:left;font-weight:700;padding:10px 0;color:#17365d}
@@ -543,7 +544,7 @@
 .periodic-page .periodic-details td{text-align:left;overflow-wrap:anywhere}
 .periodic-page .periodic-details thead th,
 .periodic-page .periodic-details thead th a{white-space:normal}
-.periodic-page .periodic-details .periodic-detail-id{min-width:4.5em;white-space:nowrap}
+.periodic-page :is(.periodic-details,.periodic-time-details) .periodic-detail-id{min-width:4.5em;white-space:nowrap;overflow-wrap:normal}
 .periodic-page .periodic-details .periodic-detail-date{min-width:7.5em;white-space:nowrap}
 .periodic-page .periodic-detail-options{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:20px 0}
 .periodic-page #periodic-calculation-notes li{margin:10px 0;line-height:1.6}

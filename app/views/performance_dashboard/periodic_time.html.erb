@@ -92,7 +92,8 @@
       <%= render 'periodic_time_breakdown' %>
     </div>
     <% if @selected_owners.size > 1 %>
-      <details class="performance-section periodic-time-owner-trends"><summary>Show individual owner trends</summary>
+      <details class="performance-section periodic-time-owner-trends">
+      <summary><h3>Show individual owner trends</h3></summary>
       <p class="performance-weight-note"><%= dtc_description %> Priority Ticket Total DTC uses the same calculation for Urgent and Immediate tickets.</p>
       <p class="performance-weight-note">DTC targets are shared across owners.<% if report[:metrics]['owner_dtc'][:plan].nil? %> Set a Last Owner DTC target in PMO Dashboard settings to show its dashed plan line.<% end %></p>
       <% %w[owner_dtc dtc priority_dtc ticket_cost expected_done_hours total_hours daily_hours efficiency].each do |key| %>
