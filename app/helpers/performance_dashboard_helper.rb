@@ -187,6 +187,16 @@ module PerformanceDashboardHelper
     qa_dashboard_link(performance_number(value), metric, **filters)
   end
 
+  def qa_score_penalty(value, metric, weight)
+    deduction = value.positive? ? "−#{performance_number(value)}" : '0'
+    path = performance_dashboard_path(@project, **@qa_params.merge(qa_detail: metric))
+    tip = "Scored #{performance_number(value / weight.to_f)} CW × #{weight} = #{deduction} points"
+    safe_join([
+      performance_drilldown_link(deduction, path, class: ('performance-bad' if value.positive?)),
+      performance_tip(tip)
+    ], ' ')
+  end
+
   def performance_drilldown_link(label, path, **options)
     title = [options[:title] || 'View tickets', 'Opens in a new tab'].join(' · ')
     link_to label, path, options.merge(target: '_blank', rel: 'noopener', title: title)

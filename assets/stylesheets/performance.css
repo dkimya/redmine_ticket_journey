@@ -581,6 +581,24 @@
   .performance-time-bar-row { grid-template-columns: minmax(100px, 1fr) minmax(80px, 2fr) 70px; gap: 6px; }
 }
 .performance-qa-table th{white-space:normal}
+.performance-qa-workflow th:first-child{text-align:start}
+.performance-qa-workflow th.performance-qa-workflow-child{padding-inline-start:2em;font-weight:normal}
+.performance-qa-score a.performance-bad{color:#c93143}
+.performance-qa-score .performance-tip{position:relative}
+.performance-qa-score .performance-tip:focus-visible::after{
+  content:attr(title);
+  position:absolute;
+  inset-block-end:100%;
+  inset-inline-start:50%;
+  transform:translateX(-50%);
+  padding:4px 8px;
+  background:#17365d;
+  color:#fff;
+  border-radius:4px;
+  font-size:12px;
+  white-space:nowrap;
+  z-index:1;
+}
 .performance-qa-trend-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
 @media(max-width:1000px){.performance-qa-trend-grid{grid-template-columns:minmax(0,1fr)}}
 

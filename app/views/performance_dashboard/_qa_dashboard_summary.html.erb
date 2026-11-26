@@ -15,11 +15,13 @@
 
 <section class="performance-section">
   <h3>Test Workflow</h3>
-  <div class="autoscroll"><table class="list performance-qa-table">
+  <div class="autoscroll"><table class="list performance-qa-table performance-qa-workflow">
     <thead><tr><th scope="col">Metric</th><th scope="col">QA</th><th scope="col">QA-L2</th></tr></thead>
     <tbody>
+      <% parent_by_metric = { 'passed' => 'Tested', 'returned' => 'Tested', 'due_soon' => 'Test queue' } %>
       <% %w[tested passed returned queue due_soon].each do |metric| %>
-        <tr><th scope="row"><%= TicketJourneyQaDashboardSummary::METRICS.fetch(metric) %></th>
+        <% label = TicketJourneyQaDashboardSummary::METRICS.fetch(metric); parent = parent_by_metric[metric] %>
+        <tr><th scope="row" class="<%= 'performance-qa-workflow-child' if parent %>"<% if parent %> aria-label="<%= label %> (included in <%= parent %>)"<% end %>><%= label %></th>
           <% summary[:workflow].each do |role, metrics| %>
             <% applicable = available_roles.include?(role) && !(periodic && %w[queue due_soon].include?(metric)) %>
             <td><%= applicable ? qa_ticket_count_link(metrics.fetch(metric.to_sym), metric, qa_gate: role) : 'N/A' %></td>
@@ -37,12 +39,12 @@
 
 <section class="performance-section">
   <h3>Test Score</h3>
-  <div class="autoscroll"><table class="list performance-qa-table">
+  <div class="autoscroll"><table class="list performance-qa-table performance-qa-score">
     <thead><tr><th scope="col">Bugs Found · Credit</th><th scope="col">False Passes · Penalty</th><th scope="col">Test Escapes · Penalty</th><th scope="col">Total Score</th></tr></thead>
     <tbody><tr>
       <td><%= qa_number_link(@qa_report.detected_field ? summary[:points][:found] : nil, 'found') %></td>
-      <td><%= qa_number_link(summary[:points][:false_passes], 'false_passes') %></td>
-      <td><%= qa_number_link(summary[:points][:escapes], 'escapes') %></td>
+      <td><%= qa_score_penalty(summary[:points][:false_passes], 'false_passes', TicketJourneyQaReport::FALSE_PASS_WEIGHT) %></td>
+      <td><%= qa_score_penalty(summary[:points][:escapes], 'escapes', TicketJourneyQaReport::TEST_ESCAPE_WEIGHT) %></td>
       <td><strong><%= qa_number_link(summary[:points][:total], 'score') %></strong></td>
     </tr></tbody>
   </table></div>
