@@ -21,14 +21,15 @@
       <% parent_by_metric = { 'passed' => 'Tested', 'returned' => 'Tested', 'due_soon' => 'Test queue' } %>
       <% %w[tested passed returned queue due_soon].each do |metric| %>
         <% label = TicketJourneyQaDashboardSummary::METRICS.fetch(metric); parent = parent_by_metric[metric] %>
-        <tr><th scope="row" class="<%= 'performance-qa-workflow-child' if parent %>"<% if parent %> aria-label="<%= label %> (included in <%= parent %>)"<% end %>><%= label %></th>
+        <tr class="<%= parent ? 'performance-qa-workflow-child' : 'performance-qa-workflow-group' %>">
+          <th scope="row"<% if parent %> aria-label="<%= label %> (included in <%= parent %>)"<% end %>><%= label %></th>
           <% summary[:workflow].each do |role, metrics| %>
             <% applicable = available_roles.include?(role) && !(periodic && %w[queue due_soon].include?(metric)) %>
             <td><%= applicable ? qa_ticket_count_link(metrics.fetch(metric.to_sym), metric, qa_gate: role) : 'N/A' %></td>
           <% end %>
         </tr>
       <% end %>
-      <tr><th scope="row">False Passes charged to QA</th>
+      <tr class="performance-qa-workflow-separate"><th scope="row">False Passes charged to QA</th>
         <td><%= available_roles.include?('QA') ? qa_dashboard_link("#{sets[:false_passes].size} (#{performance_number(summary[:points][:false_passes])} penalty points)", 'false_passes') : 'N/A' %></td>
         <td>N/A</td>
       </tr>

@@ -582,7 +582,17 @@
 }
 .performance-qa-table th{white-space:normal}
 .performance-qa-workflow th:first-child{text-align:start}
-.performance-qa-workflow th.performance-qa-workflow-child{padding-inline-start:2em;font-weight:normal}
+.performance-page .performance-qa-workflow > tbody > .performance-qa-workflow-group > *{background:#e9f0f7}
+.performance-page .performance-qa-workflow > tbody > :is(.performance-qa-workflow-group,.performance-qa-workflow-separate) > *{border-block-start:2px solid #aebfd0}
+.performance-page .performance-qa-workflow > tbody > .performance-qa-workflow-child > *{background:#f7f9fb}
+.performance-qa-workflow .performance-qa-workflow-child > th{position:relative;padding-inline-start:2em;font-weight:normal}
+.performance-qa-workflow .performance-qa-workflow-child > th::before{
+  content:"";
+  position:absolute;
+  inset-block:0;
+  inset-inline-start:1em;
+  border-inline-start:1px solid #b9c8d6;
+}
 .performance-qa-score a.performance-bad{color:#c93143}
 .performance-qa-score .performance-tip{position:relative}
 .performance-qa-score .performance-tip:focus-visible::after{
