@@ -48,7 +48,7 @@
   <div class="autoscroll"><table class="list performance-qa-table performance-qa-score">
     <thead><tr>
       <% components.each do |label, _key, weight| %>
-        <th scope="col" class="<%= weight.positive? ? 'performance-good' : 'performance-bad' %>"><%= label %> (<%= qa_signed_points(weight) %>)</th>
+        <th scope="col" class="<%= weight.positive? ? 'performance-good' : 'performance-bad' %>"><%= label %> (<%= qa_signed_points(weight) %>×)</th>
       <% end %>
       <th scope="col">Total Score</th>
     </tr></thead>
