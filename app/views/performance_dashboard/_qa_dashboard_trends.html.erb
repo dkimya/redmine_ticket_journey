@@ -13,6 +13,7 @@
   <div class="performance-qa-trend-grid">
     <% charts.each do |chart| %>
       <% keys = chart[:series].map(&:first)
+         toggle_series = keys.size > 1
          points = @qa_trends.map do |interval|
            if chart[:key] == 'score'
              { 'found' => interval[:points][:found], 'false_passes' => interval[:points][:false_passes].abs,
@@ -27,13 +28,24 @@
          title_id = "qa-trend-#{chart[:key]}"
          date_step = [(@qa_trends.size / 7.0).ceil, 1].max
       %>
-      <article class="performance-metric">
+      <article class="performance-metric<%= ' performance-leaderboard' if toggle_series %>"<% if toggle_series %> data-performance-leaderboard<% end %>>
         <h4><%= chart[:title] %></h4>
-        <ul class="performance-trend-legend">
-          <% chart[:series].each do |_key, label, color| %>
-            <li><span class="performance-trend-swatch" style="border-color:<%= color %>" aria-hidden="true"></span><%= label %></li>
-          <% end %>
-        </ul>
+        <% if toggle_series %>
+          <div class="performance-leaderboard-legend performance-output-legend" role="group" aria-label="<%= chart[:title] %> lines">
+            <% chart[:series].each do |key, label, color| %>
+              <button type="button" data-leaderboard-toggle="<%= key %>" data-owner-name="<%= label %>"
+                      aria-controls="<%= title_id %>-series-<%= key %>" aria-pressed="true" aria-label="Hide <%= label %> line">
+                <span class="performance-leaderboard-swatch" style="border-color:<%= color %>" aria-hidden="true"></span><%= label %>
+              </button>
+            <% end %>
+          </div>
+        <% else %>
+          <ul class="performance-trend-legend">
+            <% chart[:series].each do |_key, label, color| %>
+              <li><span class="performance-trend-swatch" style="border-color:<%= color %>" aria-hidden="true"></span><%= label %></li>
+            <% end %>
+          </ul>
+        <% end %>
         <div class="autoscroll">
           <svg class="performance-trend-chart" viewBox="0 0 860 285" role="img" aria-labelledby="<%= title_id %>">
             <title id="<%= title_id %>"><%= chart[:title] %> by closure interval. Select a point to open the contributing tickets.</title>
@@ -49,7 +61,8 @@
             <% end %>
             <% chart[:series].each_with_index do |(key, label, color), position| %>
               <% coordinates = geometry[:series][position] %>
-              <g class="performance-trend-series" style="stroke:<%= color %>;fill:<%= color %>">
+              <g class="performance-trend-series" style="stroke:<%= color %>;fill:<%= color %>"<% if toggle_series %>
+                 id="<%= title_id %>-series-<%= key %>" data-leaderboard-series="<%= key %>"<% end %>>
                 <% coordinates.each_cons(2) do |left, right| %>
                   <% next unless left[:y] && right[:y] %>
                   <line x1="<%= left[:x] %>" y1="<%= left[:y] %>" x2="<%= right[:x] %>" y2="<%= right[:y] %>" />
