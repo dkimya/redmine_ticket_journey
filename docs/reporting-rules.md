@@ -14,8 +14,8 @@ the selected visible project hierarchy. With a selection, verdicts and false
 passes follow the gate actor, Bug credit follows the Bug creator, escapes
 follow the source closure actor, and testing hours follow the booked user.
 Selected-tester totals count each ticket once. The default full team view
-keeps other historical actors and pending attribution visible. The Live QA
-queue stays shared because the gate history identifies completed activity.
+keeps other historical actors and pending attribution visible. The QA queue is
+shared across testers in the selected project scope.
 
 Only a same-journal False QA Pass reason on a return from Review, Ready to Merge
 or Final Check can deduct the ticket's CW from the preceding Feedback-to-
@@ -37,9 +37,11 @@ selection limits the report to visible projects where the selected users have
 a QA role. QA comes from Feedback and QA-L2 from Final Check. The project
 workflow table uses the latest recorded verdict per ticket and gate across
 those projects. Tester comparisons use each recorded actor. A gate
-that none of the selected testers holds displays N/A. Queue ownership stays
-shared by project and gate in Live QA. The due-soon subset uses the current
-due date from the report date through three calendar days later.
+that none of the selected testers holds displays N/A. The Periodic queue is a
+snapshot of tickets in Feedback or Final Check at the report end date, including
+carry-in. Queued tickets are outside the Periodic completion metrics. The
+due-soon subset uses the current due date from the report date through three
+calendar days later.
 
 Calendar duration measures recorded gate entry to verdict, or to the report
 cutoff while still waiting, using elapsed calendar days. A missing recorded

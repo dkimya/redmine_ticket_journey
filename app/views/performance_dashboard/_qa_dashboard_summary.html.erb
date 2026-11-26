@@ -18,13 +18,15 @@
   <div class="autoscroll"><table class="list performance-qa-table performance-qa-workflow">
     <thead><tr><th scope="col">Metric</th><th scope="col">QA</th><th scope="col">QA-L2</th></tr></thead>
     <tbody>
-      <% parent_by_metric = { 'passed' => 'Tested', 'returned' => 'Tested', 'due_soon' => 'Test queue' } %>
+      <% queue_label = periodic ? 'Test Queue at Report End' : 'Test queue'
+         parent_by_metric = { 'passed' => 'Tested', 'returned' => 'Tested', 'due_soon' => queue_label } %>
       <% %w[tested passed returned queue due_soon].each do |metric| %>
-        <% label = TicketJourneyQaDashboardSummary::METRICS.fetch(metric); parent = parent_by_metric[metric] %>
+        <% label = metric == 'queue' ? queue_label : TicketJourneyQaDashboardSummary::METRICS.fetch(metric)
+           parent = parent_by_metric[metric] %>
         <tr class="<%= parent ? 'performance-qa-workflow-child' : 'performance-qa-workflow-group' %>">
           <th scope="row"<% if parent %> aria-label="<%= label %> (included in <%= parent %>)"<% end %>><%= label %></th>
           <% summary[:workflow].each do |role, metrics| %>
-            <% applicable = available_roles.include?(role) && !(periodic && %w[queue due_soon].include?(metric)) %>
+            <% applicable = available_roles.include?(role) %>
             <td><%= applicable ? qa_ticket_count_link(metrics.fetch(metric.to_sym), metric, qa_gate: role) : 'N/A' %></td>
           <% end %>
         </tr>
@@ -35,7 +37,14 @@
       </tr>
     </tbody>
   </table></div>
-  <p>Each ticket counts once per gate, using its latest recorded verdict across the report’s projects. The Live queue is shared by gate. Close to due date covers the report date through the next three calendar days.</p>
+  <p>Each ticket counts once per gate, using its latest recorded verdict across the report’s projects.
+    <% if periodic %>
+      The shared queue shows tickets waiting in Feedback or Final Check at the end of <%= format_date(@period_end) %>, including tickets already waiting when the period began.
+    <% else %>
+      The Live queue is shared by gate.
+    <% end %>
+    <% if available_roles.size < TicketJourneyQaDashboardSummary::ROLES.size %>N/A indicates that none of the selected testers holds that role.<% end %>
+    Close to due date covers the report date through the next three calendar days.</p>
 </section>
 
 <section class="performance-section">
@@ -85,6 +94,6 @@
       <td><%= qa_number_link(summary[:efficiency], 'efficiency') %></td>
     </tr></tbody>
   </table></div>
-  <p>Duration runs from recorded gate entry to verdict, or through the report date for tickets still waiting. Logged hours follow the tester who booked them across both roles<%= ', including hours logged before the reporting period on its closed tickets' if periodic %>. Processed CW/h divides distinct ticket CW by matching testing hours on those tickets.</p>
+  <p>Duration runs from recorded gate entry to verdict<%= ', or through the report date for tickets still waiting' unless periodic %>. Logged hours follow the tester who booked them across both roles<%= ', including hours logged before the reporting period on its closed tickets' if periodic %>. Processed CW/h divides distinct ticket CW by matching testing hours on those tickets.</p>
   <% if @qa_report.time_unavailable.positive? %><p><%= @qa_report.time_unavailable %> scoped tickets lack time-view permission.</p><% end %>
 </section>

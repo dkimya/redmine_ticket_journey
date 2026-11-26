@@ -43,8 +43,9 @@ class TicketJourneyQaDashboardSummary
     duration_by_role = workflow.transform_values { {} }
     workflow.each do |role, metrics|
       metrics[:tested].each { |row| duration_by_role[role][row[:issue].id] = gates[row[:issue].id][role][:days] }
-      metrics[:queue].each { |row| duration_by_role[role][row[:issue].id] = row[:age] }
-      metrics[:duration] = (metrics[:tested] + metrics[:queue]).uniq { |row| row[:issue].id }
+      waiting_in_cohort = metrics[:queue].select { |row| gates.key?(row[:issue].id) }
+      waiting_in_cohort.each { |row| duration_by_role[role][row[:issue].id] = row[:age] }
+      metrics[:duration] = (metrics[:tested] + waiting_in_cohort).uniq { |row| row[:issue].id }
         .select { |row| duration_by_role[role][row[:issue].id] }
     end
     hours, time_rows, paired = calculate_time(rows, actor)

@@ -449,7 +449,8 @@ class PerformanceDashboardController < ApplicationController
 
       rows = summary[:sets].fetch(metric.to_sym)
     end
-    @qa_detail_title = [TicketJourneyQaDashboardSummary::METRICS.fetch(metric), role, tester&.name].compact.join(' — ')
+    label = @period_start && metric == 'queue' ? 'Test Queue at Report End' : TicketJourneyQaDashboardSummary::METRICS.fetch(metric)
+    @qa_detail_title = [label, role, tester&.name].compact.join(' — ')
     issues = rows.map { |row| row[:issue] }.uniq(&:id).sort_by(&:id)
     @qa_detail_count = issues.size
     @qa_detail_page_count = [(@qa_detail_count / 100.0).ceil, 1].max

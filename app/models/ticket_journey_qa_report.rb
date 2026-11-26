@@ -189,7 +189,14 @@ class TicketJourneyQaReport
       changes = self.class.changes(history.fetch(issue.id, []), @statuses)
       status = self.class.status_at(issue, changes, @cutoff, @statuses)
       recorded = changes.take_while { |change| change[:at] <= @cutoff }
-      next unless in_scope?(status, recorded)
+      unless in_scope?(status, recorded)
+        if @start && GATES.include?(status)
+          weight = TicketJourney::WorkingCalendar.positive_number(field_values(fields, issue)[70])
+          _, entered = self.class.gate_history(recorded)
+          add_queue_ticket(issue, status, weight, entered[status])
+        end
+        next
+      end
 
       [issue, status, recorded]
     end
@@ -219,9 +226,7 @@ class TicketJourneyQaReport
       @dashboard_rows << row
 
       if !@start && GATES.include?(status)
-        due = issue.due_date
-        @queue << row.merge(age: self.class.calendar_days(entered[status], @cutoff),
-          close_to_due: due && due.between?(@finish, @finish + 3))
+        add_queue_ticket(issue, status, weight, entered[status])
       end
       pass_actors = gates.filter_map { |gate| gate[:actor] if gate[:role] == 'QA' && gate[:outcome] == :passed }.uniq
       @passes << row.merge(actors: pass_actors) if pass_actors.any?
@@ -250,6 +255,12 @@ class TicketJourneyQaReport
         @time_unavailable += 1
       end
     end
+  end
+
+  def add_queue_ticket(issue, status, weight, entered_at)
+    due = issue.due_date
+    @queue << { issue: issue, status: status, weight: weight, age: self.class.calendar_days(entered_at, @cutoff),
+      close_to_due: due && due.between?(@finish, @finish + 3) }
   end
 
   def field_values(fields, issue)

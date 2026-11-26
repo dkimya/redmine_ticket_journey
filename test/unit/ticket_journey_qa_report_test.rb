@@ -97,6 +97,38 @@ class TicketJourneyQaReportTest < ActiveSupport::TestCase
     assert_nil source.calculate(actor: 4)[:efficiency]
   end
 
+  test 'periodic queue includes carry-in at report end without affecting completion metrics' do
+    start = Date.new(2026, 11, 1)
+    finish = Date.new(2026, 11, 26)
+    issue = stub(id: 1, status_id: 3, due_date: finish + 2)
+    history = [
+      change(1, 'New', 'Feedback').merge(at: (start - 1).in_time_zone),
+      change(2, 'Feedback', 'Done').merge(at: (finish + 1).in_time_zone)
+    ]
+    report = TicketJourneyQaReport.allocate
+    { start: start, finish: finish, cutoff: finish.in_time_zone.end_of_day, queue: [],
+      dashboard_rows: [], bugs: [], returns: [] }.each do |name, value|
+      report.instance_variable_set("@#{name}", value)
+    end
+    TicketJourneyPerformance.stubs(:history_for).returns({})
+    TicketJourneyQaReport.stubs(:changes).returns(history)
+    TicketJourneyPerformance.stubs(:batch_field_values)
+      .returns(1 => [stub(custom_field: stub(id: 70), value: '8')])
+    TicketJourneyQaReport.stubs(:correction_history).returns({})
+    report.expects(:testing_entries).with([]).returns({})
+
+    report.send(:scan, [issue])
+    source = TicketJourneyQaDashboardSummary.new(report)
+    summary = source.calculate
+    assert_equal [1], summary[:sets][:queue].map { |row| row[:issue].id }
+    assert_equal 8, TicketJourneyQaDashboardSummary.ticket_weight(summary[:workflow]['QA'][:queue])
+    assert_equal summary[:sets][:queue], summary[:workflow]['QA'][:due_soon]
+    assert_empty summary[:workflow]['QA-L2'][:queue]
+    assert_empty summary[:sets][:tickets]
+    assert_nil summary[:duration]
+    assert_empty source.calculate(range: start..finish)[:sets][:queue]
+  end
+
   private
 
   def change(id, from, to, actor: nil, reason: nil)
