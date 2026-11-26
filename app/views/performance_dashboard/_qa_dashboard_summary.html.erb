@@ -30,7 +30,7 @@
         </tr>
       <% end %>
       <tr class="performance-qa-workflow-separate"><th scope="row">False Passes charged to QA</th>
-        <td><%= available_roles.include?('QA') ? qa_dashboard_link("#{sets[:false_passes].size} (#{performance_number(summary[:points][:false_passes])} penalty points)", 'false_passes') : 'N/A' %></td>
+        <td><%= available_roles.include?('QA') ? qa_dashboard_link("#{sets[:false_passes].size} (#{performance_number(summary[:points][:false_passes].abs)} penalty points)", 'false_passes') : 'N/A' %></td>
         <td>N/A</td>
       </tr>
     </tbody>
@@ -40,16 +40,27 @@
 
 <section class="performance-section">
   <h3>Test Score</h3>
+  <% components = [
+       ['Bugs Found · Credit', :found, TicketJourneyQaReport::BUG_CREDIT_WEIGHT],
+       ['False Passes · Penalty', :false_passes, TicketJourneyQaReport::FALSE_PASS_WEIGHT],
+       ['Test Escapes · Penalty', :escapes, TicketJourneyQaReport::TEST_ESCAPE_WEIGHT]
+     ] %>
   <div class="autoscroll"><table class="list performance-qa-table performance-qa-score">
-    <thead><tr><th scope="col">Bugs Found · Credit</th><th scope="col">False Passes · Penalty</th><th scope="col">Test Escapes · Penalty</th><th scope="col">Total Score</th></tr></thead>
+    <thead><tr>
+      <% components.each do |label, _key, weight| %>
+        <th scope="col" class="<%= weight.positive? ? 'performance-good' : 'performance-bad' %>"><%= label %> (<%= qa_signed_points(weight) %>)</th>
+      <% end %>
+      <th scope="col">Total Score</th>
+    </tr></thead>
     <tbody><tr>
-      <td><%= qa_number_link(@qa_report.detected_field ? summary[:points][:found] : nil, 'found') %></td>
-      <td><%= qa_score_penalty(summary[:points][:false_passes], 'false_passes', TicketJourneyQaReport::FALSE_PASS_WEIGHT) %></td>
-      <td><%= qa_score_penalty(summary[:points][:escapes], 'escapes', TicketJourneyQaReport::TEST_ESCAPE_WEIGHT) %></td>
+      <% components.each do |_label, key, weight| %>
+        <% value = key == :found && !@qa_report.detected_field ? nil : summary[:points][key] %>
+        <td><%= qa_score_component(value, key.to_s, weight) %></td>
+      <% end %>
       <td><strong><%= qa_number_link(summary[:points][:total], 'score') %></strong></td>
     </tr></tbody>
   </table></div>
-  <p>Total score subtracts both weighted penalties from bug credit. <%= @qa_report.returns.count { |row| row[:points].nil? } %> false-pass events and <%= sets[:escapes].count { |row| row[:escape_points].nil? } %> Test Escape Bugs are pending scoring.</p>
+  <p>Total score adds the three signed contributions. <%= @qa_report.returns.count { |row| row[:points].nil? } %> false-pass events and <%= sets[:escapes].count { |row| row[:escape_points].nil? } %> Test Escape Bugs are pending scoring.</p>
   <% unless @qa_report.detected_field %><p>Bug credit is unavailable until there is one issue custom field named Detected By. The score includes only available components.</p><% end %>
   <% if sets[:found].any? { |row| row[:credit].nil? } %><p><%= sets[:found].count { |row| row[:credit].nil? } %> QA Bugs have no usable CW.</p><% end %>
 </section>

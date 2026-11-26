@@ -21,8 +21,8 @@
           <td><%= qa_ticket_count_link(sets[:tested], 'tested', **filters) %></td>
           <td><%= @period_start ? 'N/A' : (tester ? qa_dashboard_link('Shared', 'queue') : qa_ticket_count_link(sets[:queue], 'queue')) %></td>
           <td><%= @qa_report.detected_field ? qa_number_link(points[:found], 'found', **filters) : 'N/A' %></td>
-          <td><%= qa_number_link(points[:false_passes], 'false_passes', **filters) %></td>
-          <td><%= qa_number_link(points[:escapes], 'escapes', **filters) %></td>
+          <td><%= qa_number_link(points[:false_passes].abs, 'false_passes', **filters) %></td>
+          <td><%= qa_number_link(points[:escapes].abs, 'escapes', **filters) %></td>
           <td><%= qa_number_link(points[:total], 'score', **filters) %></td>
           <td><%= qa_number_link(result[:duration], 'duration', **filters) %></td>
           <% { total: 'hours', work: 'work', rework: 'rework' }.each do |key, metric| %>

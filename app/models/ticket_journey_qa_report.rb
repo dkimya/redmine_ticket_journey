@@ -5,8 +5,9 @@ class TicketJourneyQaReport
   COMPLETED = ['Done / Closed', 'Done', 'Closed'].freeze
   REJECTED_BUGS = %w[Rejected Duplicate].freeze
   FALSE_PASS_REASON = 'False QA Pass'.freeze
-  FALSE_PASS_WEIGHT = 2
-  TEST_ESCAPE_WEIGHT = 2
+  BUG_CREDIT_WEIGHT = 1
+  FALSE_PASS_WEIGHT = -1
+  TEST_ESCAPE_WEIGHT = -2
   TEST_ACTIVITY = 'Test / QA / Feedback'.freeze
   DETECTED_BY = 'Detected By'.freeze
 
@@ -269,7 +270,7 @@ class TicketJourneyQaReport
   def penalty(weight, event, audit)
     return if !weight || !event[:reason] || !event[:pass][:user_id]
 
-    audit.last&.excluded? ? 0 : -FALSE_PASS_WEIGHT * weight
+    audit.last&.excluded? ? 0 : FALSE_PASS_WEIGHT * weight
   end
 
   def add_bug(row, values, escape_actor)
@@ -282,9 +283,9 @@ class TicketJourneyQaReport
     eligible = !REJECTED_BUGS.include?(row[:status])
     weight = row[:weight]
     @bugs << row.merge(detected_by: detected_by, finder_id: qa_find ? finder : nil, qa_find: qa_find,
-      credit: eligible && qa_find && weight ? weight : nil,
+      credit: eligible && qa_find && weight ? BUG_CREDIT_WEIGHT * weight : nil,
       escape: escape, escape_actor: escape ? escape_actor : nil,
-      escape_points: eligible && escape && escape_actor && weight ? -TEST_ESCAPE_WEIGHT * weight : nil)
+      escape_points: eligible && escape && escape_actor && weight ? TEST_ESCAPE_WEIGHT * weight : nil)
   end
 
   def escape_sources(ids)

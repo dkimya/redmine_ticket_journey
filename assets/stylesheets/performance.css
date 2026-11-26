@@ -593,7 +593,8 @@
   inset-inline-start:1em;
   border-inline-start:1px solid #b9c8d6;
 }
-.performance-qa-score a.performance-bad{color:#c93143}
+.performance-qa-score :is(th,a).performance-good{color:#00865e}
+.performance-qa-score :is(th,a).performance-bad{color:#c93143}
 .performance-qa-score .performance-tip{position:relative}
 .performance-qa-score .performance-tip:focus-visible::after{
   content:attr(title);

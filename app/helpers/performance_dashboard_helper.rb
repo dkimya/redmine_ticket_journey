@@ -187,12 +187,21 @@ module PerformanceDashboardHelper
     qa_dashboard_link(performance_number(value), metric, **filters)
   end
 
-  def qa_score_penalty(value, metric, weight)
-    deduction = value.positive? ? "−#{performance_number(value)}" : '0'
+  def qa_signed_points(value)
+    return '0' if value.zero?
+
+    "#{value.positive? ? '+' : '−'}#{performance_number(value.abs)}"
+  end
+
+  def qa_score_component(value, metric, weight)
+    return 'N/A' if value.nil?
+
+    signed_points = qa_signed_points(value)
+    color = value.positive? ? 'performance-good' : ('performance-bad' if value.negative?)
     path = performance_dashboard_path(@project, **@qa_params.merge(qa_detail: metric))
-    tip = "Scored #{performance_number(value / weight.to_f)} CW × #{weight} = #{deduction} points"
+    tip = "Scored #{performance_number(value.abs / weight.abs.to_f)} CW × (#{qa_signed_points(weight)}) = #{signed_points} points"
     safe_join([
-      performance_drilldown_link(deduction, path, class: ('performance-bad' if value.positive?)),
+      performance_drilldown_link(signed_points, path, class: color),
       performance_tip(tip)
     ], ' ')
   end

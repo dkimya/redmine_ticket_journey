@@ -18,7 +18,7 @@ keeps other historical actors and pending attribution visible. The Live QA
 queue stays shared because the gate history identifies completed activity.
 
 Only a same-journal False QA Pass reason on a return from Review, Ready to Merge
-or Final Check can deduct twice the ticket's CW from the preceding Feedback-to-
+or Final Check can deduct the ticket's CW from the preceding Feedback-to-
 Review actor. Each pass can be charged once. Missing or hidden reasons remain
 pending. A Bug with visible current Detected By = QA credits its creator its CW.
 A visible current Bug Source of Test Escape separately deducts twice the Bug CW
@@ -44,7 +44,8 @@ due date from the report date through three calendar days later.
 Calendar duration measures recorded gate entry to verdict, or to the report
 cutoff while still waiting, using elapsed calendar days. A missing recorded
 entry leaves duration unavailable. Periodic trends group tickets by completion
-interval. QA score subtracts each existing weighted penalty once. Processed
+interval. QA score adds the signed components once: Bugs Found × +1,
+False Passes × −1, and Test Escapes × −2. Processed
 CW/h pairs usable weight with a recorded gate verdict and positive visible
 testing hours booked by the same tester on the ticket. A ticket's weight counts
 once per tester and once in the pooled team result. Team rates divide pooled

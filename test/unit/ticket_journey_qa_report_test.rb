@@ -16,6 +16,7 @@ class TicketJourneyQaReportTest < ActiveSupport::TestCase
     events = TicketJourneyQaReport.false_passes(changes, reason_visible: true)
     assert_equal [5, 8], events.map { |event| event[:id] }
     assert_equal [4, 3], events.map { |event| event[:pass][:user_id] }
+    assert_equal(-8, TicketJourneyQaReport.allocate.send(:penalty, 8, events.first, []))
   end
 
   test 'missing and hidden reasons stay pending' do
@@ -84,6 +85,7 @@ class TicketJourneyQaReportTest < ActiveSupport::TestCase
     summary = source.calculate
 
     assert_equal 9.0, summary[:points][:total]
+    assert_equal [57.0, -32.0, -16.0], summary[:points].values_at(:found, :false_passes, :escapes)
     assert_equal 1, summary[:workflow]['QA'][:tested].size
     assert_equal 1, summary[:workflow]['QA-L2'][:passed].size
     assert_empty summary[:workflow]['QA-L2'][:returned]

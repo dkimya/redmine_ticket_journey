@@ -15,7 +15,8 @@
       <% keys = chart[:series].map(&:first)
          points = @qa_trends.map do |interval|
            if chart[:key] == 'score'
-             interval[:points].stringify_keys.merge('score' => interval[:points][:total])
+             { 'found' => interval[:points][:found], 'false_passes' => interval[:points][:false_passes].abs,
+               'escapes' => interval[:points][:escapes].abs, 'score' => interval[:points][:total] }
            else
              { chart[:key] => interval[chart[:key].to_sym] }
            end

@@ -51,9 +51,9 @@ class TicketJourneyQaDashboardSummary
     scored = found.reject { |row| row[:credit].nil? } +
       escapes.reject { |row| row[:escape_points].nil? } +
       false_passes.reject { |row| row[:points].nil? || row[:audit].last&.excluded? }
-    points = { found: found.sum { |row| row[:credit].to_f }, escapes: -escapes.sum { |row| row[:escape_points].to_f },
-      false_passes: -false_passes.sum { |row| row[:points].to_f } }
-    points[:total] = points[:found] - points[:false_passes] - points[:escapes]
+    points = { found: found.sum { |row| row[:credit].to_f }, escapes: escapes.sum { |row| row[:escape_points].to_f },
+      false_passes: false_passes.sum { |row| row[:points].to_f } }
+    points[:total] = points.values.sum
     applicable_durations = duration_by_role.values_at(*@roles)
     durations = applicable_durations.flat_map { |values| values.values.compact }
     timed_ids = applicable_durations.flat_map { |values| values.reject { |_id, value| value.nil? }.keys }.to_set
