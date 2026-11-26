@@ -1,0 +1,31 @@
+<% html_title 'QA / Testers', @qa_detail_title %>
+<% content_for :header_tags do %>
+  <%= stylesheet_link_tag 'performance', plugin: 'redmine_ticket_journey' %>
+<% end %>
+<div class="performance-page">
+  <%= render 'header', page_title: @qa_detail_title, show_filters: false %>
+  <p><%= link_to '← Back to QA / Testers', performance_dashboard_path(@project, **@qa_params) %></p>
+  <% if @qa_detail_range %><p><%= format_date(@qa_detail_range.begin) %> – <%= format_date(@qa_detail_range.end) %></p><% end %>
+  <p><%= @qa_detail_count %> distinct tickets</p>
+  <% if @qa_detail_pairing %>
+    <p><%= performance_number(@qa_detail_pairing[:weight]) %> CW ÷ <%= performance_number(@qa_detail_pairing[:hours]) %> matching testing hours</p>
+  <% end %>
+  <% if @qa_detail_issues.empty? %>
+    <p class="nodata">No tickets match this QA metric.</p>
+  <% else %>
+    <div class="autoscroll"><table class="list">
+      <thead><tr><th scope="col">Ticket</th><th scope="col">Project</th><th scope="col">Due date</th></tr></thead>
+      <tbody>
+        <% @qa_detail_issues.each do |issue| %>
+          <tr><td><%= qa_ticket_link(issue) %></td><td><%= issue.project.name %></td><td><%= format_date(issue.due_date) if issue.due_date %></td></tr>
+        <% end %>
+      </tbody>
+    </table></div>
+  <% end %>
+  <% if @qa_detail_page_count > 1 %>
+    <p>Page <%= @qa_detail_page %> of <%= @qa_detail_page_count %>
+      <% if @qa_detail_page > 1 %> · <%= link_to 'Previous', performance_dashboard_path(@project, **@qa_detail_params, page: @qa_detail_page - 1) %><% end %>
+      <% if @qa_detail_page < @qa_detail_page_count %> · <%= link_to 'Next', performance_dashboard_path(@project, **@qa_detail_params, page: @qa_detail_page + 1) %><% end %>
+    </p>
+  <% end %>
+</div>

@@ -1,0 +1,37 @@
+<section class="performance-section">
+  <h3>Tester Comparison</h3>
+  <p>Queue counts are shared. The team row uses the report scope and can include historical testers. Team Processed CW/h divides combined CW by combined matching hours.</p>
+  <div class="autoscroll"><table class="list performance-qa-table">
+    <thead>
+      <tr><th scope="col" rowspan="2">Tester</th><th scope="colgroup" colspan="2">Workload</th><th scope="colgroup" colspan="4">QA Score</th><th scope="colgroup" colspan="6">Time Efficiency</th></tr>
+      <tr>
+        <% ['Tested', 'Test Queue', 'Bug Credit', 'False Pass Penalty', 'Escape Penalty', 'QA Score', 'Average Calendar Duration (days)', 'Total Logged Time (h)', 'Logged Work (h)', 'Logged Rework (h)', 'Rework %', 'Processed CW/h'].each do |label| %>
+          <th scope="col"><%= label %></th>
+        <% end %>
+      </tr>
+    </thead>
+    <tbody>
+      <% (testers + [nil]).each do |tester| %>
+        <% filters = tester ? { qa_actor: tester.id } : {}
+           result = tester ? @qa_summary_source.calculate(actor: tester.id) : @qa_summary
+           sets = result[:sets]; points = result[:points]; hours = result[:hours]
+        %>
+        <tr class="<%= 'periodic-total-row' unless tester %>">
+          <th scope="row"><%= tester ? performance_drilldown_link(tester.name, performance_dashboard_path(@project, **@qa_params.merge(tester_ids: [tester.id]))) : 'Team total' %></th>
+          <td><%= qa_ticket_count_link(sets[:tested], 'tested', **filters) %></td>
+          <td><%= @period_start ? 'N/A' : (tester ? qa_dashboard_link('Shared', 'queue') : qa_ticket_count_link(sets[:queue], 'queue')) %></td>
+          <td><%= @qa_report.detected_field ? qa_number_link(points[:found], 'found', **filters) : 'N/A' %></td>
+          <td><%= qa_number_link(points[:false_passes], 'false_passes', **filters) %></td>
+          <td><%= qa_number_link(points[:escapes], 'escapes', **filters) %></td>
+          <td><%= qa_number_link(points[:total], 'score', **filters) %></td>
+          <td><%= qa_number_link(result[:duration], 'duration', **filters) %></td>
+          <% { total: 'hours', work: 'work', rework: 'rework' }.each do |key, metric| %>
+            <td><%= qa_number_link(@qa_report.activity_configured ? hours[key] : nil, metric, **filters) %></td>
+          <% end %>
+          <td><%= result[:rework_share] ? "#{performance_number(result[:rework_share])}%" : 'N/A' %></td>
+          <td><%= qa_number_link(result[:efficiency], 'efficiency', **filters) %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table></div>
+</section>

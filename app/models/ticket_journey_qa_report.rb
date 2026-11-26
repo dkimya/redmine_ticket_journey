@@ -1,5 +1,6 @@
 class TicketJourneyQaReport
   GATES = ['Feedback', 'Final Check'].freeze
+  GATE_ROLES = { 'Feedback' => 'QA', 'Final Check' => 'QA-L2' }.freeze
   FALSE_PASS_SOURCES = ['Review', 'Ready to Merge', 'Final Check'].freeze
   COMPLETED = ['Done / Closed', 'Done', 'Closed'].freeze
   REJECTED_BUGS = %w[Rejected Duplicate].freeze
@@ -56,15 +57,38 @@ class TicketJourneyQaReport
     end
   end
 
-  attr_reader :queue, :bugs, :returns, :return_reasons, :passes, :tested,
-              :time, :time_unavailable, :activity_configured, :detected_field
+  # An observed entry is required for elapsed time. A verdict can still count
+  # when the ticket's history has no corresponding entry into the gate.
+  def self.gate_history(changes)
+    entered = {}
+    verdicts = changes.filter_map do |change|
+      from, to, at = change.values_at(:from, :to, :at)
+      next if from == to
 
-  def initialize(project_ids:, user:, finish:, start: nil, tester_ids: [])
+      started = entered.delete(from)
+      entered[to] = at if GATES.include?(to)
+      passed = (from == 'Feedback' && to == 'Review') || (from == 'Final Check' && COMPLETED.include?(to))
+      next unless GATES.include?(from) && (passed || to == 'Returned')
+
+      { role: GATE_ROLES.fetch(from), actor: change[:user_id], outcome: passed ? :passed : :returned,
+        days: calendar_days(started, at) }
+    end
+    [verdicts, entered]
+  end
+
+  def self.calendar_days(started, finish)
+    (finish - started) / 86400.0 if started && finish >= started
+  end
+
+  attr_reader :queue, :bugs, :returns, :return_reasons, :passes, :tested,
+              :time, :time_unavailable, :activity_configured, :detected_field, :dashboard_rows
+
+  def initialize(project_ids:, user:, finish:, start: nil, tester_ids: [], tester_roles: nil)
     @user, @start, @finish = user, start, finish
     @tester_ids = tester_ids.to_set
+    @tester_roles = tester_roles
     @cutoff = finish.in_time_zone.end_of_day
     @statuses = IssueStatus.all.index_by { |status| status.id.to_s }
-    @calendar = TicketJourney::WorkingCalendar.new(Setting.plugin_redmine_ticket_journey)
     fields = IssueCustomField.where(name: DETECTED_BY).limit(2).to_a
     @detected_field = fields.first if fields.one?
     @issues = Issue.visible(user).where(project_id: project_ids)
@@ -72,6 +96,7 @@ class TicketJourneyQaReport
     @queue, @bugs, @returns, @passes = [], [], [], []
     @return_reasons = Hash.new(0)
     @tested = []
+    @dashboard_rows = []
     @time = { work: 0.0, rework: 0.0 }
     @tester_time = Hash.new { |hash, id| hash[id] = { work: 0.0, rework: 0.0 } }
     @time_unavailable = 0
@@ -173,25 +198,31 @@ class TicketJourneyQaReport
     selected.each do |issue, status, recorded|
       values = field_values(fields, issue)
       weight = TicketJourney::WorkingCalendar.positive_number(values[70])
-      row = { issue: issue, status: status, weight: weight }
+      workflow_gates, entered = self.class.gate_history(recorded)
+      gates = workflow_gates.select do |gate|
+        tester_in_scope?(gate[:actor]) &&
+          (@tester_ids.empty? || !@tester_roles || @tester_roles.fetch(gate[:actor], []).include?(gate[:role]))
+      end
+      completion = recorded.reverse.find { |event| COMPLETED.include?(event[:to]) && !COMPLETED.include?(event[:from]) }
+      time_allowed = @user.allowed_to?(:view_time_entries, issue.project)
+      first_return = recorded.find { |change| change[:to] == 'Returned' }
+      testing = if time_allowed
+        time_rows.fetch(issue.id, {}).transform_values { |entries| self.class.test_time(entries, first_return&.fetch(:at)) }
+      else
+        {}
+      end
+      row = { issue: issue, status: status, weight: weight, gates: gates, workflow_gates: workflow_gates, testing: testing,
+        completed_on: completion&.fetch(:at)&.in_time_zone&.to_date }
+      @dashboard_rows << row
 
       if !@start && GATES.include?(status)
-        entered_at = recorded.last&.fetch(:at) || issue.created_on
-        @queue << row.merge(age: @calendar.age(entered_at.in_time_zone.to_date, @finish))
+        due = issue.due_date
+        @queue << row.merge(age: self.class.calendar_days(entered[status], @cutoff),
+          close_to_due: due && due.between?(@finish, @finish + 3))
       end
-      pass_actors = recorded.select do |change|
-        change[:from] == 'Feedback' && change[:to] == 'Review' && tester_in_scope?(change[:user_id])
-      end.map { |change| change[:user_id] }.uniq
+      pass_actors = gates.filter_map { |gate| gate[:actor] if gate[:role] == 'QA' && gate[:outcome] == :passed }.uniq
       @passes << row.merge(actors: pass_actors) if pass_actors.any?
-      verdicts = recorded.filter_map do |change|
-        next unless tester_in_scope?(change[:user_id])
-
-        if change[:from] == 'Feedback' && %w[Review Returned].include?(change[:to])
-          ['QA', change[:user_id]]
-        elsif change[:from] == 'Final Check' && (COMPLETED.include?(change[:to]) || change[:to] == 'Returned')
-          ['QA-L2', change[:user_id]]
-        end
-      end.uniq
+      verdicts = gates.map { |gate| gate.values_at(:role, :actor) }.uniq
       @tested << row.merge(verdicts: verdicts) if verdicts.any?
       reason_visible = values.key?(reason_id)
       recorded.each do |change|
@@ -207,10 +238,8 @@ class TicketJourneyQaReport
         @returns << row.merge(event: event, audit: audit, points: penalty(weight, event, audit))
       end
       add_bug(row, values, sources[issue.id]) if issue.tracker.name == 'Bug'
-      if @user.allowed_to?(:view_time_entries, issue.project)
-        first_return = recorded.find { |change| change[:to] == 'Returned' }
-        time_rows.fetch(issue.id, {}).each do |actor, entries|
-          hours = self.class.test_time(entries, first_return&.fetch(:at))
+      if time_allowed
+        testing.each do |actor, hours|
           @time.merge!(hours) { |_key, total, extra| total + extra }
           @tester_time[actor].merge!(hours) { |_key, total, extra| total + extra }
         end

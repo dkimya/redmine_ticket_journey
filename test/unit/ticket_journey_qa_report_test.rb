@@ -52,6 +52,49 @@ class TicketJourneyQaReportTest < ActiveSupport::TestCase
     assert_equal [true, 5, false, nil], report.bugs.sole.values_at(:qa_find, :credit, :escape, :escape_points)
   end
 
+  test 'gate duration uses recorded entries for each visit and leaves an ongoing visit open' do
+    day = Date.new(2026, 11, 12).in_time_zone
+    events = [
+      change(1, 'New', 'Feedback').merge(at: day),
+      change(2, 'Feedback', 'Returned', actor: 3).merge(at: day + 12.hours),
+      change(3, 'In Progress', 'Feedback').merge(at: day + 1.day),
+      change(4, 'Feedback', 'Review', actor: 3).merge(at: day + 2.days),
+      change(5, 'Ready to Merge', 'Final Check').merge(at: day + 3.days)
+    ]
+    verdicts, waiting = TicketJourneyQaReport.gate_history(events)
+    assert_equal [[:returned, 0.5], [:passed, 1.0]], verdicts.map { |row| row.values_at(:outcome, :days) }
+    assert_equal({ 'Final Check' => day + 3.days }, waiting)
+    assert_nil TicketJourneyQaReport.gate_history([events[1]]).first.sole[:days]
+  end
+
+  test 'QA summary weights penalties once and pools a dual-role tester without double counting weight' do
+    issue = stub(id: 1, tracker: stub(name: 'Feature'))
+    bug = stub(id: 2, tracker: stub(name: 'Bug'))
+    processed = { issue: issue, weight: 12.0, status: 'Done / Closed',
+      gates: [{ role: 'QA', actor: 3, outcome: :passed, days: 1.0 },
+              { role: 'QA-L2', actor: 3, outcome: :returned, days: 2.0 },
+              { role: 'QA-L2', actor: 3, outcome: :passed, days: 3.0 }],
+      testing: { 3 => { work: 2.0, rework: 1.0 }, 4 => { work: 5.0, rework: 0.0 } } }
+    processed[:workflow_gates] = processed[:gates]
+    found = { issue: bug, status: 'New', qa_find: true, credit: 57, finder_id: 3, escape: true,
+      escape_points: -16, escape_actor: 3 }
+    false_pass = { issue: issue, event: { reason: 'False QA Pass', pass: { user_id: 3 } }, points: -32, audit: [] }
+    report = stub(dashboard_rows: [processed], queue: [], bugs: [found], returns: [false_pass])
+    source = TicketJourneyQaDashboardSummary.new(report)
+    summary = source.calculate
+
+    assert_equal 9.0, summary[:points][:total]
+    assert_equal 1, summary[:workflow]['QA'][:tested].size
+    assert_equal 1, summary[:workflow]['QA-L2'][:passed].size
+    assert_empty summary[:workflow]['QA-L2'][:returned]
+    assert_equal 2.0, summary[:duration]
+    assert_equal 8.0, summary[:hours][:total]
+    assert_equal 4.0, summary[:efficiency]
+    assert_equal 3.0, source.calculate(actor: 3)[:hours][:total]
+    assert_empty source.calculate(actor: 4)[:workflow]['QA'][:tested]
+    assert_nil source.calculate(actor: 4)[:efficiency]
+  end
+
   private
 
   def change(id, from, to, actor: nil, reason: nil)

@@ -167,6 +167,26 @@ module PerformanceDashboardHelper
     end
   end
 
+  def qa_dashboard_link(label, metric, **filters)
+    performance_drilldown_link(label, performance_dashboard_path(@project, **@qa_params.merge(qa_detail: metric, **filters)))
+  end
+
+  def qa_ticket_link(issue)
+    performance_drilldown_link("##{issue.id} #{issue.subject}", issue_path(issue))
+  end
+
+  def qa_ticket_count_link(rows, metric, show_weight: true, **filters)
+    count = TicketJourneyQaDashboardSummary.ticket_count(rows)
+    label = show_weight ? "#{count} (#{performance_number(TicketJourneyQaDashboardSummary.ticket_weight(rows))} CW)" : count
+    qa_dashboard_link(label, metric, **filters)
+  end
+
+  def qa_number_link(value, metric, **filters)
+    return 'N/A' if value.nil?
+
+    qa_dashboard_link(performance_number(value), metric, **filters)
+  end
+
   def performance_drilldown_link(label, path, **options)
     title = [options[:title] || 'View tickets', 'Opens in a new tab'].join(' · ')
     link_to label, path, options.merge(target: '_blank', rel: 'noopener', title: title)

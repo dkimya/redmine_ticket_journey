@@ -31,6 +31,26 @@ reruns too. The original issue journal and other reports remain intact.
 Visible direct Test / QA / Feedback entries count as Work through the first
 recorded return date, inclusive. Later work dates count as Rework.
 
+The QA dashboard places Open Work or Closed Tickets, Test Workflow, Test Score,
+Time, and the multi-tester comparison above the expandable details. A tester
+selection limits the report to visible projects where the selected users have
+a QA role. QA comes from Feedback and QA-L2 from Final Check. The project
+workflow table uses the latest recorded verdict per ticket and gate across
+those projects. Tester comparisons use each recorded actor. A gate
+that none of the selected testers holds displays N/A. Queue ownership stays
+shared by project and gate in Live QA. The due-soon subset uses the current
+due date from the report date through three calendar days later.
+
+Calendar duration measures recorded gate entry to verdict, or to the report
+cutoff while still waiting, using elapsed calendar days. A missing recorded
+entry leaves duration unavailable. Periodic trends group tickets by completion
+interval. QA score subtracts each existing weighted penalty once. Processed
+CW/h pairs usable weight with a recorded gate verdict and positive visible
+testing hours booked by the same tester on the ticket. A ticket's weight counts
+once per tester and once in the pooled team result. Team rates divide pooled
+weight by pooled matching hours. Logged totals include visible testing hours
+through the report cutoff, including earlier work on the closed ticket cohort.
+
 ## Time Work / Rework
 
 Live uses the existing open-ticket population as of the report date. Periodic

@@ -1,0 +1,76 @@
+<% sets = summary[:sets]; periodic = @period_start.present? %>
+<% available_roles = @qa_available_roles %>
+<section class="performance-section">
+  <h3><%= periodic ? 'Tickets Closed During the Report Period' : 'Open Work' %></h3>
+  <div class="autoscroll"><table class="list performance-qa-table">
+    <thead><tr><th scope="col">Metric</th><th scope="col">Tickets (CW)</th></tr></thead>
+    <tbody>
+      <tr><th scope="row"><%= periodic ? 'Closed tickets' : 'Open tickets' %></th><td><%= qa_ticket_count_link(sets[:tickets], 'tickets') %></td></tr>
+      <tr><th scope="row"><%= periodic ? 'Closed Bugs' : 'Open Bugs' %></th><td><%= qa_ticket_count_link(sets[:bugs], 'bugs') %></td></tr>
+      <tr><th scope="row">Bugs found by QA</th><td><%= @qa_report.detected_field ? qa_ticket_count_link(sets[:found], 'found') : 'N/A' %></td></tr>
+      <tr><th scope="row">Test Escape Bugs</th><td><%= qa_ticket_count_link(sets[:escapes], 'escapes') %></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="performance-section">
+  <h3>Test Workflow</h3>
+  <div class="autoscroll"><table class="list performance-qa-table">
+    <thead><tr><th scope="col">Metric</th><th scope="col">QA</th><th scope="col">QA-L2</th></tr></thead>
+    <tbody>
+      <% %w[tested passed returned queue due_soon].each do |metric| %>
+        <tr><th scope="row"><%= TicketJourneyQaDashboardSummary::METRICS.fetch(metric) %></th>
+          <% summary[:workflow].each do |role, metrics| %>
+            <% applicable = available_roles.include?(role) && !(periodic && %w[queue due_soon].include?(metric)) %>
+            <td><%= applicable ? qa_ticket_count_link(metrics.fetch(metric.to_sym), metric, qa_gate: role) : 'N/A' %></td>
+          <% end %>
+        </tr>
+      <% end %>
+      <tr><th scope="row">False Passes charged to QA</th>
+        <td><%= available_roles.include?('QA') ? qa_dashboard_link("#{sets[:false_passes].size} (#{performance_number(summary[:points][:false_passes])} penalty points)", 'false_passes') : 'N/A' %></td>
+        <td>N/A</td>
+      </tr>
+    </tbody>
+  </table></div>
+  <p>Each ticket counts once per gate, using its latest recorded verdict across the report’s projects. The Live queue is shared by gate. Close to due date covers the report date through the next three calendar days.</p>
+</section>
+
+<section class="performance-section">
+  <h3>Test Score</h3>
+  <div class="autoscroll"><table class="list performance-qa-table">
+    <thead><tr><th scope="col">Bugs Found · Credit</th><th scope="col">False Passes · Penalty</th><th scope="col">Test Escapes · Penalty</th><th scope="col">Total Score</th></tr></thead>
+    <tbody><tr>
+      <td><%= qa_number_link(@qa_report.detected_field ? summary[:points][:found] : nil, 'found') %></td>
+      <td><%= qa_number_link(summary[:points][:false_passes], 'false_passes') %></td>
+      <td><%= qa_number_link(summary[:points][:escapes], 'escapes') %></td>
+      <td><strong><%= qa_number_link(summary[:points][:total], 'score') %></strong></td>
+    </tr></tbody>
+  </table></div>
+  <p>Total score subtracts both weighted penalties from bug credit. <%= @qa_report.returns.count { |row| row[:points].nil? } %> false-pass events and <%= sets[:escapes].count { |row| row[:escape_points].nil? } %> Test Escape Bugs are pending scoring.</p>
+  <% unless @qa_report.detected_field %><p>Bug credit is unavailable until there is one issue custom field named Detected By. The score includes only available components.</p><% end %>
+  <% if sets[:found].any? { |row| row[:credit].nil? } %><p><%= sets[:found].count { |row| row[:credit].nil? } %> QA Bugs have no usable CW.</p><% end %>
+</section>
+
+<section class="performance-section">
+  <h3>Time</h3>
+  <div class="autoscroll"><table class="list performance-qa-table">
+    <thead><tr><th scope="col">Average Calendar Duration (days)</th><th scope="col">QA</th><th scope="col">QA-L2</th><th scope="col">Combined</th></tr></thead>
+    <tbody><tr><th scope="row">Time in gate</th>
+      <% summary[:duration_by_role].each do |role, value| %>
+        <td><%= qa_number_link(available_roles.include?(role) ? value : nil, 'duration', qa_gate: role) %></td>
+      <% end %>
+      <td><%= qa_number_link(summary[:duration], 'duration') %></td>
+    </tr></tbody>
+  </table></div>
+  <div class="autoscroll"><table class="list performance-qa-table">
+    <thead><tr><th scope="col">Logged Work (h)</th><th scope="col">Logged Rework (h)</th><th scope="col">Total Logged Time (h)</th><th scope="col">Processed CW/h</th></tr></thead>
+    <tbody><tr>
+      <% { work: 'work', rework: 'rework', total: 'hours' }.each do |key, metric| %>
+        <td><%= qa_number_link(@qa_report.activity_configured ? summary[:hours][key] : nil, metric) %></td>
+      <% end %>
+      <td><%= qa_number_link(summary[:efficiency], 'efficiency') %></td>
+    </tr></tbody>
+  </table></div>
+  <p>Duration runs from recorded gate entry to verdict, or through the report date for tickets still waiting. Logged hours follow the tester who booked them across both roles<%= ', including hours logged before the reporting period on its closed tickets' if periodic %>. Processed CW/h divides distinct ticket CW by matching testing hours on those tickets.</p>
+  <% if @qa_report.time_unavailable.positive? %><p><%= @qa_report.time_unavailable %> scoped tickets lack time-view permission.</p><% end %>
+</section>

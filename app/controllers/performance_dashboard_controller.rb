@@ -376,15 +376,36 @@ class PerformanceDashboardController < ApplicationController
     cutoff = qa_filters
     return render_404 unless cutoff
 
-    qa_roles = Role.where(name: %w[QA QA-L2])
+    qa_roles = Role.where(name: TicketJourneyQaDashboardSummary::ROLES).pluck(:id, :name).to_h
     members = Member.joins(:member_roles).where(project_id: performance_project_ids,
-      member_roles: { role_id: qa_roles.select(:id) })
+      member_roles: { role_id: qa_roles.keys })
     @qa_testers = alphabetical_owners(User.active.where(id: members.select(:user_id)))
     return render_404 unless (@qa_tester_ids - @qa_testers.map(&:id)).empty?
+    memberships = members.distinct.pluck('members.user_id', 'member_roles.role_id', 'members.project_id')
+    @qa_roles_by_tester = memberships.group_by(&:first)
+      .transform_values { |pairs| pairs.map { |_user_id, role_id, _project_id| qa_roles.fetch(role_id) }.uniq }
+    @qa_available_roles = @qa_tester_ids.empty? ? TicketJourneyQaDashboardSummary::ROLES :
+      @qa_roles_by_tester.values_at(*@qa_tester_ids).compact.flatten.uniq
 
     if params[:calculate] == '1'
-      @qa_report = TicketJourneyQaReport.new(project_ids: performance_project_ids, user: User.current,
-        finish: cutoff, start: @period_start, tester_ids: @qa_tester_ids).calculate
+      project_ids = if @qa_tester_ids.empty?
+        performance_project_ids
+      else
+        memberships.filter_map { |user_id, _role_id, project_id| project_id if @qa_tester_ids.include?(user_id) }.uniq
+      end
+      @qa_report = TicketJourneyQaReport.new(project_ids: project_ids, user: User.current,
+        finish: cutoff, start: @period_start, tester_ids: @qa_tester_ids, tester_roles: @qa_roles_by_tester).calculate
+      @qa_summary_source = TicketJourneyQaDashboardSummary.new(@qa_report, roles: @qa_available_roles)
+      return render_qa_detail if params[:qa_detail].present?
+
+      @qa_summary = @qa_summary_source.calculate
+      if @period_start
+        @qa_trends = TicketJourneyPeriodicReturns.intervals(@period_start, @period_end).map do |first, last|
+          summary = @qa_summary_source.calculate(range: first..last)
+          points = @qa_report.detected_field ? summary[:points] : summary[:points].merge(found: nil)
+          { date: last, points: points, duration: summary[:duration], efficiency: summary[:efficiency] }
+        end
+      end
       @qa_correctable_projects = @qa_report.returns.map { |row| row[:issue] }.uniq(&:project_id)
         .select { |issue| qa_correction_allowed?(issue) }.map(&:project_id).to_set
       actors = @qa_report.bugs.flat_map { |row| [row[:finder_id], row[:escape_actor]] }
@@ -393,6 +414,51 @@ class PerformanceDashboardController < ApplicationController
       @qa_actors = User.where(id: actors.compact.uniq).index_by(&:id)
     end
     render :qa
+  end
+
+  def render_qa_detail
+    metric = params[:qa_detail]
+    return render_404 unless TicketJourneyQaDashboardSummary::METRICS.key?(metric)
+
+    tester = nil
+    if params[:qa_actor].present?
+      tester = @qa_testers.find { |user| user.id.to_s == params[:qa_actor].to_s }
+      return render_404 unless tester && (@qa_tester_ids.empty? || @qa_tester_ids.include?(tester.id))
+    end
+    range = nil
+    if params[:qa_bucket].present?
+      return render_404 unless @period_start
+      interval = TicketJourneyPeriodicReturns.intervals(@period_start, @period_end)
+        .find { |_first, last| last.iso8601 == params[:qa_bucket] }
+      return render_404 unless interval
+
+      range = interval.first..interval.last
+    end
+    summary = @qa_summary_source.calculate(actor: tester&.id, range: range)
+    role = params[:qa_gate].presence
+    if role
+      return render_404 unless @qa_available_roles.include?(role)
+      return render_404 if tester && !@qa_roles_by_tester.fetch(tester.id, []).include?(role)
+
+      gate = summary[:workflow][role]
+      return render_404 unless gate && gate.key?(metric.to_sym)
+
+      rows = gate.fetch(metric.to_sym)
+    else
+      return render_404 unless summary[:sets].key?(metric.to_sym)
+
+      rows = summary[:sets].fetch(metric.to_sym)
+    end
+    @qa_detail_title = [TicketJourneyQaDashboardSummary::METRICS.fetch(metric), role, tester&.name].compact.join(' — ')
+    issues = rows.map { |row| row[:issue] }.uniq(&:id).sort_by(&:id)
+    @qa_detail_count = issues.size
+    @qa_detail_page_count = [(@qa_detail_count / 100.0).ceil, 1].max
+    @qa_detail_page = params[:page].to_i.clamp(1, @qa_detail_page_count)
+    @qa_detail_issues = issues.slice((@qa_detail_page - 1) * 100, 100)
+    @qa_detail_params = @qa_params.merge(qa_detail: metric, qa_gate: role, qa_actor: tester&.id, qa_bucket: params[:qa_bucket].presence)
+    @qa_detail_range = range
+    @qa_detail_pairing = summary[:paired] if metric == 'efficiency'
+    render :qa_detail
   end
 
   def qa_filters

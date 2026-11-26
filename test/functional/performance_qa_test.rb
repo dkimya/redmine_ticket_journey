@@ -21,6 +21,31 @@ class PerformanceQaTest < ActionController::TestCase
     assert_select '.performance-tabs a[aria-current="page"]', text: 'QA / Testers'
   end
 
+  test 'QA summaries link to new-tab drill-downs and keep details collapsed' do
+    get :index, params: { project_id: @project.identifier, tab: 'qa', calculate: '1' }
+    assert_response :success
+    assert_select 'h3', text: 'Test Workflow'
+    assert_select 'a[href*="qa_detail=tickets"][target="_blank"]', minimum: 1
+    assert_select '#qa-queue[open], #qa-tested[open], #qa-returns[open]', count: 0
+
+    get :index, params: { project_id: @project.identifier, tab: 'qa', calculate: '1', qa_detail: 'tickets' }
+    assert_response :success
+    assert_template :qa_detail
+  end
+
+  test 'Periodic QA shows completion trends without a Live queue and validates interval links' do
+    period = { project_id: @project.identifier, tab: 'qa', calculate: '1', dashboard_type: 'periodic',
+      rsd: '2026-01-01', red: '2026-01-31' }
+    get :index, params: period
+    assert_response :success
+    assert_select 'h3', text: 'Periodic QA Trends'
+    assert_select 'svg[aria-labelledby^="qa-trend-"]', count: 3
+    assert_select '#qa-queue', count: 0
+
+    get :index, params: period.merge(qa_detail: 'score', qa_bucket: '2026-02-01')
+    assert_response :not_found
+  end
+
   test 'exclusion and reinstatement keep both decisions and leave the journal untouched' do
     field_id = TicketJourneyController::RETURN_REASON_CF_ID
     Issue.any_instance.stubs(:visible_custom_field_values).returns([stub(custom_field: stub(id: field_id))])
